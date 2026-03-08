@@ -204,7 +204,7 @@
       if (colGaps[c]) colHead.classList.add("gap-active");
       colHead.textContent = c;
       colHead.dataset.col = c;
-      colHead.title = "Click: fill column " + c + " · Right-click: clear · Shift+click: toggle gap after col " + c;
+      colHead.title = "Click: fill column " + c + " · Right-click: insert/delete/clear · Shift+click: toggle gap";
       colHead.style.gridRow = gridRow;
       colHead.style.gridColumn = String(gridCol(c));
       colHead.addEventListener("click", function (ev) {
@@ -217,7 +217,22 @@
       });
       colHead.addEventListener("contextmenu", function (ev) {
         ev.preventDefault();
-        clearColumn(parseInt(ev.currentTarget.dataset.col));
+        var cn = parseInt(ev.currentTarget.dataset.col);
+        var items = [
+          { label: "Insert column before " + cn, action: function () { insertColAt(cn); } },
+          { label: "Insert column after " + cn, action: function () { insertColAt(cn + 1); } },
+          { divider: true }
+        ];
+        if (cn > 1) {
+          items.push({ label: (colGaps[cn - 1] ? "Remove" : "Add") + " gap before " + cn, action: function () { toggleColGap(cn - 1); } });
+        }
+        if (cn < cols) {
+          items.push({ label: (colGaps[cn] ? "Remove" : "Add") + " gap after " + cn, action: function () { toggleColGap(cn); } });
+        }
+        items.push({ divider: true });
+        items.push({ label: "Clear column " + cn, action: function () { clearColumn(cn); } });
+        items.push({ label: "Delete column " + cn, danger: true, action: function () { deleteColAt(cn); } });
+        showContextMenu(ev.clientX, ev.clientY, items);
       });
       container.appendChild(colHead);
 
@@ -242,7 +257,7 @@
       if (rowGaps[r]) rowLabel.classList.add("gap-active");
       rowLabel.textContent = rowLetter(r);
       rowLabel.dataset.row = r;
-      rowLabel.title = "Click: fill row " + rowLabel.textContent + " · Right-click: clear · Shift+click: toggle gap after row " + rowLabel.textContent;
+      rowLabel.title = "Click: fill row " + rowLabel.textContent + " · Right-click: insert/delete/clear · Shift+click: toggle gap";
       rowLabel.style.gridRow = gridRow;
       rowLabel.style.gridColumn = "1";
       rowLabel.addEventListener("click", function (ev) {
@@ -255,7 +270,23 @@
       });
       rowLabel.addEventListener("contextmenu", function (ev) {
         ev.preventDefault();
-        clearRow(parseInt(ev.currentTarget.dataset.row));
+        var rn = parseInt(ev.currentTarget.dataset.row);
+        var letter = rowLetter(rn);
+        var items = [
+          { label: "Insert row above " + letter, action: function () { insertRowAt(rn); } },
+          { label: "Insert row below " + letter, action: function () { insertRowAt(rn + 1); } },
+          { divider: true }
+        ];
+        if (rn > 1) {
+          items.push({ label: (rowGaps[rn - 1] ? "Remove" : "Add") + " gap above " + letter, action: function () { toggleRowGap(rn - 1); } });
+        }
+        if (rn < rows) {
+          items.push({ label: (rowGaps[rn] ? "Remove" : "Add") + " gap below " + letter, action: function () { toggleRowGap(rn); } });
+        }
+        items.push({ divider: true });
+        items.push({ label: "Clear row " + letter, action: function () { clearRow(rn); } });
+        items.push({ label: "Delete row " + letter, danger: true, action: function () { deleteRowAt(rn); } });
+        showContextMenu(ev.clientX, ev.clientY, items);
       });
       container.appendChild(rowLabel);
 
@@ -501,6 +532,179 @@
     updateStageWidthControl();
     renderGrid();
   }
+
+  /* ---- Insert / delete rows & columns at arbitrary positions ---- */
+
+  function rebuildEntry(s, newRow, newCol) {
+    return {
+      row: newRow,
+      col: newCol,
+      label: s.type === "aisle" ? "" : rowLetter(newRow) + newCol,
+      type: s.type,
+      active: s.type !== "aisle"
+    };
+  }
+
+  function insertRowAt(pos) {
+    var newGrid = {};
+    Object.keys(grid).forEach(function (key) {
+      var s = grid[key];
+      if (s.row >= pos) {
+        var nr = s.row + 1;
+        newGrid[nr + "-" + s.col] = rebuildEntry(s, nr, s.col);
+      } else {
+        newGrid[key] = s;
+      }
+    });
+    grid = newGrid;
+    var newGaps = {};
+    Object.keys(rowGaps).forEach(function (k) {
+      var g = parseInt(k, 10);
+      newGaps[g >= pos ? g + 1 : g] = true;
+    });
+    rowGaps = newGaps;
+    rows += 1;
+    updateGridSizeDisplay();
+    renderGrid();
+  }
+
+  function deleteRowAt(pos) {
+    if (rows <= 1) return;
+    var hasSeats = false;
+    for (var c = 1; c <= cols; c++) {
+      if (grid[pos + "-" + c]) { hasSeats = true; break; }
+    }
+    if (hasSeats && !confirm("Row " + rowLetter(pos) + " has seats. Delete it?")) return;
+    var newGrid = {};
+    Object.keys(grid).forEach(function (key) {
+      var s = grid[key];
+      if (s.row === pos) return;
+      if (s.row > pos) {
+        var nr = s.row - 1;
+        newGrid[nr + "-" + s.col] = rebuildEntry(s, nr, s.col);
+      } else {
+        newGrid[key] = s;
+      }
+    });
+    grid = newGrid;
+    var newGaps = {};
+    Object.keys(rowGaps).forEach(function (k) {
+      var g = parseInt(k, 10);
+      if (g === pos || g === rows) return;
+      newGaps[g > pos ? g - 1 : g] = true;
+    });
+    rowGaps = newGaps;
+    rows -= 1;
+    updateGridSizeDisplay();
+    renderGrid();
+  }
+
+  function insertColAt(pos) {
+    var newGrid = {};
+    Object.keys(grid).forEach(function (key) {
+      var s = grid[key];
+      if (s.col >= pos) {
+        var nc = s.col + 1;
+        newGrid[s.row + "-" + nc] = rebuildEntry(s, s.row, nc);
+      } else {
+        newGrid[key] = s;
+      }
+    });
+    grid = newGrid;
+    var newGaps = {};
+    Object.keys(colGaps).forEach(function (k) {
+      var g = parseInt(k, 10);
+      newGaps[g >= pos ? g + 1 : g] = true;
+    });
+    colGaps = newGaps;
+    cols += 1;
+    if (stageCols >= pos) stageCols += 1;
+    updateGridSizeDisplay();
+    updateStageWidthControl();
+    renderGrid();
+  }
+
+  function deleteColAt(pos) {
+    if (cols <= 1) return;
+    var hasSeats = false;
+    for (var r = 1; r <= rows; r++) {
+      if (grid[r + "-" + pos]) { hasSeats = true; break; }
+    }
+    if (hasSeats && !confirm("Column " + pos + " has seats. Delete it?")) return;
+    var newGrid = {};
+    Object.keys(grid).forEach(function (key) {
+      var s = grid[key];
+      if (s.col === pos) return;
+      if (s.col > pos) {
+        var nc = s.col - 1;
+        newGrid[s.row + "-" + nc] = rebuildEntry(s, s.row, nc);
+      } else {
+        newGrid[key] = s;
+      }
+    });
+    grid = newGrid;
+    var newGaps = {};
+    Object.keys(colGaps).forEach(function (k) {
+      var g = parseInt(k, 10);
+      if (g === pos || g === cols) return;
+      newGaps[g > pos ? g - 1 : g] = true;
+    });
+    colGaps = newGaps;
+    cols -= 1;
+    if (stageCols > cols) stageCols = cols;
+    updateGridSizeDisplay();
+    updateStageWidthControl();
+    renderGrid();
+  }
+
+  /* ---- Context menu for row / column labels ---- */
+
+  var ctxMenu = null;
+
+  function closeContextMenu() {
+    if (ctxMenu && ctxMenu.parentNode) ctxMenu.parentNode.removeChild(ctxMenu);
+    ctxMenu = null;
+  }
+
+  function showContextMenu(x, y, items) {
+    closeContextMenu();
+    ctxMenu = document.createElement("div");
+    ctxMenu.className = "designer-ctx-menu";
+    items.forEach(function (item) {
+      if (item.divider) {
+        var hr = document.createElement("div");
+        hr.className = "designer-ctx-divider";
+        ctxMenu.appendChild(hr);
+        return;
+      }
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "designer-ctx-item";
+      if (item.danger) btn.classList.add("designer-ctx-danger");
+      btn.textContent = item.label;
+      btn.addEventListener("click", function () {
+        closeContextMenu();
+        item.action();
+      });
+      ctxMenu.appendChild(btn);
+    });
+    document.body.appendChild(ctxMenu);
+
+    var rect = ctxMenu.getBoundingClientRect();
+    var vw = window.innerWidth;
+    var vh = window.innerHeight;
+    if (x + rect.width > vw) x = vw - rect.width - 8;
+    if (y + rect.height > vh) y = vh - rect.height - 8;
+    ctxMenu.style.left = Math.max(4, x) + "px";
+    ctxMenu.style.top = Math.max(4, y) + "px";
+  }
+
+  document.addEventListener("click", function (e) {
+    if (ctxMenu && !ctxMenu.contains(e.target)) closeContextMenu();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeContextMenu();
+  });
 
   function setStageCols(n) {
     stageCols = Math.max(1, Math.min(cols, parseInt(n, 10) || cols));

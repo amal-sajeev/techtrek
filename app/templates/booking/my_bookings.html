@@ -26,7 +26,7 @@
           {% endif %}
         </div>
         <div class="booking-card-side">
-          <span class="seat-label-chip">{{ item.seat.label }}</span>
+          <span class="seat-label-chip">{{ item.seat.label }}{% if item.seat.seat_type != 'standard' %} <small>({{ item.seat.seat_type|upper }})</small>{% endif %}</span>
           {% if item.booking.qr_code_data and item.booking.payment_status == 'paid' %}
           <img src="data:image/png;base64,{{ item.booking.qr_code_data }}" alt="QR Code for {{ item.booking.ticket_id }}" class="booking-qr" width="80" height="80">
           {% endif %}

@@ -29,7 +29,7 @@
         <td>{{ item.session.speaker }}</td>
         <td>{{ item.auditorium.name if item.auditorium else 'N/A' }}</td>
         <td>{{ item.session.start_time.strftime('%b %d, %Y %I:%M %p') }}</td>
-        <td>${{ "%.2f" | format(item.session.price) }}</td>
+        <td>&#8377;{{ "%.0f"|format(item.session.price) }}</td>
         <td>{{ item.bookings }}</td>
         <td>
           <span class="badge badge-{% if item.session.status == 'published' %}available{% elif item.session.status == 'draft' %}draft{% elif item.session.status == 'sold_out' %}sold-out{% elif item.session.status == 'cancelled' %}sold-out{% else %}draft{% endif %}">

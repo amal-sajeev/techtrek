@@ -17,16 +17,18 @@
 
     <div class="seat-booking-layout" id="seat-booking-layout">
       <!-- Seat Map -->
-      <div class="seat-map-wrapper">
-        <div class="seat-stage" id="seat-stage" role="presentation">
-          <span>STAGE</span>
-        </div>
-        <div class="seat-map-container">
-          <div
-            class="seat-map"
-            id="seat-map"
-            role="group"
-            aria-label="Auditorium seat map for {{ auditorium.name }}. Use arrow keys or Tab to navigate seats.">
+      <div class="seat-map-wrapper" id="seat-map-wrapper">
+        <div class="seat-map-scalable" id="seat-map-scalable">
+          <div class="seat-stage" id="seat-stage" role="presentation">
+            <span>STAGE</span>
+          </div>
+          <div class="seat-map-container">
+            <div
+              class="seat-map"
+              id="seat-map"
+              role="group"
+              aria-label="Auditorium seat map for {{ auditorium.name }}. Use arrow keys or Tab to navigate seats.">
+            </div>
           </div>
         </div>
         <div class="seat-legend" role="list" aria-label="Seat type key">
@@ -63,7 +65,7 @@
 
         <div class="summary-total">
           <span>Total</span>
-          <span id="selected-total">$0.00</span>
+          <span id="selected-total">&#8377;0</span>
         </div>
 
         <form method="post" action="/booking/hold/{{ lecture.id }}" id="seat-form">
@@ -84,7 +86,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/seat-picker.js') }}"></script>
+<script src="{{ url_for('static', path='js/seat-picker.js') }}?v=31"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var seatData = {{ seat_map_json | safe }};
@@ -92,18 +94,16 @@
       rowGaps: {{ row_gaps | safe }},
       colGaps: {{ col_gaps | safe }}
     };
-    SeatPicker.init(seatData, {{ price }}, {{ lecture.id }}, gapData);
-
-    // Size the stage element to match the admin-configured width
-    var stageCols = {% if stage_cols is none %}null{% else %}{{ stage_cols }}{% endif %};
-    var totalCols = {{ total_cols }};
-    var stageEl = document.getElementById('seat-stage');
-    if (stageEl && stageCols != null && stageCols < totalCols) {
-      stageEl.style.width = Math.round((stageCols / totalCols) * 100) + '%';
-      stageEl.style.display = 'flex';
-      stageEl.style.justifyContent = 'center';
-      stageEl.style.alignItems = 'center';
-    }
+    var stageOpts = {
+      stageCols: {% if stage_cols is none %}null{% else %}{{ stage_cols }}{% endif %},
+      totalCols: {{ total_cols }}
+    };
+    var pricing = {
+      standard: {{ price }},
+      vip: {{ price_vip }},
+      accessible: {{ price_accessible }}
+    };
+    SeatPicker.init(seatData, pricing, {{ lecture.id }}, gapData, stageOpts);
 
     // Update aria-disabled on confirm button
     var btn = document.getElementById('confirm-seats-btn');

@@ -24,9 +24,9 @@
             {% for b in bookings %}
             <div class="ticket-card">
               <div class="ticket-card-info">
-                <span class="seat-label-chip">{{ seats[loop.index0].label }}</span>
+                <span class="seat-label-chip">{{ seats[loop.index0].label }}{% if seats[loop.index0].seat_type != 'standard' %} <small>({{ seats[loop.index0].seat_type|upper }})</small>{% endif %}</span>
                 <span class="ticket-id">{{ b.ticket_id }}</span>
-                <span class="booking-ref-small">Ref: {{ b.booking_ref }}</span>
+                <span class="booking-ref-small">Ref: {{ b.booking_ref }} &middot; &#8377;{{ "%.0f"|format(b.amount_paid) }}</span>
               </div>
               {% if b.qr_code_data %}
               <img src="data:image/png;base64,{{ b.qr_code_data }}" alt="QR Code" class="ticket-qr" width="100" height="100">

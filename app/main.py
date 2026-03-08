@@ -6,6 +6,8 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
+from sqlalchemy import text
+
 from app.database import Base, engine
 from app.dependencies import AuthRedirect, template_ctx, templates
 
@@ -18,6 +20,14 @@ application.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), na
 from app import models as _models  # noqa: F401, E402
 
 Base.metadata.create_all(bind=engine)
+
+with engine.connect() as conn:
+    for col in ("price_vip", "price_accessible"):
+        try:
+            conn.execute(text(f"ALTER TABLE lecture_sessions ADD COLUMN {col} NUMERIC(10,2)"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 from app.routers import auth, public, booking, admin  # noqa: E402
 

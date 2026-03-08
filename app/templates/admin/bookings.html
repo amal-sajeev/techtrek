@@ -9,19 +9,25 @@
 
 <!-- Search & Filter -->
 <form method="get" action="/admin/bookings" class="filter-bar mb-3">
-  <input type="text" name="q" class="form-input" placeholder="Search by user, ref, ticket..." value="{{ q or '' }}" style="max-width:250px">
-  <select name="status" class="form-input" style="max-width:150px">
-    <option value="">All Statuses</option>
-    {% for s in ['paid','hold','refunded','cancelled'] %}
-    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
-    {% endfor %}
-  </select>
-  <select name="session_id" class="form-input" style="max-width:200px">
-    <option value="">All Sessions</option>
-    {% for s in all_sessions %}
-    <option value="{{ s.id }}" {% if session_filter|string == s.id|string %}selected{% endif %}>{{ s.title }}</option>
-    {% endfor %}
-  </select>
+  <div class="filter-search">
+    <input type="text" name="q" class="form-input" placeholder="Search by user, ref, ticket..." value="{{ q or '' }}">
+  </div>
+  <div style="min-width:140px">
+    <select name="status" class="form-input">
+      <option value="">All Statuses</option>
+      {% for s in ['paid','hold','refunded','cancelled'] %}
+      <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div style="min-width:180px">
+    <select name="session_id" class="form-input">
+      <option value="">All Sessions</option>
+      {% for s in all_sessions %}
+      <option value="{{ s.id }}" {% if session_filter|string == s.id|string %}selected{% endif %}>{{ s.title }}</option>
+      {% endfor %}
+    </select>
+  </div>
   <button type="submit" class="btn btn-primary btn-sm">Filter</button>
 </form>
 

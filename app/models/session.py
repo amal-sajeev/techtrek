@@ -19,6 +19,8 @@ class LectureSession(Base):
     start_time = Column(DateTime, nullable=False)
     duration_minutes = Column(Integer, default=30)
     price = Column(Numeric(10, 2), nullable=False, default=0)
+    price_vip = Column(Numeric(10, 2), nullable=True)
+    price_accessible = Column(Numeric(10, 2), nullable=True)
     status = Column(String(20), default="draft")
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

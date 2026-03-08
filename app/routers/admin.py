@@ -678,6 +678,8 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         start_time=start_time,
         duration_minutes=int(form.get("duration_minutes", 30)),
         price=float(form.get("price", 0)),
+        price_vip=float(form["price_vip"]) if form.get("price_vip", "").strip() else None,
+        price_accessible=float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None,
         status=form.get("status", "draft"),
     )
     db.add(session_obj)
@@ -738,6 +740,8 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.start_time = start_time
     lecture.duration_minutes = int(form.get("duration_minutes", 30))
     lecture.price = float(form.get("price", 0))
+    lecture.price_vip = float(form["price_vip"]) if form.get("price_vip", "").strip() else None
+    lecture.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
     lecture.status = form.get("status", lecture.status)
 
     _save_agenda_items(db, form, sess_id)

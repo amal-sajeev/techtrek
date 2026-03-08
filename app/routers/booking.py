@@ -13,6 +13,7 @@ from app.models.session import LectureSession
 from app.models.user import User
 from app.models.waitlist import Waitlist
 from app.services.booking import (
+    _price_for_seat,
     cancel_booking_user,
     confirm_payment,
     get_seat_map,
@@ -21,6 +22,10 @@ from app.services.booking import (
 )
 
 router = APIRouter(prefix="/booking", tags=["booking"])
+
+
+def _seat_price(lecture, seat_type: str) -> float:
+    return _price_for_seat(lecture, seat_type)
 
 
 def _require_user(request: Request, db: Session) -> User | None:
@@ -83,6 +88,8 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
             row_gaps=auditorium.row_gaps or "[]",
             col_gaps=auditorium.col_gaps or "[]",
             price=float(lecture.price),
+            price_vip=float(lecture.price_vip) if lecture.price_vip is not None else float(lecture.price),
+            price_accessible=float(lecture.price_accessible) if lecture.price_accessible is not None else float(lecture.price),
         ),
     )
 
@@ -140,7 +147,7 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
         seat = db.query(Seat).get(h.seat_id)
         seats.append(seat)
 
-    total = float(lecture.price) * len(seats)
+    total = sum(_seat_price(lecture, s.seat_type) for s in seats)
     time_left = int((holds[0].held_until - now).total_seconds())
 
     return templates.TemplateResponse(
@@ -193,7 +200,7 @@ def confirmation_page(request: Request, session_id: int, db: Session = Depends(g
     lecture = db.query(LectureSession).get(session_id)
     auditorium = db.query(Auditorium).get(lecture.auditorium_id)
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
-    total = float(lecture.price) * len(bookings)
+    total = sum(b.amount_paid or _seat_price(lecture, s.seat_type) for b, s in zip(bookings, seats))
 
     return templates.TemplateResponse(
         "booking/confirmation.html",

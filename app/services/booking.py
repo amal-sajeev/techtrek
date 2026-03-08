@@ -112,10 +112,20 @@ def _generate_qr_base64(data: str) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
+def _price_for_seat(lecture, seat_type: str) -> float:
+    if not lecture:
+        return TICKET_PRICE
+    base = float(lecture.price)
+    if seat_type == "vip" and lecture.price_vip is not None:
+        return float(lecture.price_vip)
+    if seat_type == "accessible" and lecture.price_accessible is not None:
+        return float(lecture.price_accessible)
+    return base
+
+
 def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]:
     now = datetime.now(timezone.utc)
     lecture = db.query(LectureSession).get(session_id)
-    price = float(lecture.price) if lecture else TICKET_PRICE
 
     holds = (
         db.query(Booking)
@@ -128,10 +138,11 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
         .all()
     )
     for b in holds:
+        seat = db.query(Seat).get(b.seat_id)
         b.payment_status = "paid"
         b.booked_at = now
         b.held_until = None
-        b.amount_paid = price
+        b.amount_paid = _price_for_seat(lecture, seat.seat_type if seat else "standard")
         b.ticket_id = _generate_ticket_id()
         b.qr_code_data = _generate_qr_base64(b.ticket_id)
     db.commit()

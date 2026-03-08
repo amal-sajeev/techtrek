@@ -53,7 +53,7 @@
           </div>
           <div class="info-item">
             <span class="info-label">Price</span>
-            <span class="info-value session-price">${{ "%.2f" | format(lecture.price) }}</span>
+            <span class="info-value session-price">₹{{ "%.0f"|format(lecture.price) }}{% if lecture.price_vip is not none %} &middot; VIP ₹{{ "%.0f"|format(lecture.price_vip) }}{% endif %}{% if lecture.price_accessible is not none %} &middot; Accessible ₹{{ "%.0f"|format(lecture.price_accessible) }}{% endif %}</span>
           </div>
         </div>
       </div>
@@ -61,8 +61,8 @@
       <div class="session-detail-sidebar">
         <div class="booking-box">
           <div class="booking-box-header">
-            <span class="booking-box-price">${{ "%.2f" | format(lecture.price) }}</span>
-            <span class="booking-box-per">per seat</span>
+            <span class="booking-box-price">from ₹{{ "%.0f"|format(lecture.price) }}</span>
+            <span class="booking-box-per">per seat{% if lecture.price_vip is not none %} &middot; VIP ₹{{ "%.0f"|format(lecture.price_vip) }}{% endif %}</span>
           </div>
 
           <div class="booking-box-stats">

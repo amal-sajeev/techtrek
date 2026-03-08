@@ -26,9 +26,9 @@
       {% endif %}
     </div>
     <div class="hero-stats">
-      <div class="hero-stat"><span class="hero-stat-value">50+</span><span class="hero-stat-label">Sessions</span></div>
-      <div class="hero-stat"><span class="hero-stat-value">30 min</span><span class="hero-stat-label">TED-Style Talks</span></div>
-      <div class="hero-stat"><span class="hero-stat-value">100%</span><span class="hero-stat-label">In-Person</span></div>
+      <div class="stat-item"><span class="stat-number">50+</span><span class="stat-label">Sessions</span></div>
+      <div class="stat-item"><span class="stat-number">30 min</span><span class="stat-label">TED-Style Talks</span></div>
+      <div class="stat-item"><span class="stat-number">100%</span><span class="stat-label">In-Person</span></div>
     </div>
   </div>
 </section>
@@ -52,7 +52,8 @@
     ] %}
 
     {% if sessions %}
-    <div class="session-grid">
+    <div class="session-grid-wrap">
+      <div class="session-grid" id="home-session-grid">
       {% for item in sessions %}
       {% set img_id = img_pool[item.session.id % 8] %}
       <a href="/sessions/{{ item.session.id }}" class="card card-hover reveal">
@@ -76,6 +77,8 @@
       </a>
       {% endfor %}
     </div>
+    <div class="carousel-hint" id="home-carousel-dots" aria-hidden="true"></div>
+    </div>
     <div style="text-align:center;margin-top:2rem">
       <a href="/sessions" class="btn btn-outline">View All Sessions &rarr;</a>
     </div>
@@ -95,17 +98,17 @@
     <div class="steps-grid">
       <div class="step-card reveal">
         <div class="step-number">1</div>
-        <h4>Browse</h4>
+        <h3>Browse</h3>
         <p>Discover upcoming tech talks at campuses across India.</p>
       </div>
       <div class="step-card reveal">
         <div class="step-number">2</div>
-        <h4>Pick Your Seat</h4>
+        <h3>Pick Your Seat</h3>
         <p>Choose your preferred seat from an interactive venue map.</p>
       </div>
       <div class="step-card reveal">
         <div class="step-number">3</div>
-        <h4>Book &amp; Attend</h4>
+        <h3>Book &amp; Attend</h3>
         <p>Confirm your booking, get your QR ticket, and show up inspired.</p>
       </div>
     </div>

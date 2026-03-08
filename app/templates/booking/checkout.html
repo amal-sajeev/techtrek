@@ -6,7 +6,7 @@
   <div class="container">
     <div class="checkout-layout">
       <div class="checkout-box">
-        <h1 class="page-title">Checkout</h1>
+        <h1 class="page-title" style="margin-bottom:1.5rem">Checkout</h1>
 
         <div class="checkout-timer" id="checkout-timer" role="timer" aria-live="polite">
           <div class="checkout-timer-row">
@@ -25,28 +25,30 @@
         </div>
 
         <div class="checkout-seats">
-          <h4>Selected Seats ({{ booking_count }})</h4>
+          <h4 class="checkout-seats-label">Selected Seats ({{ booking_count }})</h4>
           <div class="checkout-seat-list">
             {% for seat in seats %}
-            <span class="seat-label-chip">{{ seat.label }}</span>
+            <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
             {% endfor %}
           </div>
         </div>
 
         <div class="checkout-summary">
+          {% for seat in seats %}
           <div class="checkout-line">
-            <span>{{ booking_count }} &times; ${{ "%.2f" | format(lecture.price) }}</span>
-            <span>${{ "%.2f" | format(total) }}</span>
+            <span>{{ seat.label }}{% if seat.seat_type != 'standard' %} ({{ seat.seat_type|upper }}){% endif %}</span>
+            <span>₹{% if seat.seat_type == 'vip' and lecture.price_vip is not none %}{{ "%.0f"|format(lecture.price_vip) }}{% elif seat.seat_type == 'accessible' and lecture.price_accessible is not none %}{{ "%.0f"|format(lecture.price_accessible) }}{% else %}{{ "%.0f"|format(lecture.price) }}{% endif %}</span>
           </div>
+          {% endfor %}
           <div class="checkout-line checkout-total">
             <span>Total</span>
-            <span>${{ "%.2f" | format(total) }}</span>
+            <span>₹{{ "%.0f"|format(total) }}</span>
           </div>
         </div>
 
         <form method="post" action="/booking/pay/{{ lecture.id }}" id="pay-form">
           <button type="submit" class="btn btn-primary btn-lg btn-block" id="pay-btn">
-            Pay ${{ "%.2f" | format(total) }}
+            Pay ₹{{ "%.0f"|format(total) }}
           </button>
         </form>
 
