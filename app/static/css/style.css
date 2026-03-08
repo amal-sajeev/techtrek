@@ -902,6 +902,14 @@ td code {
 .modal-footer { display:flex; gap:.75rem; justify-content:center; margin-top:1.75rem }
 .modal-footer .btn { padding:.6rem 1.6rem; font-size:.9rem; min-width:110px }
 
+/* ---- QR ZOOM MODAL ---- */
+.ticket-qr, .booking-qr-img { cursor:pointer; transition:transform .15s, box-shadow .15s; border-radius:var(--radius-md) }
+.ticket-qr:hover, .booking-qr-img:hover { transform:scale(1.06); box-shadow:0 4px 20px rgba(0,0,0,.3) }
+.qr-zoom-dialog { text-align:center; max-width:360px; padding:2rem 2rem 1.5rem }
+.qr-zoom-img { width:280px; height:280px; border-radius:var(--radius-lg); border:3px solid var(--border-strong); image-rendering:pixelated; margin-bottom:1rem }
+.qr-zoom-label { font-size:.9rem; color:var(--text-secondary); margin-bottom:1.25rem; font-family:var(--font-mono) }
+.qr-zoom-close { min-width:120px }
+
 /* ---- MOBILE NAV ---- */
 .hamburger { display:none; flex-direction:column; gap:5px; background:none; border:none; cursor:pointer; padding:8px }
 .hamburger span { display:block; width:22px; height:2px; background:var(--text-secondary); border-radius:1px; transition:all .3s }
@@ -2363,6 +2371,8 @@ tr:last-child td { border-bottom:none }
 }
 [data-theme="light"] .modal-icon-warn { background: rgba(220,50,50,.08); border-color: rgba(220,50,50,.3); color: #dc3232; }
 [data-theme="light"] .modal-icon-info { background: rgba(8,145,178,.08); border-color: rgba(8,145,178,.25); color: #0891b2; }
+[data-theme="light"] .ticket-qr:hover, [data-theme="light"] .booking-qr-img:hover { box-shadow: 0 4px 20px rgba(0,60,120,.15); }
+[data-theme="light"] .qr-zoom-img { border-color: rgba(8,145,178,.25); }
 
 /* ---- ADMIN — glass sidebar & panels ---- */
 [data-theme="light"] .admin-main {
