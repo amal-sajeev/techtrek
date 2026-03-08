@@ -21,7 +21,30 @@
       <div class="filter-search">
         <input type="text" name="q" id="filter-q" class="form-input" placeholder="Search by title or speaker..." value="{{ q }}" autocomplete="off">
       </div>
+      <div class="filter-date">
+        <label for="filter-date" class="sr-only">Date</label>
+        <input type="date" name="date" id="filter-date" class="form-input" value="{{ date_filter }}" aria-label="Filter by date">
+      </div>
+      <div class="filter-city">
+        <label for="filter-city" class="sr-only">City</label>
+        <select name="city_id" id="filter-city" class="form-input" aria-label="Filter by city">
+          <option value="">All cities</option>
+          {% for city in cities %}
+          <option value="{{ city.id }}" {% if city_id == city.id %}selected{% endif %}>{{ city.name }}{% if city.state %}, {{ city.state }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-college">
+        <label for="filter-college" class="sr-only">College</label>
+        <select name="college_id" id="filter-college" class="form-input" aria-label="Filter by college">
+          <option value="">All colleges</option>
+          {% for college in colleges %}
+          <option value="{{ college.id }}" {% if college_id == college.id %}selected{% endif %}>{{ college.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
       <div class="filter-sort">
+        <label for="filter-sort" class="sr-only">Sort</label>
         <select name="sort" id="filter-sort" class="form-input">
           <option value="date"  {% if sort == 'date'  %}selected{% endif %}>Sort by Date</option>
           <option value="price" {% if sort == 'price' %}selected{% endif %}>Sort by Price</option>
@@ -89,7 +112,7 @@
           <path d="M32 20v14M32 40v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         </svg>
         <h3>No sessions found</h3>
-        <p>{% if q %}No results for "{{ q }}". Try a different search.{% else %}Check back soon for new sessions!{% endif %}</p>
+        <p>{% if q or date_filter or city_id or college_id %}No results for the selected filters. Try different search or filters.{% else %}Check back soon for new sessions!{% endif %}</p>
       </div>
       {% endif %}
     </div>
@@ -102,6 +125,9 @@
 (function() {
   var form    = document.getElementById('filter-form');
   var qInput  = document.getElementById('filter-q');
+  var dateInput = document.getElementById('filter-date');
+  var citySel  = document.getElementById('filter-city');
+  var collegeSel = document.getElementById('filter-college');
   var sortSel = document.getElementById('filter-sort');
   var grid    = document.getElementById('session-grid');
   var skel    = document.getElementById('skeleton-grid');
@@ -110,9 +136,15 @@
 
   function buildUrl() {
     var params = new URLSearchParams();
-    var q = qInput.value.trim();
-    var s = sortSel.value;
+    var q = qInput && qInput.value.trim();
+    var dateVal = dateInput && dateInput.value;
+    var cityVal = citySel && citySel.value;
+    var collegeVal = collegeSel && collegeSel.value;
+    var s = sortSel && sortSel.value;
     if (q) params.set('q', q);
+    if (dateVal) params.set('date', dateVal);
+    if (cityVal) params.set('city_id', cityVal);
+    if (collegeVal) params.set('college_id', collegeVal);
     if (s !== 'date') params.set('sort', s);
     return '/sessions?' + params.toString();
   }
@@ -163,6 +195,15 @@
   }
   if (sortSel) {
     sortSel.addEventListener('change', fetchSessions);
+  }
+  if (dateInput) {
+    dateInput.addEventListener('change', fetchSessions);
+  }
+  if (citySel) {
+    citySel.addEventListener('change', fetchSessions);
+  }
+  if (collegeSel) {
+    collegeSel.addEventListener('change', fetchSessions);
   }
   if (form) {
     form.addEventListener('submit', function(e) {

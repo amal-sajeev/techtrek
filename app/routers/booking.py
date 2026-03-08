@@ -148,7 +148,10 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
         seats.append(seat)
 
     total = sum(_seat_price(lecture, s.seat_type) for s in seats)
-    time_left = int((holds[0].held_until - now).total_seconds())
+    held = holds[0].held_until
+    if held.tzinfo is None:
+        held = held.replace(tzinfo=timezone.utc)
+    time_left = int((held - now).total_seconds())
 
     return templates.TemplateResponse(
         "booking/checkout.html",
@@ -222,21 +225,121 @@ def my_bookings(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login?next=/booking/my", status_code=303)
 
     bookings = get_user_bookings(db, user.id)
-    enriched = []
+
+    from collections import OrderedDict
+    groups: OrderedDict[str, list] = OrderedDict()
     for b in bookings:
-        lecture = db.query(LectureSession).get(b.session_id)
-        seat = db.query(Seat).get(b.seat_id)
+        key = f"{b.session_id}:{b.booking_group}" if b.booking_group else f"solo:{b.id}"
+        groups.setdefault(key, []).append(b)
+
+    grouped = []
+    for key, group_bookings in groups.items():
+        first = group_bookings[0]
+        lecture = db.query(LectureSession).get(first.session_id)
         auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
-        enriched.append({
-            "booking": b,
+        seats = [db.query(Seat).get(b.seat_id) for b in group_bookings]
+        paid_bookings = [b for b in group_bookings if b.payment_status == "paid"]
+        refunded_bookings = [b for b in group_bookings if b.payment_status == "refunded"]
+        if len(paid_bookings) == len(group_bookings):
+            status = "paid"
+        elif len(refunded_bookings) == len(group_bookings):
+            status = "refunded"
+        else:
+            status = "mixed"
+
+        detail_url = (
+            f"/booking/detail/group/{first.booking_group}"
+            if first.booking_group
+            else f"/booking/detail/{first.id}"
+        )
+
+        grouped.append({
+            "bookings": group_bookings,
+            "seats": seats,
             "lecture": lecture,
-            "seat": seat,
             "auditorium": auditorium,
+            "total_paid": sum(b.amount_paid or 0 for b in group_bookings),
+            "group_id": first.booking_group,
+            "group_qr_data": first.group_qr_data,
+            "status": status,
+            "detail_url": detail_url,
+            "booked_at": first.booked_at,
+            "all_checked_in": all(b.checked_in for b in paid_bookings) if paid_bookings else False,
         })
 
     return templates.TemplateResponse(
         "booking/my_bookings.html",
-        template_ctx(request, bookings=enriched),
+        template_ctx(request, groups=grouped),
+    )
+
+
+@router.get("/detail/group/{group_id}")
+def booking_detail_group(request: Request, group_id: str, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login?next=/booking/my", status_code=303)
+
+    bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.booking_group == group_id,
+            Booking.user_id == user.id,
+            Booking.payment_status.in_(["paid", "refunded"]),
+        )
+        .order_by(Booking.id)
+        .all()
+    )
+    if not bookings:
+        flash(request, "Booking not found.", "danger")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    return _render_booking_detail(request, db, bookings)
+
+
+@router.get("/detail/{booking_id}")
+def booking_detail_solo(request: Request, booking_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login?next=/booking/my", status_code=303)
+
+    booking = (
+        db.query(Booking)
+        .filter(
+            Booking.id == booking_id,
+            Booking.user_id == user.id,
+            Booking.payment_status.in_(["paid", "refunded"]),
+        )
+        .first()
+    )
+    if not booking:
+        flash(request, "Booking not found.", "danger")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    return _render_booking_detail(request, db, [booking])
+
+
+def _render_booking_detail(request: Request, db: Session, bookings: list[Booking]):
+    first = bookings[0]
+    lecture = db.query(LectureSession).get(first.session_id)
+    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+    seats = [db.query(Seat).get(b.seat_id) for b in bookings]
+    total = sum(b.amount_paid or 0 for b in bookings)
+    paid_bookings = [b for b in bookings if b.payment_status == "paid"]
+
+    return templates.TemplateResponse(
+        "booking/booking_detail.html",
+        template_ctx(
+            request,
+            bookings=bookings,
+            seats=seats,
+            lecture=lecture,
+            auditorium=auditorium,
+            total=total,
+            group_qr_data=first.group_qr_data if len(bookings) > 1 else None,
+            group_id=first.booking_group,
+            is_group=len(bookings) > 1,
+            has_cancellable=len(paid_bookings) > 0,
+        ),
     )
 
 

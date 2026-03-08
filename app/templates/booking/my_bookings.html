@@ -6,47 +6,62 @@
   <div class="container">
     <h1 class="page-title">My Bookings</h1>
 
-    {% if bookings %}
+    {% if groups %}
     <div class="bookings-list">
-      {% for item in bookings %}
-      <div class="booking-card {% if item.booking.payment_status == 'refunded' %}booking-cancelled{% endif %}">
-        <div class="booking-card-main">
-          <h3 class="booking-card-title">{{ item.lecture.title }}</h3>
-          <p class="booking-card-meta">{{ item.lecture.speaker }}</p>
-          <div class="booking-card-details">
-            <span>&#128197; {{ item.lecture.start_time.strftime('%b %d, %Y at %I:%M %p') }}</span>
-            {% if item.auditorium %}
-            <span>&#128205; {{ item.auditorium.name }}, {{ item.auditorium.location }}</span>
-            {% endif %}
+      {% for g in groups %}
+      <a href="{{ g.detail_url }}" class="booking-card-link {% if g.status == 'refunded' %}booking-cancelled{% endif %}">
+        <div class="booking-card">
+
+          <div class="booking-card-header">
+            <div class="booking-card-header-left">
+              <h3 class="booking-card-title">{{ g.lecture.title }}</h3>
+              <p class="booking-card-speaker">{{ g.lecture.speaker }}</p>
+            </div>
+            <div class="booking-card-header-right">
+              {% if g.status == 'paid' %}
+                {% if g.all_checked_in %}
+                <span class="badge badge-success">Checked In</span>
+                {% else %}
+                <span class="badge badge-available">Confirmed</span>
+                {% endif %}
+              {% elif g.status == 'refunded' %}
+                <span class="badge badge-muted">Cancelled</span>
+              {% else %}
+                <span class="badge badge-warning">Partial</span>
+              {% endif %}
+            </div>
           </div>
-          {% if item.booking.ticket_id %}
-          <div class="booking-ticket-info">
-            <span class="ticket-id">Ticket: {{ item.booking.ticket_id }}</span>
+
+          <div class="booking-card-body">
+            <div class="booking-card-info">
+              <div class="booking-detail-row">
+                <span class="booking-detail-icon">&#128197;</span>
+                <span>{{ g.lecture.start_time.strftime('%b %d, %Y at %I:%M %p') }}</span>
+              </div>
+              {% if g.auditorium %}
+              <div class="booking-detail-row">
+                <span class="booking-detail-icon">&#128205;</span>
+                <span>{{ g.auditorium.name }}, {{ g.auditorium.location }}</span>
+              </div>
+              {% endif %}
+              <div class="booking-detail-row">
+                <span class="booking-detail-icon">&#128176;</span>
+                <span>Total: <strong>&#8377;{{ g.total_paid|round(0)|int }}</strong></span>
+              </div>
+            </div>
+
+            <div class="booking-card-seats-col">
+              <div class="booking-seats-row">
+                {% for seat in g.seats %}
+                <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
+                {% endfor %}
+              </div>
+              <span class="booking-seat-count">{{ g.seats|length }} ticket{{ 's' if g.seats|length > 1 else '' }}</span>
+            </div>
           </div>
-          {% endif %}
+
         </div>
-        <div class="booking-card-side">
-          <span class="seat-label-chip">{{ item.seat.label }}{% if item.seat.seat_type != 'standard' %} <small>({{ item.seat.seat_type|upper }})</small>{% endif %}</span>
-          {% if item.booking.qr_code_data and item.booking.payment_status == 'paid' %}
-          <img src="data:image/png;base64,{{ item.booking.qr_code_data }}" alt="QR Code for {{ item.booking.ticket_id }}" class="booking-qr" width="80" height="80">
-          {% endif %}
-          <span class="booking-ref-small">Ref: {{ item.booking.booking_ref }}</span>
-          {% if item.booking.payment_status == 'paid' %}
-            {% if item.booking.checked_in %}
-            <span class="badge badge-success">Checked In</span>
-            {% else %}
-            <span class="badge badge-available">Confirmed</span>
-            {% endif %}
-            <form method="post" action="/booking/cancel/{{ item.booking.id }}" style="margin-top:.5rem"
-                  onsubmit="return confirm('Cancel this booking?\n\nCancellation fee: ₹100\nRefund amount: ₹{{ (item.booking.amount_paid - 100)|round(0)|int if item.booking.amount_paid else 400 }}')">
-              <button type="submit" class="btn btn-sm btn-danger">Cancel Booking</button>
-            </form>
-          {% elif item.booking.payment_status == 'refunded' %}
-            <span class="badge badge-muted">Cancelled</span>
-            <span class="booking-ref-small">Refund: ₹{{ item.booking.refund_amount|round(0)|int if item.booking.refund_amount else 0 }}</span>
-          {% endif %}
-        </div>
-      </div>
+      </a>
       {% endfor %}
     </div>
     {% else %}

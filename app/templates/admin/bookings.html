@@ -66,13 +66,11 @@
         <td>{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
         <td class="actions-cell">
           {% if item.booking.payment_status == 'paid' %}
-          <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline"
-                onsubmit="return confirm('Refund this booking?')">
-            <button type="submit" class="btn btn-sm btn-outline">Refund</button>
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
+            <button type="button" class="btn btn-sm btn-outline" data-confirm="Refund this booking?" data-confirm-label="Refund" data-confirm-class="btn-primary">Refund</button>
           </form>
-          <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline"
-                onsubmit="return confirm('Cancel this booking?')">
-            <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Cancel this booking?" data-confirm-label="Cancel">Cancel</button>
           </form>
           {% elif item.booking.payment_status == 'hold' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">

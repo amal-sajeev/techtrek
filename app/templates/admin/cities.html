@@ -33,9 +33,8 @@
             <button type="submit" class="btn btn-sm btn-outline">{{ "Deactivate" if city.is_active else "Activate" }}</button>
           </form>
           <a href="/admin/cities/{{ city.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
-          <form method="post" action="/admin/cities/{{ city.id }}/delete" style="display:inline"
-                onsubmit="return confirm('Delete this city and all its colleges?')">
-            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+          <form method="post" action="/admin/cities/{{ city.id }}/delete" style="display:inline">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this city and all its colleges?" data-confirm-label="Delete">Delete</button>
           </form>
         </td>
       </tr>

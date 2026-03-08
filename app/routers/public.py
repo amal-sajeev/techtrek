@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timezone, date, time
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
@@ -8,9 +8,12 @@ from sqlalchemy.orm import Session
 from app.dependencies import flash, get_db, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
+from app.models.city import City
+from app.models.college import College
 from app.models.seat import Seat
 from app.models.session import LectureSession
 from app.models.testimonial import Testimonial, NewsletterSubscriber
+from app.models.user import User
 
 router = APIRouter(tags=["public"])
 
@@ -98,17 +101,40 @@ def sessions_list(
     db: Session = Depends(get_db),
     q: str = Query("", alias="q"),
     sort: str = Query("date", alias="sort"),
+    date_filter: str | None = Query(None, alias="date"),
+    city_id: int | None = Query(None, alias="city_id"),
+    college_id: int | None = Query(None, alias="college_id"),
 ):
     now = datetime.now(timezone.utc)
-    query = db.query(LectureSession).filter(
-        LectureSession.status == "published",
-        LectureSession.start_time > now,
+    query = (
+        db.query(LectureSession)
+        .filter(
+            LectureSession.status == "published",
+            LectureSession.start_time > now,
+        )
+        .join(Auditorium)
+        .outerjoin(College)
     )
     if q:
         query = query.filter(
             LectureSession.title.ilike(f"%{q}%")
             | LectureSession.speaker.ilike(f"%{q}%")
         )
+    if date_filter:
+        try:
+            d = date.fromisoformat(date_filter)
+            start_of_day = datetime.combine(d, time.min, tzinfo=timezone.utc)
+            end_of_day = datetime.combine(d, time.max, tzinfo=timezone.utc)
+            query = query.filter(
+                LectureSession.start_time >= start_of_day,
+                LectureSession.start_time <= end_of_day,
+            )
+        except ValueError:
+            pass
+    if college_id is not None:
+        query = query.filter(Auditorium.college_id == college_id)
+    if city_id is not None:
+        query = query.filter(College.city_id == city_id)
     if sort == "price":
         query = query.order_by(LectureSession.price)
     elif sort == "title":
@@ -126,9 +152,23 @@ def sessions_list(
             "stats": stats,
             "availability": _availability_label(stats),
         })
+
+    cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
+    colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
+
     return templates.TemplateResponse(
         "public/sessions.html",
-        template_ctx(request, sessions=sessions_with_info, q=q, sort=sort),
+        template_ctx(
+            request,
+            sessions=sessions_with_info,
+            q=q,
+            sort=sort,
+            date_filter=date_filter or "",
+            city_id=city_id,
+            college_id=college_id,
+            cities=cities,
+            colleges=colleges,
+        ),
     )
 
 
@@ -190,5 +230,79 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
             availability=availability,
             on_waitlist=on_waitlist,
             has_priority=has_priority,
+        ),
+    )
+
+
+@router.get("/ticket/{ticket_id}")
+def public_ticket(request: Request, ticket_id: str, db: Session = Depends(get_db)):
+    booking = (
+        db.query(Booking)
+        .filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
+        .first()
+    )
+    if not booking:
+        return templates.TemplateResponse(
+            "errors/404.html", template_ctx(request), status_code=404
+        )
+    lecture = db.query(LectureSession).get(booking.session_id)
+    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+    seat = db.query(Seat).get(booking.seat_id)
+    user = db.query(User).get(booking.user_id)
+
+    group_bookings = []
+    if booking.booking_group:
+        group_bookings = (
+            db.query(Booking)
+            .filter(
+                Booking.booking_group == booking.booking_group,
+                Booking.payment_status == "paid",
+            )
+            .all()
+        )
+
+    return templates.TemplateResponse(
+        "public/ticket.html",
+        template_ctx(
+            request,
+            booking=booking,
+            lecture=lecture,
+            auditorium=auditorium,
+            seat=seat,
+            ticket_user=user,
+            group_bookings=group_bookings,
+        ),
+    )
+
+
+@router.get("/tickets/group/{group_id}")
+def public_ticket_group(request: Request, group_id: str, db: Session = Depends(get_db)):
+    bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.booking_group == group_id,
+            Booking.payment_status == "paid",
+        )
+        .all()
+    )
+    if not bookings:
+        return templates.TemplateResponse(
+            "errors/404.html", template_ctx(request), status_code=404
+        )
+    lecture = db.query(LectureSession).get(bookings[0].session_id)
+    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+    user = db.query(User).get(bookings[0].user_id)
+    seats = [db.query(Seat).get(b.seat_id) for b in bookings]
+
+    return templates.TemplateResponse(
+        "public/ticket_group.html",
+        template_ctx(
+            request,
+            bookings=bookings,
+            lecture=lecture,
+            auditorium=auditorium,
+            seats=seats,
+            ticket_user=user,
+            group_id=group_id,
         ),
     )

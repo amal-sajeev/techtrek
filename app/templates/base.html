@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}TechTrek{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1117'/><text y='24' x='4' font-size='22' font-family='monospace'>⚡</text></svg>">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=35">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=41">
   <script>
     (function(){
       var t = localStorage.getItem('techtrek-theme');
@@ -115,13 +115,25 @@
   </div>
 </footer>
 
+<!-- QR zoom modal -->
+<div class="modal-wrapper" id="qr-zoom-modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-dialog qr-zoom-dialog">
+    <img class="qr-zoom-img" src="" alt="QR Code">
+    <p class="qr-zoom-label"></p>
+    <button class="btn btn-outline qr-zoom-close">Close</button>
+  </div>
+</div>
+
 <!-- Confirm modal -->
 <div class="modal-wrapper" id="confirm-modal">
   <div class="modal-backdrop"></div>
   <div class="modal-dialog">
-    <div class="modal-body">
-      <p class="confirm-message">Are you sure?</p>
+    <div class="modal-icon-ring">
+      <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     </div>
+    <h3 class="modal-title">Are you sure?</h3>
+    <p class="confirm-message"></p>
     <div class="modal-footer">
       <button class="btn btn-outline confirm-no">Cancel</button>
       <button class="btn btn-danger confirm-yes">Confirm</button>
@@ -279,12 +291,27 @@ const confirmModal = document.getElementById('confirm-modal');
 let confirmCallback = null;
 let lastFocused = null;
 
-function openConfirm(msg, cb) {
-  confirmModal.querySelector('.confirm-message').textContent = msg;
+function openConfirm(msg, cb, opts) {
+  var clean = msg.replace(/\\n/g, '\n');
+  var lines = clean.split('\n').filter(function(l) { return l.trim() !== ''; });
+  var titleEl = confirmModal.querySelector('.modal-title');
+  var bodyEl = confirmModal.querySelector('.confirm-message');
+  titleEl.textContent = lines[0] || 'Are you sure?';
+  if (lines.length > 1) {
+    bodyEl.innerHTML = lines.slice(1).join('<br>');
+    bodyEl.style.display = '';
+  } else {
+    bodyEl.innerHTML = '';
+    bodyEl.style.display = 'none';
+  }
+  var ring = confirmModal.querySelector('.modal-icon-ring');
+  ring.className = 'modal-icon-ring ' + ((opts && opts.iconClass) || 'modal-icon-warn');
+  var yesBtn = confirmModal.querySelector('.confirm-yes');
+  yesBtn.textContent = (opts && opts.confirmLabel) || 'Confirm';
+  yesBtn.className = 'btn ' + ((opts && opts.confirmClass) || 'btn-danger');
   confirmCallback = cb;
   confirmModal.classList.add('active');
   lastFocused = document.activeElement;
-  // Focus the cancel button first (safer default)
   setTimeout(function() {
     var cancelBtn = confirmModal.querySelector('.confirm-no');
     if (cancelBtn) cancelBtn.focus();
@@ -312,8 +339,9 @@ confirmModal.addEventListener('keydown', function(e) {
 });
 
 confirmModal.querySelector('.confirm-yes').addEventListener('click', function() {
+  var cb = confirmCallback;
   closeConfirm();
-  if (confirmCallback) confirmCallback();
+  if (cb) cb();
 });
 confirmModal.querySelector('.confirm-no').addEventListener('click', closeConfirm);
 // Click backdrop also closes
@@ -382,6 +410,51 @@ function removeToast(toast){
   toast.classList.add('toast-hiding');
   setTimeout(()=>{ toast.remove(); }, 500);
 }
+
+// ---- DATA-CONFIRM HANDLER ----
+document.addEventListener('click', function(e) {
+  var btn = e.target.closest('[data-confirm]');
+  if (!btn) return;
+  e.preventDefault();
+  var msg = btn.getAttribute('data-confirm');
+  var cls = btn.getAttribute('data-confirm-class') || 'btn-danger';
+  var label = btn.getAttribute('data-confirm-label') || 'Confirm';
+  openConfirm(msg, function() {
+    var form = btn.closest('form');
+    if (form) form.submit();
+  }, { confirmClass: cls, confirmLabel: label });
+}, true);
+
+// ---- QR ZOOM ----
+(function() {
+  var qrModal = document.getElementById('qr-zoom-modal');
+  if (!qrModal) return;
+  var zoomImg = qrModal.querySelector('.qr-zoom-img');
+  var zoomLabel = qrModal.querySelector('.qr-zoom-label');
+
+  function openQR(src, label) {
+    zoomImg.src = src;
+    zoomLabel.textContent = label || '';
+    zoomLabel.style.display = label ? '' : 'none';
+    qrModal.classList.add('active');
+  }
+  function closeQR() {
+    qrModal.classList.remove('active');
+    zoomImg.src = '';
+  }
+
+  document.addEventListener('click', function(e) {
+    var img = e.target.closest('.ticket-qr, .booking-qr-img');
+    if (!img || !img.src) return;
+    e.preventDefault();
+    var label = img.getAttribute('alt') || '';
+    openQR(img.src, label);
+  });
+
+  qrModal.querySelector('.qr-zoom-close').addEventListener('click', closeQR);
+  qrModal.querySelector('.modal-backdrop').addEventListener('click', closeQR);
+  qrModal.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeQR(); });
+})();
 
 // ---- GLOBAL API ----
 window.TechTrek = { showToast: showToast, confirmAction: openConfirm };

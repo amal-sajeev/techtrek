@@ -137,6 +137,11 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
         )
         .all()
     )
+    group_id = uuid.uuid4().hex[:12].upper() if holds else None
+    group_qr = None
+    if len(holds) > 1 and group_id:
+        group_qr = _generate_qr_base64(f"GROUP-{group_id}")
+
     for b in holds:
         seat = db.query(Seat).get(b.seat_id)
         b.payment_status = "paid"
@@ -145,6 +150,9 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
         b.amount_paid = _price_for_seat(lecture, seat.seat_type if seat else "standard")
         b.ticket_id = _generate_ticket_id()
         b.qr_code_data = _generate_qr_base64(b.ticket_id)
+        b.booking_group = group_id
+        if group_qr:
+            b.group_qr_data = group_qr
     db.commit()
 
     if holds:

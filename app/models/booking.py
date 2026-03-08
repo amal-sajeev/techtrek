@@ -28,6 +28,8 @@ class Booking(Base):
     booking_ref = Column(String(20), unique=True, default=_generate_ref)
     ticket_id = Column(String(30), unique=True, nullable=True)
     qr_code_data = Column(Text, nullable=True)
+    booking_group = Column(String(20), nullable=True, index=True)
+    group_qr_data = Column(Text, nullable=True)
     amount_paid = Column(Float, default=0)
     refund_amount = Column(Float, nullable=True)
     cancellation_fee = Column(Float, nullable=True)

@@ -1,14 +1,14 @@
 {% extends "base.html" %}
-{% block title %}Booking Confirmed — TechTrek{% endblock %}
+{% block title %}Group Tickets — TechTrek{% endblock %}
 
 {% block content %}
 <section class="section">
   <div class="container">
     <div class="confirmation-layout">
       <div class="confirmation-card">
-        <div class="confirmation-icon">&#10003;</div>
-        <h1 class="confirmation-title">Booking Confirmed!</h1>
-        <p class="confirmation-subtitle">You're all set for {{ lecture.title }}</p>
+        <div class="confirmation-icon">&#127903;</div>
+        <h1 class="confirmation-title">Group Tickets</h1>
+        <p class="confirmation-subtitle">{{ lecture.title if lecture else "Event" }} &mdash; {{ bookings|length }} tickets</p>
 
         <div class="confirmation-details">
           <div class="detail-group">
@@ -16,52 +16,50 @@
             <p><strong>{{ lecture.title }}</strong></p>
             <p>{{ lecture.speaker }}</p>
             <p>{{ lecture.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</p>
+            {% if auditorium %}
             <p>{{ auditorium.name }}, {{ auditorium.location }}</p>
+            {% endif %}
+            {% if ticket_user %}
+            <p>Booked by: {{ ticket_user.full_name or ticket_user.username }}</p>
+            {% endif %}
           </div>
 
-          {% if bookings|length > 1 and bookings[0].group_qr_data %}
+          {% if bookings[0].group_qr_data %}
           <div class="detail-group" style="text-align:center">
             <h4>Group Check-in QR</h4>
             <p class="booking-ref-small">Scan to check in all {{ bookings|length }} tickets at once</p>
-            <img src="data:image/png;base64,{{ bookings[0].group_qr_data }}" alt="Group QR Code" class="ticket-qr" width="140" height="140" style="margin:.75rem auto">
-            {% if bookings[0].booking_group %}
-            <div style="margin-top:.5rem">
-              <a href="/tickets/group/{{ bookings[0].booking_group }}" class="btn btn-outline btn-sm">View Group Page</a>
-              <button type="button" class="btn btn-sm btn-outline" onclick="copyLink('/tickets/group/{{ bookings[0].booking_group }}', this)" style="margin-left:.25rem">&#128279; Copy Group Link</button>
-            </div>
-            {% endif %}
+            <img src="data:image/png;base64,{{ bookings[0].group_qr_data }}" alt="Group QR Code" class="ticket-qr" width="160" height="160" style="margin:.75rem auto">
           </div>
           {% endif %}
 
           <div class="detail-group">
-            <h4>Your Tickets</h4>
+            <h4>Tickets ({{ bookings|length }})</h4>
             {% for b in bookings %}
             <div class="ticket-card">
               <div class="ticket-card-info">
                 <span class="seat-label-chip">{{ seats[loop.index0].label }}{% if seats[loop.index0].seat_type != 'standard' %} <small>({{ seats[loop.index0].seat_type|upper }})</small>{% endif %}</span>
                 <span class="ticket-id">{{ b.ticket_id }}</span>
                 <span class="booking-ref-small">Ref: {{ b.booking_ref }} &middot; &#8377;{{ "%.0f"|format(b.amount_paid) }}</span>
+                {% if b.checked_in %}
+                <span class="badge badge-success" style="margin-top:.25rem">Checked In</span>
+                {% endif %}
               </div>
               <div class="ticket-card-actions">
                 {% if b.qr_code_data %}
-                <img src="data:image/png;base64,{{ b.qr_code_data }}" alt="QR Code" class="ticket-qr" width="100" height="100">
+                <img src="data:image/png;base64,{{ b.qr_code_data }}" alt="QR Code" class="ticket-qr" width="80" height="80">
                 {% endif %}
-                <button type="button" class="btn btn-sm btn-outline" onclick="copyLink('/ticket/{{ b.ticket_id }}', this)" title="Copy shareable link">&#128279; Share</button>
+                <a href="/ticket/{{ b.ticket_id }}" class="btn btn-outline btn-sm" style="margin-top:.35rem">View</a>
               </div>
             </div>
             {% endfor %}
           </div>
-
-          <div class="detail-group">
-            <h4>Total Paid</h4>
-            <p class="confirmation-total">&#8377;{{ "%.2f" | format(total) }}</p>
-            <p class="text-muted" style="font-size:.8rem">Cancellation policy: &#8377;100 fee, remainder refunded.</p>
-          </div>
         </div>
 
         <div class="confirmation-actions">
-          <a href="/booking/my" class="btn btn-primary">View My Bookings</a>
-          <a href="/sessions" class="btn btn-outline">Browse More Sessions</a>
+          <button type="button" class="btn btn-primary" onclick="copyGroupLink()">
+            &#128279; Copy Group Link
+          </button>
+          <a href="/sessions" class="btn btn-outline">Browse Sessions</a>
         </div>
       </div>
     </div>
@@ -71,11 +69,12 @@
 
 {% block scripts %}
 <script>
-function copyLink(path, btn) {
-  var url = window.location.origin + path;
+function copyGroupLink() {
+  var url = window.location.href;
   navigator.clipboard.writeText(url).then(function() {
+    var btn = document.querySelector('.confirmation-actions .btn-primary');
     var orig = btn.innerHTML;
-    btn.innerHTML = '&#10003; Copied!';
+    btn.innerHTML = '&#10003; Link Copied!';
     btn.classList.add('btn-success');
     setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('btn-success'); }, 2000);
   });

@@ -30,9 +30,11 @@
         </td>
         <td data-label="Joined">{{ u.created_at.strftime('%b %d, %Y') }}</td>
         <td data-label="Actions">
-          <form method="post" action="/admin/users/{{ u.id }}/toggle-admin" style="display:inline"
-                onsubmit="return confirm('Toggle admin status for {{ u.username }}?')">
-            <button type="submit" class="btn btn-sm btn-outline">
+          <form method="post" action="/admin/users/{{ u.id }}/toggle-admin" style="display:inline">
+            <button type="button" class="btn btn-sm btn-outline"
+              data-confirm="Toggle admin status for {{ u.username }}?"
+              data-confirm-label="{{ 'Remove Admin' if u.is_admin else 'Make Admin' }}"
+              data-confirm-class="btn-primary">
               {{ 'Remove Admin' if u.is_admin else 'Make Admin' }}
             </button>
           </form>

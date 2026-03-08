@@ -26,9 +26,8 @@
         <td>{{ sp.email or "—" }}</td>
         <td class="actions-cell">
           <a href="/admin/speakers/{{ sp.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
-          <form method="post" action="/admin/speakers/{{ sp.id }}/delete" style="display:inline"
-                onsubmit="return confirm('Delete this speaker?')">
-            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+          <form method="post" action="/admin/speakers/{{ sp.id }}/delete" style="display:inline">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this speaker?" data-confirm-label="Delete">Delete</button>
           </form>
         </td>
       </tr>
@@ -39,7 +38,7 @@
 {% else %}
 <div class="empty-state">
   <h3>No speakers yet</h3>
-  <p>Add speakers who will deliver TED-style talks at events.</p>
+  <p>Add speakers who will deliver talks at events.</p>
   <a href="/admin/speakers/new" class="btn btn-primary">Add Speaker</a>
 </div>
 {% endif %}

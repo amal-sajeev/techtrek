@@ -946,34 +946,90 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             _admin_ctx(request, active_page="checkin", sessions=sessions, result={"status": "error", "msg": "Please enter a ticket ID."}),
         )
 
-    query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
-    if session_id_raw:
-        try:
-            query = query.filter(Booking.session_id == int(session_id_raw))
-        except ValueError:
-            pass
-    booking = query.first()
+    is_group = ticket_id.startswith("GROUP-")
 
-    if not booking:
-        result = {"status": "error", "msg": f"Ticket '{ticket_id}' not found or not valid."}
-    elif booking.checked_in:
-        result = {"status": "warning", "msg": f"Ticket '{ticket_id}' was already checked in at {booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'}."}
+    if is_group:
+        group_id = ticket_id[6:]
+        group_query = db.query(Booking).filter(
+            Booking.booking_group == group_id,
+            Booking.payment_status == "paid",
+        )
+        if session_id_raw:
+            try:
+                group_query = group_query.filter(Booking.session_id == int(session_id_raw))
+            except ValueError:
+                pass
+        group_bookings = group_query.all()
+
+        if not group_bookings:
+            result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets."}
+        else:
+            now = datetime.now(timezone.utc)
+            newly_checked = []
+            already_checked = []
+            for gb in group_bookings:
+                if gb.checked_in:
+                    seat = db.query(Seat).get(gb.seat_id)
+                    already_checked.append(seat.label if seat else gb.ticket_id)
+                else:
+                    gb.checked_in = True
+                    gb.checked_in_at = now
+                    seat = db.query(Seat).get(gb.seat_id)
+                    newly_checked.append(seat.label if seat else gb.ticket_id)
+            db.commit()
+
+            user = db.query(User).get(group_bookings[0].user_id)
+            lecture = db.query(LectureSession).get(group_bookings[0].session_id)
+
+            if newly_checked and not already_checked:
+                msg = f"Group check-in successful! {len(newly_checked)} ticket(s) checked in."
+                status = "success"
+            elif newly_checked and already_checked:
+                msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in."
+                status = "success"
+            else:
+                msg = f"All {len(already_checked)} ticket(s) in this group were already checked in."
+                status = "warning"
+
+            result = {
+                "status": status,
+                "msg": msg,
+                "is_group": True,
+                "user_name": user.full_name or user.username if user else "Unknown",
+                "user_email": user.email if user else "",
+                "session_title": lecture.title if lecture else "",
+                "newly_checked": newly_checked,
+                "already_checked": already_checked,
+            }
     else:
-        booking.checked_in = True
-        booking.checked_in_at = datetime.now(timezone.utc)
-        db.commit()
-        user = db.query(User).get(booking.user_id)
-        seat = db.query(Seat).get(booking.seat_id)
-        lecture = db.query(LectureSession).get(booking.session_id)
-        result = {
-            "status": "success",
-            "msg": "Check-in successful!",
-            "user_name": user.full_name or user.username if user else "Unknown",
-            "user_email": user.email if user else "",
-            "seat_label": seat.label if seat else "",
-            "session_title": lecture.title if lecture else "",
-            "ticket_id": ticket_id,
-        }
+        query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
+        if session_id_raw:
+            try:
+                query = query.filter(Booking.session_id == int(session_id_raw))
+            except ValueError:
+                pass
+        booking = query.first()
+
+        if not booking:
+            result = {"status": "error", "msg": f"Ticket '{ticket_id}' not found or not valid."}
+        elif booking.checked_in:
+            result = {"status": "warning", "msg": f"Ticket '{ticket_id}' was already checked in at {booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'}."}
+        else:
+            booking.checked_in = True
+            booking.checked_in_at = datetime.now(timezone.utc)
+            db.commit()
+            user = db.query(User).get(booking.user_id)
+            seat = db.query(Seat).get(booking.seat_id)
+            lecture = db.query(LectureSession).get(booking.session_id)
+            result = {
+                "status": "success",
+                "msg": "Check-in successful!",
+                "user_name": user.full_name or user.username if user else "Unknown",
+                "user_email": user.email if user else "",
+                "seat_label": seat.label if seat else "",
+                "session_title": lecture.title if lecture else "",
+                "ticket_id": ticket_id,
+            }
 
     # Live stats for the selected session
     stats = None

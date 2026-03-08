@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}Ticket {{ booking.ticket_id }} — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="confirmation-layout">
+      <div class="confirmation-card">
+        <div class="confirmation-icon">&#127915;</div>
+        <h1 class="confirmation-title">TechTrek Ticket</h1>
+        <p class="confirmation-subtitle">{{ lecture.title if lecture else "Event" }}</p>
+
+        <div class="confirmation-details">
+          <div class="detail-group">
+            <h4>Event Details</h4>
+            <p><strong>{{ lecture.title }}</strong></p>
+            <p>{{ lecture.speaker }}</p>
+            <p>{{ lecture.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</p>
+            {% if auditorium %}
+            <p>{{ auditorium.name }}, {{ auditorium.location }}</p>
+            {% endif %}
+          </div>
+
+          <div class="detail-group">
+            <h4>Ticket Info</h4>
+            <div class="ticket-card">
+              <div class="ticket-card-info">
+                <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
+                <span class="ticket-id">{{ booking.ticket_id }}</span>
+                <span class="booking-ref-small">Ref: {{ booking.booking_ref }} &middot; &#8377;{{ "%.0f"|format(booking.amount_paid) }}</span>
+                {% if ticket_user %}
+                <span class="booking-ref-small">Booked by: {{ ticket_user.full_name or ticket_user.username }}</span>
+                {% endif %}
+              </div>
+              {% if booking.qr_code_data %}
+              <img src="data:image/png;base64,{{ booking.qr_code_data }}" alt="QR Code for {{ booking.ticket_id }}" class="ticket-qr" width="120" height="120">
+              {% endif %}
+            </div>
+            {% if booking.checked_in %}
+            <p style="margin-top:.75rem"><span class="badge badge-success">Checked In</span></p>
+            {% endif %}
+          </div>
+
+          {% if group_bookings|length > 1 %}
+          <div class="detail-group">
+            <h4>Part of Group Order ({{ group_bookings|length }} tickets)</h4>
+            <div class="ticket-group-list">
+              {% for gb in group_bookings %}
+              {% set gb_seat = namespace() %}
+              <a href="/ticket/{{ gb.ticket_id }}" class="ticket-group-item {% if gb.ticket_id == booking.ticket_id %}ticket-group-current{% endif %}">
+                <span class="ticket-id">{{ gb.ticket_id }}</span>
+              </a>
+              {% endfor %}
+            </div>
+            {% if booking.group_qr_data %}
+            <a href="/tickets/group/{{ booking.booking_group }}" class="btn btn-outline btn-sm" style="margin-top:.75rem">View Group Tickets</a>
+            {% endif %}
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="confirmation-actions">
+          <button type="button" class="btn btn-primary" onclick="copyTicketLink()">
+            &#128279; Copy Ticket Link
+          </button>
+          <a href="/sessions" class="btn btn-outline">Browse Sessions</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyTicketLink() {
+  var url = window.location.href;
+  navigator.clipboard.writeText(url).then(function() {
+    var btn = document.querySelector('.confirmation-actions .btn-primary');
+    var orig = btn.innerHTML;
+    btn.innerHTML = '&#10003; Link Copied!';
+    btn.classList.add('btn-success');
+    setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('btn-success'); }, 2000);
+  });
+}
+</script>
+{% endblock %}

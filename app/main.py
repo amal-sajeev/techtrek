@@ -28,6 +28,12 @@ with engine.connect() as conn:
             conn.commit()
         except Exception:
             conn.rollback()
+    for col, col_type in [("booking_group", "VARCHAR(20)"), ("group_qr_data", "TEXT")]:
+        try:
+            conn.execute(text(f"ALTER TABLE bookings ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 from app.routers import auth, public, booking, admin  # noqa: E402
 

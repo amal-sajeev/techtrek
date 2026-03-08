@@ -470,11 +470,12 @@
   }
 
   function clearAll() {
-    if (!confirm("Clear all seats, aisles, and gaps?")) return;
-    grid = {};
-    rowGaps = {};
-    colGaps = {};
-    renderGrid();
+    openConfirm("Clear all seats, aisles, and gaps?", function() {
+      grid = {};
+      rowGaps = {};
+      colGaps = {};
+      renderGrid();
+    }, { confirmLabel: "Clear All" });
   }
 
   function addCenterAisle() {
@@ -503,15 +504,23 @@
     for (var c = 1; c <= cols; c++) {
       if (grid[rows + "-" + c]) { hasSeats = true; break; }
     }
-    if (hasSeats && !confirm("Row " + rowLetter(rows) + " has seats. Remove it anyway?")) return;
-    for (var c = 1; c <= cols; c++) {
-      setCell(rows, c, null);
+    if (hasSeats) {
+      openConfirm("Row " + rowLetter(rows) + " has seats. Remove it anyway?", function() {
+        doRemoveRow();
+      }, { confirmLabel: "Remove" });
+      return;
     }
-    delete rowGaps[rows];
-    delete rowGaps[rows - 1];
-    rows -= 1;
-    updateGridSizeDisplay();
-    renderGrid();
+    doRemoveRow();
+    function doRemoveRow() {
+      for (var c2 = 1; c2 <= cols; c2++) {
+        setCell(rows, c2, null);
+      }
+      delete rowGaps[rows];
+      delete rowGaps[rows - 1];
+      rows -= 1;
+      updateGridSizeDisplay();
+      renderGrid();
+    }
   }
 
   function removeColumn() {
@@ -520,17 +529,25 @@
     for (var r = 1; r <= rows; r++) {
       if (grid[r + "-" + cols]) { hasSeats = true; break; }
     }
-    if (hasSeats && !confirm("Column " + cols + " has seats. Remove it anyway?")) return;
-    for (var r = 1; r <= rows; r++) {
-      setCell(r, cols, null);
+    if (hasSeats) {
+      openConfirm("Column " + cols + " has seats. Remove it anyway?", function() {
+        doRemoveCol();
+      }, { confirmLabel: "Remove" });
+      return;
     }
-    delete colGaps[cols];
-    delete colGaps[cols - 1];
-    cols -= 1;
-    if (stageCols > cols) stageCols = cols;
-    updateGridSizeDisplay();
-    updateStageWidthControl();
-    renderGrid();
+    doRemoveCol();
+    function doRemoveCol() {
+      for (var r2 = 1; r2 <= rows; r2++) {
+        setCell(r2, cols, null);
+      }
+      delete colGaps[cols];
+      delete colGaps[cols - 1];
+      cols -= 1;
+      if (stageCols > cols) stageCols = cols;
+      updateGridSizeDisplay();
+      updateStageWidthControl();
+      renderGrid();
+    }
   }
 
   /* ---- Insert / delete rows & columns at arbitrary positions ---- */
@@ -574,29 +591,37 @@
     for (var c = 1; c <= cols; c++) {
       if (grid[pos + "-" + c]) { hasSeats = true; break; }
     }
-    if (hasSeats && !confirm("Row " + rowLetter(pos) + " has seats. Delete it?")) return;
-    var newGrid = {};
-    Object.keys(grid).forEach(function (key) {
-      var s = grid[key];
-      if (s.row === pos) return;
-      if (s.row > pos) {
-        var nr = s.row - 1;
-        newGrid[nr + "-" + s.col] = rebuildEntry(s, nr, s.col);
-      } else {
-        newGrid[key] = s;
-      }
-    });
-    grid = newGrid;
-    var newGaps = {};
-    Object.keys(rowGaps).forEach(function (k) {
-      var g = parseInt(k, 10);
-      if (g === pos || g === rows) return;
-      newGaps[g > pos ? g - 1 : g] = true;
-    });
-    rowGaps = newGaps;
-    rows -= 1;
-    updateGridSizeDisplay();
-    renderGrid();
+    if (hasSeats) {
+      openConfirm("Row " + rowLetter(pos) + " has seats. Delete it?", function() {
+        doDeleteRow();
+      }, { confirmLabel: "Delete" });
+      return;
+    }
+    doDeleteRow();
+    function doDeleteRow() {
+      var newGrid = {};
+      Object.keys(grid).forEach(function (key) {
+        var s = grid[key];
+        if (s.row === pos) return;
+        if (s.row > pos) {
+          var nr = s.row - 1;
+          newGrid[nr + "-" + s.col] = rebuildEntry(s, nr, s.col);
+        } else {
+          newGrid[key] = s;
+        }
+      });
+      grid = newGrid;
+      var newGaps = {};
+      Object.keys(rowGaps).forEach(function (k) {
+        var g = parseInt(k, 10);
+        if (g === pos || g === rows) return;
+        newGaps[g > pos ? g - 1 : g] = true;
+      });
+      rowGaps = newGaps;
+      rows -= 1;
+      updateGridSizeDisplay();
+      renderGrid();
+    }
   }
 
   function insertColAt(pos) {
@@ -630,31 +655,39 @@
     for (var r = 1; r <= rows; r++) {
       if (grid[r + "-" + pos]) { hasSeats = true; break; }
     }
-    if (hasSeats && !confirm("Column " + pos + " has seats. Delete it?")) return;
-    var newGrid = {};
-    Object.keys(grid).forEach(function (key) {
-      var s = grid[key];
-      if (s.col === pos) return;
-      if (s.col > pos) {
-        var nc = s.col - 1;
-        newGrid[s.row + "-" + nc] = rebuildEntry(s, s.row, nc);
-      } else {
-        newGrid[key] = s;
-      }
-    });
-    grid = newGrid;
-    var newGaps = {};
-    Object.keys(colGaps).forEach(function (k) {
-      var g = parseInt(k, 10);
-      if (g === pos || g === cols) return;
-      newGaps[g > pos ? g - 1 : g] = true;
-    });
-    colGaps = newGaps;
-    cols -= 1;
-    if (stageCols > cols) stageCols = cols;
-    updateGridSizeDisplay();
-    updateStageWidthControl();
-    renderGrid();
+    if (hasSeats) {
+      openConfirm("Column " + pos + " has seats. Delete it?", function() {
+        doDeleteCol();
+      }, { confirmLabel: "Delete" });
+      return;
+    }
+    doDeleteCol();
+    function doDeleteCol() {
+      var newGrid = {};
+      Object.keys(grid).forEach(function (key) {
+        var s = grid[key];
+        if (s.col === pos) return;
+        if (s.col > pos) {
+          var nc = s.col - 1;
+          newGrid[s.row + "-" + nc] = rebuildEntry(s, s.row, nc);
+        } else {
+          newGrid[key] = s;
+        }
+      });
+      grid = newGrid;
+      var newGaps = {};
+      Object.keys(colGaps).forEach(function (k) {
+        var g = parseInt(k, 10);
+        if (g === pos || g === cols) return;
+        newGaps[g > pos ? g - 1 : g] = true;
+      });
+      colGaps = newGaps;
+      cols -= 1;
+      if (stageCols > cols) stageCols = cols;
+      updateGridSizeDisplay();
+      updateStageWidthControl();
+      renderGrid();
+    }
   }
 
   /* ---- Context menu for row / column labels ---- */
