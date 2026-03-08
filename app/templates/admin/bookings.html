@@ -1,0 +1,61 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Bookings — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Bookings</h1>
+</div>
+
+{% if bookings %}
+<div class="table-responsive">
+  <table class="table table-cards-mobile">
+    <thead>
+      <tr>
+        <th>Ref</th>
+        <th>User</th>
+        <th>Session</th>
+        <th>Seat</th>
+        <th>Status</th>
+        <th>Booked</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in bookings %}
+      <tr>
+        <td data-label="Ref"><code>{{ item.booking.booking_ref }}</code></td>
+        <td data-label="User">{{ item.user.username if item.user else 'N/A' }}</td>
+        <td data-label="Session">{{ item.session.title if item.session else 'N/A' }}</td>
+        <td data-label="Seat">{{ item.seat.label if item.seat else 'N/A' }}</td>
+        <td data-label="Status">
+          <span class="badge badge-{% if item.booking.payment_status == 'paid' %}available{% elif item.booking.payment_status == 'hold' %}filling-up{% else %}draft{% endif %}">
+            {{ item.booking.payment_status }}
+          </span>
+        </td>
+        <td data-label="Booked">{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else '' }}</td>
+        <td data-label="Actions" class="actions-cell">
+          {% if item.booking.payment_status == 'paid' %}
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline"
+                onsubmit="return confirm('Refund this booking?')">
+            <button type="submit" class="btn btn-sm btn-outline">Refund</button>
+          </form>
+          {% endif %}
+          {% if item.booking.payment_status in ['paid', 'hold'] %}
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline"
+                onsubmit="return confirm('Cancel this booking?')">
+            <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No bookings yet</h3>
+  <p>Bookings will appear here once users start purchasing seats.</p>
+</div>
+{% endif %}
+{% endblock %}

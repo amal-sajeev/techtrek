@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-wrapper">
+  <!-- Mobile sidebar toggle -->
+  <button id="admin-sidebar-toggle" class="admin-sidebar-toggle hamburger" aria-label="Admin menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="admin-overlay" id="admin-overlay"></div>
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar" id="admin-sidebar">
+    <div class="admin-sidebar-header">
+      <span class="brand-icon">&#9881;</span> Admin Panel
+    </div>
+    <nav class="admin-nav">
+      <a href="/admin/" class="admin-nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">&#128200;</span> Dashboard
+      </a>
+      <a href="/admin/auditoriums" class="admin-nav-link {% if active_page == 'auditoriums' %}active{% endif %}">
+        <span class="nav-icon">&#127963;</span> Auditoriums
+      </a>
+      <a href="/admin/sessions" class="admin-nav-link {% if active_page == 'sessions' %}active{% endif %}">
+        <span class="nav-icon">&#127908;</span> Sessions
+      </a>
+      <a href="/admin/bookings" class="admin-nav-link {% if active_page == 'bookings' %}active{% endif %}">
+        <span class="nav-icon">&#127915;</span> Bookings
+      </a>
+      <a href="/admin/waitlist" class="admin-nav-link {% if active_page == 'waitlist' %}active{% endif %}">
+        <span class="nav-icon">&#128221;</span> Waitlist
+      </a>
+      <a href="/admin/users" class="admin-nav-link {% if active_page == 'users' %}active{% endif %}">
+        <span class="nav-icon">&#128101;</span> Users
+      </a>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <a href="/" class="admin-nav-link">
+        <span class="nav-icon">&#8592;</span> Back to Site
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content area -->
+  <div class="admin-main">
+    {% block admin_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

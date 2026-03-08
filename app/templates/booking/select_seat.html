@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Select Seats — {{ lecture.title }} — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="/sessions">Sessions</a>
+      <span>/</span>
+      <a href="/sessions/{{ lecture.id }}">{{ lecture.title }}</a>
+      <span>/</span>
+      <span>Select Seats</span>
+    </div>
+
+    <h1 class="page-title">Choose Your Seats</h1>
+    <p class="page-subtitle">{{ lecture.title }} &mdash; {{ auditorium.name }}</p>
+
+    <div class="seat-booking-layout">
+      <!-- Seat Map -->
+      <div class="seat-map-wrapper">
+        <div class="seat-stage">
+          <span>STAGE</span>
+        </div>
+        <div class="seat-map-container">
+          <div class="seat-map" id="seat-map"></div>
+        </div>
+        <div class="seat-legend">
+          <div class="legend-item"><span class="legend-swatch legend-available"></span> Available</div>
+          <div class="legend-item"><span class="legend-swatch legend-selected"></span> Selected</div>
+          <div class="legend-item"><span class="legend-swatch legend-taken"></span> Taken</div>
+          <div class="legend-item"><span class="legend-swatch legend-vip"></span> VIP</div>
+          <div class="legend-item"><span class="legend-swatch legend-accessible"></span> Accessible</div>
+        </div>
+      </div>
+
+      <!-- Booking Summary (sidebar on desktop, bottom sheet on mobile) -->
+      <div class="booking-summary" id="booking-summary">
+        <h3 class="summary-title">Your Selection</h3>
+        <div class="summary-session">{{ lecture.title }}</div>
+        <div class="summary-count"><span id="selected-count">0</span> seat(s) selected</div>
+
+        <ul class="selected-list" id="selected-list"></ul>
+
+        <div class="summary-total">
+          <span>Total</span>
+          <span id="selected-total">$0.00</span>
+        </div>
+
+        <form method="post" action="/booking/hold/{{ lecture.id }}">
+          <input type="hidden" name="seat_ids" id="seat-ids-input" value="">
+          <button type="submit" id="confirm-seats-btn" class="btn btn-primary btn-lg btn-block" disabled>
+            Continue to Checkout
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/seat-picker.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var seatData = {{ seat_map_json | safe }};
+    SeatPicker.init(seatData, {{ price }}, {{ lecture.id }});
+  });
+</script>
+{% endblock %}

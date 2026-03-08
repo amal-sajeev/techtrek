@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}{{ lecture.title }} — TechTrek{% endblock %}
+
+{% block content %}
+{% set img_pool = [
+  'photo-1591115765373-5207764f72e7',
+  'photo-1505373877841-8d25f7d46678',
+  'photo-1558494949-ef010cbdcc31',
+  'photo-1517245386807-bb43f82c33c4',
+  'photo-1488229297570-58520851e868',
+  'photo-1550751827-4bd374c3f58b',
+  'photo-1496181133206-80ce9b88a853',
+  'photo-1573164713714-d95e436ab8d1'
+] %}
+{% set img_id = img_pool[lecture.id % 8] %}
+
+<section class="section">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="/sessions">Sessions</a>
+      <span>/</span>
+      <span>{{ lecture.title }}</span>
+    </div>
+
+    <img
+      class="session-banner reveal"
+      src="https://images.unsplash.com/{{ img_id }}?w=1400&auto=format&fit=crop&q=80"
+      alt="{{ lecture.title }}">
+
+    <div class="session-detail">
+      <div class="session-detail-main">
+        <h1 class="session-detail-title">{{ lecture.title }}</h1>
+        <p class="session-detail-speaker">// {{ lecture.speaker }}</p>
+
+        {% if lecture.description %}
+        <div class="session-detail-desc">
+          {{ lecture.description }}
+        </div>
+        {% endif %}
+
+        <div class="session-detail-info stagger">
+          <div class="info-item">
+            <span class="info-label">Date</span>
+            <span class="info-value">{{ lecture.start_time.strftime('%A, %B %d, %Y') }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Time</span>
+            <span class="info-value">{{ lecture.start_time.strftime('%I:%M %p') }} ({{ lecture.duration_minutes }} min)</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Venue</span>
+            <span class="info-value">{{ auditorium.name }}, {{ auditorium.location }}</span>
+          </div>
+          <div class="info-item">
+            <span class="info-label">Price</span>
+            <span class="info-value session-price">${{ "%.2f" | format(lecture.price) }}</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="session-detail-sidebar">
+        <div class="booking-box">
+          <div class="booking-box-header">
+            <span class="booking-box-price">${{ "%.2f" | format(lecture.price) }}</span>
+            <span class="booking-box-per">per seat</span>
+          </div>
+
+          <div class="booking-box-stats">
+            <div class="stat-row">
+              <span>Available</span>
+              <span class="stat-value">{{ stats.available }} / {{ stats.total }}</span>
+            </div>
+            <div class="availability-bar">
+              {% set pct = ((stats.booked / stats.total) * 100) if stats.total > 0 else 0 %}
+              <div class="availability-fill" style="width: {{ pct }}%"></div>
+            </div>
+          </div>
+
+          {% if availability == 'sold-out' %}
+            <span class="badge badge-sold-out badge-lg">Sold Out</span>
+            {% if user %}
+              {% if on_waitlist %}
+                <p class="booking-box-note">You're on the waitlist. We'll notify you if spots open.</p>
+              {% else %}
+                <form method="post" action="/booking/waitlist/{{ lecture.id }}">
+                  <button type="submit" class="btn btn-outline btn-lg btn-block mt-3">Join Waitlist</button>
+                </form>
+              {% endif %}
+            {% else %}
+              <p class="booking-box-note mt-2"><a href="/auth/login?next=/sessions/{{ lecture.id }}">Sign in</a> to join the waitlist.</p>
+            {% endif %}
+
+          {% elif availability == 'priority-only' %}
+            <span class="badge badge-priority-only badge-lg">Priority Booking</span>
+            {% if has_priority %}
+              <a href="/booking/select/{{ lecture.id }}" class="btn btn-primary btn-lg btn-block mt-3">Book Now (Priority)</a>
+            {% else %}
+              <p class="booking-box-note mt-2">Open to waitlisted members only. General booking opens soon.</p>
+            {% endif %}
+
+          {% else %}
+            <span class="badge badge-{{ availability }} badge-lg">{{ availability | replace('-', ' ') | title }}</span>
+            {% if user %}
+              <a href="/booking/select/{{ lecture.id }}" class="btn btn-primary btn-lg btn-block mt-3">Book Now</a>
+            {% else %}
+              <a href="/auth/login?next=/sessions/{{ lecture.id }}" class="btn btn-primary btn-lg btn-block mt-3">Sign In to Book</a>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Checkout — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="checkout-layout">
+      <div class="checkout-box">
+        <h1 class="page-title">Checkout</h1>
+
+        <div class="checkout-timer">
+          <span class="timer-icon">&#9200;</span>
+          Seats held for <strong><span id="countdown">{{ time_left }}</span>s</strong>
+        </div>
+
+        <div class="checkout-details">
+          <h3>{{ lecture.title }}</h3>
+          <p class="text-secondary">{{ lecture.speaker }}</p>
+          <p>{{ lecture.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</p>
+        </div>
+
+        <div class="checkout-seats">
+          <h4>Selected Seats ({{ booking_count }})</h4>
+          <div class="checkout-seat-list">
+            {% for seat in seats %}
+            <span class="seat-label-chip">{{ seat.label }}</span>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="checkout-summary">
+          <div class="checkout-line">
+            <span>{{ booking_count }} x ${{ "%.2f" | format(lecture.price) }}</span>
+            <span>${{ "%.2f" | format(total) }}</span>
+          </div>
+          <div class="checkout-line checkout-total">
+            <span>Total</span>
+            <span>${{ "%.2f" | format(total) }}</span>
+          </div>
+        </div>
+
+        <form method="post" action="/booking/pay/{{ lecture.id }}">
+          <button type="submit" class="btn btn-primary btn-lg btn-block">
+            Pay ${{ "%.2f" | format(total) }}
+          </button>
+        </form>
+
+        <p class="checkout-note">This is a simulated payment. No real charges will be made.</p>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var remaining = {{ time_left }};
+  var el = document.getElementById('countdown');
+  var timer = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(timer);
+      el.textContent = '0';
+      window.location.href = '/booking/select/{{ lecture.id }}';
+      return;
+    }
+    var m = Math.floor(remaining / 60);
+    var s = remaining % 60;
+    el.textContent = (m > 0 ? m + 'm ' : '') + s + 's';
+  }, 1000);
+  var m0 = Math.floor(remaining / 60);
+  var s0 = remaining % 60;
+  el.textContent = (m0 > 0 ? m0 + 'm ' : '') + s0 + 's';
+})();
+</script>
+{% endblock %}

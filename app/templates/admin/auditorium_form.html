@@ -1,0 +1,48 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Edit' if auditorium else 'New' }} Auditorium — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">{{ 'Edit' if auditorium else 'New' }} Auditorium</h1>
+</div>
+
+<div class="form-card">
+  <form method="post" action="{{ '/admin/auditoriums/' ~ auditorium.id ~ '/edit' if auditorium else '/admin/auditoriums/new' }}">
+    <div class="form-group">
+      <label for="name" class="form-label">Name</label>
+      <input type="text" id="name" name="name" class="form-input"
+             value="{{ auditorium.name if auditorium else '' }}" required placeholder="Main Hall">
+    </div>
+
+    <div class="form-group">
+      <label for="location" class="form-label">Location</label>
+      <input type="text" id="location" name="location" class="form-input"
+             value="{{ auditorium.location if auditorium else '' }}" required placeholder="123 Tech Avenue, San Francisco">
+    </div>
+
+    <div class="form-group">
+      <label for="description" class="form-label">Description</label>
+      <textarea id="description" name="description" class="form-input" rows="3"
+                placeholder="Describe the venue...">{{ auditorium.description if auditorium else '' }}</textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="total_rows" class="form-label">Rows</label>
+        <input type="number" id="total_rows" name="total_rows" class="form-input"
+               value="{{ auditorium.total_rows if auditorium else 10 }}" min="1" max="50" required>
+      </div>
+      <div class="form-group">
+        <label for="total_cols" class="form-label">Columns</label>
+        <input type="number" id="total_cols" name="total_cols" class="form-input"
+               value="{{ auditorium.total_cols if auditorium else 15 }}" min="1" max="50" required>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ 'Update' if auditorium else 'Create' }} Auditorium</button>
+      <a href="/admin/auditoriums" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,50 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Users — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Users</h1>
+</div>
+
+{% if users %}
+<div class="table-responsive">
+  <table class="table table-cards-mobile">
+    <thead>
+      <tr>
+        <th>Username</th>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Joined</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for u in users %}
+      <tr>
+        <td data-label="Username"><strong>{{ u.username }}</strong></td>
+        <td data-label="Email">{{ u.email }}</td>
+        <td data-label="Role">
+          <span class="badge badge-{% if u.is_admin %}filling-up{% else %}draft{% endif %}">
+            {{ 'Admin' if u.is_admin else 'User' }}
+          </span>
+        </td>
+        <td data-label="Joined">{{ u.created_at.strftime('%b %d, %Y') }}</td>
+        <td data-label="Actions">
+          <form method="post" action="/admin/users/{{ u.id }}/toggle-admin" style="display:inline"
+                onsubmit="return confirm('Toggle admin status for {{ u.username }}?')">
+            <button type="submit" class="btn btn-sm btn-outline">
+              {{ 'Remove Admin' if u.is_admin else 'Make Admin' }}
+            </button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No users yet</h3>
+</div>
+{% endif %}
+{% endblock %}

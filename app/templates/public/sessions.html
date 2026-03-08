@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block title %}Sessions — TechTrek{% endblock %}
+
+{% block content %}
+{% set img_pool = [
+  'photo-1591115765373-5207764f72e7',
+  'photo-1505373877841-8d25f7d46678',
+  'photo-1558494949-ef010cbdcc31',
+  'photo-1517245386807-bb43f82c33c4',
+  'photo-1488229297570-58520851e868',
+  'photo-1550751827-4bd374c3f58b',
+  'photo-1496181133206-80ce9b88a853',
+  'photo-1573164713714-d95e436ab8d1'
+] %}
+
+<section class="section">
+  <div class="container">
+    <h1 class="page-title reveal">Upcoming Sessions</h1>
+
+    <form class="filter-bar reveal" method="get" action="/sessions">
+      <div class="filter-search">
+        <input type="text" name="q" class="form-input" placeholder="Search by title or speaker..." value="{{ q }}">
+      </div>
+      <div class="filter-sort">
+        <select name="sort" class="form-input" onchange="this.form.submit()">
+          <option value="date"  {% if sort == 'date'  %}selected{% endif %}>Sort by Date</option>
+          <option value="price" {% if sort == 'price' %}selected{% endif %}>Sort by Price</option>
+          <option value="title" {% if sort == 'title' %}selected{% endif %}>Sort by Title</option>
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary">Search</button>
+    </form>
+
+    {% if sessions %}
+    <div class="session-grid stagger">
+      {% for item in sessions %}
+      {% set img_id = img_pool[item.session.id % 8] %}
+      <a href="/sessions/{{ item.session.id }}" class="card card-hover">
+        <div class="card-image">
+          <img
+            src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
+            alt="{{ item.session.title }}"
+            loading="lazy">
+          <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">{{ item.session.title }}</h3>
+          <p class="card-meta">// {{ item.session.speaker }}</p>
+          <div class="card-details">
+            <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
+            <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
+            {% if item.auditorium %}
+            <span class="card-detail">&#128205; {{ item.auditorium.location }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="card-price">${{ "%.2f" | format(item.session.price) }}</span>
+          <span class="card-seats">{{ item.stats.available }} seats left</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state reveal">
+      <h3>No sessions found</h3>
+      <p>{% if q %}No results for "{{ q }}". Try a different search.{% else %}Check back soon for new sessions!{% endif %}</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

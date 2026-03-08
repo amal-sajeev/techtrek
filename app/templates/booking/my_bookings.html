@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}My Bookings — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <h1 class="page-title">My Bookings</h1>
+
+    {% if bookings %}
+    <div class="bookings-list">
+      {% for item in bookings %}
+      <div class="booking-card">
+        <div class="booking-card-main">
+          <h3 class="booking-card-title">{{ item.lecture.title }}</h3>
+          <p class="booking-card-meta">{{ item.lecture.speaker }}</p>
+          <div class="booking-card-details">
+            <span>&#128197; {{ item.lecture.start_time.strftime('%b %d, %Y at %I:%M %p') }}</span>
+            {% if item.auditorium %}
+            <span>&#128205; {{ item.auditorium.name }}, {{ item.auditorium.location }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="booking-card-side">
+          <span class="seat-label-chip">{{ item.seat.label }}</span>
+          <span class="booking-ref-small">Ref: {{ item.booking.booking_ref }}</span>
+          <span class="badge badge-available">Confirmed</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <h3>No bookings yet</h3>
+      <p>Browse sessions and book your seat!</p>
+      <a href="/sessions" class="btn btn-primary">Browse Sessions</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

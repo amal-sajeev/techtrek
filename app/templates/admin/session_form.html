@@ -1,0 +1,77 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Edit' if lecture else 'New' }} Session — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">{{ 'Edit' if lecture else 'New' }} Session</h1>
+</div>
+
+<div class="form-card">
+  <form method="post" action="{{ '/admin/sessions/' ~ lecture.id ~ '/edit' if lecture else '/admin/sessions/new' }}">
+    <div class="form-group">
+      <label for="title" class="form-label">Title</label>
+      <input type="text" id="title" name="title" class="form-input"
+             value="{{ lecture.title if lecture else '' }}" required placeholder="Introduction to Machine Learning">
+    </div>
+
+    <div class="form-group">
+      <label for="speaker" class="form-label">Speaker</label>
+      <input type="text" id="speaker" name="speaker" class="form-input"
+             value="{{ lecture.speaker if lecture else '' }}" required placeholder="Dr. Jane Smith">
+    </div>
+
+    <div class="form-group">
+      <label for="description" class="form-label">Description</label>
+      <textarea id="description" name="description" class="form-input" rows="4"
+                placeholder="Describe the session content...">{{ lecture.description if lecture else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label for="auditorium_id" class="form-label">Auditorium</label>
+      <select id="auditorium_id" name="auditorium_id" class="form-input" required>
+        <option value="">Select an auditorium</option>
+        {% for aud in auditoriums %}
+        <option value="{{ aud.id }}" {% if lecture and lecture.auditorium_id == aud.id %}selected{% endif %}>
+          {{ aud.name }} — {{ aud.location }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="start_time" class="form-label">Start Date &amp; Time</label>
+        <input type="datetime-local" id="start_time" name="start_time" class="form-input"
+               value="{{ lecture.start_time.strftime('%Y-%m-%dT%H:%M') if lecture else '' }}" required>
+      </div>
+      <div class="form-group">
+        <label for="duration_minutes" class="form-label">Duration (min)</label>
+        <input type="number" id="duration_minutes" name="duration_minutes" class="form-input"
+               value="{{ lecture.duration_minutes if lecture else 30 }}" min="10" max="180" step="5">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label for="price" class="form-label">Price ($)</label>
+        <input type="number" id="price" name="price" class="form-input"
+               value="{{ lecture.price if lecture else '10.00' }}" min="0" step="0.01" required>
+      </div>
+      <div class="form-group">
+        <label for="status" class="form-label">Status</label>
+        <select id="status" name="status" class="form-input">
+          {% set statuses = ['draft', 'published', 'sold_out', 'completed', 'cancelled'] %}
+          {% for s in statuses %}
+          <option value="{{ s }}" {% if lecture and lecture.status == s %}selected{% endif %}>{{ s | replace('_', ' ') | title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ 'Update' if lecture else 'Create' }} Session</button>
+      <a href="/admin/sessions" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

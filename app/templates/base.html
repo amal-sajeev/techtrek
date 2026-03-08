@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}TechTrek{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=6">
+  <script>
+    (function(){
+      var t = localStorage.getItem('techtrek-theme');
+      if (t === 'light') document.documentElement.setAttribute('data-theme','light');
+    })();
+  </script>
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+
+<!-- Starfield Canvas -->
+<canvas id="starfield"></canvas>
+
+<!-- Navbar -->
+<nav class="navbar" id="navbar">
+  <div class="container navbar-inner">
+    <a href="/" class="navbar-brand">
+      <span class="brand-lightning">&#9889;</span> TECHTREK
+    </a>
+
+    <div class="navbar-links" id="navbar-links">
+      <a href="/" class="nav-link">Home</a>
+      <a href="/sessions" class="nav-link">Sessions</a>
+      {% if user %}
+          <a href="/booking/my" class="nav-link">My Bookings</a>
+        {% if user.is_admin %}
+          <a href="/admin/" class="nav-link nav-admin">Admin</a>
+        {% endif %}
+      {% endif %}
+    </div>
+
+    <div class="navbar-actions">
+      <button id="theme-toggle" class="btn-icon theme-toggle" aria-label="Toggle theme">
+        <span class="icon-sun">&#9788;</span>
+        <span class="icon-moon">&#9790;</span>
+      </button>
+      {% if user %}
+        <span class="nav-user">{{ user.username }}</span>
+        <a href="/auth/logout" class="btn btn-outline btn-sm">Logout</a>
+      {% else %}
+        <a href="/auth/login" class="btn btn-outline btn-sm">Login</a>
+        <a href="/auth/register" class="btn btn-primary btn-sm">Sign Up</a>
+      {% endif %}
+    </div>
+
+    <button id="nav-toggle" class="hamburger" aria-label="Menu">
+      <span></span><span></span><span></span>
+    </button>
+  </div>
+</nav>
+
+<!-- Mobile drawer -->
+<div class="nav-overlay" id="nav-overlay"></div>
+<div class="nav-drawer" id="nav-drawer">
+  <div class="nav-drawer-header">&#9889; TECHTREK</div>
+  <a href="/" class="nav-drawer-link">Home</a>
+  <a href="/sessions" class="nav-drawer-link">Sessions</a>
+  {% if user %}
+      <a href="/booking/my" class="nav-drawer-link">My Bookings</a>
+    {% if user.is_admin %}
+      <a href="/admin/" class="nav-drawer-link">Admin Panel</a>
+    {% endif %}
+    <hr class="nav-drawer-divider">
+    <span class="nav-drawer-user">Signed in as <strong>{{ user.username }}</strong></span>
+    <a href="/auth/logout" class="nav-drawer-link">Logout</a>
+  {% else %}
+    <hr class="nav-drawer-divider">
+    <a href="/auth/login" class="nav-drawer-link">Login</a>
+    <a href="/auth/register" class="nav-drawer-link">Sign Up</a>
+  {% endif %}
+</div>
+
+<!-- Flash messages -->
+{% if flashes %}
+<div class="flash-container">
+  {% for flash in flashes %}
+  <div class="flash-message flash-{{ flash.category }}">
+    <span>{{ flash.message }}</span>
+    <button class="flash-close">&times;</button>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Main content -->
+<main class="main-content">
+  {% block content %}{% endblock %}
+</main>
+
+<!-- Footer -->
+<footer class="footer">
+  <div class="container">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span>&#9889; TECHTREK</span>
+        <p class="footer-tagline">// tech lectures, live and unforgettable.</p>
+      </div>
+      <div class="footer-links">
+        <a href="/">Home</a>
+        <a href="/sessions">Sessions</a>
+        <a href="/auth/login">Login</a>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <p>&copy; 2026 TechTrek. All systems operational.</p>
+    </div>
+  </div>
+</footer>
+
+<!-- Confirm modal -->
+<div class="modal-wrapper" id="confirm-modal">
+  <div class="modal-backdrop"></div>
+  <div class="modal-dialog">
+    <div class="modal-body">
+      <p class="confirm-message">Are you sure?</p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline confirm-no">Cancel</button>
+      <button class="btn btn-danger confirm-yes">Confirm</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ---- STARFIELD ----
+(function(){
+  const canvas = document.getElementById('starfield');
+  const ctx = canvas.getContext('2d');
+  let W, H, stars = [];
+  const STAR_COUNT = 180;
+  const isDark = () => !document.documentElement.getAttribute('data-theme') || document.documentElement.getAttribute('data-theme') === 'dark';
+
+  function resize(){
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function initStars(){
+    stars = [];
+    for(let i = 0; i < STAR_COUNT; i++){
+      stars.push({
+        x: Math.random() * W,
+        y: Math.random() * H,
+        r: Math.random() * 1.2 + 0.2,
+        a: Math.random(),
+        speed: Math.random() * 0.15 + 0.03,
+        twinkle: Math.random() * Math.PI * 2
+      });
+    }
+  }
+
+  let frame = 0;
+  function draw(){
+    if(!isDark()){ requestAnimationFrame(draw); return; }
+    ctx.clearRect(0,0,W,H);
+    frame++;
+    for(const s of stars){
+      s.twinkle += 0.015;
+      const alpha = (s.a * 0.7 + 0.3) * (0.6 + Math.sin(s.twinkle) * 0.4);
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI*2);
+      ctx.fillStyle = `rgba(200,230,255,${alpha})`;
+      ctx.fill();
+      s.y -= s.speed;
+      if(s.y < -2){ s.y = H + 2; s.x = Math.random()*W; }
+    }
+    // occasional shooting star
+    if(frame % 280 === 0){
+      shootingStar();
+    }
+    requestAnimationFrame(draw);
+  }
+
+  function shootingStar(){
+    const x = Math.random() * W * 0.7 + W * 0.15;
+    const y = Math.random() * H * 0.4;
+    let t = 0;
+    const len = 120 + Math.random()*80;
+    function animate(){
+      t++;
+      if(t > 30) return;
+      const progress = t/30;
+      const alpha = progress < 0.5 ? progress*2 : (1-progress)*2;
+      const tail = len * progress;
+      const grad = ctx.createLinearGradient(x,y,x+tail*0.7,y+tail*0.5);
+      grad.addColorStop(0, `rgba(0,212,255,0)`);
+      grad.addColorStop(1, `rgba(0,212,255,${alpha*0.8})`);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + tail*0.7, y + tail*0.5);
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+      requestAnimationFrame(animate);
+    }
+    animate();
+  }
+
+  window.addEventListener('resize', ()=>{ resize(); initStars(); });
+  resize(); initStars(); draw();
+})();
+
+// ---- NAVBAR SCROLL ----
+const navbar = document.getElementById('navbar');
+window.addEventListener('scroll', ()=>{
+  navbar.classList.toggle('scrolled', window.scrollY > 20);
+}, {passive:true});
+
+// ---- MOBILE NAV ----
+const navToggle = document.getElementById('nav-toggle');
+const navDrawer = document.getElementById('nav-drawer');
+const navOverlay = document.getElementById('nav-overlay');
+
+function closeDrawer(){ navDrawer.classList.remove('active'); navOverlay.classList.remove('active'); }
+navToggle.addEventListener('click',()=>{ navDrawer.classList.toggle('active'); navOverlay.classList.toggle('active'); });
+navOverlay.addEventListener('click', closeDrawer);
+
+// ---- THEME TOGGLE ----
+const themeBtn = document.getElementById('theme-toggle');
+themeBtn.addEventListener('click',()=>{
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  if(isLight){
+    document.documentElement.removeAttribute('data-theme');
+    localStorage.removeItem('techtrek-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme','light');
+    localStorage.setItem('techtrek-theme','light');
+  }
+});
+
+// ---- FLASH DISMISS ----
+document.querySelectorAll('.flash-close').forEach(btn=>{
+  btn.addEventListener('click',()=>{ btn.closest('.flash-message').remove(); });
+});
+setTimeout(()=>{ document.querySelectorAll('.flash-message').forEach(el=>el.remove()); }, 5000);
+
+// ---- SCROLL REVEAL ----
+const revealObserver = new IntersectionObserver((entries)=>{
+  entries.forEach(e=>{
+    if(e.isIntersecting){
+      e.target.classList.add('visible');
+      revealObserver.unobserve(e.target);
+    }
+  });
+},{threshold:0.12});
+
+document.querySelectorAll('.reveal, .stagger').forEach(el=>revealObserver.observe(el));
+
+// ---- CONFIRM MODAL ----
+const confirmModal = document.getElementById('confirm-modal');
+let confirmCallback = null;
+function openConfirm(msg, cb){
+  confirmModal.querySelector('.confirm-message').textContent = msg;
+  confirmCallback = cb;
+  confirmModal.classList.add('active');
+}
+confirmModal.querySelector('.confirm-yes').addEventListener('click',()=>{
+  confirmModal.classList.remove('active');
+  if(confirmCallback) confirmCallback();
+});
+confirmModal.querySelector('.confirm-no').addEventListener('click',()=>{
+  confirmModal.classList.remove('active');
+  confirmCallback = null;
+});
+
+// ---- ADMIN SIDEBAR (mobile) ----
+(function(){
+  const aToggle = document.getElementById('admin-sidebar-toggle');
+  const aSidebar = document.getElementById('admin-sidebar');
+  const aOverlay = document.getElementById('admin-overlay');
+  if(!aToggle || !aSidebar) return;
+  function openAdmin(){ aSidebar.classList.add('open'); if(aOverlay) aOverlay.classList.add('open'); }
+  function closeAdmin(){ aSidebar.classList.remove('open'); if(aOverlay) aOverlay.classList.remove('open'); }
+  aToggle.addEventListener('click',()=>{ aSidebar.classList.contains('open') ? closeAdmin() : openAdmin(); });
+  if(aOverlay) aOverlay.addEventListener('click', closeAdmin);
+})();
+
+// ---- TOAST NOTIFICATIONS ----
+function showToast(message, type, duration){
+  type = type || 'info';
+  duration = duration || 4000;
+  var container = document.getElementById('toast-container');
+  if(!container){
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+  var toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.innerHTML = '<span class="toast-message">' + message + '</span><button class="toast-close">&times;</button>';
+  container.appendChild(toast);
+  requestAnimationFrame(()=>{ toast.classList.add('toast-visible'); });
+  var timer = setTimeout(()=>{ removeToast(toast); }, duration);
+  toast.querySelector('.toast-close').addEventListener('click',()=>{ clearTimeout(timer); removeToast(toast); });
+}
+function removeToast(toast){
+  toast.classList.remove('toast-visible');
+  toast.classList.add('toast-hiding');
+  setTimeout(()=>{ toast.remove(); }, 500);
+}
+
+// ---- GLOBAL API ----
+window.TechTrek = { showToast: showToast, confirmAction: openConfirm };
+</script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

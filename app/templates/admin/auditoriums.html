@@ -1,0 +1,47 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Auditoriums — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Auditoriums</h1>
+  <a href="/admin/auditoriums/new" class="btn btn-primary">+ New Auditorium</a>
+</div>
+
+{% if auditoriums %}
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Location</th>
+        <th>Rows &times; Cols</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for aud in auditoriums %}
+      <tr>
+        <td><strong>{{ aud.name }}</strong></td>
+        <td>{{ aud.location }}</td>
+        <td>{{ aud.total_rows }} &times; {{ aud.total_cols }}</td>
+        <td class="actions-cell">
+          <a href="/admin/auditoriums/{{ aud.id }}/layout" class="btn btn-sm btn-outline">Layout</a>
+          <a href="/admin/auditoriums/{{ aud.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <form method="post" action="/admin/auditoriums/{{ aud.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Delete this auditorium? This will remove all seats.')">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No auditoriums yet</h3>
+  <p>Create your first auditorium to start setting up sessions.</p>
+  <a href="/admin/auditoriums/new" class="btn btn-primary">Create Auditorium</a>
+</div>
+{% endif %}
+{% endblock %}

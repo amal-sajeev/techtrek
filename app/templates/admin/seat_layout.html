@@ -1,0 +1,68 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Seat Layout — {{ auditorium.name }} — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Seat Layout: {{ auditorium.name }}</h1>
+  <span class="text-secondary">{{ auditorium.total_rows }} rows &times; {{ auditorium.total_cols }} columns</span>
+</div>
+
+<!-- Toolbar -->
+<div class="designer-toolbar">
+  <div class="toolbar-group">
+    <span class="toolbar-label">Tools:</span>
+    <button class="tool-btn tool-active" data-tool="standard">
+      <span class="tool-swatch tool-standard"></span> Standard
+    </button>
+    <button class="tool-btn" data-tool="vip">
+      <span class="tool-swatch tool-vip"></span> VIP
+    </button>
+    <button class="tool-btn" data-tool="accessible">
+      <span class="tool-swatch tool-accessible"></span> Accessible
+    </button>
+    <button class="tool-btn" data-tool="aisle">
+      <span class="tool-swatch tool-aisle"></span> Aisle
+    </button>
+    <button class="tool-btn" data-tool="eraser">
+      &#10006; Eraser
+    </button>
+  </div>
+  <div class="toolbar-group">
+    <button class="btn btn-sm btn-outline" id="fill-all">Fill All</button>
+    <button class="btn btn-sm btn-outline" id="add-center-aisle">Center Aisle</button>
+    <button class="btn btn-sm btn-danger" id="clear-all">Clear All</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="designer-stats" id="layout-stats">Total seats: 0</div>
+
+<!-- Grid -->
+<div class="designer-container">
+  <div class="designer-stage"><span>STAGE</span></div>
+  <div class="layout-grid" id="layout-grid"></div>
+</div>
+
+<!-- Save -->
+<form method="post" action="/admin/auditoriums/{{ auditorium.id }}/layout" id="layout-form">
+  <input type="hidden" name="layout_data" id="layout-data-input" value="[]">
+</form>
+<div class="form-actions mt-3">
+  <button class="btn btn-primary btn-lg" id="save-layout">Save Layout</button>
+  <a href="/admin/auditoriums" class="btn btn-outline">Back to Auditoriums</a>
+</div>
+
+<div class="designer-help mt-2">
+  <p><strong>How to use:</strong> Select a tool, then click cells to place seats. Right-click to remove. Use "Fill All" to populate all cells, then selectively add aisles or change seat types.</p>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/seat-designer.js') }}"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    var existing = {{ seat_data_json | safe }};
+    SeatDesigner.init({{ auditorium.total_rows }}, {{ auditorium.total_cols }}, existing);
+  });
+</script>
+{% endblock %}
