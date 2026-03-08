@@ -1,127 +1,162 @@
 {% extends "base.html" %}
-{% block title %}TechTrek — Tech Lectures, Live{% endblock %}
+{% block title %}TechTrek — Ignite Your Future{% endblock %}
 
 {% block content %}
-<!-- Hero -->
+
+<!-- ═══ PHASE 1: Ignite Your Imagination ═══ -->
 <section class="hero">
   <div class="hero-glow hero-glow-1"></div>
   <div class="hero-glow hero-glow-2"></div>
   <div class="container">
     <div class="hero-eyebrow">
-      <span class="dot"></span> Live Tech Experiences — 2026
+      <span class="dot"></span> Phase 1 &mdash; Ignite Your Imagination
     </div>
     <h1 class="hero-title">
-      <span class="line-1">TECH LECTURES,</span>
-      <span class="line-2" data-text="LIVE &amp; UNFORGETTABLE">LIVE &amp; UNFORGETTABLE</span>
+      <span class="line-1">TechTrek</span>
+      <span class="line-2" data-text="Ignite Your Future">Ignite Your Future</span>
     </h1>
-    <p class="hero-subtitle">Book your seat at cutting-edge talks from industry leaders. 30-minute sessions, real insights, in-person experience.</p>
+    <p class="hero-subtitle">
+      A Viksit Bharat initiative bringing cutting-edge technology lectures to campuses across India.
+      Industry leaders. Future shapers. Your next breakthrough starts here.
+    </p>
     <div class="hero-actions">
-      <a href="/sessions" class="btn btn-primary btn-lg">Browse Sessions</a>
+      <a href="/sessions" class="btn btn-primary btn-lg">Explore Sessions</a>
       {% if not user %}
-      <a href="/auth/register" class="btn btn-outline btn-lg">Join Free</a>
+      <a href="/auth/register" class="btn btn-outline btn-lg">Join TechTrek</a>
       {% endif %}
     </div>
     <div class="hero-stats">
-      <div class="stat-item">
-        <span class="stat-number">50+</span>
-        <span class="stat-label">Sessions / year</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">30<span style="font-size:.6em">min</span></span>
-        <span class="stat-label">Per lecture</span>
-      </div>
-      <div class="stat-item">
-        <span class="stat-number">100%</span>
-        <span class="stat-label">In-person</span>
-      </div>
+      <div class="hero-stat"><span class="hero-stat-value">50+</span><span class="hero-stat-label">Sessions</span></div>
+      <div class="hero-stat"><span class="hero-stat-value">30 min</span><span class="hero-stat-label">TED-Style Talks</span></div>
+      <div class="hero-stat"><span class="hero-stat-value">100%</span><span class="hero-stat-label">In-Person</span></div>
     </div>
   </div>
 </section>
 
-{% set img_pool = [
-  'photo-1591115765373-5207764f72e7',
-  'photo-1505373877841-8d25f7d46678',
-  'photo-1558494949-ef010cbdcc31',
-  'photo-1517245386807-bb43f82c33c4',
-  'photo-1488229297570-58520851e868',
-  'photo-1550751827-4bd374c3f58b',
-  'photo-1496181133206-80ce9b88a853',
-  'photo-1573164713714-d95e436ab8d1'
-] %}
-
-{% if sessions %}
-<section class="section">
+<!-- ═══ PHASE 2: Industry Awareness Summit ═══ -->
+<section class="section phase-summit">
   <div class="container">
-    <h2 class="section-title reveal">Upcoming Sessions</h2>
-    <div class="session-grid-wrap">
-      <div class="session-grid stagger" id="home-session-grid">
-        {% for item in sessions %}
-        {% set img_id = img_pool[item.session.id % 8] %}
-        <a href="/sessions/{{ item.session.id }}" class="card card-hover">
-          <div class="card-image">
-            <img
-              src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
-              alt="{{ item.session.title }}"
-              loading="lazy">
-            <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
+    <span class="phase-tag">Phase 2 &mdash; Industry Awareness Summit</span>
+    <h2 class="section-title">TED-Style Tech Talks</h2>
+    <p class="section-subtitle">Thought-provoking sessions from industry pioneers — 30 minutes that can change your career trajectory.</p>
+
+    {% set img_pool = [
+      'photo-1540575467063-178a50c2df87',
+      'photo-1475721027785-f74eccf877e2',
+      'photo-1591115765373-5207764f72e7',
+      'photo-1505373877841-8d25f7d46678',
+      'photo-1524178232363-1fb2b075b655',
+      'photo-1517245386807-bb43f82c33c4',
+      'photo-1523580494863-6f3031224c94',
+      'photo-1560439513-4e7cfb21b3f4'
+    ] %}
+
+    {% if sessions %}
+    <div class="session-grid">
+      {% for item in sessions %}
+      {% set img_id = img_pool[item.session.id % 8] %}
+      <a href="/sessions/{{ item.session.id }}" class="card card-hover reveal">
+        <div class="card-image">
+          <img src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
+               alt="{{ item.session.title }}" loading="lazy">
+          <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">{{ item.session.title }}</h3>
+          <p class="card-meta">// {{ item.session.speaker }}</p>
+          <div class="card-details">
+            <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
+            <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
           </div>
-          <div class="card-body">
-            <h3 class="card-title">{{ item.session.title }}</h3>
-            <p class="card-meta">// {{ item.session.speaker }}</p>
-            <div class="card-details">
-              <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
-              <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
-              {% if item.auditorium %}
-              <span class="card-detail">&#128205; {{ item.auditorium.location }}</span>
-              {% endif %}
-            </div>
-          </div>
-          <div class="card-footer">
-            <span class="card-price">${{ "%.2f" | format(item.session.price) }}</span>
-            <span class="card-seats">{{ item.stats.available }} seats left</span>
-          </div>
-        </a>
-        {% endfor %}
-      </div>
-      <div class="carousel-hint" id="home-carousel-dots" aria-hidden="true"></div>
+        </div>
+        <div class="card-footer">
+          <span class="card-price">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
+          <span class="card-seats">{{ item.stats.available }} seats left</span>
+        </div>
+      </a>
+      {% endfor %}
     </div>
-    <div class="text-center mt-4">
+    <div style="text-align:center;margin-top:2rem">
       <a href="/sessions" class="btn btn-outline">View All Sessions &rarr;</a>
     </div>
-  </div>
-</section>
-{% else %}
-<section class="section">
-  <div class="container text-center">
-    <div class="empty-state reveal">
-      <h3>No Upcoming Sessions</h3>
-      <p>Check back soon for new lecture announcements.</p>
+    {% else %}
+    <div class="empty-state reveal" style="margin-top:2rem">
+      <h3>Sessions Coming Soon</h3>
+      <p>We're preparing an amazing lineup. Subscribe to our newsletter below to stay updated!</p>
     </div>
+    {% endif %}
   </div>
 </section>
-{% endif %}
 
 <!-- How It Works -->
-<section class="section section-alt">
+<section class="section how-it-works">
   <div class="container">
-    <h2 class="section-title text-center reveal">How It Works</h2>
-    <div class="steps-grid stagger">
-      <div class="step-card">
-        <div class="step-number">01</div>
-        <h3>Browse Sessions</h3>
-        <p>Explore upcoming tech talks by top speakers across various locations.</p>
+    <h2 class="section-title">How It Works</h2>
+    <div class="steps-grid">
+      <div class="step-card reveal">
+        <div class="step-number">1</div>
+        <h4>Browse</h4>
+        <p>Discover upcoming tech talks at campuses across India.</p>
       </div>
-      <div class="step-card">
-        <div class="step-number">02</div>
-        <h3>Pick Your Seat</h3>
-        <p>Choose your exact seat from an interactive auditorium map.</p>
+      <div class="step-card reveal">
+        <div class="step-number">2</div>
+        <h4>Pick Your Seat</h4>
+        <p>Choose your preferred seat from an interactive venue map.</p>
       </div>
-      <div class="step-card">
-        <div class="step-number">03</div>
-        <h3>Book &amp; Attend</h3>
-        <p>Complete your booking and show up for an unforgettable experience.</p>
+      <div class="step-card reveal">
+        <div class="step-number">3</div>
+        <h4>Book &amp; Attend</h4>
+        <p>Confirm your booking, get your QR ticket, and show up inspired.</p>
       </div>
     </div>
   </div>
 </section>
+
+<!-- ═══ PHASE 3: What Students Say + Newsletter ═══ -->
+<section class="section phase-testimonials">
+  <div class="container">
+    <span class="phase-tag">Phase 3 &mdash; What Students Say</span>
+    <h2 class="section-title">Student Testimonials</h2>
+
+    {% if testimonials %}
+    <div class="testimonials-grid">
+      {% for t in testimonials %}
+      <div class="testimonial-card reveal">
+        <blockquote class="testimonial-quote">"{{ t.quote }}"</blockquote>
+        <div class="testimonial-author">
+          <strong>{{ t.student_name }}</strong>
+          {% if t.college %}<br><span class="text-muted">{{ t.college }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="testimonials-placeholder">
+      <div class="testimonial-card reveal">
+        <blockquote class="testimonial-quote">"TechTrek opened my eyes to quantum computing. The speaker was phenomenal and the venue was buzzing with energy!"</blockquote>
+        <div class="testimonial-author"><strong>Priya Sharma</strong><br><span class="text-muted">KSR College of Engineering</span></div>
+      </div>
+      <div class="testimonial-card reveal">
+        <blockquote class="testimonial-quote">"The best industry event I've attended as a student. Clear, concise talks that actually help you understand where the industry is heading."</blockquote>
+        <div class="testimonial-author"><strong>Arjun Mehta</strong><br><span class="text-muted">Delhi Technological University</span></div>
+      </div>
+      <div class="testimonial-card reveal">
+        <blockquote class="testimonial-quote">"From booking my seat to attending — the whole experience was seamless. Can't wait for the next TechTrek!"</blockquote>
+        <div class="testimonial-author"><strong>Sneha Patel</strong><br><span class="text-muted">BITS Pilani</span></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Newsletter Section -->
+    <div class="newsletter-section reveal">
+      <h3>Stay in the Loop</h3>
+      <p>Get notified about upcoming TechTrek sessions, new cities, and exclusive early-bird access.</p>
+      <form method="post" action="/newsletter" class="newsletter-form">
+        <input type="email" name="email" class="form-input newsletter-input" placeholder="your@email.com" required>
+        <button type="submit" class="btn btn-primary">Subscribe</button>
+      </form>
+    </div>
+  </div>
+</section>
+
 {% endblock %}

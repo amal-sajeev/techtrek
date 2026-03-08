@@ -20,24 +20,25 @@
           </div>
 
           <div class="detail-group">
-            <h4>Your Seats</h4>
-            <div class="confirmation-seats">
-              {% for seat in seats %}
-              <span class="seat-label-chip">{{ seat.label }}</span>
-              {% endfor %}
-            </div>
-          </div>
-
-          <div class="detail-group">
-            <h4>Booking References</h4>
+            <h4>Your Tickets</h4>
             {% for b in bookings %}
-            <p class="booking-ref">{{ b.booking_ref }}</p>
+            <div class="ticket-card">
+              <div class="ticket-card-info">
+                <span class="seat-label-chip">{{ seats[loop.index0].label }}</span>
+                <span class="ticket-id">{{ b.ticket_id }}</span>
+                <span class="booking-ref-small">Ref: {{ b.booking_ref }}</span>
+              </div>
+              {% if b.qr_code_data %}
+              <img src="data:image/png;base64,{{ b.qr_code_data }}" alt="QR Code" class="ticket-qr" width="100" height="100">
+              {% endif %}
+            </div>
             {% endfor %}
           </div>
 
           <div class="detail-group">
             <h4>Total Paid</h4>
-            <p class="confirmation-total">${{ "%.2f" | format(total) }}</p>
+            <p class="confirmation-total">&#8377;{{ "%.2f" | format(total) }}</p>
+            <p class="text-muted" style="font-size:.8rem">Cancellation policy: &#8377;100 fee, remainder refunded.</p>
           </div>
         </div>
 

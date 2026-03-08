@@ -4,14 +4,34 @@
 {% block admin_content %}
 <div class="admin-header">
   <h1 class="admin-page-title">Bookings</h1>
+  <a href="/admin/bookings/export" class="btn btn-outline">Export CSV</a>
 </div>
+
+<!-- Search & Filter -->
+<form method="get" action="/admin/bookings" class="filter-bar mb-3">
+  <input type="text" name="q" class="form-input" placeholder="Search by user, ref, ticket..." value="{{ q or '' }}" style="max-width:250px">
+  <select name="status" class="form-input" style="max-width:150px">
+    <option value="">All Statuses</option>
+    {% for s in ['paid','hold','refunded','cancelled'] %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
+    {% endfor %}
+  </select>
+  <select name="session_id" class="form-input" style="max-width:200px">
+    <option value="">All Sessions</option>
+    {% for s in all_sessions %}
+    <option value="{{ s.id }}" {% if session_filter|string == s.id|string %}selected{% endif %}>{{ s.title }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+</form>
 
 {% if bookings %}
 <div class="table-responsive">
-  <table class="table table-cards-mobile">
+  <table class="table">
     <thead>
       <tr>
         <th>Ref</th>
+        <th>Ticket</th>
         <th>User</th>
         <th>Session</th>
         <th>Seat</th>
@@ -23,26 +43,33 @@
     <tbody>
       {% for item in bookings %}
       <tr>
-        <td data-label="Ref"><code>{{ item.booking.booking_ref }}</code></td>
-        <td data-label="User">{{ item.user.username if item.user else 'N/A' }}</td>
-        <td data-label="Session">{{ item.session.title if item.session else 'N/A' }}</td>
-        <td data-label="Seat">{{ item.seat.label if item.seat else 'N/A' }}</td>
-        <td data-label="Status">
-          <span class="badge badge-{% if item.booking.payment_status == 'paid' %}available{% elif item.booking.payment_status == 'hold' %}filling-up{% else %}draft{% endif %}">
+        <td><code>{{ item.booking.booking_ref }}</code></td>
+        <td><code>{{ item.booking.ticket_id or "—" }}</code></td>
+        <td>
+          {{ item.user.username if item.user else "—" }}
+          {% if item.user and item.user.full_name %}<br><small class="text-muted">{{ item.user.full_name }}</small>{% endif %}
+        </td>
+        <td>{{ item.session.title if item.session else "—" }}</td>
+        <td>{{ item.seat.label if item.seat else "—" }}</td>
+        <td>
+          <span class="badge {% if item.booking.payment_status == 'paid' %}badge-success{% elif item.booking.payment_status == 'refunded' %}badge-muted{% else %}badge-available{% endif %}">
             {{ item.booking.payment_status }}
           </span>
+          {% if item.booking.checked_in %}<br><small class="text-muted">Checked in</small>{% endif %}
         </td>
-        <td data-label="Booked">{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else '' }}</td>
-        <td data-label="Actions" class="actions-cell">
+        <td>{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
+        <td class="actions-cell">
           {% if item.booking.payment_status == 'paid' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline"
                 onsubmit="return confirm('Refund this booking?')">
             <button type="submit" class="btn btn-sm btn-outline">Refund</button>
           </form>
-          {% endif %}
-          {% if item.booking.payment_status in ['paid', 'hold'] %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline"
                 onsubmit="return confirm('Cancel this booking?')">
+            <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+          </form>
+          {% elif item.booking.payment_status == 'hold' %}
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
             <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
           </form>
           {% endif %}
@@ -52,10 +79,11 @@
     </tbody>
   </table>
 </div>
+<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Showing {{ bookings|length }} booking(s).</p>
 {% else %}
 <div class="empty-state">
-  <h3>No bookings yet</h3>
-  <p>Bookings will appear here once users start purchasing seats.</p>
+  <h3>No bookings found</h3>
+  <p>{% if q or status_filter or session_filter %}Try adjusting your filters.{% else %}No bookings have been made yet.{% endif %}</p>
 </div>
 {% endif %}
 {% endblock %}

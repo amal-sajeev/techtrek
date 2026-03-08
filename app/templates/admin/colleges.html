@@ -1,0 +1,52 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Colleges — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Colleges</h1>
+  <a href="/admin/colleges/new" class="btn btn-primary">+ New College</a>
+</div>
+
+{% if colleges %}
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>City</th>
+        <th>Address</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in colleges %}
+      <tr>
+        <td><strong>{{ item.college.name }}</strong></td>
+        <td>{{ item.city.name if item.city else "—" }}</td>
+        <td>{{ item.college.address or "—" }}</td>
+        <td>
+          <span class="badge {% if item.college.is_active %}badge-success{% else %}badge-muted{% endif %}">
+            {{ "Active" if item.college.is_active else "Inactive" }}
+          </span>
+        </td>
+        <td class="actions-cell">
+          <a href="/admin/colleges/{{ item.college.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <form method="post" action="/admin/colleges/{{ item.college.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Delete this college?')">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No colleges yet</h3>
+  <p>Add colleges that will host TechTrek events.</p>
+  <a href="/admin/colleges/new" class="btn btn-primary">Add College</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -10,31 +10,98 @@
     </div>
 
     <form method="post" action="/auth/register" id="register-form" novalidate>
-      <div class="form-group">
-        <label class="form-label" for="reg-username">Username</label>
-        <input type="text" name="username" id="reg-username" class="form-input" placeholder="your_handle" required autofocus autocomplete="username">
-        <div class="field-error" id="err-username" role="alert"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="reg-fullname">Full Name <span class="required">*</span></label>
+          <input type="text" name="full_name" id="reg-fullname" class="form-input" placeholder="Your full name" required autofocus autocomplete="name">
+          <div class="field-error" id="err-fullname" role="alert"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-username">Username <span class="required">*</span></label>
+          <input type="text" name="username" id="reg-username" class="form-input" placeholder="your_handle" required autocomplete="username">
+          <div class="field-error" id="err-username" role="alert"></div>
+        </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="reg-email">Email</label>
+        <label class="form-label" for="reg-email">Email <span class="required">*</span></label>
         <input type="email" name="email" id="reg-email" class="form-input" placeholder="you@domain.com" required autocomplete="email">
         <div class="field-error" id="err-email" role="alert"></div>
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="reg-password">Password</label>
-        <input type="password" name="password" id="reg-password" class="form-input" placeholder="min 8 characters" required autocomplete="new-password">
-        <div class="password-strength" aria-hidden="true">
-          <div class="password-strength-fill" id="pwd-strength-bar" style="width:0%"></div>
+        <label class="form-label" for="reg-college">College / Institution</label>
+        <input type="text" name="college" id="reg-college" class="form-input" placeholder="e.g. KSR College of Engineering" autocomplete="organization">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="reg-discipline">Discipline</label>
+          <select name="discipline" id="reg-discipline" class="form-input">
+            <option value="">Select discipline</option>
+            <option value="CSE">CSE</option>
+            <option value="IT">IT</option>
+            <option value="ECE">ECE</option>
+            <option value="EEE">EEE</option>
+            <option value="Mechanical">Mechanical</option>
+            <option value="Civil">Civil</option>
+            <option value="AI/ML">AI/ML</option>
+            <option value="Data Science">Data Science</option>
+            <option value="Commerce">Commerce</option>
+            <option value="BBA">BBA</option>
+            <option value="BCA">BCA</option>
+            <option value="Science">Science</option>
+            <option value="Arts">Arts</option>
+            <option value="Law">Law</option>
+            <option value="Design">Design</option>
+            <option value="Other">Other</option>
+          </select>
         </div>
-        <div class="field-error" id="err-password" role="alert"></div>
+        <div class="form-group">
+          <label class="form-label" for="reg-domain">Domain of Interest</label>
+          <select name="domain" id="reg-domain" class="form-input">
+            <option value="">Select domain</option>
+            <option value="AI">Artificial Intelligence</option>
+            <option value="Cloud Computing">Cloud Computing</option>
+            <option value="Quantum Computing">Quantum Computing</option>
+            <option value="Cybersecurity">Cybersecurity</option>
+            <option value="Data Science">Data Science</option>
+            <option value="Web Development">Web Development</option>
+            <option value="Mobile Development">Mobile Development</option>
+            <option value="IoT">IoT</option>
+            <option value="Blockchain">Blockchain</option>
+            <option value="DevOps">DevOps</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="reg-confirm">Confirm Password</label>
-        <input type="password" name="confirm_password" id="reg-confirm" class="form-input" placeholder="••••••••" required autocomplete="new-password">
-        <div class="field-error" id="err-confirm" role="alert"></div>
+        <label class="form-label" for="reg-year">Year of Study</label>
+        <select name="year_of_study" id="reg-year" class="form-input">
+          <option value="">Select year</option>
+          <option value="1">1st Year</option>
+          <option value="2">2nd Year</option>
+          <option value="3">3rd Year</option>
+          <option value="4">4th Year</option>
+          <option value="5">5th Year</option>
+        </select>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="reg-password">Password <span class="required">*</span></label>
+          <input type="password" name="password" id="reg-password" class="form-input" placeholder="min 8 characters" required autocomplete="new-password">
+          <div class="password-strength" aria-hidden="true">
+            <div class="password-strength-fill" id="pwd-strength-bar" style="width:0%"></div>
+          </div>
+          <div class="field-error" id="err-password" role="alert"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-confirm">Confirm Password <span class="required">*</span></label>
+          <input type="password" name="confirm_password" id="reg-confirm" class="form-input" placeholder="Re-enter password" required autocomplete="new-password">
+          <div class="field-error" id="err-confirm" role="alert"></div>
+        </div>
       </div>
 
       <button type="submit" class="btn btn-primary btn-block" style="margin-top:.5rem" id="register-btn">Create Account</button>
@@ -50,12 +117,13 @@
 {% block scripts %}
 <script>
 (function() {
-  var form    = document.getElementById('register-form');
+  var form = document.getElementById('register-form');
+  var fullnameEl = document.getElementById('reg-fullname');
   var usernameEl = document.getElementById('reg-username');
-  var emailEl    = document.getElementById('reg-email');
+  var emailEl = document.getElementById('reg-email');
   var passwordEl = document.getElementById('reg-password');
-  var confirmEl  = document.getElementById('reg-confirm');
-  var submitBtn  = document.getElementById('register-btn');
+  var confirmEl = document.getElementById('reg-confirm');
+  var submitBtn = document.getElementById('register-btn');
 
   function showError(id, msg) {
     var el = document.getElementById(id);
@@ -65,17 +133,16 @@
   }
   function setField(input, ok) {
     input.classList.toggle('input-error', !ok && input.value.length > 0);
-    input.classList.toggle('input-ok',    ok  && input.value.length > 0);
+    input.classList.toggle('input-ok', ok && input.value.length > 0);
   }
 
-  // Password strength
   passwordEl.addEventListener('input', function() {
     var v = passwordEl.value;
     var score = 0;
-    if (v.length >= 8)           score++;
-    if (/[A-Z]/.test(v))         score++;
-    if (/[0-9]/.test(v))         score++;
-    if (/[^A-Za-z0-9]/.test(v))  score++;
+    if (v.length >= 8) score++;
+    if (/[A-Z]/.test(v)) score++;
+    if (/[0-9]/.test(v)) score++;
+    if (/[^A-Za-z0-9]/.test(v)) score++;
     var bar = document.getElementById('pwd-strength-bar');
     var pct = (score / 4) * 100;
     var colours = ['#f43f5e','#f59e0b','#10b981','#00d4ff'];
@@ -84,7 +151,6 @@
     var msg = v.length === 0 ? '' : v.length < 8 ? 'Password must be at least 8 characters' : '';
     showError('err-password', msg);
     setField(passwordEl, v.length >= 8);
-    // Re-validate confirm if it has a value
     if (confirmEl.value) validateConfirm();
   });
 
@@ -115,7 +181,7 @@
 
   form.addEventListener('submit', function(e) {
     var valid = true;
-    // Final sync check
+    if (!fullnameEl.value.trim()) { showError('err-fullname','Full name is required'); valid = false; }
     if (usernameEl.value.trim().length < 2) { showError('err-username','Username required'); valid = false; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value)) { showError('err-email','Valid email required'); valid = false; }
     if (passwordEl.value.length < 8) { showError('err-password','Password must be at least 8 characters'); valid = false; }

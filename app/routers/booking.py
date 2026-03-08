@@ -13,6 +13,7 @@ from app.models.session import LectureSession
 from app.models.user import User
 from app.models.waitlist import Waitlist
 from app.services.booking import (
+    cancel_booking_user,
     confirm_payment,
     get_seat_map,
     get_user_bookings,
@@ -230,6 +231,17 @@ def my_bookings(request: Request, db: Session = Depends(get_db)):
         "booking/my_bookings.html",
         template_ctx(request, bookings=enriched),
     )
+
+
+@router.post("/cancel/{booking_id}")
+def cancel_booking(request: Request, booking_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    result = cancel_booking_user(db, booking_id, user.id)
+    flash(request, result["msg"], "success" if result["ok"] else "danger")
+    return RedirectResponse("/booking/my", status_code=303)
 
 
 @router.post("/waitlist/{session_id}")

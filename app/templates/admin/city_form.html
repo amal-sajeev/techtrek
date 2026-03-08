@@ -1,0 +1,30 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ "Edit" if city else "New" }} City — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">{{ "Edit" if city else "New" }} City</h1>
+</div>
+
+<div class="form-card">
+  <form method="post" action="{{ '/admin/cities/' ~ city.id ~ '/edit' if city else '/admin/cities/new' }}">
+    <div class="form-group">
+      <label class="form-label" for="city-name">City Name</label>
+      <input type="text" name="name" id="city-name" class="form-input" value="{{ city.name if city else '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="city-state">State</label>
+      <input type="text" name="state" id="city-state" class="form-input" value="{{ city.state if city else '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label">
+        <input type="checkbox" name="is_active" {% if not city or city.is_active %}checked{% endif %}> Active
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ "Update" if city else "Create" }} City</button>
+      <a href="/admin/cities" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

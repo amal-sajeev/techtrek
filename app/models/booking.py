@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -9,6 +9,12 @@ from app.database import Base
 
 def _generate_ref():
     return uuid.uuid4().hex[:10].upper()
+
+
+def _generate_ticket_id():
+    now = datetime.now(timezone.utc)
+    rand = uuid.uuid4().hex[:8].upper()
+    return f"TT-{now.strftime('%Y%m%d')}-{rand}"
 
 
 class Booking(Base):
@@ -20,6 +26,13 @@ class Booking(Base):
     seat_id = Column(Integer, ForeignKey("seats.id"), nullable=False)
     payment_status = Column(String(20), default="hold")
     booking_ref = Column(String(20), unique=True, default=_generate_ref)
+    ticket_id = Column(String(30), unique=True, nullable=True)
+    qr_code_data = Column(Text, nullable=True)
+    amount_paid = Column(Float, default=0)
+    refund_amount = Column(Float, nullable=True)
+    cancellation_fee = Column(Float, nullable=True)
+    checked_in = Column(Boolean, default=False)
+    checked_in_at = Column(DateTime, nullable=True)
     held_until = Column(DateTime, nullable=True)
     booked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 

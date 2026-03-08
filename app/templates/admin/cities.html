@@ -1,0 +1,53 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Cities — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Cities</h1>
+  <a href="/admin/cities/new" class="btn btn-primary">+ New City</a>
+</div>
+
+{% if cities %}
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>State</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for city in cities %}
+      <tr>
+        <td><strong>{{ city.name }}</strong></td>
+        <td>{{ city.state }}</td>
+        <td>
+          <span class="badge {% if city.is_active %}badge-success{% else %}badge-muted{% endif %}">
+            {{ "Active" if city.is_active else "Inactive" }}
+          </span>
+        </td>
+        <td class="actions-cell">
+          <form method="post" action="/admin/cities/{{ city.id }}/toggle" style="display:inline">
+            <button type="submit" class="btn btn-sm btn-outline">{{ "Deactivate" if city.is_active else "Activate" }}</button>
+          </form>
+          <a href="/admin/cities/{{ city.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <form method="post" action="/admin/cities/{{ city.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Delete this city and all its colleges?')">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No cities yet</h3>
+  <p>Add cities where TechTrek events will be hosted.</p>
+  <a href="/admin/cities/new" class="btn btn-primary">Add City</a>
+</div>
+{% endif %}
+{% endblock %}

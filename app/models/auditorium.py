@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Text, JSON
+from sqlalchemy import Column, ForeignKey, Integer, String, Text, JSON
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -9,6 +9,7 @@ class Auditorium(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
+    college_id = Column(Integer, ForeignKey("colleges.id"), nullable=True)
     location = Column(String(300), nullable=False)
     description = Column(Text, nullable=True)
     total_rows = Column(Integer, nullable=False, default=10)
@@ -18,5 +19,6 @@ class Auditorium(Base):
     col_gaps = Column(Text, nullable=True)  # JSON array of col indices with a gap after them
     layout_config = Column(JSON, nullable=True)
 
+    college = relationship("College", back_populates="auditoriums")
     seats = relationship("Seat", back_populates="auditorium", cascade="all, delete-orphan")
     sessions = relationship("LectureSession", back_populates="auditorium")

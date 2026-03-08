@@ -1,9 +1,11 @@
 fastapi
 uvicorn[standard]
 sqlalchemy
+psycopg2-binary
 jinja2
 python-multipart
 bcrypt
 itsdangerous
 python-dotenv
 pydantic-settings
+qrcode[pil]

@@ -1,14 +1,16 @@
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, template_ctx, templates
+from app.dependencies import flash, get_db, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.seat import Seat
 from app.models.session import LectureSession
+from app.models.testimonial import Testimonial, NewsletterSubscriber
 
 router = APIRouter(tags=["public"])
 
@@ -63,10 +65,31 @@ def home(request: Request, db: Session = Depends(get_db)):
             "stats": stats,
             "availability": _availability_label(stats),
         })
+    testimonials = db.query(Testimonial).filter(Testimonial.is_active == True).all()
+
     return templates.TemplateResponse(
         "public/home.html",
-        template_ctx(request, sessions=sessions_with_info),
+        template_ctx(request, sessions=sessions_with_info, testimonials=testimonials),
     )
+
+
+@router.post("/newsletter")
+async def newsletter_subscribe(request: Request, db: Session = Depends(get_db)):
+    form = await request.form()
+    email = form.get("email", "").strip()
+    if not email or "@" not in email:
+        flash(request, "Please enter a valid email.", "danger")
+        return RedirectResponse("/", status_code=303)
+
+    existing = db.query(NewsletterSubscriber).filter(NewsletterSubscriber.email == email).first()
+    if existing:
+        flash(request, "You're already subscribed!", "info")
+    else:
+        sub = NewsletterSubscriber(email=email)
+        db.add(sub)
+        db.commit()
+        flash(request, "Subscribed to the newsletter!", "success")
+    return RedirectResponse("/", status_code=303)
 
 
 @router.get("/sessions")

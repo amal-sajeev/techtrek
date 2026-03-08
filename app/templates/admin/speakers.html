@@ -1,0 +1,46 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Speakers — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Speakers</h1>
+  <a href="/admin/speakers/new" class="btn btn-primary">+ New Speaker</a>
+</div>
+
+{% if speakers %}
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Title</th>
+        <th>Email</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for sp in speakers %}
+      <tr>
+        <td><strong>{{ sp.name }}</strong></td>
+        <td>{{ sp.title or "—" }}</td>
+        <td>{{ sp.email or "—" }}</td>
+        <td class="actions-cell">
+          <a href="/admin/speakers/{{ sp.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <form method="post" action="/admin/speakers/{{ sp.id }}/delete" style="display:inline"
+                onsubmit="return confirm('Delete this speaker?')">
+            <button type="submit" class="btn btn-sm btn-danger">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No speakers yet</h3>
+  <p>Add speakers who will deliver TED-style talks at events.</p>
+  <a href="/admin/speakers/new" class="btn btn-primary">Add Speaker</a>
+</div>
+{% endif %}
+{% endblock %}

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.dependencies import flash, get_db, template_ctx, templates
 from app.models.user import User
+from app.services.email import send_signup_confirmation
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -51,6 +52,11 @@ async def register(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
     username = form.get("username", "").strip()
     email = form.get("email", "").strip()
+    full_name = form.get("full_name", "").strip()
+    college = form.get("college", "").strip()
+    discipline = form.get("discipline", "").strip()
+    domain = form.get("domain", "").strip()
+    year_raw = form.get("year_of_study", "")
     password = form.get("password", "")
     confirm = form.get("confirm_password", "")
 
@@ -59,6 +65,8 @@ async def register(request: Request, db: Session = Depends(get_db)):
         errors.append("Username must be at least 3 characters.")
     if not email or "@" not in email:
         errors.append("Please enter a valid email.")
+    if not full_name:
+        errors.append("Full name is required.")
     if len(password) < 6:
         errors.append("Password must be at least 6 characters.")
     if password != confirm:
@@ -67,6 +75,13 @@ async def register(request: Request, db: Session = Depends(get_db)):
         errors.append("An account with this email already exists.")
     if db.query(User).filter(User.username == username).first():
         errors.append("This username is taken.")
+
+    year_of_study = None
+    if year_raw:
+        try:
+            year_of_study = int(year_raw)
+        except ValueError:
+            pass
 
     if errors:
         for e in errors:
@@ -77,6 +92,11 @@ async def register(request: Request, db: Session = Depends(get_db)):
     user = User(
         username=username,
         email=email,
+        full_name=full_name,
+        college=college or None,
+        discipline=discipline or None,
+        domain=domain or None,
+        year_of_study=year_of_study,
         password_hash=_hash_pw(password),
         is_admin=is_first_user,
     )
@@ -87,6 +107,7 @@ async def register(request: Request, db: Session = Depends(get_db)):
     request.session["user_id"] = user.id
     msg = "Account created! You are the admin." if is_first_user else "Account created!"
     flash(request, msg, "success")
+    send_signup_confirmation(user.email, user.username)
     return RedirectResponse("/", status_code=303)
 
 

@@ -1,0 +1,39 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ "Edit" if speaker else "New" }} Speaker — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">{{ "Edit" if speaker else "New" }} Speaker</h1>
+</div>
+
+<div class="form-card">
+  <form method="post" action="{{ '/admin/speakers/' ~ speaker.id ~ '/edit' if speaker else '/admin/speakers/new' }}">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="sp-name">Name</label>
+        <input type="text" name="name" id="sp-name" class="form-input" value="{{ speaker.name if speaker else '' }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sp-title">Title / Role</label>
+        <input type="text" name="title" id="sp-title" class="form-input" value="{{ speaker.title if speaker and speaker.title else '' }}" placeholder="e.g. CTO at TechCorp">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="sp-email">Email</label>
+      <input type="email" name="email" id="sp-email" class="form-input" value="{{ speaker.email if speaker and speaker.email else '' }}">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="sp-photo">Photo URL</label>
+      <input type="url" name="photo_url" id="sp-photo" class="form-input" value="{{ speaker.photo_url if speaker and speaker.photo_url else '' }}" placeholder="https://...">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="sp-bio">Bio</label>
+      <textarea name="bio" id="sp-bio" class="form-input" rows="4">{{ speaker.bio if speaker and speaker.bio else '' }}</textarea>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ "Update" if speaker else "Create" }} Speaker</button>
+      <a href="/admin/speakers" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

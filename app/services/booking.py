@@ -1,15 +1,23 @@
+import io
+import base64
 import uuid
 from datetime import datetime, timedelta, timezone
 
+import qrcode
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models.booking import Booking
+from app.models.booking import Booking, _generate_ticket_id
 from app.models.seat import Seat
+from app.models.session import LectureSession
+from app.models.user import User
+from app.services.email import send_booking_confirmation
+
+CANCELLATION_FEE = 100.0
+TICKET_PRICE = 500.0
 
 
 def get_seat_map(db: Session, session_id: int, auditorium_id: int):
-    """Build the seat map data for rendering the interactive picker."""
     seats = (
         db.query(Seat)
         .filter(Seat.auditorium_id == auditorium_id, Seat.is_active == True)
@@ -54,7 +62,6 @@ def get_seat_map(db: Session, session_id: int, auditorium_id: int):
 def hold_seats(
     db: Session, user_id: int, session_id: int, seat_ids: list[int]
 ) -> list[Booking]:
-    """Create temporary holds on selected seats. Returns list of Booking objects."""
     now = datetime.now(timezone.utc)
     held_until = now + timedelta(minutes=settings.hold_timeout_minutes)
 
@@ -95,9 +102,21 @@ def hold_seats(
     return bookings
 
 
+def _generate_qr_base64(data: str) -> str:
+    qr = qrcode.QRCode(version=1, box_size=6, border=2)
+    qr.add_data(data)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return base64.b64encode(buf.getvalue()).decode()
+
+
 def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]:
-    """Confirm all held bookings for a user+session (mock payment)."""
     now = datetime.now(timezone.utc)
+    lecture = db.query(LectureSession).get(session_id)
+    price = float(lecture.price) if lecture else TICKET_PRICE
+
     holds = (
         db.query(Booking)
         .filter(
@@ -112,13 +131,43 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
         b.payment_status = "paid"
         b.booked_at = now
         b.held_until = None
+        b.amount_paid = price
+        b.ticket_id = _generate_ticket_id()
+        b.qr_code_data = _generate_qr_base64(b.ticket_id)
     db.commit()
+
+    if holds:
+        user = db.query(User).get(holds[0].user_id)
+        for b in holds:
+            seat = db.query(Seat).get(b.seat_id)
+            if user and seat:
+                send_booking_confirmation(
+                    user.email, user.username,
+                    lecture.title if lecture else "Session",
+                    seat.label, b.ticket_id, b.booking_ref,
+                )
+
     return holds
 
 
+def cancel_booking_user(db: Session, booking_id: int, user_id: int) -> dict:
+    b = db.query(Booking).filter(Booking.id == booking_id, Booking.user_id == user_id).first()
+    if not b or b.payment_status != "paid":
+        return {"ok": False, "msg": "Booking not found or already cancelled."}
+
+    lecture = db.query(LectureSession).get(b.session_id)
+    price = b.amount_paid or float(lecture.price) if lecture else TICKET_PRICE
+    fee = CANCELLATION_FEE
+    refund = max(0, price - fee)
+
+    b.payment_status = "refunded"
+    b.cancellation_fee = fee
+    b.refund_amount = refund
+    db.commit()
+    return {"ok": True, "msg": f"Booking cancelled. Refund of ₹{refund:.0f} will be processed (₹{fee:.0f} cancellation fee).", "refund": refund, "fee": fee}
+
+
 def cancel_existing_holds(db: Session, user_id: int, session_id: int):
-    """Cancel any existing holds for this user on this session."""
-    now = datetime.now(timezone.utc)
     holds = (
         db.query(Booking)
         .filter(
@@ -134,10 +183,9 @@ def cancel_existing_holds(db: Session, user_id: int, session_id: int):
 
 
 def get_user_bookings(db: Session, user_id: int):
-    """Get all confirmed bookings for a user."""
     return (
         db.query(Booking)
-        .filter(Booking.user_id == user_id, Booking.payment_status == "paid")
+        .filter(Booking.user_id == user_id, Booking.payment_status.in_(["paid", "refunded"]))
         .order_by(Booking.booked_at.desc())
         .all()
     )

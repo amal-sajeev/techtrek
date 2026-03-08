@@ -1,77 +1,228 @@
 {% extends "admin/base_admin.html" %}
-{% block title %}{{ 'Edit' if lecture else 'New' }} Session — Admin — TechTrek{% endblock %}
+{% block title %}{{ "Edit" if lecture else "Create" }} Session — Admin — TechTrek{% endblock %}
 
 {% block admin_content %}
 <div class="admin-header">
-  <h1 class="admin-page-title">{{ 'Edit' if lecture else 'New' }} Session</h1>
+  <h1 class="admin-page-title">{{ "Edit" if lecture else "Create" }} Session</h1>
 </div>
 
-<div class="form-card">
-  <form method="post" action="{{ '/admin/sessions/' ~ lecture.id ~ '/edit' if lecture else '/admin/sessions/new' }}">
-    <div class="form-group">
-      <label for="title" class="form-label">Title</label>
-      <input type="text" id="title" name="title" class="form-input"
-             value="{{ lecture.title if lecture else '' }}" required placeholder="Introduction to Machine Learning">
-    </div>
+<div class="wizard-steps mb-3">
+  <button type="button" class="wizard-step active" data-step="1">1. Venue &amp; Date</button>
+  <button type="button" class="wizard-step" data-step="2">2. Details &amp; Price</button>
+  <button type="button" class="wizard-step" data-step="3">3. Agenda</button>
+  <button type="button" class="wizard-step" data-step="4">4. Speaker</button>
+  <button type="button" class="wizard-step" data-step="5">5. Review &amp; Publish</button>
+</div>
 
+<form method="post" action="{{ '/admin/sessions/' ~ lecture.id ~ '/edit' if lecture else '/admin/sessions/new' }}" id="session-wizard-form">
+  <!-- Step 1: Venue & Date -->
+  <div class="wizard-panel active" data-panel="1">
+    <h3 class="wizard-panel-title">Venue &amp; Date</h3>
     <div class="form-group">
-      <label for="speaker" class="form-label">Speaker</label>
-      <input type="text" id="speaker" name="speaker" class="form-input"
-             value="{{ lecture.speaker if lecture else '' }}" required placeholder="Dr. Jane Smith">
-    </div>
-
-    <div class="form-group">
-      <label for="description" class="form-label">Description</label>
-      <textarea id="description" name="description" class="form-input" rows="4"
-                placeholder="Describe the session content...">{{ lecture.description if lecture else '' }}</textarea>
-    </div>
-
-    <div class="form-group">
-      <label for="auditorium_id" class="form-label">Auditorium</label>
-      <select id="auditorium_id" name="auditorium_id" class="form-input" required>
-        <option value="">Select an auditorium</option>
+      <label class="form-label" for="sess-auditorium">Auditorium / Venue</label>
+      <select name="auditorium_id" id="sess-auditorium" class="form-input" required>
+        <option value="">Select venue</option>
         {% for aud in auditoriums %}
-        <option value="{{ aud.id }}" {% if lecture and lecture.auditorium_id == aud.id %}selected{% endif %}>
-          {{ aud.name }} — {{ aud.location }}
-        </option>
+        <option value="{{ aud.id }}" {% if lecture and lecture.auditorium_id == aud.id %}selected{% endif %}>{{ aud.name }} — {{ aud.location }}</option>
         {% endfor %}
       </select>
     </div>
-
     <div class="form-row">
       <div class="form-group">
-        <label for="start_time" class="form-label">Start Date &amp; Time</label>
-        <input type="datetime-local" id="start_time" name="start_time" class="form-input"
-               value="{{ lecture.start_time.strftime('%Y-%m-%dT%H:%M') if lecture else '' }}" required>
+        <label class="form-label" for="sess-start">Start Date &amp; Time</label>
+        <input type="datetime-local" name="start_time" id="sess-start" class="form-input" value="{{ lecture.start_time.strftime('%Y-%m-%dT%H:%M') if lecture else '' }}" required>
       </div>
       <div class="form-group">
-        <label for="duration_minutes" class="form-label">Duration (min)</label>
-        <input type="number" id="duration_minutes" name="duration_minutes" class="form-input"
-               value="{{ lecture.duration_minutes if lecture else 30 }}" min="10" max="180" step="5">
+        <label class="form-label" for="sess-duration">Duration (minutes)</label>
+        <input type="number" name="duration_minutes" id="sess-duration" class="form-input" value="{{ lecture.duration_minutes if lecture else 30 }}" min="10">
       </div>
     </div>
+    <div class="wizard-nav">
+      <span></span>
+      <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
+    </div>
+  </div>
 
+  <!-- Step 2: Details & Price -->
+  <div class="wizard-panel" data-panel="2">
+    <h3 class="wizard-panel-title">Event Details &amp; Price</h3>
+    <div class="form-group">
+      <label class="form-label" for="sess-title">Title</label>
+      <input type="text" name="title" id="sess-title" class="form-input" value="{{ lecture.title if lecture else '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="sess-desc">Description</label>
+      <textarea name="description" id="sess-desc" class="form-input" rows="4">{{ lecture.description if lecture and lecture.description else '' }}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="sess-banner">Banner Image URL</label>
+      <input type="url" name="banner_url" id="sess-banner" class="form-input" value="{{ lecture.banner_url if lecture and lecture.banner_url else '' }}" placeholder="https://...">
+    </div>
     <div class="form-row">
       <div class="form-group">
-        <label for="price" class="form-label">Price ($)</label>
-        <input type="number" id="price" name="price" class="form-input"
-               value="{{ lecture.price if lecture else '10.00' }}" min="0" step="0.01" required>
+        <label class="form-label" for="sess-price">Ticket Price (&#8377;)</label>
+        <input type="number" name="price" id="sess-price" class="form-input" value="{{ lecture.price if lecture else 500 }}" min="0" step="0.01">
       </div>
       <div class="form-group">
-        <label for="status" class="form-label">Status</label>
-        <select id="status" name="status" class="form-input">
-          {% set statuses = ['draft', 'published', 'sold_out', 'completed', 'cancelled'] %}
-          {% for s in statuses %}
-          <option value="{{ s }}" {% if lecture and lecture.status == s %}selected{% endif %}>{{ s | replace('_', ' ') | title }}</option>
+        <label class="form-label" for="sess-status">Status</label>
+        <select name="status" id="sess-status" class="form-input">
+          {% for s in ['draft','published','sold_out','completed','cancelled'] %}
+          <option value="{{ s }}" {% if lecture and lecture.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
           {% endfor %}
         </select>
       </div>
     </div>
-
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">{{ 'Update' if lecture else 'Create' }} Session</button>
-      <a href="/admin/sessions" class="btn btn-outline">Cancel</a>
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+      <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
     </div>
-  </form>
-</div>
+  </div>
+
+  <!-- Step 3: Agenda -->
+  <div class="wizard-panel" data-panel="3">
+    <h3 class="wizard-panel-title">Agenda Items</h3>
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Add individual talks/segments for this event. Each item is a TED-style session slot.</p>
+    <div id="agenda-container">
+      {% for item in agenda_items %}
+      <div class="agenda-row" data-idx="{{ loop.index0 }}">
+        <div class="form-row">
+          <div class="form-group" style="flex:2">
+            <input type="text" name="agenda_title_{{ loop.index0 }}" class="form-input" value="{{ item.title }}" placeholder="Talk title">
+          </div>
+          <div class="form-group">
+            <input type="text" name="agenda_speaker_{{ loop.index0 }}" class="form-input" value="{{ item.speaker_name or '' }}" placeholder="Speaker name">
+          </div>
+          <div class="form-group" style="flex:0 0 80px">
+            <input type="number" name="agenda_duration_{{ loop.index0 }}" class="form-input" value="{{ item.duration_minutes }}" placeholder="Min" min="5">
+          </div>
+          <button type="button" class="btn btn-sm btn-danger agenda-remove" title="Remove">&times;</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="btn btn-sm btn-outline mt-2" id="add-agenda-item">+ Add Agenda Item</button>
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+      <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Speaker -->
+  <div class="wizard-panel" data-panel="4">
+    <h3 class="wizard-panel-title">Speaker</h3>
+    <div class="form-group">
+      <label class="form-label" for="sess-speaker-select">Select a Speaker (optional)</label>
+      <select name="speaker_id" id="sess-speaker-select" class="form-input">
+        <option value="">-- None --</option>
+        {% for sp in speakers %}
+        <option value="{{ sp.id }}" {% if lecture and lecture.speaker_id == sp.id %}selected{% endif %}>{{ sp.name }}{% if sp.title %} — {{ sp.title }}{% endif %}</option>
+        {% endfor %}
+      </select>
+      <p class="text-muted" style="font-size:.8rem;margin-top:.25rem">Or type a name below if the speaker is not in the system.</p>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="sess-speaker">Speaker Name (displayed on session)</label>
+      <input type="text" name="speaker" id="sess-speaker" class="form-input" value="{{ lecture.speaker if lecture else '' }}" required>
+    </div>
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+      <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Step 5: Review -->
+  <div class="wizard-panel" data-panel="5">
+    <h3 class="wizard-panel-title">Review &amp; Publish</h3>
+    <p class="text-muted">Review all fields above, then click submit.</p>
+    <div id="wizard-review" class="wizard-review"></div>
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+      <button type="submit" class="btn btn-primary btn-lg">{{ "Update" if lecture else "Create" }} Session</button>
+    </div>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var steps = document.querySelectorAll('.wizard-step');
+  var panels = document.querySelectorAll('.wizard-panel');
+  var currentStep = 1;
+
+  function goToStep(n) {
+    currentStep = n;
+    steps.forEach(function(s) { s.classList.toggle('active', parseInt(s.dataset.step) === n); });
+    panels.forEach(function(p) { p.classList.toggle('active', parseInt(p.dataset.panel) === n); });
+    if (n === 5) buildReview();
+  }
+
+  steps.forEach(function(s) {
+    s.addEventListener('click', function() { goToStep(parseInt(s.dataset.step)); });
+  });
+  document.querySelectorAll('.wizard-next').forEach(function(btn) {
+    btn.addEventListener('click', function() { goToStep(currentStep + 1); });
+  });
+  document.querySelectorAll('.wizard-prev').forEach(function(btn) {
+    btn.addEventListener('click', function() { goToStep(currentStep - 1); });
+  });
+
+  function buildReview() {
+    var r = document.getElementById('wizard-review');
+    var title = document.getElementById('sess-title').value || '(untitled)';
+    var speaker = document.getElementById('sess-speaker').value || '(none)';
+    var start = document.getElementById('sess-start').value || '(not set)';
+    var price = document.getElementById('sess-price').value || '0';
+    var status = document.getElementById('sess-status').value || 'draft';
+    var aud = document.getElementById('sess-auditorium');
+    var venue = aud.options[aud.selectedIndex] ? aud.options[aud.selectedIndex].text : '(none)';
+    r.innerHTML = '<table class="table"><tbody>' +
+      '<tr><td><strong>Title</strong></td><td>' + title + '</td></tr>' +
+      '<tr><td><strong>Speaker</strong></td><td>' + speaker + '</td></tr>' +
+      '<tr><td><strong>Venue</strong></td><td>' + venue + '</td></tr>' +
+      '<tr><td><strong>Date/Time</strong></td><td>' + start + '</td></tr>' +
+      '<tr><td><strong>Price</strong></td><td>\u20B9' + price + '</td></tr>' +
+      '<tr><td><strong>Status</strong></td><td>' + status + '</td></tr>' +
+      '</tbody></table>';
+  }
+
+  // Agenda items
+  var agendaIdx = {{ agenda_items|length }};
+  document.getElementById('add-agenda-item').addEventListener('click', function() {
+    var container = document.getElementById('agenda-container');
+    var row = document.createElement('div');
+    row.className = 'agenda-row';
+    row.dataset.idx = agendaIdx;
+    row.innerHTML = '<div class="form-row">' +
+      '<div class="form-group" style="flex:2"><input type="text" name="agenda_title_' + agendaIdx + '" class="form-input" placeholder="Talk title"></div>' +
+      '<div class="form-group"><input type="text" name="agenda_speaker_' + agendaIdx + '" class="form-input" placeholder="Speaker name"></div>' +
+      '<div class="form-group" style="flex:0 0 80px"><input type="number" name="agenda_duration_' + agendaIdx + '" class="form-input" value="20" placeholder="Min" min="5"></div>' +
+      '<button type="button" class="btn btn-sm btn-danger agenda-remove" title="Remove">&times;</button>' +
+      '</div>';
+    container.appendChild(row);
+    agendaIdx++;
+    bindRemoveButtons();
+  });
+
+  function bindRemoveButtons() {
+    document.querySelectorAll('.agenda-remove').forEach(function(btn) {
+      btn.onclick = function() { btn.closest('.agenda-row').remove(); };
+    });
+  }
+  bindRemoveButtons();
+
+  // Auto-fill speaker name when selecting from dropdown
+  var spSelect = document.getElementById('sess-speaker-select');
+  var spInput = document.getElementById('sess-speaker');
+  if (spSelect) {
+    spSelect.addEventListener('change', function() {
+      var opt = spSelect.options[spSelect.selectedIndex];
+      if (opt && opt.value) {
+        var name = opt.text.split(' — ')[0];
+        spInput.value = name;
+      }
+    });
+  }
+})();
+</script>
 {% endblock %}

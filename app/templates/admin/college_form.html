@@ -1,0 +1,39 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ "Edit" if college else "New" }} College — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">{{ "Edit" if college else "New" }} College</h1>
+</div>
+
+<div class="form-card">
+  <form method="post" action="{{ '/admin/colleges/' ~ college.id ~ '/edit' if college else '/admin/colleges/new' }}">
+    <div class="form-group">
+      <label class="form-label" for="college-name">College Name</label>
+      <input type="text" name="name" id="college-name" class="form-input" value="{{ college.name if college else '' }}" required>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="college-city">City</label>
+      <select name="city_id" id="college-city" class="form-input" required>
+        <option value="">Select a city</option>
+        {% for city in cities %}
+        <option value="{{ city.id }}" {% if college and college.city_id == city.id %}selected{% endif %}>{{ city.name }}, {{ city.state }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="college-address">Address</label>
+      <textarea name="address" id="college-address" class="form-input" rows="2">{{ college.address if college and college.address else '' }}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label">
+        <input type="checkbox" name="is_active" {% if not college or college.is_active %}checked{% endif %}> Active
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ "Update" if college else "Create" }} College</button>
+      <a href="/admin/colleges" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

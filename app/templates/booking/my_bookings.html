@@ -9,7 +9,7 @@
     {% if bookings %}
     <div class="bookings-list">
       {% for item in bookings %}
-      <div class="booking-card">
+      <div class="booking-card {% if item.booking.payment_status == 'refunded' %}booking-cancelled{% endif %}">
         <div class="booking-card-main">
           <h3 class="booking-card-title">{{ item.lecture.title }}</h3>
           <p class="booking-card-meta">{{ item.lecture.speaker }}</p>
@@ -19,11 +19,32 @@
             <span>&#128205; {{ item.auditorium.name }}, {{ item.auditorium.location }}</span>
             {% endif %}
           </div>
+          {% if item.booking.ticket_id %}
+          <div class="booking-ticket-info">
+            <span class="ticket-id">Ticket: {{ item.booking.ticket_id }}</span>
+          </div>
+          {% endif %}
         </div>
         <div class="booking-card-side">
           <span class="seat-label-chip">{{ item.seat.label }}</span>
+          {% if item.booking.qr_code_data and item.booking.payment_status == 'paid' %}
+          <img src="data:image/png;base64,{{ item.booking.qr_code_data }}" alt="QR Code for {{ item.booking.ticket_id }}" class="booking-qr" width="80" height="80">
+          {% endif %}
           <span class="booking-ref-small">Ref: {{ item.booking.booking_ref }}</span>
-          <span class="badge badge-available">Confirmed</span>
+          {% if item.booking.payment_status == 'paid' %}
+            {% if item.booking.checked_in %}
+            <span class="badge badge-success">Checked In</span>
+            {% else %}
+            <span class="badge badge-available">Confirmed</span>
+            {% endif %}
+            <form method="post" action="/booking/cancel/{{ item.booking.id }}" style="margin-top:.5rem"
+                  onsubmit="return confirm('Cancel this booking?\n\nCancellation fee: ₹100\nRefund amount: ₹{{ (item.booking.amount_paid - 100)|round(0)|int if item.booking.amount_paid else 400 }}')">
+              <button type="submit" class="btn btn-sm btn-danger">Cancel Booking</button>
+            </form>
+          {% elif item.booking.payment_status == 'refunded' %}
+            <span class="badge badge-muted">Cancelled</span>
+            <span class="booking-ref-small">Refund: ₹{{ item.booking.refund_amount|round(0)|int if item.booking.refund_amount else 0 }}</span>
+          {% endif %}
         </div>
       </div>
       {% endfor %}
