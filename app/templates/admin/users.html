@@ -15,7 +15,7 @@
         <th>Email</th>
         <th>Role</th>
         <th>Joined</th>
-        <th>Actions</th>
+        {% if user.is_admin %}<th>Actions</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -24,11 +24,16 @@
         <td data-label="Username"><strong>{{ u.username }}</strong></td>
         <td data-label="Email">{{ u.email }}</td>
         <td data-label="Role">
-          <span class="badge badge-{% if u.is_admin %}filling-up{% else %}draft{% endif %}">
-            {{ 'Admin' if u.is_admin else 'User' }}
-          </span>
+          {% if u.is_admin %}
+          <span class="badge badge-filling-up">Admin</span>
+          {% elif u.is_supervisor %}
+          <span class="badge badge-published">Supervisor</span>
+          {% else %}
+          <span class="badge badge-draft">User</span>
+          {% endif %}
         </td>
         <td data-label="Joined">{{ u.created_at.strftime('%b %d, %Y') }}</td>
+        {% if user.is_admin %}
         <td data-label="Actions">
           <form method="post" action="/admin/users/{{ u.id }}/toggle-admin" style="display:inline">
             <button type="button" class="btn btn-sm btn-outline"
@@ -38,7 +43,16 @@
               {{ 'Remove Admin' if u.is_admin else 'Make Admin' }}
             </button>
           </form>
+          <form method="post" action="/admin/users/{{ u.id }}/toggle-supervisor" style="display:inline">
+            <button type="button" class="btn btn-sm btn-outline"
+              data-confirm="Toggle supervisor status for {{ u.username }}?"
+              data-confirm-label="{{ 'Remove Supervisor' if u.is_supervisor else 'Make Supervisor' }}"
+              data-confirm-class="btn-primary">
+              {{ 'Remove Supervisor' if u.is_supervisor else 'Make Supervisor' }}
+            </button>
+          </form>
         </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>

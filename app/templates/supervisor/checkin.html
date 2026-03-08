@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Supervisor Check-in — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:900px;margin:0 auto">
+    <h1 class="section-title" style="margin-bottom:1.5rem">Supervisor Check-in</h1>
+
+    <div class="form-card mb-3">
+      <form method="post" action="/supervisor/checkin" id="checkin-form">
+        <div class="form-row">
+          <div class="form-group" style="flex:2">
+            <label class="form-label" for="ticket-id">Ticket ID or Group QR</label>
+            <div class="scanner-input-row">
+              <input type="text" name="ticket_id" id="ticket-id" class="form-input" placeholder="e.g. TT-20260307-ABC12345" autofocus required>
+              <button type="button" id="scan-toggle" class="btn btn-outline scan-toggle-btn" title="Scan QR Code">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="form-group" style="flex:1">
+            <label class="form-label" for="checkin-session">Session (optional)</label>
+            <select name="session_id" id="checkin-session" class="form-input">
+              <option value="">All sessions</option>
+              {% for s in sessions %}
+              <option value="{{ s.id }}" {% if selected_session and selected_session|string == s.id|string %}selected{% endif %}>{{ s.title }} ({{ s.start_time.strftime('%b %d') }})</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div id="qr-reader" class="qr-reader-container" style="display:none"></div>
+        <button type="submit" class="btn btn-primary">Verify &amp; Check In</button>
+      </form>
+    </div>
+
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+    <script>
+    (function(){
+      var toggle = document.getElementById('scan-toggle');
+      var readerEl = document.getElementById('qr-reader');
+      var input = document.getElementById('ticket-id');
+      var form = document.getElementById('checkin-form');
+      var scanner = null;
+      var scanning = false;
+
+      toggle.addEventListener('click', function(){
+        if(scanning){ stopScan(); } else { startScan(); }
+      });
+
+      function startScan(){
+        readerEl.style.display = 'block';
+        toggle.classList.add('active');
+        scanning = true;
+        scanner = new Html5Qrcode("qr-reader");
+        scanner.start(
+          { facingMode: "environment" },
+          { fps: 10, qrbox: { width: 250, height: 250 } },
+          function(decoded){
+            input.value = decoded;
+            stopScan();
+            form.submit();
+          },
+          function(){}
+        ).catch(function(err){
+          readerEl.innerHTML = '<p style="padding:1rem;text-align:center;color:var(--red)">Camera access denied or unavailable.<br><small>' + err + '</small></p>';
+        });
+      }
+
+      function stopScan(){
+        scanning = false;
+        toggle.classList.remove('active');
+        if(scanner){
+          scanner.stop().then(function(){ scanner.clear(); }).catch(function(){});
+        }
+        readerEl.style.display = 'none';
+      }
+    })();
+    </script>
+
+    {% if result %}
+    <div class="checkin-result checkin-{{ result.status }}">
+      <div class="checkin-result-icon">
+        {% if result.status == 'success' %}&#10003;{% elif result.status == 'warning' %}&#9888;{% else %}&#10007;{% endif %}
+      </div>
+      <h3>{{ result.msg }}</h3>
+      {% if result.is_group %}
+      <div class="checkin-details">
+        <p><strong>Name:</strong> {{ result.user_name }}</p>
+        <p><strong>Email:</strong> {{ result.user_email }}</p>
+        <p><strong>Session:</strong> {{ result.session_title }}</p>
+        {% if result.newly_checked %}
+        <p><strong>Checked in now:</strong> {{ result.newly_checked|join(', ') }}</p>
+        {% endif %}
+        {% if result.already_checked %}
+        <p><strong>Already checked in:</strong> {{ result.already_checked|join(', ') }}</p>
+        {% endif %}
+      </div>
+      {% elif result.status == 'success' %}
+      <div class="checkin-details">
+        <p><strong>Name:</strong> {{ result.user_name }}</p>
+        <p><strong>Email:</strong> {{ result.user_email }}</p>
+        <p><strong>Session:</strong> {{ result.session_title }}</p>
+        <p><strong>Seat:</strong> {{ result.seat_label }}</p>
+        <p><strong>Ticket:</strong> {{ result.ticket_id }}</p>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {% if stats %}
+    <div class="checkin-stats mt-3">
+      <h4>Live Check-in Stats</h4>
+      <div class="admin-stats-row">
+        <div class="admin-stat-card">
+          <div class="admin-stat-value">{{ stats.checked_in }}</div>
+          <div class="admin-stat-label">Checked In</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-value">{{ stats.total }}</div>
+          <div class="admin-stat-label">Total Booked</div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="admin-stat-value">{{ ((stats.checked_in / stats.total * 100) if stats.total > 0 else 0)|round(0)|int }}%</div>
+          <div class="admin-stat-label">Attendance</div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

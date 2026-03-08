@@ -267,9 +267,17 @@ def my_bookings(request: Request, db: Session = Depends(get_db)):
             "all_checked_in": all(b.checked_in for b in paid_bookings) if paid_bookings else False,
         })
 
+    active_groups = []
+    archive_groups = []
+    for g in grouped:
+        if g["all_checked_in"] or g["status"] == "refunded":
+            archive_groups.append(g)
+        else:
+            active_groups.append(g)
+
     return templates.TemplateResponse(
         "booking/my_bookings.html",
-        template_ctx(request, groups=grouped),
+        template_ctx(request, groups=active_groups, archive_groups=archive_groups),
     )
 
 

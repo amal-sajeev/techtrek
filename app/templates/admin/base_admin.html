@@ -17,6 +17,7 @@
       <a href="/admin/" class="admin-nav-link {% if active_page == 'dashboard' %}active{% endif %}">
         <span class="nav-icon">&#128200;</span> Dashboard
       </a>
+      {% if user.is_admin %}
       <a href="/admin/cities" class="admin-nav-link {% if active_page == 'cities' %}active{% endif %}">
         <span class="nav-icon">&#127961;</span> Cities
       </a>
@@ -29,6 +30,7 @@
       <a href="/admin/speakers" class="admin-nav-link {% if active_page == 'speakers' %}active{% endif %}">
         <span class="nav-icon">&#127908;</span> Speakers
       </a>
+      {% endif %}
       <a href="/admin/sessions" class="admin-nav-link {% if active_page == 'sessions' %}active{% endif %}">
         <span class="nav-icon">&#127916;</span> Sessions
       </a>
@@ -38,9 +40,11 @@
       <a href="/admin/checkin" class="admin-nav-link {% if active_page == 'checkin' %}active{% endif %}">
         <span class="nav-icon">&#9989;</span> Check-in
       </a>
+      {% if user.is_admin %}
       <a href="/admin/waitlist" class="admin-nav-link {% if active_page == 'waitlist' %}active{% endif %}">
         <span class="nav-icon">&#128221;</span> Waitlist
       </a>
+      {% endif %}
       <a href="/admin/users" class="admin-nav-link {% if active_page == 'users' %}active{% endif %}">
         <span class="nav-icon">&#128101;</span> Users
       </a>

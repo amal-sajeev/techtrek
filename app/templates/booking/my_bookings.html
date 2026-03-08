@@ -19,11 +19,7 @@
             </div>
             <div class="booking-card-header-right">
               {% if g.status == 'paid' %}
-                {% if g.all_checked_in %}
-                <span class="badge badge-success">Checked In</span>
-                {% else %}
                 <span class="badge badge-available">Confirmed</span>
-                {% endif %}
               {% elif g.status == 'refunded' %}
                 <span class="badge badge-muted">Cancelled</span>
               {% else %}
@@ -64,7 +60,7 @@
       </a>
       {% endfor %}
     </div>
-    {% else %}
+    {% elif not archive_groups %}
     <div class="empty-state reveal">
       <svg class="empty-icon" width="72" height="72" viewBox="0 0 72 72" fill="none" aria-hidden="true">
         <rect x="12" y="16" width="48" height="44" rx="4" stroke="currentColor" stroke-width="1.5"/>
@@ -77,6 +73,67 @@
       <p>You haven't booked any sessions. Find one you'd love and grab a seat.</p>
       <a href="/sessions" class="btn btn-primary">Browse Sessions</a>
     </div>
+    {% endif %}
+
+    {% if archive_groups %}
+    <details class="bookings-archive">
+      <summary class="bookings-archive-toggle">
+        Archive ({{ archive_groups|length }})
+      </summary>
+      <div class="bookings-list" style="margin-top:1rem">
+        {% for g in archive_groups %}
+        <a href="{{ g.detail_url }}" class="booking-card-link booking-archived">
+          <div class="booking-card">
+
+            <div class="booking-card-header">
+              <div class="booking-card-header-left">
+                <h3 class="booking-card-title">{{ g.lecture.title }}</h3>
+                <p class="booking-card-speaker">{{ g.lecture.speaker }}</p>
+              </div>
+              <div class="booking-card-header-right">
+                {% if g.all_checked_in %}
+                <span class="badge badge-success">Checked In</span>
+                {% elif g.status == 'refunded' %}
+                <span class="badge badge-muted">Cancelled</span>
+                {% else %}
+                <span class="badge badge-warning">Partial</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <div class="booking-card-body">
+              <div class="booking-card-info">
+                <div class="booking-detail-row">
+                  <span class="booking-detail-icon">&#128197;</span>
+                  <span>{{ g.lecture.start_time.strftime('%b %d, %Y at %I:%M %p') }}</span>
+                </div>
+                {% if g.auditorium %}
+                <div class="booking-detail-row">
+                  <span class="booking-detail-icon">&#128205;</span>
+                  <span>{{ g.auditorium.name }}, {{ g.auditorium.location }}</span>
+                </div>
+                {% endif %}
+                <div class="booking-detail-row">
+                  <span class="booking-detail-icon">&#128176;</span>
+                  <span>Total: <strong>&#8377;{{ g.total_paid|round(0)|int }}</strong></span>
+                </div>
+              </div>
+
+              <div class="booking-card-seats-col">
+                <div class="booking-seats-row">
+                  {% for seat in g.seats %}
+                  <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
+                  {% endfor %}
+                </div>
+                <span class="booking-seat-count">{{ g.seats|length }} ticket{{ 's' if g.seats|length > 1 else '' }}</span>
+              </div>
+            </div>
+
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+    </details>
     {% endif %}
   </div>
 </section>

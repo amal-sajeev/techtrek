@@ -19,6 +19,7 @@ class User(Base):
     domain = Column(String(100), nullable=True)
     year_of_study = Column(Integer, nullable=True)
     is_admin = Column(Boolean, default=False)
+    is_supervisor = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     bookings = relationship("Booking", back_populates="user")

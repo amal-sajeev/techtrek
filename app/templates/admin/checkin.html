@@ -7,11 +7,16 @@
 </div>
 
 <div class="form-card mb-3">
-  <form method="post" action="/admin/checkin">
+  <form method="post" action="/admin/checkin" id="checkin-form">
     <div class="form-row">
       <div class="form-group" style="flex:2">
         <label class="form-label" for="ticket-id">Ticket ID or Group QR</label>
-        <input type="text" name="ticket_id" id="ticket-id" class="form-input" placeholder="e.g. TT-20260307-ABC12345 or GROUP-A1B2C3D4E5F6" autofocus required>
+        <div class="scanner-input-row">
+          <input type="text" name="ticket_id" id="ticket-id" class="form-input" placeholder="e.g. TT-20260307-ABC12345" autofocus required>
+          <button type="button" id="scan-toggle" class="btn btn-outline scan-toggle-btn" title="Scan QR Code">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+          </button>
+        </div>
       </div>
       <div class="form-group" style="flex:1">
         <label class="form-label" for="checkin-session">Session (optional)</label>
@@ -23,9 +28,54 @@
         </select>
       </div>
     </div>
+    <div id="qr-reader" class="qr-reader-container" style="display:none"></div>
     <button type="submit" class="btn btn-primary">Verify &amp; Check In</button>
   </form>
 </div>
+
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script>
+(function(){
+  var toggle = document.getElementById('scan-toggle');
+  var readerEl = document.getElementById('qr-reader');
+  var input = document.getElementById('ticket-id');
+  var form = document.getElementById('checkin-form');
+  var scanner = null;
+  var scanning = false;
+
+  toggle.addEventListener('click', function(){
+    if(scanning){ stopScan(); } else { startScan(); }
+  });
+
+  function startScan(){
+    readerEl.style.display = 'block';
+    toggle.classList.add('active');
+    scanning = true;
+    scanner = new Html5Qrcode("qr-reader");
+    scanner.start(
+      { facingMode: "environment" },
+      { fps: 10, qrbox: { width: 250, height: 250 } },
+      function(decoded){
+        input.value = decoded;
+        stopScan();
+        form.submit();
+      },
+      function(){}
+    ).catch(function(err){
+      readerEl.innerHTML = '<p style="padding:1rem;text-align:center;color:var(--red)">Camera access denied or unavailable.<br><small>' + err + '</small></p>';
+    });
+  }
+
+  function stopScan(){
+    scanning = false;
+    toggle.classList.remove('active');
+    if(scanner){
+      scanner.stop().then(function(){ scanner.clear(); }).catch(function(){});
+    }
+    readerEl.style.display = 'none';
+  }
+})();
+</script>
 
 {% if result %}
 <div class="checkin-result checkin-{{ result.status }}">

@@ -34,13 +34,20 @@ with engine.connect() as conn:
             conn.commit()
         except Exception:
             conn.rollback()
+    for col, col_type in [("is_supervisor", "BOOLEAN DEFAULT FALSE")]:
+        try:
+            conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
-from app.routers import auth, public, booking, admin  # noqa: E402
+from app.routers import auth, public, booking, admin, supervisor  # noqa: E402
 
 application.include_router(auth.router)
 application.include_router(public.router)
 application.include_router(booking.router)
 application.include_router(admin.router)
+application.include_router(supervisor.router)
 
 app = application
 

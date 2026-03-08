@@ -4,7 +4,9 @@
 {% block admin_content %}
 <div class="admin-header">
   <h1 class="admin-page-title">Sessions</h1>
+  {% if user.is_admin %}
   <a href="/admin/sessions/new" class="btn btn-primary">+ New Session</a>
+  {% endif %}
 </div>
 
 {% if sessions %}
@@ -19,7 +21,7 @@
         <th>Price</th>
         <th>Bookings</th>
         <th>Status</th>
-        <th>Actions</th>
+        {% if user.is_admin %}<th>Actions</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -36,12 +38,14 @@
             {{ item.session.status }}
           </span>
         </td>
+        {% if user.is_admin %}
         <td class="actions-cell">
           <a href="/admin/sessions/{{ item.session.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           <form method="post" action="/admin/sessions/{{ item.session.id }}/delete" style="display:inline">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this session?" data-confirm-label="Delete">Delete</button>
           </form>
         </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -50,8 +54,10 @@
 {% else %}
 <div class="empty-state">
   <h3>No sessions yet</h3>
+  {% if user.is_admin %}
   <p>Create your first session to start selling tickets.</p>
   <a href="/admin/sessions/new" class="btn btn-primary">Create Session</a>
+  {% endif %}
 </div>
 {% endif %}
 {% endblock %}

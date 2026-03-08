@@ -35,6 +35,16 @@ def _require_admin(request: Request, db: Session) -> User | None:
     return user
 
 
+def _require_supervisor_or_admin(request: Request, db: Session) -> User | None:
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return None
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not (user.is_admin or user.is_supervisor):
+        return None
+    return user
+
+
 def _admin_ctx(request: Request, active_page: str = "", **kwargs):
     ctx = template_ctx(request, active_page=active_page)
     ctx.update(kwargs)
@@ -49,7 +59,7 @@ async def _form(request: Request):
 
 @router.get("/")
 def dashboard(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
+    admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login?next=/admin/", status_code=303)
 
@@ -619,7 +629,7 @@ def speaker_delete(request: Request, speaker_id: int, db: Session = Depends(get_
 
 @router.get("/sessions")
 def sessions_list(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
+    admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     sessions = db.query(LectureSession).order_by(LectureSession.start_time.desc()).all()
@@ -796,7 +806,7 @@ def bookings_list(
     status_filter: str = Query("", alias="status"),
     session_filter: str = Query("", alias="session_id"),
 ):
-    admin = _require_admin(request, db)
+    admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
@@ -843,7 +853,7 @@ def bookings_list(
 
 @router.get("/bookings/export")
 def bookings_csv(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
+    admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
@@ -908,7 +918,7 @@ def booking_refund(request: Request, booking_id: int, db: Session = Depends(get_
 
 @router.get("/checkin")
 def checkin_page(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
+    admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     sessions = (
@@ -925,7 +935,7 @@ def checkin_page(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/checkin")
 async def checkin_verify(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
+    admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
@@ -1114,7 +1124,7 @@ async def grant_priority(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/users")
 def users_list(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
+    admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     users = db.query(User).order_by(User.created_at.desc()).all()
@@ -1134,5 +1144,19 @@ def toggle_admin(request: Request, user_id: int, db: Session = Depends(get_db)):
         u.is_admin = not u.is_admin
         db.commit()
         status = "admin" if u.is_admin else "regular user"
+        flash(request, f"{u.username} is now a {status}.", "success")
+    return RedirectResponse("/admin/users", status_code=303)
+
+
+@router.post("/users/{user_id}/toggle-supervisor")
+def toggle_supervisor(request: Request, user_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    u = db.query(User).get(user_id)
+    if u and u.id != admin.id:
+        u.is_supervisor = not u.is_supervisor
+        db.commit()
+        status = "supervisor" if u.is_supervisor else "regular user"
         flash(request, f"{u.username} is now a {status}.", "success")
     return RedirectResponse("/admin/users", status_code=303)

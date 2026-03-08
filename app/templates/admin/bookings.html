@@ -43,7 +43,7 @@
         <th>Seat</th>
         <th>Status</th>
         <th>Booked</th>
-        <th>Actions</th>
+        {% if user.is_admin %}<th>Actions</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -64,6 +64,7 @@
           {% if item.booking.checked_in %}<br><small class="text-muted">Checked in</small>{% endif %}
         </td>
         <td>{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
+        {% if user.is_admin %}
         <td class="actions-cell">
           {% if item.booking.payment_status == 'paid' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
@@ -78,6 +79,7 @@
           </form>
           {% endif %}
         </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
