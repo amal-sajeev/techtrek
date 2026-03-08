@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}TechTrek{% endblock %}</title>
-  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=6">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1117'/><text y='24' x='4' font-size='22' font-family='monospace'>⚡</text></svg>">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=15">
   <script>
     (function(){
       var t = localStorage.getItem('techtrek-theme');
@@ -253,22 +254,97 @@ const revealObserver = new IntersectionObserver((entries)=>{
 
 document.querySelectorAll('.reveal, .stagger').forEach(el=>revealObserver.observe(el));
 
-// ---- CONFIRM MODAL ----
+// ---- GLOBAL FORM SUBMIT LOADING ----
+// Any form with data-loading="true" or any submit button with data-loading gets a spinner.
+// Also handles generic forms without per-page logic (admin forms, booking forms, etc.)
+document.addEventListener('submit', function(e) {
+  var form = e.target;
+  // Skip forms that have their own handler (novalidate forms handle themselves)
+  if (form.hasAttribute('novalidate')) return;
+  // Skip forms that were already handled
+  var btn = form.querySelector('[type=submit]:not([data-no-loading])');
+  if (btn && !btn.disabled && !btn.classList.contains('btn-loading')) {
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+    // Safety: re-enable after 8s in case of error
+    setTimeout(function() {
+      btn.classList.remove('btn-loading');
+      btn.disabled = false;
+    }, 8000);
+  }
+}, true);
+
+// ---- CONFIRM MODAL (with focus trap) ----
 const confirmModal = document.getElementById('confirm-modal');
 let confirmCallback = null;
-function openConfirm(msg, cb){
+let lastFocused = null;
+
+function openConfirm(msg, cb) {
   confirmModal.querySelector('.confirm-message').textContent = msg;
   confirmCallback = cb;
   confirmModal.classList.add('active');
+  lastFocused = document.activeElement;
+  // Focus the cancel button first (safer default)
+  setTimeout(function() {
+    var cancelBtn = confirmModal.querySelector('.confirm-no');
+    if (cancelBtn) cancelBtn.focus();
+  }, 50);
 }
-confirmModal.querySelector('.confirm-yes').addEventListener('click',()=>{
-  confirmModal.classList.remove('active');
-  if(confirmCallback) confirmCallback();
-});
-confirmModal.querySelector('.confirm-no').addEventListener('click',()=>{
+
+function closeConfirm() {
   confirmModal.classList.remove('active');
   confirmCallback = null;
+  if (lastFocused) lastFocused.focus();
+}
+
+// Focus trap inside modal
+confirmModal.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') { closeConfirm(); return; }
+  if (e.key !== 'Tab') return;
+  var focusable = confirmModal.querySelectorAll('button:not([disabled])');
+  var first = focusable[0];
+  var last  = focusable[focusable.length - 1];
+  if (e.shiftKey) {
+    if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+  } else {
+    if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+  }
 });
+
+confirmModal.querySelector('.confirm-yes').addEventListener('click', function() {
+  closeConfirm();
+  if (confirmCallback) confirmCallback();
+});
+confirmModal.querySelector('.confirm-no').addEventListener('click', closeConfirm);
+// Click backdrop also closes
+confirmModal.querySelector('.modal-backdrop').addEventListener('click', closeConfirm);
+
+// ---- HOME CAROUSEL DOTS ----
+(function() {
+  var grid = document.getElementById('home-session-grid');
+  var dots = document.getElementById('home-carousel-dots');
+  if (!grid || !dots) return;
+  function init() {
+    if (window.innerWidth > 640) return;
+    var cards = grid.querySelectorAll('.card');
+    dots.innerHTML = '';
+    if (cards.length <= 1) return;
+    var maxDots = Math.min(cards.length, 7);
+    for (var i = 0; i < maxDots; i++) {
+      var dot = document.createElement('span');
+      dot.className = 'carousel-hint-dot' + (i === 0 ? ' active' : '');
+      dots.appendChild(dot);
+    }
+    grid.addEventListener('scroll', function() {
+      var idx = Math.round(grid.scrollLeft / (grid.scrollWidth / cards.length));
+      dots.querySelectorAll('.carousel-hint-dot').forEach(function(d, i) {
+        d.classList.toggle('active', i === idx);
+      });
+    }, { passive: true });
+  }
+  init();
+  window.addEventListener('resize', init, { passive: true });
+})();
 
 // ---- ADMIN SIDEBAR (mobile) ----
 (function(){

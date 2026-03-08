@@ -4,56 +4,99 @@
 {% block admin_content %}
 <div class="admin-header">
   <h1 class="admin-page-title">Seat Layout: {{ auditorium.name }}</h1>
-  <span class="text-secondary">{{ auditorium.total_rows }} rows &times; {{ auditorium.total_cols }} columns</span>
+  <span class="text-secondary" id="layout-grid-size">{{ auditorium.total_rows }} rows &times; {{ auditorium.total_cols }} columns</span>
 </div>
 
-<!-- Toolbar -->
+<!-- Toolbar: seat types -->
 <div class="designer-toolbar">
   <div class="toolbar-group">
-    <span class="toolbar-label">Tools:</span>
-    <button class="tool-btn tool-active" data-tool="standard">
+    <span class="toolbar-label">Seat type:</span>
+    <button class="tool-btn tool-active" data-tool="standard" title="Regular seat">
       <span class="tool-swatch tool-standard"></span> Standard
     </button>
-    <button class="tool-btn" data-tool="vip">
+    <button class="tool-btn" data-tool="vip" title="Premium seat">
       <span class="tool-swatch tool-vip"></span> VIP
     </button>
-    <button class="tool-btn" data-tool="accessible">
+    <button class="tool-btn" data-tool="accessible" title="Wheelchair-accessible">
       <span class="tool-swatch tool-accessible"></span> Accessible
     </button>
-    <button class="tool-btn" data-tool="aisle">
+    <button class="tool-btn" data-tool="aisle" title="Walkway (no seat)">
       <span class="tool-swatch tool-aisle"></span> Aisle
     </button>
-    <button class="tool-btn" data-tool="eraser">
+    <button class="tool-btn" data-tool="eraser" title="Click a cell to clear it">
       &#10006; Eraser
     </button>
   </div>
   <div class="toolbar-group">
-    <button class="btn btn-sm btn-outline" id="fill-all">Fill All</button>
-    <button class="btn btn-sm btn-outline" id="add-center-aisle">Center Aisle</button>
-    <button class="btn btn-sm btn-danger" id="clear-all">Clear All</button>
+    <span class="toolbar-label">Actions:</span>
+    <button type="button" class="btn btn-sm btn-outline" id="fill-all" title="Fill every cell with the selected type">Fill all with Standard</button>
+    <button type="button" class="btn btn-sm btn-outline" id="add-center-aisle" title="Quick add an aisle down the middle (or paint aisles anywhere with Aisle tool)">Center aisle</button>
+    <button type="button" class="btn btn-sm btn-danger" id="clear-all" title="Remove all seats and aisles">Clear all</button>
+  </div>
+  <div class="toolbar-group designer-grid-size-controls">
+    <span class="toolbar-label">Grid size:</span>
+    <button type="button" class="btn btn-sm btn-outline" id="add-row" title="Add a row at the back">+ Row</button>
+    <button type="button" class="btn btn-sm btn-outline" id="add-column" title="Add a column">+ Column</button>
+    <button type="button" class="btn btn-sm btn-outline" id="remove-row" title="Remove the last row">&minus; Row</button>
+    <button type="button" class="btn btn-sm btn-outline" id="remove-column" title="Remove the last column">&minus; Column</button>
+  </div>
+  <div class="toolbar-group designer-stage-width-controls">
+    <span class="toolbar-label">Stage width:</span>
+    <button type="button" class="btn btn-sm btn-outline" id="stage-width-down" title="Narrower stage" aria-label="Decrease stage width">&minus;</button>
+    <input type="number" id="stage-width-input" class="form-input designer-stage-width-input" min="1" value="{{ auditorium.stage_cols or auditorium.total_cols }}" title="Number of columns the stage spans (1 to grid width)">
+    <button type="button" class="btn btn-sm btn-outline" id="stage-width-up" title="Wider stage" aria-label="Increase stage width">+</button>
+    <span class="toolbar-label" style="margin-left:.25rem">columns</span>
   </div>
 </div>
+
+<p class="designer-hint">Change <strong>grid size</strong> with + Row / + Column. Paint <strong>aisles anywhere</strong> with the Aisle tool. Click/drag cells, or click row letters / column numbers to fill or clear. <strong>Shift+click</strong> a row letter or column number to toggle a <strong>walkway gap</strong>. You can also click the thin handles between rows.</p>
 
 <!-- Stats -->
 <div class="designer-stats" id="layout-stats">Total seats: 0</div>
 
-<!-- Grid -->
+<!-- Grid: stage at top, rows A-Z, columns 1-N -->
 <div class="designer-container">
-  <div class="designer-stage"><span>STAGE</span></div>
+  <div class="designer-stage-wrapper" id="designer-stage-wrapper">
+    <div class="designer-stage-bar" id="designer-stage-bar">
+      <span class="designer-stage-bar-text">STAGE</span>
+    </div>
+  </div>
   <div class="layout-grid" id="layout-grid"></div>
+</div>
+
+<!-- Legend -->
+<div class="designer-legend">
+  <span class="designer-legend-item"><span class="designer-legend-swatch tool-standard"></span> Standard</span>
+  <span class="designer-legend-item"><span class="designer-legend-swatch tool-vip"></span> VIP</span>
+  <span class="designer-legend-item"><span class="designer-legend-swatch tool-accessible"></span> Accessible</span>
+  <span class="designer-legend-item"><span class="designer-legend-swatch tool-aisle"></span> Aisle</span>
+  <span class="designer-legend-item"><span class="designer-legend-swatch cell-empty"></span> Empty (click to add)</span>
+  <span class="designer-legend-item"><span class="designer-legend-swatch designer-gap-swatch"></span> Walkway gap</span>
 </div>
 
 <!-- Save -->
 <form method="post" action="/admin/auditoriums/{{ auditorium.id }}/layout" id="layout-form">
   <input type="hidden" name="layout_data" id="layout-data-input" value="[]">
+  <input type="hidden" name="total_rows" id="layout-total-rows" value="{{ auditorium.total_rows }}">
+  <input type="hidden" name="total_cols" id="layout-total-cols" value="{{ auditorium.total_cols }}">
+  <input type="hidden" name="stage_cols" id="layout-stage-cols" value="{{ auditorium.stage_cols or auditorium.total_cols }}">
+  <input type="hidden" name="row_gaps" id="layout-row-gaps" value="{{ auditorium.row_gaps or '[]' }}">
+  <input type="hidden" name="col_gaps" id="layout-col-gaps" value="{{ auditorium.col_gaps or '[]' }}">
 </form>
 <div class="form-actions mt-3">
-  <button class="btn btn-primary btn-lg" id="save-layout">Save Layout</button>
+  <button type="button" class="btn btn-primary btn-lg" id="save-layout">Save layout</button>
   <a href="/admin/auditoriums" class="btn btn-outline">Back to Auditoriums</a>
 </div>
 
-<div class="designer-help mt-2">
-  <p><strong>How to use:</strong> Select a tool, then click cells to place seats. Right-click to remove. Use "Fill All" to populate all cells, then selectively add aisles or change seat types.</p>
+<div class="designer-help">
+  <p><strong>How to build your layout</strong></p>
+  <ol class="designer-help-steps">
+    <li>Set the <strong>grid size</strong> with <strong>+ Row</strong> / <strong>+ Column</strong> (or &minus; Row / &minus; Column to shrink). Every auditorium can have a different shape.</li>
+    <li>Choose a <strong>seat type</strong> (Standard, VIP, Accessible, or Aisle). <strong>Click</strong> or <strong>drag</strong> to paint; <strong>right-click</strong> or Eraser to clear.</li>
+    <li>Use <strong>Fill all with [type]</strong> to fill the grid, or click a <strong>row letter</strong> or <strong>column number</strong> to fill that row/column. Put <strong>aisles</strong> wherever you want.</li>
+    <li><strong>Shift+click</strong> a row letter or column number to add a <strong>walkway gap</strong> (extra space between sections). You can also click the thin handles between rows. Gaps appear on the public booking page.</li>
+    <li><strong>Save layout</strong> when done. Grid size, stage width, and gaps are all saved.</li>
+  </ol>
 </div>
 {% endblock %}
 
@@ -62,7 +105,10 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var existing = {{ seat_data_json | safe }};
-    SeatDesigner.init({{ auditorium.total_rows }}, {{ auditorium.total_cols }}, existing);
+    var stageCols = {% if auditorium.stage_cols is none %}null{% else %}{{ auditorium.stage_cols }}{% endif %};
+    var rowGaps = {{ (auditorium.row_gaps or '[]') | safe }};
+    var colGaps = {{ (auditorium.col_gaps or '[]') | safe }};
+    SeatDesigner.init({{ auditorium.total_rows }}, {{ auditorium.total_cols }}, existing, stageCols, rowGaps, colGaps);
   });
 </script>
 {% endblock %}

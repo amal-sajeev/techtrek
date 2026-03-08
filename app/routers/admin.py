@@ -222,11 +222,48 @@ async def seat_layout_save(request: Request, aud_id: int, db: Session = Depends(
 
     form = await _form(request)
     layout_json = form.get("layout_data", "[]")
+    total_rows = form.get("total_rows")
+    total_cols = form.get("total_cols")
+    stage_cols_raw = form.get("stage_cols")
     try:
         layout = json.loads(layout_json)
     except json.JSONDecodeError:
         flash(request, "Invalid layout data.", "danger")
         return RedirectResponse(f"/admin/auditoriums/{aud_id}/layout", status_code=303)
+
+    if total_rows is not None and total_cols is not None:
+        try:
+            r, c = int(total_rows), int(total_cols)
+            if 1 <= r <= 50 and 1 <= c <= 50:
+                aud.total_rows = r
+                aud.total_cols = c
+        except ValueError:
+            pass
+
+    if stage_cols_raw is not None:
+        try:
+            sc = int(stage_cols_raw)
+            if 1 <= sc <= aud.total_cols:
+                aud.stage_cols = sc
+            else:
+                aud.stage_cols = aud.total_cols
+        except ValueError:
+            aud.stage_cols = None
+    else:
+        aud.stage_cols = None
+
+    row_gaps_raw = form.get("row_gaps", "[]")
+    col_gaps_raw = form.get("col_gaps", "[]")
+    try:
+        rg = json.loads(row_gaps_raw)
+        aud.row_gaps = json.dumps([int(x) for x in rg if 1 <= int(x) < aud.total_rows]) if rg else None
+    except (json.JSONDecodeError, ValueError):
+        aud.row_gaps = None
+    try:
+        cg = json.loads(col_gaps_raw)
+        aud.col_gaps = json.dumps([int(x) for x in cg if 1 <= int(x) < aud.total_cols]) if cg else None
+    except (json.JSONDecodeError, ValueError):
+        aud.col_gaps = None
 
     db.query(Seat).filter(Seat.auditorium_id == aud_id).delete()
 

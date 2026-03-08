@@ -15,40 +15,65 @@
     <h1 class="page-title">Choose Your Seats</h1>
     <p class="page-subtitle">{{ lecture.title }} &mdash; {{ auditorium.name }}</p>
 
-    <div class="seat-booking-layout">
+    <div class="seat-booking-layout" id="seat-booking-layout">
       <!-- Seat Map -->
       <div class="seat-map-wrapper">
-        <div class="seat-stage">
+        <div class="seat-stage" id="seat-stage" role="presentation">
           <span>STAGE</span>
         </div>
         <div class="seat-map-container">
-          <div class="seat-map" id="seat-map"></div>
+          <div
+            class="seat-map"
+            id="seat-map"
+            role="group"
+            aria-label="Auditorium seat map for {{ auditorium.name }}. Use arrow keys or Tab to navigate seats.">
+          </div>
         </div>
-        <div class="seat-legend">
-          <div class="legend-item"><span class="legend-swatch legend-available"></span> Available</div>
-          <div class="legend-item"><span class="legend-swatch legend-selected"></span> Selected</div>
-          <div class="legend-item"><span class="legend-swatch legend-taken"></span> Taken</div>
-          <div class="legend-item"><span class="legend-swatch legend-vip"></span> VIP</div>
-          <div class="legend-item"><span class="legend-swatch legend-accessible"></span> Accessible</div>
+        <div class="seat-legend" role="list" aria-label="Seat type key">
+          <div class="legend-item" role="listitem">
+            <span class="legend-swatch legend-available" aria-hidden="true"></span>
+            <span class="legend-label">Available</span>
+          </div>
+          <div class="legend-item" role="listitem">
+            <span class="legend-swatch legend-selected" aria-hidden="true"></span>
+            <span class="legend-label">Selected</span>
+          </div>
+          <div class="legend-item" role="listitem">
+            <span class="legend-swatch legend-taken" aria-hidden="true"></span>
+            <span class="legend-label">Taken</span>
+          </div>
+          <div class="legend-item" role="listitem">
+            <span class="legend-swatch legend-vip" aria-hidden="true"></span>
+            <span class="legend-label"><abbr title="Premium seat with extra legroom">VIP</abbr></span>
+          </div>
+          <div class="legend-item" role="listitem">
+            <span class="legend-swatch legend-accessible" aria-hidden="true"></span>
+            <span class="legend-label">Accessible</span>
+          </div>
         </div>
       </div>
 
-      <!-- Booking Summary (sidebar on desktop, bottom sheet on mobile) -->
-      <div class="booking-summary" id="booking-summary">
+      <!-- Booking Summary (sidebar desktop / bottom-sheet mobile) -->
+      <div class="booking-summary" id="booking-summary" aria-live="polite" aria-label="Your seat selection">
         <h3 class="summary-title">Your Selection</h3>
         <div class="summary-session">{{ lecture.title }}</div>
         <div class="summary-count"><span id="selected-count">0</span> seat(s) selected</div>
 
-        <ul class="selected-list" id="selected-list"></ul>
+        <ul class="selected-list" id="selected-list" aria-label="Selected seats"></ul>
 
         <div class="summary-total">
           <span>Total</span>
           <span id="selected-total">$0.00</span>
         </div>
 
-        <form method="post" action="/booking/hold/{{ lecture.id }}">
+        <form method="post" action="/booking/hold/{{ lecture.id }}" id="seat-form">
           <input type="hidden" name="seat_ids" id="seat-ids-input" value="">
-          <button type="submit" id="confirm-seats-btn" class="btn btn-primary btn-lg btn-block" disabled>
+          <button
+            type="submit"
+            id="confirm-seats-btn"
+            class="btn btn-primary btn-lg btn-block"
+            disabled
+            aria-disabled="true">
             Continue to Checkout
           </button>
         </form>
@@ -63,7 +88,48 @@
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var seatData = {{ seat_map_json | safe }};
-    SeatPicker.init(seatData, {{ price }}, {{ lecture.id }});
+    var gapData = {
+      rowGaps: {{ row_gaps | safe }},
+      colGaps: {{ col_gaps | safe }}
+    };
+    SeatPicker.init(seatData, {{ price }}, {{ lecture.id }}, gapData);
+
+    // Size the stage element to match the admin-configured width
+    var stageCols = {% if stage_cols is none %}null{% else %}{{ stage_cols }}{% endif %};
+    var totalCols = {{ total_cols }};
+    var stageEl = document.getElementById('seat-stage');
+    if (stageEl && stageCols != null && stageCols < totalCols) {
+      stageEl.style.width = Math.round((stageCols / totalCols) * 100) + '%';
+      stageEl.style.display = 'flex';
+      stageEl.style.justifyContent = 'center';
+      stageEl.style.alignItems = 'center';
+    }
+
+    // Update aria-disabled on confirm button
+    var btn = document.getElementById('confirm-seats-btn');
+    var observer = new MutationObserver(function() {
+      btn.setAttribute('aria-disabled', btn.disabled ? 'true' : 'false');
+    });
+    if (btn) observer.observe(btn, { attributes: true, attributeFilter: ['disabled'] });
+
+    // Toggle layout class for mobile overlay dimmer
+    var layout = document.getElementById('seat-booking-layout');
+    var summary = document.getElementById('booking-summary');
+    if (summary && layout) {
+      var mo = new MutationObserver(function() {
+        layout.classList.toggle('has-selection', summary.classList.contains('summary-visible'));
+      });
+      mo.observe(summary, { attributes: true, attributeFilter: ['class'] });
+    }
+
+    // Handle seat form submit with loading state
+    var seatForm = document.getElementById('seat-form');
+    if (seatForm) {
+      seatForm.addEventListener('submit', function() {
+        var b = document.getElementById('confirm-seats-btn');
+        if (b) b.classList.add('btn-loading');
+      });
+    }
   });
 </script>
 {% endblock %}

@@ -9,22 +9,24 @@
       <p class="auth-title">Access your account</p>
     </div>
 
-    <form method="post" action="/auth/login">
+    <form method="post" action="/auth/login" id="login-form" novalidate>
       {% if next %}
         <input type="hidden" name="next" value="{{ next }}">
       {% endif %}
 
       <div class="form-group">
-        <label class="form-label">Username</label>
-        <input type="text" name="username" class="form-input" placeholder="your_handle" required autofocus>
+        <label class="form-label" for="login-username">Username</label>
+        <input type="text" name="username" id="login-username" class="form-input" placeholder="your_handle" required autofocus autocomplete="username">
+        <div class="field-error" id="err-login-user" role="alert"></div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-input" placeholder="••••••••" required>
+        <label class="form-label" for="login-password">Password</label>
+        <input type="password" name="password" id="login-password" class="form-input" placeholder="••••••••" required autocomplete="current-password">
+        <div class="field-error" id="err-login-pass" role="alert"></div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-block" style="margin-top:.5rem">Login</button>
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:.5rem" id="login-btn">Login</button>
     </form>
 
     <div class="auth-footer">
@@ -32,4 +34,34 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var form   = document.getElementById('login-form');
+  var userEl = document.getElementById('login-username');
+  var passEl = document.getElementById('login-password');
+  var btn    = document.getElementById('login-btn');
+
+  function showError(id, msg) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('visible', !!msg);
+  }
+
+  form.addEventListener('submit', function(e) {
+    var valid = true;
+    if (!userEl.value.trim()) { showError('err-login-user','Username is required'); valid = false; }
+    if (!passEl.value)        { showError('err-login-pass','Password is required'); valid = false; }
+    if (!valid) { e.preventDefault(); return; }
+    btn.classList.add('btn-loading');
+    btn.disabled = true;
+  });
+
+  userEl.addEventListener('input', function() { if (userEl.value) showError('err-login-user',''); });
+  passEl.addEventListener('input', function() { if (passEl.value) showError('err-login-pass',''); });
+})();
+</script>
 {% endblock %}

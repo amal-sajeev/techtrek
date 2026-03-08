@@ -25,12 +25,14 @@ def login_page(request: Request):
 @router.post("/login")
 async def login(request: Request, db: Session = Depends(get_db)):
     form = await request.form()
-    email = form.get("email", "").strip()
+    login_id = form.get("username", "").strip()  # can be username or email
     password = form.get("password", "")
 
-    user = db.query(User).filter(User.email == email).first()
+    user = db.query(User).filter(
+        (User.username == login_id) | (User.email == login_id)
+    ).first()
     if not user or not _verify_pw(password, user.password_hash):
-        flash(request, "Invalid email or password.", "danger")
+        flash(request, "Invalid username/email or password.", "danger")
         return RedirectResponse("/auth/login", status_code=303)
 
     request.session["user_id"] = user.id

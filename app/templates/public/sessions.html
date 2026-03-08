@@ -17,12 +17,12 @@
   <div class="container">
     <h1 class="page-title reveal">Upcoming Sessions</h1>
 
-    <form class="filter-bar reveal" method="get" action="/sessions">
+    <form class="filter-bar reveal" id="filter-form" method="get" action="/sessions">
       <div class="filter-search">
-        <input type="text" name="q" class="form-input" placeholder="Search by title or speaker..." value="{{ q }}">
+        <input type="text" name="q" id="filter-q" class="form-input" placeholder="Search by title or speaker..." value="{{ q }}" autocomplete="off">
       </div>
       <div class="filter-sort">
-        <select name="sort" class="form-input" onchange="this.form.submit()">
+        <select name="sort" id="filter-sort" class="form-input">
           <option value="date"  {% if sort == 'date'  %}selected{% endif %}>Sort by Date</option>
           <option value="price" {% if sort == 'price' %}selected{% endif %}>Sort by Price</option>
           <option value="title" {% if sort == 'title' %}selected{% endif %}>Sort by Title</option>
@@ -31,42 +31,169 @@
       <button type="submit" class="btn btn-primary">Search</button>
     </form>
 
-    {% if sessions %}
-    <div class="session-grid stagger">
-      {% for item in sessions %}
-      {% set img_id = img_pool[item.session.id % 8] %}
-      <a href="/sessions/{{ item.session.id }}" class="card card-hover">
-        <div class="card-image">
-          <img
-            src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
-            alt="{{ item.session.title }}"
-            loading="lazy">
-          <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
-        </div>
-        <div class="card-body">
-          <h3 class="card-title">{{ item.session.title }}</h3>
-          <p class="card-meta">// {{ item.session.speaker }}</p>
-          <div class="card-details">
-            <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
-            <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
-            {% if item.auditorium %}
-            <span class="card-detail">&#128205; {{ item.auditorium.location }}</span>
-            {% endif %}
+    <!-- Session grid with skeleton on load -->
+    <div class="session-grid-wrap" id="sessions-wrap">
+      <!-- Skeleton shown while JS hydrates -->
+      <div class="session-grid" id="skeleton-grid" aria-hidden="true" style="display:none">
+        {% for i in range(6) %}
+        <div class="skeleton-card">
+          <div class="skeleton skeleton-image"></div>
+          <div class="skeleton-body">
+            <div class="skeleton skeleton-line long"></div>
+            <div class="skeleton skeleton-line medium"></div>
+            <div class="skeleton skeleton-line short"></div>
+          </div>
+          <div class="skeleton-footer">
+            <div class="skeleton skeleton-price"></div>
+            <div class="skeleton skeleton-seats"></div>
           </div>
         </div>
-        <div class="card-footer">
-          <span class="card-price">${{ "%.2f" | format(item.session.price) }}</span>
-          <span class="card-seats">{{ item.stats.available }} seats left</span>
-        </div>
-      </a>
-      {% endfor %}
+        {% endfor %}
+      </div>
+
+      {% if sessions %}
+      <div class="session-grid" id="session-grid">
+        {% for item in sessions %}
+        {% set img_id = img_pool[item.session.id % 8] %}
+        <a href="/sessions/{{ item.session.id }}" class="card card-hover">
+          <div class="card-image">
+            <img
+              src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
+              alt="{{ item.session.title }}"
+              loading="lazy">
+            <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
+          </div>
+          <div class="card-body">
+            <h3 class="card-title">{{ item.session.title }}</h3>
+            <p class="card-meta">// {{ item.session.speaker }}</p>
+            <div class="card-details">
+              <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
+              <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
+              {% if item.auditorium %}
+              <span class="card-detail">&#128205; {{ item.auditorium.location }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="card-footer">
+            <span class="card-price">${{ "%.2f" | format(item.session.price) }}</span>
+            <span class="card-seats">{{ item.stats.available }} seats left</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="carousel-hint" id="sessions-carousel-dots" aria-hidden="true"></div>
+      {% else %}
+      <div class="empty-state reveal" id="session-grid">
+        <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <path d="M32 20v14M32 40v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <h3>No sessions found</h3>
+        <p>{% if q %}No results for "{{ q }}". Try a different search.{% else %}Check back soon for new sessions!{% endif %}</p>
+      </div>
+      {% endif %}
     </div>
-    {% else %}
-    <div class="empty-state reveal">
-      <h3>No sessions found</h3>
-      <p>{% if q %}No results for "{{ q }}". Try a different search.{% else %}Check back soon for new sessions!{% endif %}</p>
-    </div>
-    {% endif %}
   </div>
 </section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var form    = document.getElementById('filter-form');
+  var qInput  = document.getElementById('filter-q');
+  var sortSel = document.getElementById('filter-sort');
+  var grid    = document.getElementById('session-grid');
+  var skel    = document.getElementById('skeleton-grid');
+  var dots    = document.getElementById('sessions-carousel-dots');
+  var debounceTimer;
+
+  function buildUrl() {
+    var params = new URLSearchParams();
+    var q = qInput.value.trim();
+    var s = sortSel.value;
+    if (q) params.set('q', q);
+    if (s !== 'date') params.set('sort', s);
+    return '/sessions?' + params.toString();
+  }
+
+  function showSkeleton() {
+    if (skel) skel.style.display = '';
+    if (grid) grid.style.opacity = '0.3';
+    form.classList.add('loading');
+  }
+
+  function hideSkeleton() {
+    if (skel) skel.style.display = 'none';
+    if (grid) grid.style.opacity = '';
+    form.classList.remove('loading');
+  }
+
+  function fetchSessions() {
+    showSkeleton();
+    var url = buildUrl();
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        var newGrid = doc.getElementById('session-grid');
+        if (newGrid && grid) {
+          grid.innerHTML = newGrid.innerHTML;
+          grid.className = newGrid.className;
+          // re-trigger animations
+          grid.querySelectorAll('.card').forEach(function(c, i) {
+            c.style.animationDelay = (i * 0.05) + 's';
+            c.style.animation = 'fadeInUp .4s both';
+          });
+        }
+        // update URL without reload
+        history.replaceState({}, '', url);
+        hideSkeleton();
+        initCarouselDots(grid, dots);
+      })
+      .catch(function() { hideSkeleton(); form.submit(); });
+  }
+
+  if (qInput) {
+    qInput.addEventListener('input', function() {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(fetchSessions, 380);
+    });
+  }
+  if (sortSel) {
+    sortSel.addEventListener('change', fetchSessions);
+  }
+  if (form) {
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      fetchSessions();
+    });
+  }
+
+  // ---- CAROUSEL DOTS ----
+  function initCarouselDots(gridEl, dotsEl) {
+    if (!dotsEl || !gridEl || window.innerWidth > 640) return;
+    var cards = gridEl.querySelectorAll('.card');
+    dotsEl.innerHTML = '';
+    if (cards.length <= 1) return;
+    var maxDots = Math.min(cards.length, 7);
+    for (var i = 0; i < maxDots; i++) {
+      var dot = document.createElement('span');
+      dot.className = 'carousel-hint-dot' + (i === 0 ? ' active' : '');
+      dotsEl.appendChild(dot);
+    }
+    gridEl.addEventListener('scroll', function() {
+      var idx = Math.round(gridEl.scrollLeft / (gridEl.scrollWidth / cards.length));
+      dotsEl.querySelectorAll('.carousel-hint-dot').forEach(function(d, i) {
+        d.classList.toggle('active', i === idx);
+      });
+    }, { passive: true });
+  }
+
+  // Init on page load
+  var initialGrid = document.getElementById('session-grid');
+  initCarouselDots(initialGrid, dots);
+})();
+</script>
 {% endblock %}

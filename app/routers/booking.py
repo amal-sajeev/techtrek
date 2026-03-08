@@ -78,6 +78,9 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
             seat_map_json=json.dumps(seat_map),
             total_rows=auditorium.total_rows,
             total_cols=auditorium.total_cols,
+            stage_cols=auditorium.stage_cols,
+            row_gaps=auditorium.row_gaps or "[]",
+            col_gaps=auditorium.col_gaps or "[]",
             price=float(lecture.price),
         ),
     )

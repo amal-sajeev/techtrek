@@ -5,12 +5,28 @@
   var selectedSeats = [];
   var pricePerSeat = 0;
   var sessionId = 0;
+  var rowGapSet = {};
+  var colGapSet = {};
 
-  function init(data, price, sessId) {
+  var STATUS_LABELS = {
+    available:  "available",
+    taken:      "taken — unavailable",
+    selected:   "selected",
+    vip:        "VIP available",
+    accessible: "accessible available"
+  };
+
+  function init(data, price, sessId, gaps) {
     seatMap = data;
     pricePerSeat = price;
     sessionId = sessId;
     selectedSeats = [];
+    rowGapSet = {};
+    colGapSet = {};
+    if (gaps) {
+      if (gaps.rowGaps) gaps.rowGaps.forEach(function (r) { rowGapSet[r] = true; });
+      if (gaps.colGaps) gaps.colGaps.forEach(function (c) { colGapSet[c] = true; });
+    }
     render();
     updateSummary();
   }
@@ -31,44 +47,55 @@
 
     var grid = {};
     seatMap.forEach(function (s) {
-      var key = s.row + "-" + s.col;
-      grid[key] = s;
+      grid[s.row + "-" + s.col] = s;
     });
 
     for (var r = 1; r <= maxRow; r++) {
       var rowLabel = document.createElement("div");
       rowLabel.className = "seat-row-label";
-      rowLabel.textContent = String.fromCharCode(64 + r);
+      if (rowGapSet[r]) rowLabel.classList.add("seat-row-gap-below");
+      var rowChar = String.fromCharCode(64 + r);
+      rowLabel.textContent = rowChar;
+      rowLabel.setAttribute("aria-label", "Row " + rowChar);
       container.appendChild(rowLabel);
 
       for (var c = 1; c <= maxCol; c++) {
-        var key = r + "-" + c;
-        var seat = grid[key];
+        var seat = grid[r + "-" + c];
         var el = document.createElement("button");
+        el.type = "button";
 
         if (!seat || seat.type === "aisle") {
           el.className = "seat seat-aisle";
           el.disabled = true;
+          el.setAttribute("aria-hidden", "true");
+          el.tabIndex = -1;
         } else {
-          el.className = "seat seat-" + seat.status;
-          if (seat.type === "vip" && seat.status === "available") {
-            el.classList.add("seat-vip");
-          }
-          if (seat.type === "accessible" && seat.status === "available") {
-            el.classList.add("seat-accessible");
-          }
+          var statusClass = seat.status;
+          if (seat.type === "vip"        && seat.status === "available") statusClass = "vip";
+          if (seat.type === "accessible" && seat.status === "available") statusClass = "accessible";
+
+          el.className = "seat seat-" + statusClass;
           el.dataset.seatId = seat.id;
-          el.dataset.label = seat.label;
-          el.title = seat.label + " (" + seat.type + ")";
+          el.dataset.label  = seat.label;
+          el.dataset.type   = seat.type;
+
+          var typeLabel = seat.type !== "standard" ? seat.type + ", " : "";
+          var stLabel = STATUS_LABELS[statusClass] || seat.status;
+          el.setAttribute("aria-label", "Seat " + seat.label + ", " + typeLabel + stLabel);
+          el.setAttribute("aria-pressed", "false");
+          el.setAttribute("role", "checkbox");
 
           if (seat.status === "taken") {
             el.disabled = true;
+            el.setAttribute("aria-disabled", "true");
           } else if (seat.status === "available") {
             el.addEventListener("click", handleSeatClick);
           }
         }
 
-        el.textContent = seat && seat.type !== "aisle" ? seat.label.split("")[seat.label.length - 1] : "";
+        if (colGapSet[c]) el.classList.add("seat-col-gap-right");
+        if (rowGapSet[r]) el.classList.add("seat-row-gap-below");
+
         container.appendChild(el);
       }
     }
@@ -77,40 +104,41 @@
   function handleSeatClick(e) {
     var btn = e.currentTarget;
     var seatId = parseInt(btn.dataset.seatId);
-    var label = btn.dataset.label;
+    var label  = btn.dataset.label;
 
-    var idx = selectedSeats.findIndex(function (s) {
-      return s.id === seatId;
-    });
+    var idx = selectedSeats.findIndex(function (s) { return s.id === seatId; });
 
     if (idx >= 0) {
       selectedSeats.splice(idx, 1);
       btn.classList.remove("seat-selected");
-      btn.classList.add("seat-available");
+      var t = btn.dataset.type || "standard";
+      if (t === "vip")        btn.classList.add("seat-vip");
+      else if (t === "accessible") btn.classList.add("seat-accessible");
+      else                    btn.classList.add("seat-available");
+      btn.setAttribute("aria-pressed", "false");
+      btn.setAttribute("aria-label", btn.getAttribute("aria-label").replace("selected", "available"));
     } else {
       selectedSeats.push({ id: seatId, label: label });
-      btn.classList.remove("seat-available");
-      btn.classList.add("seat-selected");
-      btn.classList.add("seat-pulse");
-      setTimeout(function () {
-        btn.classList.remove("seat-pulse");
-      }, 400);
+      btn.classList.remove("seat-available", "seat-vip", "seat-accessible");
+      btn.classList.add("seat-selected", "seat-pulse");
+      btn.setAttribute("aria-pressed", "true");
+      btn.setAttribute("aria-label", "Seat " + label + ", selected");
+      setTimeout(function () { btn.classList.remove("seat-pulse"); }, 400);
     }
 
     updateSummary();
   }
 
   function updateSummary() {
-    var countEl = document.getElementById("selected-count");
-    var listEl = document.getElementById("selected-list");
-    var totalEl = document.getElementById("selected-total");
-    var submitBtn = document.getElementById("confirm-seats-btn");
-    var seatIdsInput = document.getElementById("seat-ids-input");
-    var summaryPanel = document.getElementById("booking-summary");
+    var countEl    = document.getElementById("selected-count");
+    var listEl     = document.getElementById("selected-list");
+    var totalEl    = document.getElementById("selected-total");
+    var submitBtn  = document.getElementById("confirm-seats-btn");
+    var seatInput  = document.getElementById("seat-ids-input");
+    var panel      = document.getElementById("booking-summary");
 
     if (countEl) countEl.textContent = selectedSeats.length;
-    if (totalEl)
-      totalEl.textContent = "$" + (selectedSeats.length * pricePerSeat).toFixed(2);
+    if (totalEl) totalEl.textContent = "$" + (selectedSeats.length * pricePerSeat).toFixed(2);
 
     if (listEl) {
       listEl.innerHTML = "";
@@ -118,34 +146,24 @@
         var li = document.createElement("li");
         li.className = "selected-seat-item";
         li.innerHTML =
-          '<span class="seat-label-chip">' +
-          s.label +
-          "</span>" +
-          '<span class="seat-price">$' +
-          pricePerSeat.toFixed(2) +
-          "</span>";
+          '<span class="seat-label-chip">' + s.label + "</span>" +
+          '<span class="seat-price">$' + pricePerSeat.toFixed(2) + "</span>";
         listEl.appendChild(li);
       });
     }
 
-    if (seatIdsInput) {
-      seatIdsInput.value = selectedSeats
-        .map(function (s) {
-          return s.id;
-        })
-        .join(",");
+    if (seatInput) {
+      seatInput.value = selectedSeats.map(function (s) { return s.id; }).join(",");
     }
 
     if (submitBtn) {
-      submitBtn.disabled = selectedSeats.length === 0;
+      var isEmpty = selectedSeats.length === 0;
+      submitBtn.disabled = isEmpty;
+      submitBtn.setAttribute("aria-disabled", isEmpty ? "true" : "false");
     }
 
-    if (summaryPanel) {
-      if (selectedSeats.length > 0) {
-        summaryPanel.classList.add("summary-visible");
-      } else {
-        summaryPanel.classList.remove("summary-visible");
-      }
+    if (panel) {
+      panel.classList.toggle("summary-visible", selectedSeats.length > 0);
     }
   }
 

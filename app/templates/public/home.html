@@ -53,34 +53,37 @@
 <section class="section">
   <div class="container">
     <h2 class="section-title reveal">Upcoming Sessions</h2>
-    <div class="session-grid stagger">
-      {% for item in sessions %}
-      {% set img_id = img_pool[item.session.id % 8] %}
-      <a href="/sessions/{{ item.session.id }}" class="card card-hover">
-        <div class="card-image">
-          <img
-            src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
-            alt="{{ item.session.title }}"
-            loading="lazy">
-          <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
-        </div>
-        <div class="card-body">
-          <h3 class="card-title">{{ item.session.title }}</h3>
-          <p class="card-meta">// {{ item.session.speaker }}</p>
-          <div class="card-details">
-            <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
-            <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
-            {% if item.auditorium %}
-            <span class="card-detail">&#128205; {{ item.auditorium.location }}</span>
-            {% endif %}
+    <div class="session-grid-wrap">
+      <div class="session-grid stagger" id="home-session-grid">
+        {% for item in sessions %}
+        {% set img_id = img_pool[item.session.id % 8] %}
+        <a href="/sessions/{{ item.session.id }}" class="card card-hover">
+          <div class="card-image">
+            <img
+              src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
+              alt="{{ item.session.title }}"
+              loading="lazy">
+            <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
           </div>
-        </div>
-        <div class="card-footer">
-          <span class="card-price">${{ "%.2f" | format(item.session.price) }}</span>
-          <span class="card-seats">{{ item.stats.available }} seats left</span>
-        </div>
-      </a>
-      {% endfor %}
+          <div class="card-body">
+            <h3 class="card-title">{{ item.session.title }}</h3>
+            <p class="card-meta">// {{ item.session.speaker }}</p>
+            <div class="card-details">
+              <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
+              <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
+              {% if item.auditorium %}
+              <span class="card-detail">&#128205; {{ item.auditorium.location }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="card-footer">
+            <span class="card-price">${{ "%.2f" | format(item.session.price) }}</span>
+            <span class="card-seats">{{ item.stats.available }} seats left</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      <div class="carousel-hint" id="home-carousel-dots" aria-hidden="true"></div>
     </div>
     <div class="text-center mt-4">
       <a href="/sessions" class="btn btn-outline">View All Sessions &rarr;</a>

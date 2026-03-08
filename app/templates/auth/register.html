@@ -9,28 +9,35 @@
       <p class="auth-title">Create your account</p>
     </div>
 
-    <form method="post" action="/auth/register">
+    <form method="post" action="/auth/register" id="register-form" novalidate>
       <div class="form-group">
-        <label class="form-label">Username</label>
-        <input type="text" name="username" class="form-input" placeholder="your_handle" required autofocus>
+        <label class="form-label" for="reg-username">Username</label>
+        <input type="text" name="username" id="reg-username" class="form-input" placeholder="your_handle" required autofocus autocomplete="username">
+        <div class="field-error" id="err-username" role="alert"></div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Email</label>
-        <input type="email" name="email" class="form-input" placeholder="you@domain.com" required>
+        <label class="form-label" for="reg-email">Email</label>
+        <input type="email" name="email" id="reg-email" class="form-input" placeholder="you@domain.com" required autocomplete="email">
+        <div class="field-error" id="err-email" role="alert"></div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Password</label>
-        <input type="password" name="password" class="form-input" placeholder="min 8 characters" required>
+        <label class="form-label" for="reg-password">Password</label>
+        <input type="password" name="password" id="reg-password" class="form-input" placeholder="min 8 characters" required autocomplete="new-password">
+        <div class="password-strength" aria-hidden="true">
+          <div class="password-strength-fill" id="pwd-strength-bar" style="width:0%"></div>
+        </div>
+        <div class="field-error" id="err-password" role="alert"></div>
       </div>
 
       <div class="form-group">
-        <label class="form-label">Confirm Password</label>
-        <input type="password" name="confirm_password" class="form-input" placeholder="••••••••" required>
+        <label class="form-label" for="reg-confirm">Confirm Password</label>
+        <input type="password" name="confirm_password" id="reg-confirm" class="form-input" placeholder="••••••••" required autocomplete="new-password">
+        <div class="field-error" id="err-confirm" role="alert"></div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-block" style="margin-top:.5rem">Create Account</button>
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:.5rem" id="register-btn">Create Account</button>
     </form>
 
     <div class="auth-footer">
@@ -38,4 +45,85 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var form    = document.getElementById('register-form');
+  var usernameEl = document.getElementById('reg-username');
+  var emailEl    = document.getElementById('reg-email');
+  var passwordEl = document.getElementById('reg-password');
+  var confirmEl  = document.getElementById('reg-confirm');
+  var submitBtn  = document.getElementById('register-btn');
+
+  function showError(id, msg) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = msg;
+    el.classList.toggle('visible', !!msg);
+  }
+  function setField(input, ok) {
+    input.classList.toggle('input-error', !ok && input.value.length > 0);
+    input.classList.toggle('input-ok',    ok  && input.value.length > 0);
+  }
+
+  // Password strength
+  passwordEl.addEventListener('input', function() {
+    var v = passwordEl.value;
+    var score = 0;
+    if (v.length >= 8)           score++;
+    if (/[A-Z]/.test(v))         score++;
+    if (/[0-9]/.test(v))         score++;
+    if (/[^A-Za-z0-9]/.test(v))  score++;
+    var bar = document.getElementById('pwd-strength-bar');
+    var pct = (score / 4) * 100;
+    var colours = ['#f43f5e','#f59e0b','#10b981','#00d4ff'];
+    bar.style.width = pct + '%';
+    bar.style.background = colours[Math.max(0, score - 1)] || colours[0];
+    var msg = v.length === 0 ? '' : v.length < 8 ? 'Password must be at least 8 characters' : '';
+    showError('err-password', msg);
+    setField(passwordEl, v.length >= 8);
+    // Re-validate confirm if it has a value
+    if (confirmEl.value) validateConfirm();
+  });
+
+  function validateConfirm() {
+    var match = confirmEl.value === passwordEl.value;
+    var msg = confirmEl.value.length > 0 && !match ? 'Passwords do not match' : '';
+    showError('err-confirm', msg);
+    setField(confirmEl, match && confirmEl.value.length > 0);
+    return match || confirmEl.value.length === 0;
+  }
+  confirmEl.addEventListener('input', validateConfirm);
+
+  usernameEl.addEventListener('blur', function() {
+    var v = usernameEl.value.trim();
+    var ok = v.length >= 2 && /^[a-zA-Z0-9_]+$/.test(v);
+    var msg = v.length === 0 ? '' : !ok ? 'Username: 2+ chars, letters/numbers/underscores only' : '';
+    showError('err-username', msg);
+    setField(usernameEl, ok && v.length > 0);
+  });
+
+  emailEl.addEventListener('blur', function() {
+    var v = emailEl.value.trim();
+    var ok = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    var msg = v.length === 0 ? '' : !ok ? 'Enter a valid email address' : '';
+    showError('err-email', msg);
+    setField(emailEl, ok && v.length > 0);
+  });
+
+  form.addEventListener('submit', function(e) {
+    var valid = true;
+    // Final sync check
+    if (usernameEl.value.trim().length < 2) { showError('err-username','Username required'); valid = false; }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value)) { showError('err-email','Valid email required'); valid = false; }
+    if (passwordEl.value.length < 8) { showError('err-password','Password must be at least 8 characters'); valid = false; }
+    if (!validateConfirm()) { valid = false; }
+    if (!valid) { e.preventDefault(); return; }
+    submitBtn.classList.add('btn-loading');
+    submitBtn.disabled = true;
+  });
+})();
+</script>
 {% endblock %}

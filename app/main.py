@@ -6,7 +6,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
-from app.database import Base, engine
+from app.database import Base, engine, ensure_sqlite_columns
 from app.dependencies import AuthRedirect, template_ctx, templates
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -18,6 +18,7 @@ app.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), name="stat
 from app import models as _models  # noqa: F401, E402
 
 Base.metadata.create_all(bind=engine)
+ensure_sqlite_columns()
 
 from app.routers import auth, public, booking, admin  # noqa: E402
 

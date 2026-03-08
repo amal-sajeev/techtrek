@@ -8,9 +8,14 @@
       <div class="checkout-box">
         <h1 class="page-title">Checkout</h1>
 
-        <div class="checkout-timer">
-          <span class="timer-icon">&#9200;</span>
-          Seats held for <strong><span id="countdown">{{ time_left }}</span>s</strong>
+        <div class="checkout-timer" id="checkout-timer" role="timer" aria-live="polite">
+          <div class="checkout-timer-row">
+            <span class="timer-icon" aria-hidden="true">&#9200;</span>
+            Seats held for <strong>&nbsp;<span id="countdown">{{ time_left }}</span></strong>
+          </div>
+          <div class="timer-bar-track" aria-hidden="true">
+            <div class="timer-bar-fill" id="timer-bar"></div>
+          </div>
         </div>
 
         <div class="checkout-details">
@@ -30,7 +35,7 @@
 
         <div class="checkout-summary">
           <div class="checkout-line">
-            <span>{{ booking_count }} x ${{ "%.2f" | format(lecture.price) }}</span>
+            <span>{{ booking_count }} &times; ${{ "%.2f" | format(lecture.price) }}</span>
             <span>${{ "%.2f" | format(total) }}</span>
           </div>
           <div class="checkout-line checkout-total">
@@ -39,8 +44,8 @@
           </div>
         </div>
 
-        <form method="post" action="/booking/pay/{{ lecture.id }}">
-          <button type="submit" class="btn btn-primary btn-lg btn-block">
+        <form method="post" action="/booking/pay/{{ lecture.id }}" id="pay-form">
+          <button type="submit" class="btn btn-primary btn-lg btn-block" id="pay-btn">
             Pay ${{ "%.2f" | format(total) }}
           </button>
         </form>
@@ -55,23 +60,54 @@
 {% block scripts %}
 <script>
 (function() {
-  var remaining = {{ time_left }};
-  var el = document.getElementById('countdown');
+  var totalSeconds = {{ time_left }};
+  var remaining = totalSeconds;
+  var el  = document.getElementById('countdown');
+  var bar = document.getElementById('timer-bar');
+  var box = document.getElementById('checkout-timer');
+  var URGENT_THRESHOLD = 60; // seconds
+
+  function fmt(s) {
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    return (m > 0 ? m + 'm ' : '') + sec + 's';
+  }
+
+  function updateBar() {
+    var pct = Math.max(0, (remaining / totalSeconds) * 100);
+    if (bar) bar.style.width = pct + '%';
+    if (remaining <= URGENT_THRESHOLD) {
+      box.classList.add('urgent');
+    }
+  }
+
+  // Initial render
+  if (el) el.textContent = fmt(remaining);
+  updateBar();
+
   var timer = setInterval(function() {
     remaining--;
     if (remaining <= 0) {
       clearInterval(timer);
-      el.textContent = '0';
+      if (el) el.textContent = '0s';
+      if (bar) bar.style.width = '0%';
       window.location.href = '/booking/select/{{ lecture.id }}';
       return;
     }
-    var m = Math.floor(remaining / 60);
-    var s = remaining % 60;
-    el.textContent = (m > 0 ? m + 'm ' : '') + s + 's';
+    if (el) el.textContent = fmt(remaining);
+    updateBar();
   }, 1000);
-  var m0 = Math.floor(remaining / 60);
-  var s0 = remaining % 60;
-  el.textContent = (m0 > 0 ? m0 + 'm ' : '') + s0 + 's';
+
+  // Pay button loading state
+  var payForm = document.getElementById('pay-form');
+  var payBtn  = document.getElementById('pay-btn');
+  if (payForm && payBtn) {
+    payForm.addEventListener('submit', function() {
+      payBtn.classList.add('btn-loading');
+      payBtn.disabled = true;
+      clearInterval(timer);
+    });
+  }
 })();
 </script>
 {% endblock %}
