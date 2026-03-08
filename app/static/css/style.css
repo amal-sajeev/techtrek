@@ -1605,7 +1605,6 @@ tr:last-child td { border-bottom:none }
   padding: 1.5rem;
   position: sticky;
   top: calc(var(--nav-h) + 1.5rem);
-  max-height: calc(100vh - var(--nav-h) - 3rem);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1649,6 +1648,7 @@ tr:last-child td { border-bottom:none }
   min-height: 2rem;
   flex: 1 1 auto;
   overflow-y: auto;
+  padding-right: .75rem;
 }
 .selected-seat-item {
   display: flex;
@@ -1673,29 +1673,14 @@ tr:last-child td { border-bottom:none }
   text-shadow: var(--amber-glow);
 }
 .summary-total span:first-child { font-size:.8rem; color:var(--text-muted); font-family:var(--font-mono); font-weight:400; letter-spacing:.1em }
-/* summary visibility: the panel slides in on mobile once seats are chosen */
 @media (max-width: 900px) {
   .booking-summary {
-    position: fixed;
-    bottom: -100%;
-    left: 0; right: 0;
-    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
-    z-index: 500;
-    max-height: 70vh;
-    overflow-y: auto;
-    transition: bottom .35s var(--ease-out);
-    box-shadow: 0 -20px 60px rgba(0,0,0,.6);
+    position: static;
+    max-height: none;
+    overflow: visible;
+    border-radius: var(--radius-xl);
   }
-  .booking-summary.summary-visible { bottom: 0 }
-  /* dimmer behind bottom sheet */
-  .seat-booking-layout.has-selection::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    background: rgba(0,0,0,.4);
-    z-index: 499;
-    pointer-events: none;
-  }
+  .selected-list { max-height: 35vh; }
 }
 
 /* ---- EMPTY STATE: improved ---- */
@@ -2523,15 +2508,6 @@ tr:last-child td { border-bottom:none }
   }
 }
 
-/* ---- MOBILE BOOKING SUMMARY ---- */
-@media (max-width: 900px) {
-  [data-theme="light"] .booking-summary {
-    box-shadow: 0 -12px 40px rgba(0,60,120,0.12);
-  }
-  [data-theme="light"] .seat-booking-layout.has-selection::after {
-    background: rgba(0,40,80,0.12);
-  }
-}
 
 /* ---- WIZARD ---- */
 [data-theme="light"] .wizard-step {

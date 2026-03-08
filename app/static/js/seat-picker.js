@@ -202,6 +202,18 @@
       scalable.style.transform = "scale(" + scale.toFixed(4) + ")";
       scalable.style.marginBottom = -(naturalH * (1 - scale)).toFixed(1) + "px";
     }
+
+    syncSummaryHeight(wrapper);
+  }
+
+  function syncSummaryHeight(wrapper) {
+    var summary = document.getElementById("booking-summary");
+    if (!summary || !wrapper) return;
+    if (window.innerWidth <= 900) {
+      summary.style.maxHeight = "";
+      return;
+    }
+    summary.style.maxHeight = wrapper.offsetHeight + "px";
   }
 
   function handleSeatClick(e) {
