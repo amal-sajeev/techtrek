@@ -5,7 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.dependencies import flash, get_db, template_ctx, templates
+from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.city import City
@@ -25,7 +25,7 @@ def _seat_stats(db: Session, session_id: int, auditorium_id: int):
         .filter(Seat.auditorium_id == auditorium_id, Seat.is_active == True, Seat.seat_type != "aisle")
         .scalar()
     )
-    now = datetime.utcnow()
+    now = now_ist()
     booked = (
         db.query(func.count(Booking.id))
         .filter(
@@ -52,7 +52,7 @@ def _availability_label(stats):
 
 @router.get("/")
 def home(request: Request, db: Session = Depends(get_db)):
-    now = datetime.utcnow()
+    now = now_ist()
     upcoming = (
         db.query(LectureSession)
         .filter(LectureSession.status == "published", LectureSession.start_time > now)
@@ -128,7 +128,7 @@ def sessions_list(
     city_id: int | None = Query(None, alias="city_id"),
     college_id: int | None = Query(None, alias="college_id"),
 ):
-    now = datetime.utcnow()
+    now = now_ist()
     query = (
         db.query(LectureSession)
         .filter(
@@ -220,7 +220,7 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
     has_priority = False
     if user_id and availability != "sold-out":
         from app.models.waitlist import Waitlist
-        now = datetime.utcnow()
+        now = now_ist()
         priority_entry = (
             db.query(Waitlist)
             .filter(

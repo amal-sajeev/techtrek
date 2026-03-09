@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.dependencies import now_ist
 
 
 class LectureSession(Base):
@@ -22,7 +23,7 @@ class LectureSession(Base):
     price_vip = Column(Numeric(10, 2), nullable=True)
     price_accessible = Column(Numeric(10, 2), nullable=True)
     status = Column(String(20), default="draft")
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
 
     auditorium = relationship("Auditorium", back_populates="sessions")
     speaker_rel = relationship("Speaker", back_populates="sessions")

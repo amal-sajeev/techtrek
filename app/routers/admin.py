@@ -1,14 +1,14 @@
 import csv
 import io
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.dependencies import flash, get_db, template_ctx, templates
+from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.city import City
@@ -67,7 +67,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     total_bookings = db.query(func.count(Booking.id)).filter(Booking.payment_status == "paid").scalar()
     total_revenue = db.query(func.sum(Booking.amount_paid)).filter(Booking.payment_status == "paid").scalar() or 0
 
-    now = datetime.now(timezone.utc)
+    now = now_ist()
     upcoming_count = db.query(func.count(LectureSession.id)).filter(
         LectureSession.status == "published", LectureSession.start_time > now
     ).scalar()
@@ -1002,7 +1002,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
         if not group_bookings:
             result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets."}
         else:
-            now = datetime.now(timezone.utc)
+            now = now_ist()
             newly_checked = []
             already_checked = []
             for gb in group_bookings:
@@ -1054,7 +1054,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             result = {"status": "warning", "msg": f"Ticket '{ticket_id}' was already checked in at {booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'}."}
         else:
             booking.checked_in = True
-            booking.checked_in_at = datetime.now(timezone.utc)
+            booking.checked_in_at = now_ist()
             db.commit()
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)
@@ -1135,7 +1135,7 @@ async def grant_priority(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/admin/waitlist", status_code=303)
 
     entries = db.query(Waitlist).filter(Waitlist.session_id == source_session_id).all()
-    now = datetime.now(timezone.utc)
+    now = now_ist()
     expires = now + timedelta(hours=settings.priority_window_hours)
 
     for e in entries:

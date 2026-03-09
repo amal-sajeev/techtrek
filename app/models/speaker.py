@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.dependencies import now_ist
 
 
 class Speaker(Base):
@@ -15,6 +16,6 @@ class Speaker(Base):
     bio = Column(Text, nullable=True)
     photo_url = Column(String(500), nullable=True)
     email = Column(String(255), nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
 
     sessions = relationship("LectureSession", back_populates="speaker_rel")

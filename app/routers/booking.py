@@ -1,12 +1,12 @@
 import json
-from datetime import datetime, timezone
+
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.dependencies import flash, get_db, template_ctx, templates
+from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.seat import Seat
@@ -53,7 +53,7 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
     auditorium = db.query(Auditorium).get(lecture.auditorium_id)
     seat_map = get_seat_map(db, session_id, lecture.auditorium_id)
 
-    now = datetime.utcnow()
+    now = now_ist()
     priority_active = (
         db.query(Waitlist)
         .filter(
@@ -129,7 +129,7 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
 
-    now = datetime.utcnow()
+    now = now_ist()
     holds = (
         db.query(Booking)
         .filter(
@@ -156,8 +156,6 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
 
     total = sum(_seat_price(lecture, s.seat_type) for s in seats)
     held = holds[0].held_until
-    if held.tzinfo is None:
-        held = held.replace(tzinfo=timezone.utc)
     time_left = int((held - now).total_seconds())
 
     return templates.TemplateResponse(
@@ -181,7 +179,7 @@ def create_order(request: Request, session_id: int, db: Session = Depends(get_db
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
 
-    now = datetime.utcnow()
+    now = now_ist()
     holds = (
         db.query(Booking)
         .filter(

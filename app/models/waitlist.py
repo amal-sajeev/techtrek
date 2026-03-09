@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.dependencies import now_ist
 
 
 class Waitlist(Base):
@@ -15,7 +16,7 @@ class Waitlist(Base):
     priority_session_id = Column(
         Integer, ForeignKey("lecture_sessions.id"), nullable=True
     )
-    joined_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    joined_at = Column(DateTime, default=now_ist)
     notified = Column(Boolean, default=False)
     priority_expires_at = Column(DateTime, nullable=True)
 

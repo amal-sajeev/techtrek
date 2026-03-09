@@ -1,12 +1,13 @@
 import io
 import base64
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 
 import qrcode
 from sqlalchemy.orm import Session
 
 from app.config import settings
+from app.dependencies import now_ist
 from app.models.booking import Booking, _generate_ticket_id
 from app.models.seat import Seat
 from app.models.session import LectureSession
@@ -24,7 +25,7 @@ def get_seat_map(db: Session, session_id: int, auditorium_id: int):
         .order_by(Seat.row_num, Seat.col_num)
         .all()
     )
-    now = datetime.now(timezone.utc)
+    now = now_ist()
     booked_seat_ids = set(
         sid
         for (sid,) in db.query(Booking.seat_id)
@@ -62,7 +63,7 @@ def get_seat_map(db: Session, session_id: int, auditorium_id: int):
 def hold_seats(
     db: Session, user_id: int, session_id: int, seat_ids: list[int]
 ) -> list[Booking]:
-    now = datetime.now(timezone.utc)
+    now = now_ist()
     held_until = now + timedelta(minutes=settings.hold_timeout_minutes)
 
     lecture = db.query(LectureSession).get(session_id)
@@ -137,7 +138,7 @@ def _price_for_seat(lecture, seat_type: str) -> float:
 
 
 def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]:
-    now = datetime.now(timezone.utc)
+    now = now_ist()
     lecture = db.query(LectureSession).get(session_id)
 
     holds = (

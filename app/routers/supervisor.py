@@ -1,11 +1,11 @@
-from datetime import datetime, timezone
+
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.dependencies import get_db, template_ctx, templates
+from app.dependencies import get_db, now_ist, template_ctx, templates
 from app.models.booking import Booking
 from app.models.seat import Seat
 from app.models.session import LectureSession
@@ -88,7 +88,7 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
         if not group_bookings:
             result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets."}
         else:
-            now = datetime.now(timezone.utc)
+            now = now_ist()
             newly_checked = []
             already_checked = []
             for gb in group_bookings:
@@ -143,7 +143,7 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
             }
         else:
             booking.checked_in = True
-            booking.checked_in_at = datetime.now(timezone.utc)
+            booking.checked_in_at = now_ist()
             db.commit()
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)

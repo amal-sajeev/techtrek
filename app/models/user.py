@@ -1,9 +1,10 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.dependencies import now_ist
 
 
 class User(Base):
@@ -20,7 +21,7 @@ class User(Base):
     year_of_study = Column(Integer, nullable=True)
     is_admin = Column(Boolean, default=False)
     is_supervisor = Column(Boolean, default=False)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=now_ist)
 
     bookings = relationship("Booking", back_populates="user")
     waitlist_entries = relationship("Waitlist", back_populates="user")

@@ -1,10 +1,11 @@
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.dependencies import now_ist
 
 
 def _generate_ref():
@@ -12,7 +13,7 @@ def _generate_ref():
 
 
 def _generate_ticket_id():
-    now = datetime.now(timezone.utc)
+    now = now_ist()
     rand = uuid.uuid4().hex[:8].upper()
     return f"TT-{now.strftime('%Y%m%d')}-{rand}"
 
@@ -39,7 +40,7 @@ class Booking(Base):
     razorpay_payment_id = Column(String(50), nullable=True)
     razorpay_signature = Column(String(128), nullable=True)
     held_until = Column(DateTime, nullable=True)
-    booked_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    booked_at = Column(DateTime, default=now_ist)
 
     user = relationship("User", back_populates="bookings")
     session = relationship("LectureSession", back_populates="bookings")
