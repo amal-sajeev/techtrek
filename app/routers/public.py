@@ -1,4 +1,4 @@
-from datetime import datetime, timezone, date, time
+from datetime import datetime, date, time
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse
@@ -25,7 +25,7 @@ def _seat_stats(db: Session, session_id: int, auditorium_id: int):
         .filter(Seat.auditorium_id == auditorium_id, Seat.is_active == True, Seat.seat_type != "aisle")
         .scalar()
     )
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     booked = (
         db.query(func.count(Booking.id))
         .filter(
@@ -52,7 +52,7 @@ def _availability_label(stats):
 
 @router.get("/")
 def home(request: Request, db: Session = Depends(get_db)):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     upcoming = (
         db.query(LectureSession)
         .filter(LectureSession.status == "published", LectureSession.start_time > now)
@@ -128,7 +128,7 @@ def sessions_list(
     city_id: int | None = Query(None, alias="city_id"),
     college_id: int | None = Query(None, alias="college_id"),
 ):
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     query = (
         db.query(LectureSession)
         .filter(
@@ -146,8 +146,8 @@ def sessions_list(
     if date_filter:
         try:
             d = date.fromisoformat(date_filter)
-            start_of_day = datetime.combine(d, time.min, tzinfo=timezone.utc)
-            end_of_day = datetime.combine(d, time.max, tzinfo=timezone.utc)
+            start_of_day = datetime.combine(d, time.min)
+            end_of_day = datetime.combine(d, time.max)
             query = query.filter(
                 LectureSession.start_time >= start_of_day,
                 LectureSession.start_time <= end_of_day,
@@ -220,7 +220,7 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
     has_priority = False
     if user_id and availability != "sold-out":
         from app.models.waitlist import Waitlist
-        now = datetime.now(timezone.utc)
+        now = datetime.utcnow()
         priority_entry = (
             db.query(Waitlist)
             .filter(

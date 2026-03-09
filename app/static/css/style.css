@@ -1292,6 +1292,45 @@ tr:last-child td { border-bottom:none }
 .auth-footer { text-align:center; margin-top:1.5rem; font-size:.9375rem; color:var(--text-secondary) }
 .auth-title { font-size:1rem; color:var(--text-secondary); font-weight:400 }
 
+/* ---- REGISTER PAGE — enlarged form ---- */
+.register-xl .auth-box { max-width:840px }
+.register-xl .auth-header { margin-bottom:1.25rem }
+.register-xl .auth-logo { font-size:3.2rem }
+.register-xl .auth-title { font-size:2rem; font-weight:600; color:var(--text-primary); margin-bottom:.25rem }
+.register-xl .auth-subtitle { font-size:1.15rem; color:var(--text-secondary); font-weight:400; line-height:1.4; max-width:540px; margin:0 auto }
+.register-xl .form-group { margin-bottom:.85rem }
+.register-xl .form-label { font-size:1.05rem; margin-bottom:.35rem; letter-spacing:.06em }
+.register-xl .form-input { font-size:1.25rem; padding:.7rem 1.25rem }
+.register-xl select.form-input { padding-right:3rem }
+.register-xl .form-row { gap:1rem }
+.register-xl .btn { font-size:1.25rem; padding:.75rem 2.25rem }
+.register-xl .field-error { font-size:1rem; margin-top:.3rem; gap:.4rem }
+.register-xl .field-error::before { font-size:.9rem }
+.register-xl .password-strength { height:5px; margin-top:.4rem }
+.register-xl .auth-footer { margin-top:1.25rem; font-size:1.25rem }
+.register-xl .form-input,
+.register-xl select.form-input {
+  background: var(--bg-elevated);
+  border-color: rgba(255,255,255,0.15);
+}
+@media (max-width:600px) {
+  .register-xl .auth-box { max-width:100%; padding:1.5rem }
+  .register-xl .auth-header { margin-bottom:.75rem }
+  .register-xl .auth-logo { font-size:1.6rem }
+  .register-xl .auth-title { font-size:1.25rem }
+  .register-xl .auth-subtitle { font-size:.9rem }
+  .register-xl .form-group { margin-bottom:.5rem }
+  .register-xl .form-label { font-size:.8125rem; margin-bottom:.2rem }
+  .register-xl .form-input { font-size:1rem; padding:.5rem .75rem }
+  .register-xl select.form-input { padding-right:2.5rem }
+  .register-xl .form-row { gap:0; flex-direction:column }
+  .register-xl .btn { font-size:1rem; padding:.6rem 1.5rem }
+  .register-xl .field-error { font-size:.8rem; margin-top:.2rem }
+  .register-xl .field-error::before { font-size:.75rem }
+  .register-xl .password-strength { height:3px; margin-top:.25rem }
+  .register-xl .auth-footer { margin-top:1rem; font-size:.9375rem }
+}
+
 /* ---- FOOTER BOTTOM: readable copyright line ---- */
 .footer-bottom { text-align:center; font-family:var(--font-mono); font-size:.8rem; color:var(--text-muted); padding-top:1.5rem; border-top:1px solid var(--border) }
 
@@ -2241,6 +2280,13 @@ tr:last-child td { border-bottom:none }
   opacity: 0.4;
 }
 [data-theme="light"] .auth-logo { color: #0891b2; text-shadow: none; }
+[data-theme="light"] .register-xl .auth-title { color: #1e293b }
+[data-theme="light"] .register-xl .auth-subtitle { color: #475569 }
+[data-theme="light"] .register-xl .form-input,
+[data-theme="light"] .register-xl select.form-input {
+  background: #fff;
+  border-color: rgba(0,0,0,0.18);
+}
 
 /* ---- SESSION DETAIL ---- */
 [data-theme="light"] .session-banner {
@@ -2994,4 +3040,87 @@ tr:last-child td { border-bottom:none }
   .spotlight-dot { animation: none !important }
   .pulse-dot { animation: none !important }
 }
+
+/* ==========================================================================
+   FORCE-MOBILE: viewport mismatch fallback
+   When JS detects screen.width << innerWidth, it adds .force-mobile to <html>.
+   These duplicate the essential @media breakpoint rules so mobile layout
+   activates even when CSS media queries don't fire.
+   ========================================================================== */
+
+/* from @media (max-width:768px) */
+.force-mobile .navbar-links,
+.force-mobile .navbar-actions .btn { display:none }
+.force-mobile .hamburger { display:flex }
+.force-mobile .navbar-actions { margin-left:auto }
+.force-mobile .session-detail { grid-template-columns:1fr }
+.force-mobile .checkout-layout { grid-template-columns:1fr }
+.force-mobile .session-detail-info { grid-template-columns:1fr }
+.force-mobile .hero-stats { flex-direction:column; gap:1.5rem }
+.force-mobile .footer-inner { flex-direction:column }
+.force-mobile .session-banner { height:200px }
+.force-mobile .steps-grid::before { display:none }
+.force-mobile .dashboard-panels { grid-template-columns:1fr }
+
+/* from @media (max-width:960px) */
+.force-mobile .hero-split { grid-template-columns:1fr; gap:2rem }
+.force-mobile .hero.hero-compact { max-height:none; min-height:auto; padding-bottom:3rem }
+.force-mobile .hero-spotlight { max-width:420px }
+
+/* from @media (max-width:900px) */
+.force-mobile .seat-booking-layout { grid-template-columns:1fr }
+.force-mobile .seat-map-wrapper { overflow-x:auto; padding:1rem }
+.force-mobile .booking-summary { position:static; max-height:none; overflow:visible; border-radius:var(--radius-xl) }
+.force-mobile .selected-list { max-height:35vh }
+
+/* from @media (max-width:767px) */
+.force-mobile .admin-sidebar-toggle { display:flex; position:fixed; top:calc(var(--nav-h) + .75rem); left:.75rem; z-index:1001; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:8px }
+.force-mobile .admin-sidebar { position:fixed; top:0; left:-260px; height:100vh; width:240px; z-index:1003; transition:left .3s ease; padding-top:calc(var(--nav-h) + 1rem) }
+.force-mobile .admin-main { padding:1rem; padding-top:3.5rem }
+
+/* from @media (max-width:640px) */
+.force-mobile .session-grid { display:flex; flex-wrap:nowrap; overflow-x:auto; gap:1rem; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:1rem; scrollbar-width:none }
+.force-mobile .session-grid::-webkit-scrollbar { display:none }
+.force-mobile .session-grid .card { flex:0 0 78vw; max-width:320px; scroll-snap-align:start }
+.force-mobile .booking-card-header { flex-direction:column; gap:.75rem }
+.force-mobile .booking-card-header-right { flex-direction:row; align-items:center; flex-wrap:wrap }
+.force-mobile .booking-card-body { flex-direction:column }
+.force-mobile .booking-card-seats-col { align-items:flex-start }
+.force-mobile .booking-seats-row { justify-content:flex-start }
+.force-mobile .ticket-detail-card { flex-direction:column }
+.force-mobile .ticket-detail-side { flex-direction:row; width:100%; justify-content:space-between; align-items:center }
+.force-mobile .table-cards-mobile thead { display:none }
+.force-mobile .table-cards-mobile tr { display:block; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); margin-bottom:.75rem; padding:.75rem }
+.force-mobile .table-cards-mobile td { display:flex; justify-content:space-between; align-items:center; padding:.4rem .25rem; border:none; font-size:.85rem }
+.force-mobile .table-cards-mobile td::before { content:attr(data-label); font-family:var(--font-mono); font-size:.75rem; text-transform:uppercase; letter-spacing:.08em; color:var(--text-muted); flex-shrink:0; margin-right:.5rem }
+
+/* from @media (max-width:600px) */
+.force-mobile .form-row { grid-template-columns:1fr }
+.force-mobile .register-xl .auth-box { max-width:100%; padding:1.5rem }
+.force-mobile .register-xl .auth-header { margin-bottom:.75rem }
+.force-mobile .register-xl .auth-logo { font-size:1.6rem }
+.force-mobile .register-xl .auth-title { font-size:1.25rem }
+.force-mobile .register-xl .auth-subtitle { font-size:.9rem }
+.force-mobile .register-xl .form-group { margin-bottom:.5rem }
+.force-mobile .register-xl .form-label { font-size:.8125rem; margin-bottom:.2rem }
+.force-mobile .register-xl .form-input { font-size:1rem; padding:.5rem .75rem }
+.force-mobile .register-xl select.form-input { padding-right:2.5rem }
+.force-mobile .register-xl .form-row { gap:0; flex-direction:column }
+.force-mobile .register-xl .btn { font-size:1rem; padding:.6rem 1.5rem }
+.force-mobile .register-xl .field-error { font-size:.8rem; margin-top:.2rem }
+.force-mobile .register-xl .field-error::before { font-size:.75rem }
+.force-mobile .register-xl .password-strength { height:3px; margin-top:.25rem }
+.force-mobile .register-xl .auth-footer { margin-top:1rem; font-size:.9375rem }
+
+/* from @media (max-width:480px) */
+.force-mobile .hero-title { font-size:clamp(2rem,12vw,3rem) }
+.force-mobile .filter-bar { flex-direction:column }
+.force-mobile .filter-sort,
+.force-mobile .filter-search,
+.force-mobile .filter-date,
+.force-mobile .filter-city,
+.force-mobile .filter-college { width:100% }
+.force-mobile .newsletter-form { flex-direction:column }
+.force-mobile .hero-spotlight { padding:1.25rem }
+.force-mobile .spotlight-title { font-size:1.05rem }
 

@@ -2,11 +2,12 @@
 {% block title %}Register — TechTrek{% endblock %}
 
 {% block content %}
-<div class="auth-page">
-  <div class="auth-box" style="max-width:560px">
+<div class="auth-page register-xl">
+  <div class="auth-box">
     <div class="auth-header">
       <div class="auth-logo">&#9889; TECHTREK</div>
-      <p class="auth-title">Create your account</p>
+      <h1 class="auth-title">Create your free account</h1>
+      <p class="auth-subtitle">Join thousands of students already booking the best tech talks. It only takes 30 seconds.</p>
     </div>
 
     <form method="post" action="/auth/register" id="register-form" novalidate>
@@ -45,7 +46,7 @@
         </div>
       </div>
 
-      <button type="submit" class="btn btn-primary btn-block" style="margin-top:.5rem" id="register-btn">Create Account</button>
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:.75rem" id="register-btn">Create Account</button>
     </form>
 
     <div class="auth-footer">

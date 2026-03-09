@@ -2,9 +2,10 @@ import json
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.dependencies import flash, get_db, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
@@ -20,6 +21,8 @@ from app.services.booking import (
     get_user_bookings,
     hold_seats,
 )
+from app.services.razorpay import create_order as rz_create_order
+from app.services.razorpay import verify_payment as rz_verify_payment
 
 router = APIRouter(prefix="/booking", tags=["booking"])
 
@@ -50,7 +53,7 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
     auditorium = db.query(Auditorium).get(lecture.auditorium_id)
     seat_map = get_seat_map(db, session_id, lecture.auditorium_id)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     priority_active = (
         db.query(Waitlist)
         .filter(
@@ -126,7 +129,7 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
 
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     holds = (
         db.query(Booking)
         .filter(
@@ -166,8 +169,76 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
             total=total,
             time_left=time_left,
             booking_count=len(seats),
+            razorpay_key_id=settings.razorpay_key_id,
+            user_email=user.email if user else "",
         ),
     )
+
+
+@router.post("/create-order/{session_id}")
+def create_order(request: Request, session_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    now = datetime.utcnow()
+    holds = (
+        db.query(Booking)
+        .filter(
+            Booking.user_id == user.id,
+            Booking.session_id == session_id,
+            Booking.payment_status == "hold",
+            Booking.held_until > now,
+        )
+        .all()
+    )
+    if not holds:
+        return JSONResponse({"error": "No seats held. Your hold may have expired."}, status_code=400)
+
+    lecture = db.query(LectureSession).get(session_id)
+    if not lecture:
+        return JSONResponse({"error": "Session not found."}, status_code=404)
+
+    seats = [db.query(Seat).get(h.seat_id) for h in holds]
+    total_paise = int(sum(_seat_price(lecture, s.seat_type) for s in seats) * 100)
+    receipt = f"sess{session_id}_user{user.id}"
+
+    try:
+        order = rz_create_order(total_paise, receipt)
+    except Exception:
+        return JSONResponse({"error": "Payment gateway error. Please try again."}, status_code=502)
+
+    return JSONResponse({
+        "order_id": order["id"],
+        "amount": order["amount"],
+        "currency": order["currency"],
+    })
+
+
+@router.post("/verify-payment/{session_id}")
+async def verify_payment_route(request: Request, session_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    body = await request.json()
+    order_id = body.get("razorpay_order_id", "")
+    payment_id = body.get("razorpay_payment_id", "")
+    signature = body.get("razorpay_signature", "")
+
+    if not rz_verify_payment(order_id, payment_id, signature):
+        return JSONResponse({"error": "Payment verification failed."}, status_code=400)
+
+    confirmed = confirm_payment(db, user.id, session_id)
+    if not confirmed:
+        return JSONResponse({"error": "Hold expired before verification."}, status_code=400)
+
+    for b in confirmed:
+        b.razorpay_payment_id = payment_id
+    db.commit()
+
+    flash(request, f"Booking confirmed! {len(confirmed)} seat(s) booked.", "success")
+    return JSONResponse({"redirect": f"/booking/confirmation/{session_id}"})
 
 
 @router.post("/pay/{session_id}")

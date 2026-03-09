@@ -9,3 +9,4 @@ itsdangerous
 python-dotenv
 pydantic-settings
 qrcode[pil]
+razorpay

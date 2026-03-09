@@ -34,6 +34,16 @@ with engine.connect() as conn:
             conn.commit()
         except Exception:
             conn.rollback()
+    for col, col_type in [
+        ("razorpay_order_id", "VARCHAR(50)"),
+        ("razorpay_payment_id", "VARCHAR(50)"),
+        ("razorpay_signature", "VARCHAR(128)"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE bookings ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
     for col, col_type in [("is_supervisor", "BOOLEAN DEFAULT FALSE")]:
         try:
             conn.execute(text(f"ALTER TABLE users ADD COLUMN {col} {col_type}"))

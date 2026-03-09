@@ -8,6 +8,9 @@ class Settings(BaseSettings):
     hold_timeout_minutes: int = 5
     priority_window_hours: int = 24
 
+    razorpay_key_id: str = ""
+    razorpay_key_secret: str = ""
+
     smtp_host: str = ""
     smtp_port: int = 587
     smtp_user: str = ""
