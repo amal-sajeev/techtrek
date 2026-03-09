@@ -25,8 +25,8 @@ html{scroll-behavior:smooth}
   --green:        #10b981;
   --red:          #f43f5e;
   --text-primary:   #e6edf3;
-  --text-secondary: #c0cad4;
-  --text-muted:     #8b949e;
+  --text-secondary: #d1dbe5;
+  --text-muted:     #a8b4c0;
   --border:         rgba(0,212,255,0.1);
   --border-strong:  rgba(0,212,255,0.28);
   --font-display:   'Orbitron', monospace;
@@ -395,7 +395,7 @@ a:hover { color:var(--text-primary) }
   align-items: center;
   gap: .5rem;
   font-family: var(--font-mono);
-  font-size: .7rem;
+  font-size: .8rem;
   color: var(--cyan);
   letter-spacing: .2em;
   text-transform: uppercase;
@@ -476,7 +476,7 @@ a:hover { color:var(--text-primary) }
 }
 .stat-label {
   font-family: var(--font-mono);
-  font-size: .8rem;
+  font-size: .875rem;
   color: var(--text-secondary);
   letter-spacing: .12em;
   text-transform: uppercase;
@@ -589,7 +589,7 @@ a:hover { color:var(--text-primary) }
 
 .card-body { padding:1.25rem; flex:1 }
 .card-title { font-size:1.05rem; font-weight:600; margin-bottom:.375rem; line-height:1.3 }
-.card-meta { font-family:var(--font-mono); font-size:.8rem; color:var(--cyan); margin-bottom:.75rem; letter-spacing:.05em }
+.card-meta { font-family:var(--font-mono); font-size:.875rem; color:var(--cyan); margin-bottom:.75rem; letter-spacing:.05em }
 .card-details { display:flex; flex-wrap:wrap; gap:.4rem }
 .card-detail { font-size:.875rem; color:var(--text-secondary); font-family:var(--font-mono) }
 
@@ -610,7 +610,7 @@ a:hover { color:var(--text-primary) }
   color: var(--amber);
   text-shadow: var(--amber-glow);
 }
-.card-seats { font-family:var(--font-mono); font-size:.8rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.08em }
+.card-seats { font-family:var(--font-mono); font-size:.875rem; color:var(--text-secondary); text-transform:uppercase; letter-spacing:.08em }
 
 /* ---- STEPS ---- */
 .steps-grid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1.5rem }
@@ -792,7 +792,7 @@ td code {
   display: inline-flex;
   align-items: center;
   font-family: var(--font-mono);
-  font-size: .7rem;
+  font-size: .78rem;
   letter-spacing: .1em;
   text-transform: uppercase;
   font-weight: 600;
@@ -974,7 +974,7 @@ td code {
 .stat-card:hover::after, .admin-stat-card:hover::after { transform:scaleX(1) }
 /* .stat-value and .stat-label in admin context */
 .stat-card .stat-value, .admin-stat-value { font-family:var(--font-display); font-size:2.25rem; font-weight:700; color:var(--cyan); line-height:1; margin-bottom:.375rem }
-.stat-card .stat-label, .admin-stat-label { font-family:var(--font-mono); font-size:.8rem; color:#a0aab4; text-transform:uppercase; letter-spacing:.1em }
+.stat-card .stat-label, .admin-stat-label { font-family:var(--font-mono); font-size:.875rem; color:#a8b4c0; text-transform:uppercase; letter-spacing:.1em }
 
 /* Admin sidebar header/footer */
 .admin-sidebar-header { font-family:var(--font-display); font-size:.9rem; color:var(--cyan); letter-spacing:.12em; padding:0 1.5rem 1.5rem; border-bottom:1px solid var(--border); margin-bottom:1rem }
@@ -995,7 +995,7 @@ td code {
 .table-wrapper { overflow-x:auto }
 .table-responsive { overflow-x:auto; -webkit-overflow-scrolling:touch }
 table { width:100%; border-collapse:collapse; font-size:.875rem }
-th { font-family:var(--font-mono); font-size:.8rem; text-transform:uppercase; letter-spacing:.12em; color:#9ca8b4; padding:.75rem 1rem; text-align:left; border-bottom:1px solid rgba(255,255,255,0.06); white-space:nowrap }
+th { font-family:var(--font-mono); font-size:.8rem; text-transform:uppercase; letter-spacing:.12em; color:#a8b4c0; padding:.75rem 1rem; text-align:left; border-bottom:1px solid rgba(255,255,255,0.06); white-space:nowrap }
 td { padding:.875rem 1rem; border-bottom:1px solid rgba(255,255,255,0.04); color:var(--text-secondary); vertical-align:middle; font-size:.9375rem }
 td strong { color:var(--text-primary) }
 tr:nth-child(even) td { background:rgba(255,255,255,0.015) }
@@ -1142,7 +1142,7 @@ tr:last-child td { border-bottom:none }
 
 /* ---- SEAT LABEL CHIP ---- */
 .seat-label-chip { display:inline-block; background:var(--cyan-dim); border:1px solid var(--cyan); border-radius:var(--radius-md); padding:.35rem .75rem; font-family:var(--font-mono); font-size:.85rem; font-weight:600; color:var(--cyan); letter-spacing:.02em }
-.seat-type-tag { font-size:.65rem; opacity:.7; margin-left:.2rem; text-transform:uppercase }
+.seat-type-tag { font-size:.75rem; opacity:.85; margin-left:.2rem; text-transform:uppercase }
 
 /* ---- SEAT DESIGNER CELLS ---- */
 .designer-toolbar { display:flex; flex-wrap:wrap; gap:.75rem; align-items:center; background:var(--bg-surface); border:1px solid var(--border); border-radius:var(--radius-lg); padding:1rem; margin-bottom:1rem }
@@ -2728,7 +2728,7 @@ tr:last-child td { border-bottom:none }
   align-items: center;
   gap: .4rem;
   font-family: var(--font-mono);
-  font-size: .7rem;
+  font-size: .8rem;
   color: var(--cyan);
   text-transform: uppercase;
   letter-spacing: .15em;
@@ -2751,25 +2751,25 @@ tr:last-child td { border-bottom:none }
 }
 .spotlight-speaker {
   font-family: var(--font-mono);
-  font-size: .85rem;
+  font-size: .9rem;
   color: var(--cyan);
   margin-bottom: .125rem;
 }
 .spotlight-speaker-title {
-  font-size: .78rem;
+  font-size: .85rem;
   color: var(--text-muted);
   margin-bottom: .75rem;
 }
 .spotlight-meta {
   display: flex;
   gap: 1rem;
-  font-size: .8rem;
+  font-size: .875rem;
   color: var(--text-secondary);
   margin-bottom: .75rem;
 }
 .spotlight-countdown {
   font-family: var(--font-mono);
-  font-size: .85rem;
+  font-size: .9rem;
   color: var(--amber);
   background: rgba(245,158,11,.08);
   border: 1px solid rgba(245,158,11,.2);
@@ -2783,7 +2783,7 @@ tr:last-child td { border-bottom:none }
 .spotlight-seats-row {
   display: flex;
   justify-content: space-between;
-  font-size: .8rem;
+  font-size: .875rem;
   color: var(--text-secondary);
   margin-bottom: .375rem;
 }
@@ -2802,7 +2802,7 @@ tr:last-child td { border-bottom:none }
   transition: width .5s var(--ease-out);
 }
 .spotlight-price {
-  font-size: .9rem;
+  font-size: .95rem;
   color: var(--text-secondary);
   margin-bottom: 1rem;
   text-align: center;
@@ -2814,7 +2814,7 @@ tr:last-child td { border-bottom:none }
   text-shadow: var(--amber-glow);
 }
 .spotlight-vip {
-  font-size: .75rem;
+  font-size: .85rem;
   color: var(--text-muted);
   margin-left: .5rem;
 }
@@ -2841,7 +2841,7 @@ tr:last-child td { border-bottom:none }
 .proof-badge {
   flex-shrink: 0;
   font-family: var(--font-mono);
-  font-size: .75rem;
+  font-size: .8rem;
   color: var(--amber);
   text-transform: uppercase;
   letter-spacing: .12em;
@@ -2852,7 +2852,7 @@ tr:last-child td { border-bottom:none }
 }
 .proof-quote {
   flex-shrink: 0;
-  font-size: .85rem;
+  font-size: .95rem;
   color: var(--text-secondary);
 }
 .proof-quote strong {
@@ -2882,7 +2882,7 @@ tr:last-child td { border-bottom:none }
   border: 1px solid var(--border);
   color: var(--cyan);
   font-family: var(--font-display);
-  font-size: .7rem;
+  font-size: .8rem;
   font-weight: 700;
   display: flex;
   align-items: center;
@@ -2892,7 +2892,7 @@ tr:last-child td { border-bottom:none }
 .card-speaker-info { display: flex; flex-direction: column; min-width: 0 }
 .card-speaker-name {
   font-family: var(--font-mono);
-  font-size: .8rem;
+  font-size: .875rem;
   color: var(--cyan);
   letter-spacing: .04em;
   overflow: hidden;
@@ -2900,7 +2900,7 @@ tr:last-child td { border-bottom:none }
   white-space: nowrap;
 }
 .card-speaker-title {
-  font-size: .72rem;
+  font-size: .82rem;
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2965,7 +2965,7 @@ tr:last-child td { border-bottom:none }
 }
 .newsletter-eyebrow {
   font-family: var(--font-mono);
-  font-size: .75rem;
+  font-size: .8rem;
   color: var(--cyan);
   text-transform: uppercase;
   letter-spacing: .12em;
