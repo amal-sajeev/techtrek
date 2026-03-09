@@ -5,7 +5,7 @@ from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, St
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-from app.dependencies import now_ist
+from app.utils import now_ist
 
 
 def _generate_ref():

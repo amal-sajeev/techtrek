@@ -3,7 +3,7 @@ from datetime import datetime
 from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 
 from app.database import Base
-from app.dependencies import now_ist
+from app.utils import now_ist
 
 
 class Testimonial(Base):

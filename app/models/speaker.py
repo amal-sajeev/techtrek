@@ -4,7 +4,7 @@ from sqlalchemy import Column, DateTime, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
-from app.dependencies import now_ist
+from app.utils import now_ist
 
 
 class Speaker(Base):

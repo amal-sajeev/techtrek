@@ -16,10 +16,18 @@
           <span class="line-1">TechTrek</span>
           <span class="line-2" data-text="Ignite Your Future">Ignite Your Future</span>
         </h1>
-        <p class="hero-subtitle">
+        <p class="hero-subtitle dark-only">
           Live 30-minute tech lectures at your campus, taught by working engineers and founders.
           Pick a session, book your seat, show up.
         </p>
+        <p class="hero-subtitle light-only">
+          Industry awareness summits through TED-style talks by leading experts &mdash;
+          bridging the gap between academia and the real-world tech industry.
+        </p>
+        <div class="hero-vision light-only">
+          <strong>Viksit Bharat 2047</strong> &mdash; Empowering the next generation with knowledge
+          and skills for India's digital future.
+        </div>
         <div class="hero-actions">
           <a href="/sessions" class="btn btn-primary btn-lg">Explore Sessions</a>
           {% if not user %}
@@ -131,8 +139,9 @@
 
 <section class="section phase-summit">
   <div class="container">
-    <h2 class="section-title">Tech Talks</h2>
-    <p class="section-subtitle">30-minute sessions from engineers and founders working in the industry — at campuses near you.</p>
+    <h2 class="section-title"><span class="dark-only">Tech Talks</span><span class="light-only-inline">Industry Awareness Summit</span></h2>
+    <p class="section-subtitle dark-only">30-minute sessions from engineers and founders working in the industry — at campuses near you.</p>
+    <p class="section-subtitle light-only">TED-style talks by industry experts on AI, Quantum Computing, Cloud, and emerging technologies — live at campuses across India.</p>
 
     {% set img_pool = [
       'photo-1540575467063-178a50c2df87',
@@ -248,7 +257,7 @@
 
 <section class="section phase-testimonials">
   <div class="container">
-    <h2 class="section-title">Student Testimonials</h2>
+    <h2 class="section-title"><span class="dark-only">Student Testimonials</span><span class="light-only-inline">What Students Say</span></h2>
 
     {% if testimonials %}
     <div class="testimonials-grid">

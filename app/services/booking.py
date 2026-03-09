@@ -7,7 +7,7 @@ import qrcode
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.dependencies import now_ist
+from app.utils import now_ist
 from app.models.booking import Booking, _generate_ticket_id
 from app.models.seat import Seat
 from app.models.session import LectureSession
