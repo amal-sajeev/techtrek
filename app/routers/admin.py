@@ -515,7 +515,10 @@ async def seat_layout_save(request: Request, aud_id: int, db: Session = Depends(
     except (json.JSONDecodeError, ValueError):
         aud.col_gaps = None
 
-    db.query(Seat).filter(Seat.auditorium_id == aud_id).delete()
+    seat_ids = [s.id for s in db.query(Seat.id).filter(Seat.auditorium_id == aud_id).all()]
+    if seat_ids:
+        db.query(Booking).filter(Booking.seat_id.in_(seat_ids)).delete(synchronize_session="fetch")
+        db.query(Seat).filter(Seat.id.in_(seat_ids)).delete(synchronize_session="fetch")
 
     for item in layout:
         seat = Seat(
