@@ -852,12 +852,30 @@ def bookings_list(
 
 
 @router.get("/bookings/export")
-def bookings_csv(request: Request, db: Session = Depends(get_db)):
+def bookings_csv(
+    request: Request,
+    db: Session = Depends(get_db),
+    q: str = Query("", alias="q"),
+    status_filter: str = Query("", alias="status"),
+    session_filter: str = Query("", alias="session_id"),
+):
     admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    bookings = db.query(Booking).filter(Booking.payment_status.in_(["paid", "hold", "refunded"])).order_by(Booking.booked_at.desc()).all()
+    query = db.query(Booking)
+    if status_filter:
+        query = query.filter(Booking.payment_status == status_filter)
+    else:
+        query = query.filter(Booking.payment_status.in_(["paid", "hold", "refunded"]))
+
+    if session_filter:
+        try:
+            query = query.filter(Booking.session_id == int(session_filter))
+        except ValueError:
+            pass
+
+    bookings = query.order_by(Booking.booked_at.desc()).all()
 
     output = io.StringIO()
     writer = csv.writer(output)
@@ -866,6 +884,16 @@ def bookings_csv(request: Request, db: Session = Depends(get_db)):
         u = db.query(User).get(b.user_id)
         s = db.query(LectureSession).get(b.session_id)
         seat = db.query(Seat).get(b.seat_id)
+        if q:
+            search = q.lower()
+            match = (
+                (u and (search in u.username.lower() or search in u.email.lower() or (u.full_name and search in u.full_name.lower())))
+                or (s and search in s.title.lower())
+                or (b.booking_ref and search in b.booking_ref.lower())
+                or (b.ticket_id and search in b.ticket_id.lower())
+            )
+            if not match:
+                continue
         writer.writerow([
             b.booking_ref,
             b.ticket_id or "",

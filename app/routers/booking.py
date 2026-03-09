@@ -142,6 +142,10 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
         return RedirectResponse(f"/booking/select/{session_id}", status_code=303)
 
     lecture = db.query(LectureSession).get(session_id)
+    if not lecture:
+        flash(request, "Session no longer available.", "danger")
+        return RedirectResponse("/sessions", status_code=303)
+
     seats = []
     for h in holds:
         seat = db.query(Seat).get(h.seat_id)
@@ -201,6 +205,10 @@ def confirmation_page(request: Request, session_id: int, db: Session = Depends(g
         return RedirectResponse("/sessions", status_code=303)
 
     lecture = db.query(LectureSession).get(session_id)
+    if not lecture:
+        flash(request, "Session no longer available.", "danger")
+        return RedirectResponse("/sessions", status_code=303)
+
     auditorium = db.query(Auditorium).get(lecture.auditorium_id)
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     total = sum(b.amount_paid or _seat_price(lecture, s.seat_type) for b, s in zip(bookings, seats))

@@ -6,7 +6,11 @@
   <div class="auth-box">
     <div class="auth-header">
       <div class="auth-logo">&#9889; TECHTREK</div>
+      {% if next and '/sessions/' in next %}
+      <p class="auth-title">Sign in to complete your booking</p>
+      {% else %}
       <p class="auth-title">Access your account</p>
+      {% endif %}
     </div>
 
     <form method="post" action="/auth/login" id="login-form" novalidate>
@@ -30,7 +34,7 @@
     </form>
 
     <div class="auth-footer">
-      New here? <a href="/auth/register">Create an account</a>
+      No account? <a href="/auth/register{% if next %}?next={{ next }}{% endif %}">Create one — it's free</a>
     </div>
   </div>
 </div>

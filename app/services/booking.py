@@ -65,6 +65,19 @@ def hold_seats(
     now = datetime.now(timezone.utc)
     held_until = now + timedelta(minutes=settings.hold_timeout_minutes)
 
+    lecture = db.query(LectureSession).get(session_id)
+    if not lecture:
+        return []
+
+    valid_seat_ids = set(
+        sid for (sid,) in db.query(Seat.id)
+        .filter(Seat.auditorium_id == lecture.auditorium_id, Seat.is_active == True, Seat.seat_type != "aisle")
+        .all()
+    )
+    seat_ids = [sid for sid in seat_ids if sid in valid_seat_ids]
+    if not seat_ids:
+        return []
+
     cancel_existing_holds(db, user_id, session_id)
 
     bookings = []

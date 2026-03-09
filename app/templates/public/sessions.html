@@ -88,7 +88,7 @@
           </div>
           <div class="card-body">
             <h3 class="card-title">{{ item.session.title }}</h3>
-            <p class="card-meta">// {{ item.session.speaker }}</p>
+            <p class="card-meta">{{ item.session.speaker }}</p>
             <div class="card-details">
               <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
               <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
@@ -99,7 +99,13 @@
           </div>
           <div class="card-footer">
             <span class="card-price">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
-            <span class="card-seats">{{ item.stats.available }} seats left</span>
+            {% if item.availability == 'sold-out' %}
+            <span class="card-seats seats-out">Sold out</span>
+            {% elif item.availability == 'filling-up' %}
+            <span class="card-seats seats-low"><span class="pulse-dot"></span>{{ item.stats.available }} left</span>
+            {% else %}
+            <span class="card-cta-hint">Book &rarr;</span>
+            {% endif %}
           </div>
         </a>
         {% endfor %}

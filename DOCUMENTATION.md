@@ -62,7 +62,7 @@ TechTrek enables universities and conference organizers to publish lecture sessi
 High-level overview of how TechTrek's components interact.
 
 ```mermaid
-graph TB
+graph LR
     subgraph client [Client]
         Browser["Browser"]
     end
@@ -98,6 +98,7 @@ graph TB
 Every HTTP request flows through these layers in order.
 
 ```mermaid
+%%{init: {"sequence": {"useMaxWidth": true, "width": 900}}}%%
 sequenceDiagram
     participant B as Browser
     participant M as SessionMiddleware
@@ -146,11 +147,13 @@ flowchart LR
 A booking transitions through these states during its lifecycle.
 
 ```mermaid
+%%{init: {"state": {"useMaxWidth": true}}}%%
 stateDiagram-v2
+    direction LR
     [*] --> hold: User selects seats
     hold --> paid: Payment confirmed
     hold --> expired: Hold timer expires
-    paid --> refunded: User cancels<br/>or admin refunds
+    paid --> refunded: User cancels or admin refunds
     paid --> checkedIn: QR scanned at venue
     expired --> [*]
     refunded --> [*]
@@ -175,118 +178,26 @@ stateDiagram-v2
 
 ### Database Entity Relationships
 
-All 12 models and how they relate to each other.
+All 12 models and how they relate to each other, split into three diagrams by domain. Full column details are in the [Database Schema](#database-schema) section below.
+
+#### Core Booking Flow
+
+Users book seats for lecture sessions. Each booking links a user, a session, and a seat.
 
 ```mermaid
 erDiagram
     User ||--o{ Booking : "has many"
-    User ||--o{ Waitlist : "has many"
-
-    City ||--o{ College : "has many"
-    College ||--o{ Auditorium : "has many"
-
+    LectureSession ||--o{ Booking : "has many"
+    Booking }o--|| Seat : "reserves"
     Auditorium ||--o{ Seat : "has many"
     Auditorium ||--o{ LectureSession : "hosts"
-
-    Speaker ||--o{ LectureSession : "presents"
-
-    LectureSession ||--o{ Booking : "has many"
-    LectureSession ||--o{ AgendaItem : "has many"
-    LectureSession ||--o{ Waitlist : "has many"
-
-    Booking }o--|| Seat : "reserves"
 
     User {
         int id PK
         string email UK
         string username UK
-        string password_hash
-        string full_name
-        string college
-        string discipline
-        string domain
-        int year_of_study
         bool is_admin
         bool is_supervisor
-        datetime created_at
-    }
-
-    City {
-        int id PK
-        string name
-        string state
-        bool is_active
-        datetime created_at
-    }
-
-    College {
-        int id PK
-        string name
-        int city_id FK
-        string address
-        bool is_active
-        datetime created_at
-    }
-
-    Auditorium {
-        int id PK
-        string name
-        int college_id FK
-        string location
-        text description
-        int total_rows
-        int total_cols
-        int stage_cols
-        text row_gaps
-        text col_gaps
-        json layout_config
-    }
-
-    Seat {
-        int id PK
-        int auditorium_id FK
-        int row_num
-        int col_num
-        string label
-        string seat_type
-        bool is_active
-    }
-
-    Speaker {
-        int id PK
-        string name
-        string title
-        text bio
-        string photo_url
-        string email
-        datetime created_at
-    }
-
-    LectureSession {
-        int id PK
-        int auditorium_id FK
-        int speaker_id FK
-        string title
-        string speaker
-        text description
-        string banner_url
-        datetime start_time
-        int duration_minutes
-        numeric price
-        numeric price_vip
-        numeric price_accessible
-        string status
-        datetime created_at
-    }
-
-    AgendaItem {
-        int id PK
-        int session_id FK
-        int order
-        string title
-        string speaker_name
-        int duration_minutes
-        text description
     }
 
     Booking {
@@ -295,18 +206,108 @@ erDiagram
         int session_id FK
         int seat_id FK
         string payment_status
-        string booking_ref UK
         string ticket_id UK
-        text qr_code_data
         string booking_group
-        text group_qr_data
-        float amount_paid
-        float refund_amount
-        float cancellation_fee
-        bool checked_in
-        datetime checked_in_at
         datetime held_until
-        datetime booked_at
+    }
+
+    LectureSession {
+        int id PK
+        int auditorium_id FK
+        int speaker_id FK
+        string title
+        numeric price
+        string status
+    }
+
+    Seat {
+        int id PK
+        int auditorium_id FK
+        string label
+        string seat_type
+    }
+
+    Auditorium {
+        int id PK
+        int college_id FK
+        string name
+    }
+```
+
+#### Location Hierarchy
+
+Cities contain colleges, which contain auditoriums.
+
+```mermaid
+erDiagram
+    City ||--o{ College : "has many"
+    College ||--o{ Auditorium : "has many"
+    Auditorium ||--o{ Seat : "has many"
+
+    City {
+        int id PK
+        string name
+        string state
+        bool is_active
+    }
+
+    College {
+        int id PK
+        int city_id FK
+        string name
+        string address
+        bool is_active
+    }
+
+    Auditorium {
+        int id PK
+        int college_id FK
+        string name
+        string location
+        int total_rows
+        int total_cols
+    }
+
+    Seat {
+        int id PK
+        int auditorium_id FK
+        string label
+        string seat_type
+        bool is_active
+    }
+```
+
+#### Supporting Models
+
+Speakers, agenda items, waitlists, testimonials, and newsletter subscribers.
+
+```mermaid
+erDiagram
+    Speaker ||--o{ LectureSession : "presents"
+    LectureSession ||--o{ AgendaItem : "has many"
+    LectureSession ||--o{ Waitlist : "has many"
+    User ||--o{ Waitlist : "has many"
+
+    Speaker {
+        int id PK
+        string name
+        string title
+        string email
+    }
+
+    LectureSession {
+        int id PK
+        int speaker_id FK
+        string title
+        string status
+    }
+
+    AgendaItem {
+        int id PK
+        int session_id FK
+        int order
+        string title
+        int duration_minutes
     }
 
     Waitlist {
@@ -314,33 +315,36 @@ erDiagram
         int user_id FK
         int session_id FK
         int priority_session_id FK
-        datetime joined_at
-        bool notified
         datetime priority_expires_at
+    }
+
+    User {
+        int id PK
+        string email UK
+        string username UK
     }
 
     Testimonial {
         int id PK
         string student_name
-        string college
         text quote
         bool is_active
-        datetime created_at
     }
 
     NewsletterSubscriber {
         int id PK
         string email UK
-        datetime subscribed_at
     }
 ```
 
 ### Template Hierarchy
 
-How Jinja2 templates inherit from base layouts.
+How Jinja2 templates inherit from base layouts, split by public/user-facing pages and admin pages.
+
+#### Public, Auth, Booking, and Supervisor Templates
 
 ```mermaid
-graph TD
+graph LR
     Base["base.html<br/>Navbar, Footer, Theme,<br/>Flash Messages, Modals"]
 
     Base --> Home["public/home.html"]
@@ -361,7 +365,15 @@ graph TD
     Base --> Err404["errors/404.html"]
     Base --> Err500["errors/500.html"]
 
-    Base --> BaseAdmin["admin/base_admin.html<br/>Sidebar Navigation"]
+    Base --> SupervisorCheckin["supervisor/checkin.html"]
+```
+
+#### Admin Panel Templates
+
+```mermaid
+graph LR
+    Base["base.html"] --> BaseAdmin["admin/base_admin.html<br/>Sidebar Navigation"]
+
     BaseAdmin --> Dashboard["admin/dashboard.html"]
     BaseAdmin --> AdminSessions["admin/sessions.html"]
     BaseAdmin --> SessionForm["admin/session_form.html"]
@@ -378,8 +390,6 @@ graph TD
     BaseAdmin --> SpeakerForm["admin/speaker_form.html"]
     BaseAdmin --> CheckinPage["admin/checkin.html"]
     BaseAdmin --> WaitlistPage["admin/waitlist.html"]
-
-    Base --> SupervisorCheckin["supervisor/checkin.html"]
 ```
 
 ---
@@ -675,8 +685,8 @@ Individual seats within an auditorium.
 |---|---|---|---|
 | `id` | `Integer` | PK, indexed | Auto-increment primary key |
 | `auditorium_id` | `Integer` | FK -> `auditoriums.id`, not null | Parent auditorium |
-| `row_num` | `Integer` | Not null | Row position (0-based) |
-| `col_num` | `Integer` | Not null | Column position (0-based) |
+| `row_num` | `Integer` | Not null | Row position (1-based) |
+| `col_num` | `Integer` | Not null | Column position (1-based) |
 | `label` | `String(10)` | Not null | Display label (e.g., "A1", "B12") |
 | `seat_type` | `String(20)` | Default `"standard"` | One of: `standard`, `vip`, `accessible`, `aisle` |
 | `is_active` | `Boolean` | Default `True` | Whether the seat can be booked |

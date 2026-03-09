@@ -1,0 +1,163 @@
+/* ---- SPEAKER SECTION (session detail) ---- */
+.speaker-section {
+  display: flex;
+  gap: 1.25rem;
+  align-items: flex-start;
+  margin-bottom: 2rem;
+  padding: 1.25rem;
+  border: 1px solid var(--color-border, rgba(255,255,255,0.08));
+  border-radius: 12px;
+  background: var(--color-surface-2, rgba(255,255,255,0.03));
+}
+
+.speaker-photo {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.speaker-initials-lg {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--color-accent, #00d4ff);
+  color: #000;
+  font-size: 1.75rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.speaker-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+
+.speaker-name-lg {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.speaker-role-lg {
+  font-size: 0.875rem;
+  opacity: 0.65;
+}
+
+.speaker-bio {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  opacity: 0.85;
+  max-width: 55ch;
+}
+
+.session-detail-speaker-plain {
+  font-size: 1rem;
+  opacity: 0.7;
+  margin-bottom: 1.5rem;
+}
+
+/* ---- AGENDA ---- */
+.agenda-section {
+  margin-bottom: 2rem;
+}
+
+.agenda-title {
+  font-size: 1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.6;
+}
+
+.agenda-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.agenda-item {
+  padding: 0.75rem 0;
+  border-bottom: 1px solid var(--color-border, rgba(255,255,255,0.07));
+}
+
+.agenda-item:last-child {
+  border-bottom: none;
+}
+
+.agenda-item-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.agenda-item-title {
+  font-weight: 500;
+}
+
+.agenda-item-duration {
+  font-size: 0.8rem;
+  opacity: 0.5;
+  white-space: nowrap;
+  margin-left: 1rem;
+}
+
+.agenda-item-desc {
+  font-size: 0.875rem;
+  opacity: 0.65;
+  margin: 0.3rem 0 0;
+  line-height: 1.5;
+}
+
+/* ---- BOOKING BOX ADDITIONS ---- */
+.booking-social-proof {
+  font-size: 0.85rem;
+  opacity: 0.7;
+  margin: 0.5rem 0;
+  padding: 0.4rem 0.6rem;
+  background: var(--color-surface-2, rgba(0,212,255,0.06));
+  border-radius: 6px;
+  border-left: 3px solid var(--color-accent, #00d4ff);
+}
+
+.booking-trust-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.booking-trust-list li {
+  font-size: 0.8rem;
+  opacity: 0.55;
+  padding-left: 1rem;
+  position: relative;
+}
+
+.booking-trust-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  opacity: 0.8;
+}
+
+/* ---- CARD CTA HINT ---- */
+.card-cta-hint {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-accent, #00d4ff);
+  opacity: 0.85;
+  letter-spacing: 0.02em;
+}
+

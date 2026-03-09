@@ -30,11 +30,52 @@
     <div class="session-detail">
       <div class="session-detail-main">
         <h1 class="session-detail-title">{{ lecture.title }}</h1>
-        <p class="session-detail-speaker">// {{ lecture.speaker }}</p>
+
+        <!-- Speaker section -->
+        {% if lecture.speaker_rel %}
+        <div class="speaker-section reveal">
+          {% if lecture.speaker_rel.photo_url %}
+          <img class="speaker-photo" src="{{ lecture.speaker_rel.photo_url }}" alt="{{ lecture.speaker_rel.name }}">
+          {% else %}
+          <div class="speaker-initials-lg">{{ lecture.speaker_rel.name[0] }}</div>
+          {% endif %}
+          <div class="speaker-info">
+            <span class="speaker-name-lg">{{ lecture.speaker_rel.name }}</span>
+            {% if lecture.speaker_rel.title %}
+            <span class="speaker-role-lg">{{ lecture.speaker_rel.title }}</span>
+            {% endif %}
+            {% if lecture.speaker_rel.bio %}
+            <p class="speaker-bio">{{ lecture.speaker_rel.bio }}</p>
+            {% endif %}
+          </div>
+        </div>
+        {% else %}
+        <p class="session-detail-speaker-plain">{{ lecture.speaker }}</p>
+        {% endif %}
 
         {% if lecture.description %}
         <div class="session-detail-desc">
           {{ lecture.description }}
+        </div>
+        {% endif %}
+
+        <!-- Agenda -->
+        {% if lecture.agenda_items %}
+        <div class="agenda-section reveal">
+          <h3 class="agenda-title">Session agenda</h3>
+          <ol class="agenda-list">
+            {% for item in lecture.agenda_items %}
+            <li class="agenda-item">
+              <div class="agenda-item-header">
+                <span class="agenda-item-title">{{ item.title }}</span>
+                <span class="agenda-item-duration">{{ item.duration_minutes }} min</span>
+              </div>
+              {% if item.description %}
+              <p class="agenda-item-desc">{{ item.description }}</p>
+              {% endif %}
+            </li>
+            {% endfor %}
+          </ol>
         </div>
         {% endif %}
 
@@ -65,10 +106,18 @@
             <span class="booking-box-per">per seat{% if lecture.price_vip is not none %} &middot; VIP ₹{{ "%.0f"|format(lecture.price_vip) }}{% endif %}</span>
           </div>
 
+          <!-- Social proof in booking box -->
+          {% if stats.booked > 0 %}
+          <p class="booking-social-proof">{{ stats.booked }} {{ "person has" if stats.booked == 1 else "people have" }} already booked</p>
+          {% endif %}
+
           <div class="booking-box-stats">
             <div class="stat-row">
-              <span>Available</span>
-              <span class="stat-value">{{ stats.available }} / {{ stats.total }}</span>
+              {% if availability == 'filling-up' %}
+              <span style="color:var(--color-accent)"><strong>Only {{ stats.available }} seats left</strong></span>
+              {% else %}
+              <span>{{ stats.available }} of {{ stats.total }} seats available</span>
+              {% endif %}
             </div>
             <div class="availability-bar">
               {% set pct = ((stats.booked / stats.total) * 100) if stats.total > 0 else 0 %}
@@ -80,7 +129,7 @@
             <span class="badge badge-sold-out badge-lg">Sold Out</span>
             {% if user %}
               {% if on_waitlist %}
-                <p class="booking-box-note">You're on the waitlist. We'll notify you if spots open.</p>
+                <p class="booking-box-note">You're on the waitlist. We'll notify you if a spot opens.</p>
               {% else %}
                 <form method="post" action="/booking/waitlist/{{ lecture.id }}">
                   <button type="submit" class="btn btn-outline btn-lg btn-block mt-3">Join Waitlist</button>
@@ -99,13 +148,19 @@
             {% endif %}
 
           {% else %}
-            <span class="badge badge-{{ availability }} badge-lg">{{ availability | replace('-', ' ') | title }}</span>
             {% if user %}
               <a href="/booking/select/{{ lecture.id }}" class="btn btn-primary btn-lg btn-block mt-3">Book Now</a>
             {% else %}
-              <a href="/auth/login?next=/sessions/{{ lecture.id }}" class="btn btn-primary btn-lg btn-block mt-3">Sign In to Book</a>
+              <a href="/auth/register?next=/sessions/{{ lecture.id }}" class="btn btn-primary btn-lg btn-block mt-3">Create account to book</a>
+              <a href="/auth/login?next=/sessions/{{ lecture.id }}" class="btn btn-outline btn-block mt-2">Already have an account? Sign in</a>
             {% endif %}
           {% endif %}
+
+          <ul class="booking-trust-list">
+            <li>QR ticket delivered instantly after payment</li>
+            <li>Seat confirmed and held in your name</li>
+            <li>Cancel for a refund before the session</li>
+          </ul>
         </div>
       </div>
     </div>

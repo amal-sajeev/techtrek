@@ -3,31 +3,128 @@
 
 {% block content %}
 
-<section class="hero">
+<section class="hero hero-compact">
   <div class="hero-glow hero-glow-1"></div>
   <div class="hero-glow hero-glow-2"></div>
   <div class="container">
-    <div class="hero-eyebrow">
-      <span class="dot"></span> Ignite Your Imagination
-    </div>
-    <h1 class="hero-title">
-      <span class="line-1">TechTrek</span>
-      <span class="line-2" data-text="Ignite Your Future">Ignite Your Future</span>
-    </h1>
-    <p class="hero-subtitle">
-      A Viksit Bharat initiative bringing cutting-edge technology lectures to campuses across India.
-      Industry leaders. Future shapers. Your next breakthrough starts here.
-    </p>
-    <div class="hero-actions">
-      <a href="/sessions" class="btn btn-primary btn-lg">Explore Sessions</a>
-      {% if not user %}
-      <a href="/auth/register" class="btn btn-outline btn-lg">Join TechTrek</a>
+    <div class="hero-split">
+      <div class="hero-text">
+        <div class="hero-eyebrow">
+          <span class="dot"></span> Ignite Your Imagination
+        </div>
+        <h1 class="hero-title">
+          <span class="line-1">TechTrek</span>
+          <span class="line-2" data-text="Ignite Your Future">Ignite Your Future</span>
+        </h1>
+        <p class="hero-subtitle">
+          Live 30-minute tech lectures at your campus, taught by working engineers and founders.
+          Pick a session, book your seat, show up.
+        </p>
+        <div class="hero-actions">
+          <a href="/sessions" class="btn btn-primary btn-lg">Explore Sessions</a>
+          {% if not user %}
+          <a href="/auth/register" class="btn btn-outline btn-lg">Join TechTrek</a>
+          {% endif %}
+        </div>
+        {% if total_attendees > 10 or total_speakers > 0 or total_sessions > 0 %}
+        <div class="hero-stats">
+          {% if total_attendees > 10 %}
+          <div class="stat-item">
+            <span class="stat-number">{{ total_attendees }}</span>
+            <span class="stat-label">Attendees</span>
+          </div>
+          {% endif %}
+          {% if total_speakers > 0 %}
+          <div class="stat-item">
+            <span class="stat-number">{{ total_speakers }}</span>
+            <span class="stat-label">Speakers</span>
+          </div>
+          {% endif %}
+          {% if total_sessions > 0 %}
+          <div class="stat-item">
+            <span class="stat-number">{{ total_sessions }}</span>
+            <span class="stat-label">Sessions</span>
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+
+      {% if featured %}
+      {% set fs = featured.session %}
+      {% set fa = featured.auditorium %}
+      <div class="hero-spotlight" data-days="{{ featured.days_until }}" data-hours="{{ featured.hours_until }}">
+        <div class="spotlight-label">
+          <span class="spotlight-dot"></span> Next Session
+        </div>
+        <h3 class="spotlight-title">{{ fs.title }}</h3>
+        <p class="spotlight-speaker">{{ fs.speaker }}</p>
+        {% if featured.speaker_obj and featured.speaker_obj.title %}
+        <p class="spotlight-speaker-title">{{ featured.speaker_obj.title }}</p>
+        {% endif %}
+        <div class="spotlight-meta">
+          <span>&#128197; {{ fs.start_time.strftime('%b %d, %Y') }}</span>
+          <span>&#128336; {{ fs.start_time.strftime('%I:%M %p') }}</span>
+        </div>
+        <div class="spotlight-countdown">
+          {% if featured.days_until > 0 %}
+          Starts in <strong>{{ featured.days_until }}d {{ featured.hours_until }}h</strong>
+          {% elif featured.hours_until > 0 %}
+          Starts in <strong>{{ featured.hours_until }}h</strong>
+          {% else %}
+          <strong>Starting soon!</strong>
+          {% endif %}
+        </div>
+        <div class="spotlight-price">
+          from <strong>&#8377;{{ "%.0f"|format(fs.price) }}</strong>
+          {% if fs.price_vip is not none %}<span class="spotlight-vip">VIP &#8377;{{ "%.0f"|format(fs.price_vip) }}</span>{% endif %}
+        </div>
+        <div class="spotlight-availability">
+          <div class="spotlight-seats-row">
+            <span>{% if featured.stats.available <= featured.stats.total * 0.2 and featured.stats.available > 0 %}<strong style="color:var(--color-accent)">Only {{ featured.stats.available }} seats left</strong>{% else %}{{ featured.stats.available }} / {{ featured.stats.total }} seats available{% endif %}</span>
+          </div>
+          {% set pct = ((featured.stats.booked / featured.stats.total) * 100) if featured.stats.total > 0 else 0 %}
+          <div class="spotlight-bar">
+            <div class="spotlight-bar-fill" style="width:{{ pct }}%"></div>
+          </div>
+        </div>
+        {% if user %}
+        <a href="/booking/select/{{ fs.id }}" class="btn btn-primary btn-block spotlight-cta">Book Now</a>
+        {% else %}
+        <a href="/auth/login?next=/sessions/{{ fs.id }}" class="btn btn-primary btn-block spotlight-cta">Sign In to Book</a>
+        {% endif %}
+      </div>
       {% endif %}
     </div>
-    <div class="hero-stats">
-      <div class="stat-item"><span class="stat-number">50+</span><span class="stat-label">Sessions</span></div>
-      <div class="stat-item"><span class="stat-number">30 min</span><span class="stat-label">Short Talks</span></div>
-      <div class="stat-item"><span class="stat-number">100%</span><span class="stat-label">In-Person</span></div>
+  </div>
+</section>
+
+<!-- Social proof strip -->
+<section class="social-proof-strip">
+  <div class="container">
+    <div class="proof-inner">
+      <span class="proof-badge">&#9733; Trusted by students</span>
+      {% if testimonials %}
+        {% for t in testimonials[:3] %}
+        <div class="proof-quote">
+          <span>"{{ t.quote[:140] }}{% if t.quote|length > 140 %}...{% endif %}"</span>
+          <strong>— {{ t.student_name }}</strong>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="proof-quote">
+          <span>"TechTrek opened my eyes to quantum computing. Phenomenal!"</span>
+          <strong>— Priya S., KSR College</strong>
+        </div>
+        <div class="proof-quote">
+          <span>"The best industry event I've attended as a student."</span>
+          <strong>— Arjun M., DTU</strong>
+        </div>
+        <div class="proof-quote">
+          <span>"Seamless booking, incredible talks. Can't wait for the next one!"</span>
+          <strong>— Sneha P., BITS Pilani</strong>
+        </div>
+      {% endif %}
     </div>
   </div>
 </section>
@@ -35,7 +132,7 @@
 <section class="section phase-summit">
   <div class="container">
     <h2 class="section-title">Tech Talks</h2>
-    <p class="section-subtitle">Thought-provoking sessions from industry pioneers — 30 minutes that can change your career trajectory.</p>
+    <p class="section-subtitle">30-minute sessions from engineers and founders working in the industry — at campuses near you.</p>
 
     {% set img_pool = [
       'photo-1540575467063-178a50c2df87',
@@ -61,16 +158,41 @@
         </div>
         <div class="card-body">
           <h3 class="card-title">{{ item.session.title }}</h3>
-          <p class="card-meta">// {{ item.session.speaker }}</p>
+          <div class="card-speaker-row">
+            {% if item.speaker_obj and item.speaker_obj.photo_url %}
+            <img class="card-speaker-avatar" src="{{ item.speaker_obj.photo_url }}" alt="{{ item.session.speaker }}">
+            {% else %}
+            <span class="card-speaker-initials">{{ item.session.speaker[0] }}</span>
+            {% endif %}
+            <div class="card-speaker-info">
+              <span class="card-speaker-name">{{ item.session.speaker }}</span>
+              {% if item.speaker_obj and item.speaker_obj.title %}
+              <span class="card-speaker-title">{{ item.speaker_obj.title }}</span>
+              {% endif %}
+            </div>
+          </div>
           <div class="card-details">
             <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
             <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
+            <span class="card-detail card-urgency {% if item.days_until <= 3 %}urgency-hot{% elif item.days_until <= 7 %}urgency-warm{% endif %}">
+              {% if item.days_until > 0 %}
+              &#9200; in {{ item.days_until }}d {{ item.hours_until }}h
+              {% else %}
+              &#9200; Starting soon
+              {% endif %}
+            </span>
           </div>
         </div>
-        <div class="card-footer">
-          <span class="card-price">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
-          <span class="card-seats">{{ item.stats.available }} seats left</span>
-        </div>
+          <div class="card-footer">
+            <span class="card-price">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
+            {% if item.availability == 'sold-out' %}
+            <span class="card-seats seats-out">Sold out</span>
+            {% elif item.availability == 'filling-up' %}
+            <span class="card-seats seats-low"><span class="pulse-dot"></span>{{ item.stats.available }} left</span>
+            {% else %}
+            <span class="card-cta-hint">Book &rarr;</span>
+            {% endif %}
+          </div>
       </a>
       {% endfor %}
     </div>
@@ -94,20 +216,32 @@
     <h2 class="section-title">How It Works</h2>
     <div class="steps-grid">
       <div class="step-card reveal">
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        </div>
         <div class="step-number">1</div>
         <h3>Browse</h3>
         <p>Discover upcoming tech talks at campuses across India.</p>
       </div>
       <div class="step-card reveal">
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        </div>
         <div class="step-number">2</div>
         <h3>Pick Your Seat</h3>
         <p>Choose your preferred seat from an interactive venue map.</p>
       </div>
       <div class="step-card reveal">
+        <div class="step-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        </div>
         <div class="step-number">3</div>
         <h3>Book &amp; Attend</h3>
         <p>Confirm your booking, get your QR ticket, and show up inspired.</p>
       </div>
+    </div>
+    <div style="text-align:center;margin-top:2.5rem">
+      <a href="/sessions" class="btn btn-primary btn-lg">Browse Sessions &rarr;</a>
     </div>
   </div>
 </section>
@@ -146,7 +280,8 @@
     {% endif %}
 
     <!-- Newsletter Section -->
-    <div class="newsletter-section reveal">
+    <div class="newsletter-section newsletter-enhanced reveal">
+      <div class="newsletter-eyebrow">Join {{ total_attendees if total_attendees > 10 else "500+" }} students already on TechTrek</div>
       <h3>Stay in the Loop</h3>
       <p>Get notified about upcoming TechTrek sessions, new cities, and exclusive early-bird access.</p>
       <form method="post" action="/newsletter" class="newsletter-form">

@@ -12,6 +12,7 @@ from app.models.city import City
 from app.models.college import College
 from app.models.seat import Seat
 from app.models.session import LectureSession
+from app.models.speaker import Speaker
 from app.models.testimonial import Testimonial, NewsletterSubscriber
 from app.models.user import User
 
@@ -62,17 +63,39 @@ def home(request: Request, db: Session = Depends(get_db)):
     sessions_with_info = []
     for s in upcoming:
         stats = _seat_stats(db, s.id, s.auditorium_id)
+        speaker = db.query(Speaker).get(s.speaker_id) if s.speaker_id else None
+        delta = s.start_time - now
+        days_until = max(0, delta.days)
+        hours_until = max(0, int(delta.total_seconds() // 3600) % 24)
         sessions_with_info.append({
             "session": s,
             "auditorium": db.query(Auditorium).get(s.auditorium_id),
+            "speaker_obj": speaker,
             "stats": stats,
             "availability": _availability_label(stats),
+            "days_until": days_until,
+            "hours_until": hours_until,
         })
+
+    featured = sessions_with_info[0] if sessions_with_info else None
+
     testimonials = db.query(Testimonial).filter(Testimonial.is_active == True).all()
+
+    total_attendees = db.query(func.count(func.distinct(Booking.user_id))).filter(Booking.payment_status == "paid").scalar() or 0
+    total_speakers = db.query(func.count(Speaker.id)).scalar() or 0
+    total_sessions = db.query(func.count(LectureSession.id)).filter(LectureSession.status == "published").scalar() or 0
 
     return templates.TemplateResponse(
         "public/home.html",
-        template_ctx(request, sessions=sessions_with_info, testimonials=testimonials),
+        template_ctx(
+            request,
+            sessions=sessions_with_info,
+            featured=featured,
+            testimonials=testimonials,
+            total_attendees=total_attendees,
+            total_speakers=total_speakers,
+            total_sessions=total_sessions,
+        ),
     )
 
 
