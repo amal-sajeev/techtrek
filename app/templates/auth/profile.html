@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% block title %}Profile — TechTrek{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-box" style="max-width:560px">
+    <div class="auth-header">
+      <div class="auth-logo">&#9889; TECHTREK</div>
+      <p class="auth-title">Your Profile</p>
+    </div>
+
+    <form method="post" action="/auth/profile" id="profile-form" novalidate>
+      <div class="form-group">
+        <label class="form-label" for="pf-fullname">Full Name <span class="required">*</span></label>
+        <input type="text" name="full_name" id="pf-fullname" class="form-input" value="{{ profile_user.full_name or '' }}" required autocomplete="name">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="pf-username">Username</label>
+          <input type="text" id="pf-username" class="form-input" value="{{ profile_user.username }}" disabled>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pf-email">Email</label>
+          <input type="email" id="pf-email" class="form-input" value="{{ profile_user.email }}" disabled>
+        </div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">
+
+      <p style="color:var(--text-secondary);font-size:.85rem;margin-bottom:.75rem">Academic Details (optional)</p>
+
+      <div class="form-group">
+        <label class="form-label" for="pf-college">College / Institution</label>
+        <input type="text" name="college" id="pf-college" class="form-input" value="{{ profile_user.college or '' }}" placeholder="e.g. KSR College of Engineering" autocomplete="organization">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="pf-discipline">Discipline</label>
+          <select name="discipline" id="pf-discipline" class="form-input">
+            <option value="">Select discipline</option>
+            {% set disciplines = ['CSE','IT','ECE','EEE','Mechanical','Civil','AI/ML','Data Science','Commerce','BBA','BCA','Science','Arts','Law','Design','Other'] %}
+            {% for d in disciplines %}
+            <option value="{{ d }}" {% if profile_user.discipline == d %}selected{% endif %}>{{ d }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pf-domain">Domain of Interest</label>
+          <select name="domain" id="pf-domain" class="form-input">
+            <option value="">Select domain</option>
+            {% set domains = [('AI','Artificial Intelligence'),('Cloud Computing','Cloud Computing'),('Quantum Computing','Quantum Computing'),('Cybersecurity','Cybersecurity'),('Data Science','Data Science'),('Web Development','Web Development'),('Mobile Development','Mobile Development'),('IoT','IoT'),('Blockchain','Blockchain'),('DevOps','DevOps'),('Other','Other')] %}
+            {% for val, label in domains %}
+            <option value="{{ val }}" {% if profile_user.domain == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="pf-year">Year of Study</label>
+        <select name="year_of_study" id="pf-year" class="form-input">
+          <option value="">Select year</option>
+          {% for y in range(1, 6) %}
+          <option value="{{ y }}" {% if profile_user.year_of_study == y %}selected{% endif %}>{{ ['1st','2nd','3rd','4th','5th'][y-1] }} Year</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-block" style="margin-top:.5rem" id="profile-btn">Save Changes</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

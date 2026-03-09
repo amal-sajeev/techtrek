@@ -45,7 +45,7 @@
         <span class="icon-moon">&#9790;</span>
       </button>
       {% if user %}
-        <span class="nav-user">{{ user.username }}</span>
+        <a href="/auth/profile" class="nav-user">{{ user.username }}</a>
         <a href="/auth/logout" class="btn btn-outline btn-sm">Logout</a>
       {% else %}
         <a href="/auth/login" class="btn btn-outline btn-sm">Login</a>
@@ -67,6 +67,7 @@
   <a href="/sessions" class="nav-drawer-link">Sessions</a>
   {% if user %}
       <a href="/booking/my" class="nav-drawer-link">My Bookings</a>
+      <a href="/auth/profile" class="nav-drawer-link">Profile</a>
     {% if user.is_admin %}
       <a href="/admin/" class="nav-drawer-link">Admin Panel</a>
     {% elif user.is_supervisor %}

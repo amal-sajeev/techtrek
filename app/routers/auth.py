@@ -111,6 +111,57 @@ async def register(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/", status_code=303)
 
 
+@router.get("/profile")
+def profile_page(request: Request, db: Session = Depends(get_db)):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse("/auth/login?next=/auth/profile", status_code=303)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        request.session.clear()
+        return RedirectResponse("/auth/login", status_code=303)
+    return templates.TemplateResponse("auth/profile.html", template_ctx(request, profile_user=user))
+
+
+@router.post("/profile")
+async def profile_update(request: Request, db: Session = Depends(get_db)):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse("/auth/login", status_code=303)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        request.session.clear()
+        return RedirectResponse("/auth/login", status_code=303)
+
+    form = await request.form()
+    full_name = form.get("full_name", "").strip()
+    college = form.get("college", "").strip()
+    discipline = form.get("discipline", "").strip()
+    domain = form.get("domain", "").strip()
+    year_raw = form.get("year_of_study", "")
+
+    if not full_name:
+        flash(request, "Full name is required.", "danger")
+        return RedirectResponse("/auth/profile", status_code=303)
+
+    year_of_study = None
+    if year_raw:
+        try:
+            year_of_study = int(year_raw)
+        except ValueError:
+            pass
+
+    user.full_name = full_name
+    user.college = college or None
+    user.discipline = discipline or None
+    user.domain = domain or None
+    user.year_of_study = year_of_study
+    db.commit()
+
+    flash(request, "Profile updated.", "success")
+    return RedirectResponse("/auth/profile", status_code=303)
+
+
 @router.get("/logout")
 def logout(request: Request):
     request.session.clear()
