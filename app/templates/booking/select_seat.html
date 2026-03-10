@@ -19,39 +19,41 @@
       <!-- Seat Map -->
       <div class="seat-map-wrapper" id="seat-map-wrapper">
         <div class="seat-map-scalable" id="seat-map-scalable">
-          <div class="seat-stage" id="seat-stage" role="presentation">
-            <span class="stage-label">{{ stage_label }}</span>
-          </div>
-          <div class="seat-map-container">
-            <div
-              class="seat-map"
-              id="seat-map"
-              role="group"
-              aria-label="Auditorium seat map for {{ auditorium.name }}. Use arrow keys or Tab to navigate seats.">
+          <div class="picker-marker-anchor" id="picker-marker-anchor">
+            <div class="seat-stage" id="seat-stage" role="presentation">
+              <span class="stage-label">{{ stage_label }}</span>
+            </div>
+            <div class="seat-map-container">
+              <div
+                class="seat-map"
+                id="seat-map"
+                role="group"
+                aria-label="Auditorium seat map for {{ auditorium.name }}. Use arrow keys or Tab to navigate seats.">
+              </div>
             </div>
           </div>
         </div>
-        <div class="seat-legend" role="list" aria-label="Seat type key">
-          <div class="legend-item" role="listitem">
-            <span class="legend-swatch legend-available" aria-hidden="true"></span>
-            <span class="legend-label">Available</span>
-          </div>
-          <div class="legend-item" role="listitem">
-            <span class="legend-swatch legend-selected" aria-hidden="true"></span>
-            <span class="legend-label">Selected</span>
-          </div>
-          <div class="legend-item" role="listitem">
-            <span class="legend-swatch legend-taken" aria-hidden="true"></span>
-            <span class="legend-label">Taken</span>
-          </div>
-          <div class="legend-item" role="listitem">
-            <span class="legend-swatch legend-vip" aria-hidden="true"></span>
-            <span class="legend-label"><abbr title="Premium seat with extra legroom">VIP</abbr></span>
-          </div>
-          <div class="legend-item" role="listitem">
-            <span class="legend-swatch legend-accessible" aria-hidden="true"></span>
-            <span class="legend-label">Accessible</span>
-          </div>
+      </div>
+      <div class="seat-legend" role="list" aria-label="Seat type key">
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-available" aria-hidden="true"></span>
+          <span class="legend-label">Available</span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-selected" aria-hidden="true"></span>
+          <span class="legend-label">Selected</span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-taken" aria-hidden="true"></span>
+          <span class="legend-label">Taken</span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-vip" aria-hidden="true"></span>
+          <span class="legend-label"><abbr title="Premium seat with extra legroom">VIP</abbr></span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-accessible" aria-hidden="true"></span>
+          <span class="legend-label">Accessible</span>
         </div>
       </div>
 

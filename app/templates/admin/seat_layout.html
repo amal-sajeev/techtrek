@@ -46,15 +46,7 @@
     <input type="number" id="stage-width-input" class="form-input designer-stage-width-input" min="1" value="{{ auditorium.stage_cols or auditorium.total_cols }}" title="Number of columns the stage spans (1 to grid width)">
     <button type="button" class="btn btn-sm btn-outline" id="stage-width-up" title="Wider stage" aria-label="Increase stage width">+</button>
   </div>
-  <div class="toolbar-group">
-    <span class="toolbar-label">Markers:</span>
-    <button type="button" class="tool-btn" data-tool="entry" title="Place entry marker on grid perimeter">
-      &#10148; Entry
-    </button>
-    <button type="button" class="tool-btn" data-tool="exit" title="Place exit marker on grid perimeter">
-      &#10550; Exit
-    </button>
-  </div>
+
 </div>
 
 <p class="designer-hint">Change <strong>grid size</strong> with + Row / + Column. Paint <strong>aisles anywhere</strong> with the Aisle tool. Click/drag cells, or click row letters / column numbers to fill or clear. <strong>Right-click</strong> a row letter or column number to <strong>insert, delete, or clear</strong> at that position. <strong>Shift+click</strong> to toggle a <strong>walkway gap</strong>.</p>
@@ -63,13 +55,15 @@
 <div class="designer-stats" id="layout-stats">Total seats: 0</div>
 
 <!-- Grid: stage at top, rows A-Z, columns 1-N -->
-<div class="designer-container">
-  <div class="designer-stage-wrapper" id="designer-stage-wrapper">
-    <div class="designer-stage-bar" id="designer-stage-bar">
-      <span class="designer-stage-bar-text">STAGE</span>
+<div class="designer-container" id="designer-container">
+  <div class="marker-anchor" id="marker-anchor">
+    <div class="designer-stage-wrapper" id="designer-stage-wrapper">
+      <div class="designer-stage-bar" id="designer-stage-bar">
+        <span class="designer-stage-bar-text">STAGE</span>
+      </div>
     </div>
+    <div class="layout-grid" id="layout-grid"></div>
   </div>
-  <div class="layout-grid" id="layout-grid"></div>
 </div>
 
 <!-- Legend -->
@@ -80,6 +74,20 @@
   <span class="designer-legend-item"><span class="designer-legend-swatch tool-aisle"></span> Aisle</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch cell-empty"></span> Empty (click to add)</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch designer-gap-swatch"></span> Walkway gap</span>
+</div>
+
+<!-- Entry / Exit Markers -->
+<div class="designer-marker-panel">
+  <h4>Entry / Exit Markers</h4>
+  <p class="marker-hint">Markers appear around the auditorium. Drag them to reposition.</p>
+  <div id="marker-list"></div>
+  <div class="marker-add-row">
+    <select id="marker-type-select" class="form-input">
+      <option value="entry">Entry</option>
+      <option value="exit">Exit</option>
+    </select>
+    <button type="button" class="btn btn-sm btn-outline" id="add-marker-btn">+ Add Marker</button>
+  </div>
 </div>
 
 <!-- Save -->
@@ -96,7 +104,39 @@
 </form>
 <div class="form-actions mt-3">
   <button type="button" class="btn btn-primary btn-lg" id="save-layout">Save layout</button>
+  <button type="button" class="btn btn-outline btn-lg" id="preview-layout">Preview</button>
   <a href="/admin/auditoriums" class="btn btn-outline">Back to Auditoriums</a>
+</div>
+
+<!-- Preview modal -->
+<div class="preview-overlay" id="preview-overlay">
+  <div class="preview-modal">
+    <div class="preview-header">
+      <h3>Seat Selection Preview</h3>
+      <button type="button" class="preview-close-btn" id="preview-close">&times;</button>
+    </div>
+    <div class="preview-body">
+      <div class="seat-map-wrapper" id="preview-wrapper">
+        <div class="seat-map-scalable" id="preview-scalable">
+          <div class="picker-marker-anchor" id="preview-marker-anchor">
+            <div class="seat-stage" id="preview-stage">
+              <span class="stage-label">STAGE</span>
+            </div>
+            <div class="seat-map-container">
+              <div class="seat-map" id="preview-seat-map"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="seat-legend preview-legend">
+        <div class="legend-item"><span class="legend-swatch legend-available"></span><span class="legend-label">Available</span></div>
+        <div class="legend-item"><span class="legend-swatch legend-selected"></span><span class="legend-label">Selected</span></div>
+        <div class="legend-item"><span class="legend-swatch legend-taken"></span><span class="legend-label">Taken</span></div>
+        <div class="legend-item"><span class="legend-swatch legend-vip"></span><span class="legend-label">VIP</span></div>
+        <div class="legend-item"><span class="legend-swatch legend-accessible"></span><span class="legend-label">Accessible</span></div>
+      </div>
+    </div>
+  </div>
 </div>
 
 <div class="designer-help">

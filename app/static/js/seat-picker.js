@@ -178,22 +178,16 @@
 
       renderEntryExitPicker(container, maxRow, maxCol);
       fitToViewport();
+      adjustWrapperForMarkers();
     });
   }
 
   function renderEntryExitPicker(seatContainer, maxRow, maxCol) {
-    var wrapper = document.getElementById("seat-map-wrapper");
-    if (!wrapper) return;
-    wrapper.querySelectorAll(".picker-entry-exit").forEach(function (el) { el.remove(); });
+    var anchor = document.getElementById("picker-marker-anchor");
+    if (!anchor) return;
+    anchor.querySelectorAll(".picker-entry-exit").forEach(function (el) { el.remove(); });
 
     if (!entryExitConfig || !entryExitConfig.length) return;
-
-    var containerRect = seatContainer.getBoundingClientRect();
-    var wrapperRect = wrapper.getBoundingClientRect();
-    var relTop = containerRect.top - wrapperRect.top;
-    var relLeft = containerRect.left - wrapperRect.left;
-    var colW = 41;
-    var rowH = 36;
 
     entryExitConfig.forEach(function (marker) {
       var el = document.createElement("div");
@@ -201,23 +195,53 @@
       el.textContent = marker.label || marker.type;
       el.title = marker.type.charAt(0).toUpperCase() + marker.type.slice(1) + ": " + (marker.label || "");
       el.style.position = "absolute";
+      el.style.transform = "translate(-50%, -50%)";
+      el.style.left = (marker.x != null ? marker.x : 50) + "%";
+      el.style.top = (marker.y != null ? marker.y : 0) + "%";
 
-      var pos = (marker.position - 1);
-      if (marker.side === "top") {
-        el.style.top = (relTop - 24) + "px";
-        el.style.left = (relLeft + 28 + pos * colW) + "px";
-      } else if (marker.side === "bottom") {
-        el.style.top = (relTop + containerRect.height + 4) + "px";
-        el.style.left = (relLeft + 28 + pos * colW) + "px";
-      } else if (marker.side === "left") {
-        el.style.top = (relTop + pos * rowH) + "px";
-        el.style.left = (relLeft - 50) + "px";
-      } else if (marker.side === "right") {
-        el.style.top = (relTop + pos * rowH) + "px";
-        el.style.left = (relLeft + containerRect.width + 4) + "px";
-      }
+      anchor.appendChild(el);
+    });
+  }
 
-      wrapper.appendChild(el);
+  function adjustWrapperForMarkers() {
+    var wrapper = document.getElementById("seat-map-wrapper");
+    var anchor = document.getElementById("picker-marker-anchor");
+    if (!wrapper || !anchor) return;
+
+    wrapper.style.paddingTop = "";
+    wrapper.style.paddingBottom = "";
+    wrapper.style.paddingLeft = "";
+    wrapper.style.paddingRight = "";
+
+    requestAnimationFrame(function () {
+      var wrapperRect = wrapper.getBoundingClientRect();
+      var markers = anchor.querySelectorAll(".picker-entry-exit");
+      if (!markers.length) return;
+
+      var extraTop = 0, extraBottom = 0, extraLeft = 0, extraRight = 0;
+      markers.forEach(function (m) {
+        var r = m.getBoundingClientRect();
+        var ot = wrapperRect.top - r.top;
+        if (ot > 0) extraTop = Math.max(extraTop, ot);
+        var ob = r.bottom - wrapperRect.bottom;
+        if (ob > 0) extraBottom = Math.max(extraBottom, ob);
+        var ol = wrapperRect.left - r.left;
+        if (ol > 0) extraLeft = Math.max(extraLeft, ol);
+        var or2 = r.right - wrapperRect.right;
+        if (or2 > 0) extraRight = Math.max(extraRight, or2);
+      });
+
+      var cs = getComputedStyle(wrapper);
+      var padT = parseFloat(cs.paddingTop);
+      var padB = parseFloat(cs.paddingBottom);
+      var padL = parseFloat(cs.paddingLeft);
+      var padR = parseFloat(cs.paddingRight);
+
+      var buf = 16;
+      if (extraTop > 0) wrapper.style.paddingTop = (padT + extraTop + buf) + "px";
+      if (extraBottom > 0) wrapper.style.paddingBottom = (padB + extraBottom + buf) + "px";
+      if (extraLeft > 0) wrapper.style.paddingLeft = (padL + extraLeft + buf) + "px";
+      if (extraRight > 0) wrapper.style.paddingRight = (padR + extraRight + buf) + "px";
     });
   }
 
@@ -351,7 +375,10 @@
   var resizeTimer;
   window.addEventListener("resize", function () {
     clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(fitToViewport, 120);
+    resizeTimer = setTimeout(function () {
+      fitToViewport();
+      adjustWrapperForMarkers();
+    }, 120);
   });
 
   window.SeatPicker = { init: init };

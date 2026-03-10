@@ -37,6 +37,7 @@
 
     if (initialEntryExit && initialEntryExit.length) {
       entryExitMarkers = initialEntryExit.slice();
+      migrateLegacyMarkers();
     }
 
     if (existingSeats && existingSeats.length > 0) {
@@ -55,10 +56,11 @@
     renderGrid();
     bindTools();
     bindDragPaint();
+    bindMarkerPanel();
+    bindPreview();
     updateFillAllLabel();
     updateGridSizeDisplay();
     updateStageWidthControl();
-    renderEntryExitMarkers();
     initStageDrag();
     updateStageLabelDisplay();
   }
@@ -83,8 +85,11 @@
     };
   }
 
+  var SEAT_TOOLS = { standard: 1, vip: 1, accessible: 1, aisle: 1, eraser: 1 };
+
   function applyToCell(r, c) {
     if (r < 1 || r > rows || c < 1 || c > cols) return;
+    if (!SEAT_TOOLS[currentTool]) return;
     lastPaintTime = Date.now();
     if (drawMode === "erase") {
       setCell(r, c, null);
@@ -365,12 +370,14 @@
 
     updateStats();
     updateGridSizeDisplay();
-    renderPerimeterMarkers();
+    renderMarkerPanel();
+    renderDraggableMarkers();
   }
 
   function handleCellClick(e) {
     if (isDrawing) return;
     if (Date.now() - lastPaintTime < 120) return;
+    if (!SEAT_TOOLS[currentTool]) return;
     var r = parseInt(e.currentTarget.dataset.row);
     var c = parseInt(e.currentTarget.dataset.col);
     if (currentTool === "eraser") {
@@ -430,7 +437,6 @@
         });
         btn.classList.add("tool-active");
         updateFillAllLabel();
-        renderEntryExitMarkers();
       });
     });
 
@@ -839,182 +845,201 @@
     if (form) form.submit();
   }
 
-  /* ---- Entry/Exit markers ---- */
+  /* ---- Entry/Exit markers (freely draggable) ---- */
 
-  function renderEntryExitMarkers() {
-    var container = document.querySelector(".designer-container");
-    if (!container) return;
-    container.querySelectorAll(".entry-exit-zone, .entry-exit-marker").forEach(function (el) { el.remove(); });
+  function nextMarkerLabel(type) {
+    var prefix = type.charAt(0).toUpperCase() + type.slice(1);
+    var existing = entryExitMarkers.filter(function (m) { return m.type === type; });
+    var letter = String.fromCharCode(65 + existing.length);
+    return prefix + " " + letter;
+  }
 
-    if (currentTool !== "entry" && currentTool !== "exit") return;
+  function migrateLegacyMarkers() {
+    entryExitMarkers.forEach(function (m) {
+      if (typeof m.x === "number" && typeof m.y === "number") return;
+      if (m.side === "top")         { m.x = ((m.position - 0.5) / cols) * 100; m.y = 0; }
+      else if (m.side === "bottom") { m.x = ((m.position - 0.5) / cols) * 100; m.y = 100; }
+      else if (m.side === "left")   { m.x = 0; m.y = ((m.position - 0.5) / rows) * 100; }
+      else if (m.side === "right")  { m.x = 100; m.y = ((m.position - 0.5) / rows) * 100; }
+      else                          { m.x = 50; m.y = 0; }
+      delete m.side;
+      delete m.position;
+    });
+  }
 
-    var gridEl = document.getElementById("layout-grid");
-    if (!gridEl) return;
+  function addMarker(type) {
+    var count = entryExitMarkers.length;
+    var defaultX = 10 + (count % 5) * 20;
+    var defaultY = type === "entry" ? 0 : 100;
+    entryExitMarkers.push({
+      type: type,
+      label: nextMarkerLabel(type),
+      x: defaultX,
+      y: defaultY
+    });
+    renderMarkerPanel();
+    renderDraggableMarkers();
+  }
 
-    var positions = [
-      { side: "top", count: cols },
-      { side: "bottom", count: cols },
-      { side: "left", count: rows },
-      { side: "right", count: rows }
-    ];
+  function removeMarker(index) {
+    entryExitMarkers.splice(index, 1);
+    renderMarkerPanel();
+    renderDraggableMarkers();
+  }
 
-    positions.forEach(function (cfg) {
-      for (var i = 1; i <= cfg.count; i++) {
-        var existing = entryExitMarkers.find(function (m) { return m.side === cfg.side && m.position === i; });
-        var zone = document.createElement("button");
-        zone.type = "button";
-        zone.className = "entry-exit-zone";
-        zone.dataset.side = cfg.side;
-        zone.dataset.position = i;
+  function renderMarkerPanel() {
+    var listEl = document.getElementById("marker-list");
+    if (!listEl) return;
+    listEl.innerHTML = "";
+    if (entryExitMarkers.length === 0) {
+      var empty = document.createElement("p");
+      empty.className = "marker-empty-msg";
+      empty.textContent = "No markers placed yet. Click \"+ Add Marker\" to create one.";
+      listEl.appendChild(empty);
+      return;
+    }
+    entryExitMarkers.forEach(function (m, i) {
+      var row = document.createElement("div");
+      row.className = "marker-list-item";
 
-        if (existing) {
-          zone.classList.add("marker-placed", "marker-" + existing.type);
-          zone.textContent = (existing.label || existing.type).substring(0, 8);
-          zone.title = existing.type.charAt(0).toUpperCase() + existing.type.slice(1) + ": " + (existing.label || existing.type) + " — Click to remove, double-click to edit label";
-        } else {
-          zone.textContent = "+";
-          zone.title = "Click to place " + currentTool + " marker";
+      var icon = document.createElement("span");
+      icon.className = "marker-type-badge marker-badge-" + m.type;
+      icon.textContent = m.type === "entry" ? "\u2B95" : "\u2934";
+      row.appendChild(icon);
+
+      var labelInput = document.createElement("input");
+      labelInput.type = "text";
+      labelInput.className = "form-input marker-label-input";
+      labelInput.value = m.label;
+      labelInput.addEventListener("input", function () {
+        var val = labelInput.value.trim();
+        if (val) {
+          entryExitMarkers[i].label = val;
+          var marker = document.querySelector('.draggable-marker[data-marker-idx="' + i + '"]');
+          if (marker) marker.textContent = val;
         }
+      });
+      row.appendChild(labelInput);
 
-        zone.addEventListener("click", function (ev) {
-          var side = ev.currentTarget.dataset.side;
-          var pos = parseInt(ev.currentTarget.dataset.position);
-          toggleMarker(side, pos);
-        });
-        zone.addEventListener("dblclick", function (ev) {
-          ev.preventDefault();
-          var side = ev.currentTarget.dataset.side;
-          var pos = parseInt(ev.currentTarget.dataset.position);
-          editMarkerLabel(side, pos);
-        });
+      var removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.className = "btn btn-sm btn-danger marker-remove-btn";
+      removeBtn.textContent = "Remove";
+      removeBtn.addEventListener("click", function () { removeMarker(i); });
+      row.appendChild(removeBtn);
 
-        container.appendChild(zone);
-      }
-    });
-
-    requestAnimationFrame(function () { positionEntryExitZones(); });
-  }
-
-  function positionEntryExitZones() {
-    var gridEl = document.getElementById("layout-grid");
-    if (!gridEl) return;
-    var gridRect = gridEl.getBoundingClientRect();
-    var container = document.querySelector(".designer-container");
-    var containerRect = container.getBoundingClientRect();
-
-    var zones = container.querySelectorAll(".entry-exit-zone");
-    var markerSize = 28;
-    var gap = 2;
-
-    zones.forEach(function (zone) {
-      var side = zone.dataset.side;
-      var pos = parseInt(zone.dataset.position) - 1;
-      var relTop = gridRect.top - containerRect.top;
-      var relLeft = gridRect.left - containerRect.left;
-
-      zone.style.position = "absolute";
-      zone.style.width = markerSize + "px";
-      zone.style.height = markerSize + "px";
-
-      if (side === "top") {
-        zone.style.top = (relTop - markerSize - gap) + "px";
-        zone.style.left = (relLeft + 40 + pos * (36 + 5)) + "px";
-      } else if (side === "bottom") {
-        zone.style.top = (relTop + gridRect.height + gap) + "px";
-        zone.style.left = (relLeft + 40 + pos * (36 + 5)) + "px";
-      } else if (side === "left") {
-        zone.style.top = (relTop + 32 + pos * 36) + "px";
-        zone.style.left = (relLeft - markerSize - gap) + "px";
-      } else if (side === "right") {
-        zone.style.top = (relTop + 32 + pos * 36) + "px";
-        zone.style.left = (relLeft + gridRect.width + gap) + "px";
-      }
+      listEl.appendChild(row);
     });
   }
 
-  function toggleMarker(side, position) {
-    var idx = entryExitMarkers.findIndex(function (m) { return m.side === side && m.position === position; });
-    if (idx >= 0) {
-      entryExitMarkers.splice(idx, 1);
-    } else {
-      var markerType = (currentTool === "entry" || currentTool === "exit") ? currentTool : "entry";
-      var label = prompt("Label for this " + markerType + " (leave empty for default):", markerType.charAt(0).toUpperCase() + markerType.slice(1));
-      if (label === null) return;
-      entryExitMarkers.push({
-        type: markerType,
-        side: side,
-        position: position,
-        label: label || (markerType.charAt(0).toUpperCase() + markerType.slice(1))
+  function renderDraggableMarkers() {
+    var anchor = document.getElementById("marker-anchor");
+    if (!anchor) return;
+    anchor.querySelectorAll(".draggable-marker").forEach(function (el) { el.remove(); });
+
+    entryExitMarkers.forEach(function (m, idx) {
+      var el = document.createElement("div");
+      el.className = "draggable-marker draggable-marker-" + m.type;
+      el.textContent = m.label;
+      el.title = m.label + " \u2014 drag to reposition";
+      el.dataset.markerIdx = idx;
+      el.style.left = m.x + "%";
+      el.style.top = m.y + "%";
+      initMarkerDrag(el, idx, anchor);
+      anchor.appendChild(el);
+    });
+
+    adjustContainerForMarkers();
+  }
+
+  function initMarkerDrag(el, idx, anchor) {
+    var dragging = false;
+    var startMouseX, startMouseY, startElX, startElY;
+
+    el.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      e.stopPropagation();
+      dragging = true;
+      startMouseX = e.clientX;
+      startMouseY = e.clientY;
+      startElX = entryExitMarkers[idx].x;
+      startElY = entryExitMarkers[idx].y;
+      el.classList.add("marker-dragging");
+    });
+
+    document.addEventListener("mousemove", function (e) {
+      if (!dragging) return;
+      var rect = anchor.getBoundingClientRect();
+      var dx = e.clientX - startMouseX;
+      var dy = e.clientY - startMouseY;
+      var pctX = startElX + (dx / rect.width) * 100;
+      var pctY = startElY + (dy / rect.height) * 100;
+      pctX = Math.max(-10, Math.min(110, pctX));
+      pctY = Math.max(-10, Math.min(110, pctY));
+      el.style.left = pctX + "%";
+      el.style.top = pctY + "%";
+    });
+
+    document.addEventListener("mouseup", function () {
+      if (!dragging) return;
+      dragging = false;
+      el.classList.remove("marker-dragging");
+      var pctX = parseFloat(el.style.left);
+      var pctY = parseFloat(el.style.top);
+      entryExitMarkers[idx].x = Math.round(pctX * 10) / 10;
+      entryExitMarkers[idx].y = Math.round(pctY * 10) / 10;
+      adjustContainerForMarkers();
+    });
+  }
+
+  function adjustContainerForMarkers() {
+    var container = document.getElementById("designer-container");
+    var anchor = document.getElementById("marker-anchor");
+    if (!container || !anchor) return;
+
+    container.style.paddingTop = "";
+    container.style.paddingBottom = "";
+    container.style.paddingLeft = "";
+    container.style.paddingRight = "";
+
+    requestAnimationFrame(function () {
+      var containerRect = container.getBoundingClientRect();
+      var markers = anchor.querySelectorAll(".draggable-marker");
+      var extraTop = 0, extraBottom = 0, extraLeft = 0, extraRight = 0;
+
+      markers.forEach(function (m) {
+        var r = m.getBoundingClientRect();
+        var ot = containerRect.top - r.top;
+        if (ot > 0) extraTop = Math.max(extraTop, ot);
+        var ob = r.bottom - containerRect.bottom;
+        if (ob > 0) extraBottom = Math.max(extraBottom, ob);
+        var ol = containerRect.left - r.left;
+        if (ol > 0) extraLeft = Math.max(extraLeft, ol);
+        var or2 = r.right - containerRect.right;
+        if (or2 > 0) extraRight = Math.max(extraRight, or2);
+      });
+
+      var cs = getComputedStyle(container);
+      var padT = parseFloat(cs.paddingTop);
+      var padB = parseFloat(cs.paddingBottom);
+      var padL = parseFloat(cs.paddingLeft);
+      var padR = parseFloat(cs.paddingRight);
+
+      if (extraTop > 0) container.style.paddingTop = (padT + extraTop + 8) + "px";
+      if (extraBottom > 0) container.style.paddingBottom = (padB + extraBottom + 8) + "px";
+      if (extraLeft > 0) container.style.paddingLeft = (padL + extraLeft + 8) + "px";
+      if (extraRight > 0) container.style.paddingRight = (padR + extraRight + 8) + "px";
+    });
+  }
+
+  function bindMarkerPanel() {
+    var addBtn = document.getElementById("add-marker-btn");
+    if (addBtn) {
+      addBtn.addEventListener("click", function () {
+        var type = document.getElementById("marker-type-select").value;
+        addMarker(type);
       });
     }
-    renderEntryExitMarkers();
-  }
-
-  function editMarkerLabel(side, position) {
-    var marker = entryExitMarkers.find(function (m) { return m.side === side && m.position === position; });
-    if (!marker) return;
-    var newLabel = prompt("Edit label:", marker.label);
-    if (newLabel !== null) {
-      marker.label = newLabel || marker.type.charAt(0).toUpperCase() + marker.type.slice(1);
-      renderEntryExitMarkers();
-    }
-  }
-
-  function renderPerimeterMarkers() {
-    var container = document.querySelector(".designer-container");
-    if (!container) return;
-    container.querySelectorAll(".entry-exit-marker-display").forEach(function (el) { el.remove(); });
-
-    var gridEl = document.getElementById("layout-grid");
-    if (!gridEl) return;
-
-    entryExitMarkers.forEach(function (marker) {
-      var el = document.createElement("div");
-      el.className = "entry-exit-marker-display marker-" + marker.type;
-      el.textContent = (marker.label || marker.type).substring(0, 10);
-      el.title = marker.type.charAt(0).toUpperCase() + marker.type.slice(1) + ": " + (marker.label || marker.type);
-      container.appendChild(el);
-    });
-
-    requestAnimationFrame(function () { positionPerimeterMarkers(); });
-  }
-
-  function positionPerimeterMarkers() {
-    var gridEl = document.getElementById("layout-grid");
-    var container = document.querySelector(".designer-container");
-    if (!gridEl || !container) return;
-    var gridRect = gridEl.getBoundingClientRect();
-    var containerRect = container.getBoundingClientRect();
-    var markerSize = 28;
-    var gap = 2;
-    var displays = container.querySelectorAll(".entry-exit-marker-display");
-    var idx = 0;
-
-    entryExitMarkers.forEach(function (marker) {
-      if (idx >= displays.length) return;
-      var el = displays[idx++];
-      var pos = marker.position - 1;
-      var relTop = gridRect.top - containerRect.top;
-      var relLeft = gridRect.left - containerRect.left;
-
-      el.style.position = "absolute";
-      el.style.width = markerSize + "px";
-      el.style.height = markerSize + "px";
-
-      if (marker.side === "top") {
-        el.style.top = (relTop - markerSize - gap) + "px";
-        el.style.left = (relLeft + 40 + pos * (36 + 5)) + "px";
-      } else if (marker.side === "bottom") {
-        el.style.top = (relTop + gridRect.height + gap) + "px";
-        el.style.left = (relLeft + 40 + pos * (36 + 5)) + "px";
-      } else if (marker.side === "left") {
-        el.style.top = (relTop + 32 + pos * 36) + "px";
-        el.style.left = (relLeft - markerSize - gap) + "px";
-      } else if (marker.side === "right") {
-        el.style.top = (relTop + 32 + pos * 36) + "px";
-        el.style.left = (relLeft + gridRect.width + gap) + "px";
-      }
-    });
   }
 
   /* ---- Draggable stage ---- */
@@ -1064,15 +1089,191 @@
     var textEl = bar.querySelector(".designer-stage-bar-text");
     if (!textEl) return;
     textEl.textContent = stageLabel.toUpperCase();
-    textEl.style.cursor = "pointer";
+    textEl.style.cursor = "text";
     textEl.title = "Double-click to edit stage label";
     textEl.addEventListener("dblclick", function (e) {
       e.stopPropagation();
-      var newLabel = prompt("Stage label:", stageLabel);
-      if (newLabel !== null && newLabel.trim()) {
-        stageLabel = newLabel.trim();
-        textEl.textContent = stageLabel.toUpperCase();
+      textEl.contentEditable = "true";
+      textEl.style.outline = "1px solid #00d4ff";
+      textEl.style.borderRadius = "3px";
+      textEl.style.padding = "0 4px";
+      textEl.textContent = stageLabel;
+      textEl.focus();
+      var range = document.createRange();
+      range.selectNodeContents(textEl);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    });
+    function commitEdit() {
+      textEl.contentEditable = "false";
+      textEl.style.outline = "";
+      textEl.style.padding = "";
+      var val = textEl.textContent.trim();
+      if (val) stageLabel = val;
+      textEl.textContent = stageLabel.toUpperCase();
+    }
+    textEl.addEventListener("blur", commitEdit);
+    textEl.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") { e.preventDefault(); textEl.blur(); }
+      if (e.key === "Escape") { textEl.textContent = stageLabel; textEl.blur(); }
+    });
+  }
+
+  /* ---- Preview (picker-style rendering) ---- */
+
+  function openPreview() {
+    var overlay = document.getElementById("preview-overlay");
+    if (!overlay) return;
+    overlay.classList.add("preview-open");
+    renderPreview();
+  }
+
+  function closePreview() {
+    var overlay = document.getElementById("preview-overlay");
+    if (overlay) overlay.classList.remove("preview-open");
+  }
+
+  function renderPreview() {
+    var container = document.getElementById("preview-seat-map");
+    var stageEl = document.getElementById("preview-stage");
+    var anchor = document.getElementById("preview-marker-anchor");
+    if (!container) return;
+    container.innerHTML = "";
+
+    var colTemplate = "24px";
+    for (var ci = 1; ci <= cols; ci++) {
+      colTemplate += " 36px";
+      if (ci < cols && colGaps[ci]) colTemplate += " 14px";
+    }
+    container.style.gridTemplateColumns = colTemplate;
+
+    function gridColP(dataCol) {
+      var gc = 1 + dataCol;
+      for (var g = 1; g < dataCol; g++) {
+        if (colGaps[g]) gc++;
       }
+      return gc;
+    }
+
+    var gridRowP = 1;
+    for (var r = 1; r <= rows; r++) {
+      var rowLabel = document.createElement("div");
+      rowLabel.className = "seat-row-label";
+      rowLabel.textContent = rowLetter(r);
+      rowLabel.style.gridRow = gridRowP;
+      rowLabel.style.gridColumn = "1";
+      container.appendChild(rowLabel);
+
+      for (var c = 1; c <= cols; c++) {
+        var key = r + "-" + c;
+        var el = document.createElement("div");
+        el.style.gridRow = gridRowP;
+        el.style.gridColumn = String(gridColP(c));
+
+        if (!grid[key] || grid[key].type === "aisle") {
+          el.className = "seat seat-empty-hidden";
+          el.style.visibility = "hidden";
+        } else {
+          var seatType = grid[key].type;
+          var cssClass = "seat seat-available";
+          if (seatType === "vip") cssClass = "seat seat-vip";
+          else if (seatType === "accessible") cssClass = "seat seat-accessible";
+          el.className = cssClass;
+          el.title = grid[key].label + " \u2014 " + seatType;
+        }
+        container.appendChild(el);
+      }
+
+      gridRowP++;
+      if (rowGaps[r]) gridRowP++;
+    }
+
+    if (stageEl) {
+      var colW = 41;
+      var effectiveCols = Math.min(stageCols, cols);
+      var stageWidth = 24 + effectiveCols * colW;
+      for (var sg = 1; sg < effectiveCols; sg++) {
+        if (colGaps[sg]) stageWidth += 14;
+      }
+      stageEl.style.width = stageWidth + "px";
+      stageEl.style.marginLeft = stageOffset > 0 ? (stageOffset * colW) + "px" : "";
+      var labelEl = stageEl.querySelector(".stage-label");
+      if (labelEl) labelEl.textContent = stageLabel;
+    }
+
+    if (anchor) {
+      anchor.querySelectorAll(".picker-entry-exit").forEach(function (el) { el.remove(); });
+      entryExitMarkers.forEach(function (m) {
+        var mel = document.createElement("div");
+        mel.className = "picker-entry-exit marker-" + m.type;
+        mel.textContent = m.label || m.type;
+        mel.style.position = "absolute";
+        mel.style.transform = "translate(-50%, -50%)";
+        mel.style.left = (m.x != null ? m.x : 50) + "%";
+        mel.style.top = (m.y != null ? m.y : 0) + "%";
+        anchor.appendChild(mel);
+      });
+    }
+
+    adjustPreviewWrapperForMarkers();
+  }
+
+  function adjustPreviewWrapperForMarkers() {
+    var wrapper = document.getElementById("preview-wrapper");
+    var anchor = document.getElementById("preview-marker-anchor");
+    if (!wrapper || !anchor) return;
+
+    wrapper.style.paddingTop = "";
+    wrapper.style.paddingBottom = "";
+    wrapper.style.paddingLeft = "";
+    wrapper.style.paddingRight = "";
+
+    requestAnimationFrame(function () {
+      var wrapperRect = wrapper.getBoundingClientRect();
+      var markers = anchor.querySelectorAll(".picker-entry-exit");
+      if (!markers.length) return;
+
+      var extraTop = 0, extraBottom = 0, extraLeft = 0, extraRight = 0;
+      markers.forEach(function (m) {
+        var r = m.getBoundingClientRect();
+        var ot = wrapperRect.top - r.top;
+        if (ot > 0) extraTop = Math.max(extraTop, ot);
+        var ob = r.bottom - wrapperRect.bottom;
+        if (ob > 0) extraBottom = Math.max(extraBottom, ob);
+        var ol = wrapperRect.left - r.left;
+        if (ol > 0) extraLeft = Math.max(extraLeft, ol);
+        var or2 = r.right - wrapperRect.right;
+        if (or2 > 0) extraRight = Math.max(extraRight, or2);
+      });
+
+      var cs = getComputedStyle(wrapper);
+      var padT = parseFloat(cs.paddingTop);
+      var padB = parseFloat(cs.paddingBottom);
+      var padL = parseFloat(cs.paddingLeft);
+      var padR = parseFloat(cs.paddingRight);
+
+      var buf = 16;
+      if (extraTop > 0) wrapper.style.paddingTop = (padT + extraTop + buf) + "px";
+      if (extraBottom > 0) wrapper.style.paddingBottom = (padB + extraBottom + buf) + "px";
+      if (extraLeft > 0) wrapper.style.paddingLeft = (padL + extraLeft + buf) + "px";
+      if (extraRight > 0) wrapper.style.paddingRight = (padR + extraRight + buf) + "px";
+    });
+  }
+
+  function bindPreview() {
+    var btn = document.getElementById("preview-layout");
+    if (btn) btn.addEventListener("click", openPreview);
+    var closeBtn = document.getElementById("preview-close");
+    if (closeBtn) closeBtn.addEventListener("click", closePreview);
+    var overlay = document.getElementById("preview-overlay");
+    if (overlay) {
+      overlay.addEventListener("click", function (e) {
+        if (e.target === overlay) closePreview();
+      });
+    }
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") closePreview();
     });
   }
 
