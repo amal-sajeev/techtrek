@@ -481,6 +481,37 @@ def cancel_booking(request: Request, booking_id: int, db: Session = Depends(get_
     return RedirectResponse("/booking/my", status_code=303)
 
 
+@router.post("/cancel-group/{group_id}")
+def cancel_group(request: Request, group_id: str, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.booking_group == group_id,
+            Booking.user_id == user.id,
+            Booking.payment_status == "paid",
+        )
+        .all()
+    )
+    if not bookings:
+        flash(request, "No active bookings found in this group.", "warning")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    cancelled = 0
+    total_refund = 0.0
+    for b in bookings:
+        result = cancel_booking_user(db, b.id, user.id)
+        if result["ok"]:
+            cancelled += 1
+            total_refund += result.get("refund", 0)
+
+    flash(request, f"Cancelled {cancelled} ticket(s). Total refund: ₹{total_refund:.0f}.", "success")
+    return RedirectResponse("/booking/my", status_code=303)
+
+
 @router.post("/waitlist/{session_id}")
 def join_waitlist(request: Request, session_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)

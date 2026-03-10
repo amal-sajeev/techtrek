@@ -2,14 +2,33 @@ import io
 import uuid
 from datetime import datetime
 
+import os
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
     SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
+
+_FONT_REGISTERED = False
+
+def _register_fonts():
+    global _FONT_REGISTERED
+    if _FONT_REGISTERED:
+        return
+    _FONT_REGISTERED = True
+    candidates = [
+        ("Arial", "C:/Windows/Fonts/arial.ttf"),
+        ("Arial-Bold", "C:/Windows/Fonts/arialbd.ttf"),
+    ]
+    for name, path in candidates:
+        if os.path.exists(path):
+            pdfmetrics.registerFont(TTFont(name, path))
 
 from app.config import settings
 from app.utils import now_ist
@@ -22,6 +41,11 @@ def _generate_invoice_number() -> str:
 
 
 def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
+    _register_fonts()
+    font = "Arial" if _FONT_REGISTERED else "Helvetica"
+    font_bold = "Arial-Bold" if _FONT_REGISTERED else "Helvetica-Bold"
+    rupee = "₹" if _FONT_REGISTERED else "Rs."
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf, pagesize=A4,
@@ -30,13 +54,13 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
     )
 
     styles = getSampleStyleSheet()
-    styles.add(ParagraphStyle("Header", parent=styles["Heading1"], fontSize=18, textColor=colors.HexColor("#0a1628"), spaceAfter=2))
-    styles.add(ParagraphStyle("SubHeader", parent=styles["Normal"], fontSize=10, textColor=colors.HexColor("#555555")))
-    styles.add(ParagraphStyle("SectionTitle", parent=styles["Heading3"], fontSize=11, textColor=colors.HexColor("#0a1628"), spaceBefore=14, spaceAfter=6))
-    styles.add(ParagraphStyle("Small", parent=styles["Normal"], fontSize=8, textColor=colors.HexColor("#888888")))
-    styles.add(ParagraphStyle("Right", parent=styles["Normal"], alignment=TA_RIGHT))
-    styles.add(ParagraphStyle("Center", parent=styles["Normal"], alignment=TA_CENTER))
-    styles.add(ParagraphStyle("Bold", parent=styles["Normal"], fontName="Helvetica-Bold"))
+    styles.add(ParagraphStyle("Header", parent=styles["Heading1"], fontName=font_bold, fontSize=18, textColor=colors.HexColor("#0a1628"), spaceAfter=2))
+    styles.add(ParagraphStyle("SubHeader", parent=styles["Normal"], fontName=font, fontSize=10, textColor=colors.HexColor("#555555")))
+    styles.add(ParagraphStyle("SectionTitle", parent=styles["Heading3"], fontName=font_bold, fontSize=11, textColor=colors.HexColor("#0a1628"), spaceBefore=14, spaceAfter=6))
+    styles.add(ParagraphStyle("Small", parent=styles["Normal"], fontName=font, fontSize=8, textColor=colors.HexColor("#888888")))
+    styles.add(ParagraphStyle("Right", parent=styles["Normal"], fontName=font, alignment=TA_RIGHT))
+    styles.add(ParagraphStyle("Center", parent=styles["Normal"], fontName=font, alignment=TA_CENTER))
+    styles.add(ParagraphStyle("Bold", parent=styles["Normal"], fontName=font_bold))
 
     elements = []
     gst_rate = settings.gst_rate
@@ -93,7 +117,7 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
     # --- Line Items ---
     elements.append(Paragraph("Line Items", styles["SectionTitle"]))
 
-    header_row = ["#", "Seat", "Type", "Base Price (₹)", f"GST {gst_rate:.0f}% (₹)", "Total (₹)"]
+    header_row = ["#", "Seat", "Type", f"Base Price ({rupee})", f"GST {gst_rate:.0f}% ({rupee})", f"Total ({rupee})"]
     table_data = [header_row]
 
     subtotal = 0.0
@@ -119,14 +143,15 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
 
     table_data.append(["", "", "", Paragraph("<b>Subtotal</b>", styles["Right"]), "", f"{subtotal:,.2f}"])
     table_data.append(["", "", "", Paragraph(f"<b>GST ({gst_rate:.0f}%)</b>", styles["Right"]), "", f"{gst_total:,.2f}"])
-    table_data.append(["", "", "", Paragraph("<b>Grand Total</b>", styles["Right"]), "", Paragraph(f"<b>₹{grand_total:,.2f}</b>", styles["Bold"])])
+    table_data.append(["", "", "", Paragraph("<b>Grand Total</b>", styles["Right"]), "", Paragraph(f"<b>{rupee}{grand_total:,.2f}</b>", styles["Bold"])])
 
     col_widths = [doc.width * w for w in [0.05, 0.15, 0.15, 0.25, 0.2, 0.2]]
     items_table = Table(table_data, colWidths=col_widths, repeatRows=1)
     items_table.setStyle(TableStyle([
         ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#0a1628")),
         ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+        ("FONTNAME", (0, 0), (-1, 0), font_bold),
+        ("FONTNAME", (0, 1), (-1, -1), font),
         ("FONTSIZE", (0, 0), (-1, 0), 9),
         ("FONTSIZE", (0, 1), (-1, -1), 9),
         ("ALIGN", (3, 0), (-1, -1), "RIGHT"),
@@ -145,7 +170,7 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
     refunded = [b for b in bookings if b.payment_status == "refunded" and b.refund_amount]
     if refunded:
         elements.append(Paragraph("Refund Details", styles["SectionTitle"]))
-        refund_data = [["Seat", "Cancellation Fee (₹)", "Refund Amount (₹)", "Status"]]
+        refund_data = [["Seat", f"Cancellation Fee ({rupee})", f"Refund Amount ({rupee})", "Status"]]
         for b in refunded:
             seat = next((s for s, bk in zip(seats, bookings) if bk.id == b.id), None)
             refund_data.append([
@@ -159,7 +184,8 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
         refund_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f59e0b")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("FONTNAME", (0, 0), (-1, 0), font_bold),
+            ("FONTNAME", (0, 1), (-1, -1), font),
             ("FONTSIZE", (0, 0), (-1, -1), 9),
             ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
@@ -187,7 +213,8 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
 
     pay_table = Table(payment_rows, colWidths=[doc.width * 0.35, doc.width * 0.65])
     pay_table.setStyle(TableStyle([
-        ("FONTNAME", (0, 0), (0, -1), "Helvetica-Bold"),
+        ("FONTNAME", (0, 0), (0, -1), font_bold),
+        ("FONTNAME", (1, 0), (1, -1), font),
         ("FONTSIZE", (0, 0), (-1, -1), 9),
         ("TEXTCOLOR", (0, 0), (0, -1), colors.HexColor("#333333")),
         ("LINEBELOW", (0, 0), (-1, -1), 0.5, colors.HexColor("#eeeeee")),

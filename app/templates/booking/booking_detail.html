@@ -105,6 +105,13 @@
           <a href="/booking/invoice/{{ lecture.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
           <a href="/booking/my" class="btn btn-primary">Back to My Bookings</a>
           <a href="/sessions" class="btn btn-outline">Browse Sessions</a>
+          {% if is_group and group_id and bookings|selectattr('payment_status', 'equalto', 'paid')|list|length > 1 %}
+          <form method="post" action="/booking/cancel-group/{{ group_id }}" style="display:inline">
+            <button type="button" class="btn btn-danger"
+              data-confirm="Cancel ALL {{ bookings|selectattr('payment_status', 'equalto', 'paid')|list|length }} tickets in this group?\n\nCancellation fee: &#8377;100 per ticket."
+              data-confirm-label="Cancel All Tickets">Cancel All Tickets</button>
+          </form>
+          {% endif %}
         </div>
       </div>
     </div>

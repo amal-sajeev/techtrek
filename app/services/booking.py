@@ -14,7 +14,7 @@ from app.models.seat import Seat
 from app.models.session import LectureSession
 from app.models.user import User
 from app.models.auditorium import Auditorium
-from app.services.email import send_booking_confirmation
+from app.services.email import send_booking_confirmation, send_cancellation_confirmation
 
 CANCELLATION_FEE = 100.0
 TICKET_PRICE = 500.0
@@ -211,6 +211,17 @@ def cancel_booking_user(db: Session, booking_id: int, user_id: int) -> dict:
     b.cancellation_fee = fee
     b.refund_amount = refund
     db.commit()
+
+    user = db.query(User).get(user_id)
+    seat = db.query(Seat).get(b.seat_id)
+    if user and seat:
+        send_cancellation_confirmation(
+            user.email, user.username,
+            lecture.title if lecture else "Session",
+            seat.label, b.booking_ref,
+            float(price), float(fee), float(refund),
+        )
+
     return {"ok": True, "msg": f"Booking cancelled. Refund of ₹{refund:.0f} will be processed (₹{fee:.0f} cancellation fee).", "refund": refund, "fee": fee}
 
 
