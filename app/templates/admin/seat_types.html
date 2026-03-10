@@ -1,0 +1,48 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Seat Types — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Seat Types</h1>
+  <a href="/admin/seat-types/new" class="btn btn-primary">+ New Seat Type</a>
+</div>
+
+{% if seat_types %}
+<div class="table-responsive">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>Colour</th>
+        <th>Name</th>
+        <th>Icon</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for st in seat_types %}
+      <tr>
+        <td>
+          <span style="display:inline-block;width:24px;height:24px;border-radius:4px;background:{{ st.colour }};vertical-align:middle;border:1px solid var(--border)"></span>
+          <code style="margin-left:6px">{{ st.colour }}</code>
+        </td>
+        <td><strong>{{ st.name }}</strong></td>
+        <td>{{ st.icon or '—' }}</td>
+        <td class="actions-cell">
+          <a href="/admin/seat-types/{{ st.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <form method="post" action="/admin/seat-types/{{ st.id }}/delete" style="display:inline">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete seat type '{{ st.name }}'?" data-confirm-label="Delete">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No custom seat types yet</h3>
+  <p>Create custom seat types to use in the seat layout designer.</p>
+  <a href="/admin/seat-types/new" class="btn btn-primary">Add Seat Type</a>
+</div>
+{% endif %}
+{% endblock %}

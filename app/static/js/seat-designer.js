@@ -9,13 +9,15 @@
   var grid = {};
   var entryExitMarkers = [];
   var currentTool = "standard";
+  var selectedCustomType = null;
+  var customTypes = {};
   var isDrawing = false;
   var drawMode = null;
   var lastPaintTime = 0;
   var rowGaps = {};
   var colGaps = {};
 
-  function init(totalRows, totalCols, existingSeats, initialStageCols, initialRowGaps, initialColGaps, initialStageOffset, initialStageLabel, initialEntryExit) {
+  function init(totalRows, totalCols, existingSeats, initialStageCols, initialRowGaps, initialColGaps, initialStageOffset, initialStageLabel, initialEntryExit, initialCustomTypes) {
     rows = totalRows;
     cols = totalCols;
     stageCols = (initialStageCols != null && initialStageCols >= 1 && initialStageCols <= totalCols)
@@ -27,6 +29,16 @@
     rowGaps = {};
     colGaps = {};
     entryExitMarkers = [];
+    customTypes = {};
+    selectedCustomType = null;
+
+    if (initialCustomTypes && initialCustomTypes.length) {
+      initialCustomTypes.forEach(function (ct) {
+        customTypes["custom_" + ct.id] = ct;
+      });
+      populateCustomTypeDropdown(initialCustomTypes);
+      renderCustomLegend(initialCustomTypes);
+    }
 
     if (initialRowGaps && initialRowGaps.length) {
       initialRowGaps.forEach(function (r) { rowGaps[r] = true; });
@@ -85,16 +97,58 @@
     };
   }
 
-  var SEAT_TOOLS = { standard: 1, vip: 1, accessible: 1, aisle: 1, eraser: 1 };
+  var SEAT_TOOLS = { standard: 1, vip: 1, accessible: 1, aisle: 1, eraser: 1, custom: 1 };
+
+  function isCustomType(type) {
+    return type && type.indexOf("custom_") === 0;
+  }
+
+  function getEffectiveTool() {
+    if (currentTool === "custom" && selectedCustomType) {
+      return "custom_" + selectedCustomType;
+    }
+    return currentTool;
+  }
+
+  function populateCustomTypeDropdown(types) {
+    var sel = document.getElementById("custom-type-select");
+    if (!sel) return;
+    while (sel.options.length > 1) sel.remove(1);
+    types.forEach(function (ct) {
+      var opt = document.createElement("option");
+      opt.value = ct.id;
+      opt.textContent = ct.name;
+      opt.style.color = ct.colour;
+      sel.appendChild(opt);
+    });
+  }
+
+  function renderCustomLegend(types) {
+    var container = document.getElementById("custom-legend-items");
+    if (!container) return;
+    container.innerHTML = "";
+    types.forEach(function (ct) {
+      var item = document.createElement("span");
+      item.className = "designer-legend-item";
+      var swatch = document.createElement("span");
+      swatch.className = "designer-legend-swatch";
+      swatch.style.background = ct.colour;
+      item.appendChild(swatch);
+      item.appendChild(document.createTextNode(" " + ct.name));
+      container.appendChild(item);
+    });
+  }
 
   function applyToCell(r, c) {
     if (r < 1 || r > rows || c < 1 || c > cols) return;
-    if (!SEAT_TOOLS[currentTool]) return;
+    var tool = getEffectiveTool();
+    if (!SEAT_TOOLS[currentTool] && !isCustomType(tool)) return;
     lastPaintTime = Date.now();
     if (drawMode === "erase") {
       setCell(r, c, null);
     } else if (drawMode === "paint" && currentTool !== "eraser") {
-      setCell(r, c, currentTool);
+      if (currentTool === "custom" && !selectedCustomType) return;
+      setCell(r, c, tool);
     }
   }
 
@@ -337,9 +391,16 @@
         cell.style.gridColumn = String(gridCol(c2));
 
         if (grid[key]) {
-          cell.classList.add("cell-" + grid[key].type);
-          cell.title = grid[key].label ? grid[key].label + " — " + grid[key].type : grid[key].type;
-          cell.textContent = grid[key].type === "aisle" ? "—" : grid[key].label;
+          var cellType = grid[key].type;
+          if (isCustomType(cellType) && customTypes[cellType]) {
+            cell.classList.add("cell-custom");
+            cell.style.backgroundColor = customTypes[cellType].colour;
+            cell.title = grid[key].label ? grid[key].label + " — " + customTypes[cellType].name : customTypes[cellType].name;
+          } else {
+            cell.classList.add("cell-" + cellType);
+            cell.title = grid[key].label ? grid[key].label + " — " + cellType : cellType;
+          }
+          cell.textContent = cellType === "aisle" ? "—" : grid[key].label;
         } else {
           cell.classList.add("cell-empty");
           cell.title = "Row " + rowLetter(r) + ", seat " + c2 + " — click or drag to add";
@@ -391,13 +452,15 @@
   function handleCellClick(e) {
     if (isDrawing) return;
     if (Date.now() - lastPaintTime < 120) return;
-    if (!SEAT_TOOLS[currentTool]) return;
+    var tool = getEffectiveTool();
+    if (!SEAT_TOOLS[currentTool] && !isCustomType(tool)) return;
     var r = parseInt(e.currentTarget.dataset.row);
     var c = parseInt(e.currentTarget.dataset.col);
     if (currentTool === "eraser") {
       setCell(r, c, null);
     } else {
-      setCell(r, c, currentTool);
+      if (currentTool === "custom" && !selectedCustomType) return;
+      setCell(r, c, tool);
     }
     renderGrid();
   }
@@ -413,16 +476,20 @@
 
   function fillRow(rowNum) {
     if (currentTool === "eraser") return;
+    var tool = getEffectiveTool();
+    if (currentTool === "custom" && !selectedCustomType) return;
     for (var c = 1; c <= cols; c++) {
-      setCell(rowNum, c, currentTool);
+      setCell(rowNum, c, tool);
     }
     renderGrid();
   }
 
   function fillColumn(colNum) {
     if (currentTool === "eraser") return;
+    var tool = getEffectiveTool();
+    if (currentTool === "custom" && !selectedCustomType) return;
     for (var r = 1; r <= rows; r++) {
-      setCell(r, colNum, currentTool);
+      setCell(r, colNum, tool);
     }
     renderGrid();
   }
@@ -443,6 +510,7 @@
 
   function bindTools() {
     var tools = document.querySelectorAll(".tool-btn");
+    var customSelect = document.getElementById("custom-type-select");
     tools.forEach(function (btn) {
       btn.addEventListener("click", function () {
         currentTool = btn.dataset.tool;
@@ -450,9 +518,22 @@
           b.classList.remove("tool-active");
         });
         btn.classList.add("tool-active");
+        if (customSelect) {
+          customSelect.style.display = currentTool === "custom" ? "" : "none";
+        }
         updateFillAllLabel();
       });
     });
+    if (customSelect) {
+      customSelect.addEventListener("change", function () {
+        selectedCustomType = customSelect.value || null;
+        updateFillAllLabel();
+        var swatchEl = document.querySelector("#custom-tool-btn .tool-swatch");
+        if (swatchEl && selectedCustomType && customTypes["custom_" + selectedCustomType]) {
+          swatchEl.style.background = customTypes["custom_" + selectedCustomType].colour;
+        }
+      });
+    }
 
     var fillAllBtn = document.getElementById("fill-all");
     if (fillAllBtn) fillAllBtn.addEventListener("click", fillAll);
@@ -492,6 +573,14 @@
     if (currentTool === "eraser") {
       btn.textContent = "Fill all (select a type first)";
       btn.disabled = true;
+    } else if (currentTool === "custom") {
+      if (selectedCustomType && customTypes["custom_" + selectedCustomType]) {
+        btn.textContent = "Fill all with " + customTypes["custom_" + selectedCustomType].name;
+        btn.disabled = false;
+      } else {
+        btn.textContent = "Fill all (select a custom type)";
+        btn.disabled = true;
+      }
     } else {
       btn.textContent = "Fill all with " + (currentTool.charAt(0).toUpperCase() + currentTool.slice(1));
       btn.disabled = false;
@@ -500,9 +589,11 @@
 
   function fillAll() {
     if (currentTool === "eraser") return;
+    var tool = getEffectiveTool();
+    if (currentTool === "custom" && !selectedCustomType) return;
     for (var r = 1; r <= rows; r++) {
       for (var c = 1; c <= cols; c++) {
-        setCell(r, c, currentTool);
+        setCell(r, c, tool);
       }
     }
     renderGrid();
@@ -802,22 +893,31 @@
     var total = 0;
     var vip = 0;
     var accessible = 0;
+    var customCounts = {};
     Object.keys(grid).forEach(function (key) {
       var s = grid[key];
       if (s.type !== "aisle") {
         total++;
         if (s.type === "vip") vip++;
-        if (s.type === "accessible") accessible++;
+        else if (s.type === "accessible") accessible++;
+        else if (isCustomType(s.type) && customTypes[s.type]) {
+          var name = customTypes[s.type].name;
+          customCounts[name] = (customCounts[name] || 0) + 1;
+        }
       }
     });
     var gapCount = Object.keys(rowGaps).length + Object.keys(colGaps).length;
     var statsEl = document.getElementById("layout-stats");
     if (statsEl) {
-      statsEl.innerHTML =
+      var html =
         "Total seats: <strong>" + total +
         "</strong> | VIP: <strong>" + vip +
-        "</strong> | Accessible: <strong>" + accessible +
-        "</strong> | Gaps: <strong>" + gapCount + "</strong>";
+        "</strong> | Accessible: <strong>" + accessible + "</strong>";
+      Object.keys(customCounts).forEach(function (name) {
+        html += " | " + name + ": <strong>" + customCounts[name] + "</strong>";
+      });
+      html += " | Gaps: <strong>" + gapCount + "</strong>";
+      statsEl.innerHTML = html;
     }
   }
 
@@ -1189,11 +1289,17 @@
           el.style.visibility = "hidden";
         } else {
           var seatType = grid[key].type;
-          var cssClass = "seat seat-available";
-          if (seatType === "vip") cssClass = "seat seat-vip";
-          else if (seatType === "accessible") cssClass = "seat seat-accessible";
-          el.className = cssClass;
-          el.title = grid[key].label + " \u2014 " + seatType;
+          if (isCustomType(seatType) && customTypes[seatType]) {
+            el.className = "seat seat-custom";
+            el.style.backgroundColor = customTypes[seatType].colour;
+            el.title = grid[key].label + " \u2014 " + customTypes[seatType].name;
+          } else {
+            var cssClass = "seat seat-available";
+            if (seatType === "vip") cssClass = "seat seat-vip";
+            else if (seatType === "accessible") cssClass = "seat seat-accessible";
+            el.className = cssClass;
+            el.title = grid[key].label + " \u2014 " + seatType;
+          }
         }
         container.appendChild(el);
       }

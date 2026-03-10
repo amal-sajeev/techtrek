@@ -13,7 +13,7 @@
     <input type="text" name="q" class="form-input" placeholder="Search by user, ref, ticket..." value="{{ q or '' }}">
   </div>
   <div style="min-width:140px">
-    <select name="status" class="form-input">
+    <select name="status" class="form-input" placeholder="All Statuses">
       <option value="">All Statuses</option>
       {% for s in ['paid','hold','refunded','cancelled'] %}
       <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
@@ -21,7 +21,7 @@
     </select>
   </div>
   <div style="min-width:180px">
-    <select name="session_id" class="form-input">
+    <select name="session_id" class="form-input" placeholder="All Sessions">
       <option value="">All Sessions</option>
       {% for s in all_sessions %}
       <option value="{{ s.id }}" {% if session_filter|string == s.id|string %}selected{% endif %}>{{ s.title }}</option>

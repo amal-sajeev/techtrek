@@ -16,7 +16,7 @@
 
     <div class="form-group">
       <label for="college_id" class="form-label">College (optional)</label>
-      <select name="college_id" id="college_id" class="form-input">
+      <select name="college_id" id="college_id" class="form-input" placeholder="Select a college">
         <option value="">— None —</option>
         {% for col in colleges %}
         <option value="{{ col.id }}" {% if auditorium and auditorium.college_id == col.id %}selected{% endif %}>{{ col.name }}</option>

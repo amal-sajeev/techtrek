@@ -12,6 +12,7 @@
   var stageOffset = 0;
   var stageLabel = "Stage";
   var entryExitConfig = [];
+  var customTypes = {};
 
   var STATUS_LABELS = {
     available:  "available",
@@ -27,7 +28,11 @@
     return prices.standard;
   }
 
-  function init(data, pricing, sessId, gaps, stageOpts, entryExit) {
+  function isCustomType(type) {
+    return type && type.indexOf("custom_") === 0;
+  }
+
+  function init(data, pricing, sessId, gaps, stageOpts, entryExit, initialCustomTypes) {
     seatMap = data;
     if (typeof pricing === "object" && pricing !== null) {
       prices = { standard: pricing.standard || 0, vip: pricing.vip || 0, accessible: pricing.accessible || 0 };
@@ -43,6 +48,12 @@
     stageOffset = 0;
     stageLabel = "Stage";
     entryExitConfig = entryExit || [];
+    customTypes = {};
+    if (initialCustomTypes && initialCustomTypes.length) {
+      initialCustomTypes.forEach(function (ct) {
+        customTypes["custom_" + ct.id] = ct;
+      });
+    }
     if (gaps) {
       if (gaps.rowGaps) gaps.rowGaps.forEach(function (r) { rowGapSet[r] = true; });
       if (gaps.colGaps) gaps.colGaps.forEach(function (c) { colGapSet[c] = true; });
@@ -122,12 +133,18 @@
           if (seat.type === "vip"        && seat.status === "available") statusClass = "vip";
           if (seat.type === "accessible" && seat.status === "available") statusClass = "accessible";
 
-          el.className = "seat seat-" + statusClass;
+          if (isCustomType(seat.type) && customTypes[seat.type] && seat.status === "available") {
+            el.className = "seat seat-custom";
+            el.style.backgroundColor = customTypes[seat.type].colour;
+          } else {
+            el.className = "seat seat-" + statusClass;
+          }
           el.dataset.seatId = seat.id;
           el.dataset.label  = seat.label;
           el.dataset.type   = seat.type;
 
-          var typeLabel = seat.type !== "standard" ? seat.type + ", " : "";
+          var ctName = (isCustomType(seat.type) && customTypes[seat.type]) ? customTypes[seat.type].name : null;
+          var typeLabel = ctName ? ctName + ", " : (seat.type !== "standard" ? seat.type + ", " : "");
           var stLabel = STATUS_LABELS[statusClass] || seat.status;
           el.setAttribute("aria-label", "Seat " + seat.label + ", " + typeLabel + stLabel);
           el.setAttribute("aria-pressed", "false");
@@ -324,16 +341,25 @@
     if (idx >= 0) {
       selectedSeats.splice(idx, 1);
       btn.classList.remove("seat-selected");
+      btn.style.backgroundColor = "";
       var t = btn.dataset.type || "standard";
-      if (t === "vip")        btn.classList.add("seat-vip");
-      else if (t === "accessible") btn.classList.add("seat-accessible");
-      else                    btn.classList.add("seat-available");
+      if (isCustomType(t) && customTypes[t]) {
+        btn.classList.add("seat-custom");
+        btn.style.backgroundColor = customTypes[t].colour;
+      } else if (t === "vip") {
+        btn.classList.add("seat-vip");
+      } else if (t === "accessible") {
+        btn.classList.add("seat-accessible");
+      } else {
+        btn.classList.add("seat-available");
+      }
       btn.setAttribute("aria-pressed", "false");
       btn.setAttribute("aria-label", btn.getAttribute("aria-label").replace("selected", "available"));
     } else {
       var sType = btn.dataset.type || "standard";
       selectedSeats.push({ id: seatId, label: label, type: sType });
-      btn.classList.remove("seat-available", "seat-vip", "seat-accessible");
+      btn.classList.remove("seat-available", "seat-vip", "seat-accessible", "seat-custom");
+      btn.style.backgroundColor = "";
       btn.classList.add("seat-selected", "seat-pulse");
       btn.setAttribute("aria-pressed", "true");
       btn.setAttribute("aria-label", "Seat " + label + ", selected");
@@ -362,7 +388,8 @@
       listEl.innerHTML = "";
       selectedSeats.forEach(function (s) {
         var seatPrice = priceForType(s.type);
-        var typeTag = s.type !== "standard" ? ' <span class="seat-type-tag">' + s.type.toUpperCase() + '</span>' : '';
+        var typeName = (isCustomType(s.type) && customTypes[s.type]) ? customTypes[s.type].name : s.type;
+        var typeTag = typeName !== "standard" ? ' <span class="seat-type-tag">' + typeName.toUpperCase() + '</span>' : '';
         var li = document.createElement("li");
         li.className = "selected-seat-item";
         li.innerHTML =

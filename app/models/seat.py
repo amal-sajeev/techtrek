@@ -12,7 +12,7 @@ class Seat(Base):
     row_num = Column(Integer, nullable=False)
     col_num = Column(Integer, nullable=False)
     label = Column(String(10), nullable=False)
-    seat_type = Column(String(20), default="standard")
+    seat_type = Column(String(50), default="standard")
     is_active = Column(Boolean, default=True)
 
     auditorium = relationship("Auditorium", back_populates="seats")

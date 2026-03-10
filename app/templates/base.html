@@ -5,7 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}TechTrek{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1117'/><text y='24' x='4' font-size='22' font-family='monospace'>⚡</text></svg>">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=74">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.css">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=85">
   <script>
     (function(){
       var t = localStorage.getItem('techtrek-theme');
@@ -467,6 +468,26 @@ document.addEventListener('click', function(e) {
 // ---- GLOBAL API ----
 window.TechTrek = { showToast: showToast, confirmAction: openConfirm };
 
+</script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>
+<script>
+(function(){
+  function initTomSelects(root) {
+    (root || document).querySelectorAll('select:not([data-no-tomselect])').forEach(function(el) {
+      if (el.tomselect) return;
+      new TomSelect(el, {
+        create: false,
+        allowEmptyOption: true,
+        controlInput: '<input>',
+        plugins: ['clear_button']
+      });
+    });
+  }
+  document.addEventListener('DOMContentLoaded', function() {
+    initTomSelects();
+  });
+  window.TechTrekInitSelects = initTomSelects;
+})();
 </script>
 {% block scripts %}{% endblock %}
 </body>

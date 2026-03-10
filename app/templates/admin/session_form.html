@@ -20,7 +20,7 @@
     <h3 class="wizard-panel-title">Venue &amp; Date</h3>
     <div class="form-group">
       <label class="form-label" for="sess-auditorium">Auditorium / Venue</label>
-      <select name="auditorium_id" id="sess-auditorium" class="form-input" required>
+      <select name="auditorium_id" id="sess-auditorium" class="form-input" required placeholder="Select venue">
         <option value="">Select venue</option>
         {% for aud in auditoriums %}
         <option value="{{ aud.id }}" {% if lecture and lecture.auditorium_id == aud.id %}selected{% endif %}>{{ aud.name }} — {{ aud.location }}</option>
@@ -75,7 +75,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="sess-status">Status</label>
-        <select name="status" id="sess-status" class="form-input">
+        <select name="status" id="sess-status" class="form-input" placeholder="Select status">
           {% for s in ['draft','published','sold_out','completed','cancelled'] %}
           <option value="{{ s }}" {% if lecture and lecture.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
           {% endfor %}
@@ -122,7 +122,7 @@
     <h3 class="wizard-panel-title">Speaker</h3>
     <div class="form-group">
       <label class="form-label" for="sess-speaker-select">Select a Speaker (optional)</label>
-      <select name="speaker_id" id="sess-speaker-select" class="form-input">
+      <select name="speaker_id" id="sess-speaker-select" class="form-input" placeholder="Select a speaker">
         <option value="">-- None --</option>
         {% for sp in speakers %}
         <option value="{{ sp.id }}" {% if lecture and lecture.speaker_id == sp.id %}selected{% endif %}>{{ sp.name }}{% if sp.title %} — {{ sp.title }}{% endif %}</option>
@@ -164,6 +164,12 @@
     currentStep = n;
     steps.forEach(function(s) { s.classList.toggle('active', parseInt(s.dataset.step) === n); });
     panels.forEach(function(p) { p.classList.toggle('active', parseInt(p.dataset.panel) === n); });
+    var activePanel = document.querySelector('.wizard-panel[data-panel="' + n + '"]');
+    if (activePanel) {
+      activePanel.querySelectorAll('select').forEach(function(sel) {
+        if (sel.tomselect) sel.tomselect.sync();
+      });
+    }
     if (n === 5) buildReview();
   }
 
@@ -190,7 +196,14 @@
     if (priceAcc) priceDisplay += ' / Accessible: \u20B9' + priceAcc;
     var status = document.getElementById('sess-status').value || 'draft';
     var aud = document.getElementById('sess-auditorium');
-    var venue = aud.options[aud.selectedIndex] ? aud.options[aud.selectedIndex].text : '(none)';
+    var venue = '(none)';
+    if (aud.tomselect) {
+      var val = aud.tomselect.getValue();
+      var opt = aud.tomselect.options[val];
+      if (opt) venue = opt.text || opt.$option && opt.$option.textContent || '(none)';
+    } else if (aud.options[aud.selectedIndex]) {
+      venue = aud.options[aud.selectedIndex].text;
+    }
     r.innerHTML = '<table class="table"><tbody>' +
       '<tr><td><strong>Title</strong></td><td>' + title + '</td></tr>' +
       '<tr><td><strong>Speaker</strong></td><td>' + speaker + '</td></tr>' +
@@ -231,11 +244,16 @@
   var spInput = document.getElementById('sess-speaker');
   if (spSelect) {
     spSelect.addEventListener('change', function() {
-      var opt = spSelect.options[spSelect.selectedIndex];
-      if (opt && opt.value) {
-        var name = opt.text.split(' — ')[0];
-        spInput.value = name;
+      var name = '';
+      if (spSelect.tomselect) {
+        var val = spSelect.tomselect.getValue();
+        var opt = spSelect.tomselect.options[val];
+        if (opt) name = (opt.text || '').split(' — ')[0];
+      } else {
+        var opt = spSelect.options[spSelect.selectedIndex];
+        if (opt && opt.value) name = opt.text.split(' — ')[0];
       }
+      if (name) spInput.value = name;
     });
   }
 })();

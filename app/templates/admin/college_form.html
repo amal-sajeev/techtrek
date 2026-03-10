@@ -14,7 +14,7 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="college-city">City</label>
-      <select name="city_id" id="college-city" class="form-input" required>
+      <select name="city_id" id="college-city" class="form-input" required placeholder="Select a city">
         <option value="">Select a city</option>
         {% for city in cities %}
         <option value="{{ city.id }}" {% if college and college.city_id == city.id %}selected{% endif %}>{{ city.name }}, {{ city.state }}</option>

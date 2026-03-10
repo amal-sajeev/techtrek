@@ -9,8 +9,10 @@ from app.models.session import LectureSession
 from app.models.booking import Booking
 from app.models.waitlist import Waitlist
 from app.models.testimonial import Testimonial, NewsletterSubscriber
+from app.models.seat_type import SeatType
 
 __all__ = [
     "User", "City", "College", "Auditorium", "Seat", "Speaker", "AgendaItem",
     "LectureSession", "Booking", "Waitlist", "Testimonial", "NewsletterSubscriber",
+    "SeatType",
 ]

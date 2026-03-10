@@ -15,6 +15,7 @@ from app.models.booking import Booking
 from app.models.city import City
 from app.models.college import College
 from app.models.seat import Seat
+from app.models.seat_type import SeatType
 from app.models.session import LectureSession
 from app.models.speaker import Speaker
 from app.models.agenda import AgendaItem
@@ -432,6 +433,98 @@ def auditorium_delete(request: Request, aud_id: int, db: Session = Depends(get_d
     return RedirectResponse("/admin/auditoriums", status_code=303)
 
 
+# ─── Seat Types ───
+
+@router.get("/seat-types")
+def seat_types_list(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    seat_types = db.query(SeatType).order_by(SeatType.name).all()
+    return templates.TemplateResponse(
+        "admin/seat_types.html",
+        _admin_ctx(request, active_page="seat_types", seat_types=seat_types),
+    )
+
+
+@router.get("/seat-types/new")
+def seat_type_new(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    return templates.TemplateResponse(
+        "admin/seat_type_form.html",
+        _admin_ctx(request, active_page="seat_types", seat_type=None),
+    )
+
+
+@router.post("/seat-types/new")
+async def seat_type_create(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    form = await _form(request)
+    st = SeatType(
+        name=form.get("name", "").strip(),
+        colour=form.get("colour", "#6366f1").strip(),
+        icon=form.get("icon", "").strip() or None,
+        is_custom=True,
+    )
+    db.add(st)
+    db.commit()
+    flash(request, f"Seat type '{st.name}' created.", "success")
+    return RedirectResponse("/admin/seat-types", status_code=303)
+
+
+@router.get("/seat-types/{st_id}/edit")
+def seat_type_edit(request: Request, st_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    st = db.query(SeatType).get(st_id)
+    if not st:
+        flash(request, "Seat type not found.", "danger")
+        return RedirectResponse("/admin/seat-types", status_code=303)
+    return templates.TemplateResponse(
+        "admin/seat_type_form.html",
+        _admin_ctx(request, active_page="seat_types", seat_type=st),
+    )
+
+
+@router.post("/seat-types/{st_id}/edit")
+async def seat_type_update(request: Request, st_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    st = db.query(SeatType).get(st_id)
+    if not st:
+        return RedirectResponse("/admin/seat-types", status_code=303)
+    form = await _form(request)
+    st.name = form.get("name", st.name).strip()
+    st.colour = form.get("colour", st.colour).strip()
+    st.icon = form.get("icon", "").strip() or None
+    db.commit()
+    flash(request, f"Seat type '{st.name}' updated.", "success")
+    return RedirectResponse("/admin/seat-types", status_code=303)
+
+
+@router.post("/seat-types/{st_id}/delete")
+def seat_type_delete(request: Request, st_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    st = db.query(SeatType).get(st_id)
+    if st:
+        in_use = db.query(Seat).filter(Seat.seat_type == f"custom_{st.id}").count()
+        if in_use:
+            flash(request, f"Cannot delete '{st.name}' — it is used by {in_use} seat(s).", "danger")
+            return RedirectResponse("/admin/seat-types", status_code=303)
+        db.delete(st)
+        db.commit()
+        flash(request, f"Seat type '{st.name}' deleted.", "success")
+    return RedirectResponse("/admin/seat-types", status_code=303)
+
+
 # ─── Seat Layout Designer ───
 
 @router.get("/auditoriums/{aud_id}/layout")
@@ -451,6 +544,12 @@ def seat_layout(request: Request, aud_id: int, db: Session = Depends(get_db)):
         for s in seats
     ]
 
+    custom_types = db.query(SeatType).filter(SeatType.is_custom == True).order_by(SeatType.name).all()
+    custom_types_data = [
+        {"id": st.id, "name": st.name, "colour": st.colour, "icon": st.icon}
+        for st in custom_types
+    ]
+
     return templates.TemplateResponse(
         "admin/seat_layout.html",
         _admin_ctx(
@@ -458,6 +557,7 @@ def seat_layout(request: Request, aud_id: int, db: Session = Depends(get_db)):
             active_page="auditoriums",
             auditorium=aud,
             seat_data_json=json.dumps(seat_data),
+            custom_types_json=json.dumps(custom_types_data),
         ),
     )
 
@@ -978,7 +1078,8 @@ def admin_booking_invoice(request: Request, booking_id: int, db: Session = Depen
         return RedirectResponse("/admin/bookings", status_code=303)
 
     seats = [db.query(Seat).get(b.seat_id) for b in group_bookings]
-    pdf_bytes = generate_invoice_pdf(group_bookings, user, lecture, auditorium, seats)
+    custom_types_map = {f"custom_{st.id}": st for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
+    pdf_bytes = generate_invoice_pdf(group_bookings, user, lecture, auditorium, seats, custom_types_map)
     ref = booking.booking_ref or "invoice"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),

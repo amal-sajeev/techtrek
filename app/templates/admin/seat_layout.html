@@ -26,6 +26,12 @@
     <button class="tool-btn" data-tool="eraser" title="Click a cell to clear it">
       &#10006; Eraser
     </button>
+    <button class="tool-btn" data-tool="custom" title="Use a custom seat type" id="custom-tool-btn">
+      <span class="tool-swatch tool-custom"></span> Custom
+    </button>
+    <select id="custom-type-select" class="form-input" style="width:auto;min-width:140px;display:none" data-no-tomselect placeholder="Select custom type">
+      <option value="">— Select type —</option>
+    </select>
   </div>
   <div class="toolbar-group">
     <span class="toolbar-label">Actions:</span>
@@ -74,6 +80,7 @@
   <span class="designer-legend-item"><span class="designer-legend-swatch tool-aisle"></span> Aisle</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch cell-empty"></span> Empty (click to add)</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch designer-gap-swatch"></span> Walkway gap</span>
+  <span class="designer-legend-item" id="custom-legend-items"></span>
 </div>
 
 <!-- Entry / Exit Markers -->
@@ -82,7 +89,7 @@
   <p class="marker-hint">Markers appear around the auditorium. Drag them to reposition.</p>
   <div id="marker-list"></div>
   <div class="marker-add-row">
-    <select id="marker-type-select" class="form-input">
+    <select id="marker-type-select" class="form-input" placeholder="Marker type">
       <option value="entry">Entry</option>
       <option value="exit">Exit</option>
     </select>
@@ -163,7 +170,8 @@
     var stageOffset = {{ auditorium.stage_offset or 0 }};
     var stageLabel = {{ (auditorium.stage_label or 'Stage') | tojson }};
     var entryExitConfig = {{ (auditorium.entry_exit_config | tojson) if auditorium.entry_exit_config else '[]' | safe }};
-    SeatDesigner.init({{ auditorium.total_rows }}, {{ auditorium.total_cols }}, existing, stageCols, rowGaps, colGaps, stageOffset, stageLabel, entryExitConfig);
+    var customTypes = {{ custom_types_json | safe }};
+    SeatDesigner.init({{ auditorium.total_rows }}, {{ auditorium.total_cols }}, existing, stageCols, rowGaps, colGaps, stageOffset, stageLabel, entryExitConfig, customTypes);
   });
 </script>
 {% endblock %}

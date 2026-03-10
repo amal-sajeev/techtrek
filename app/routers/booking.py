@@ -12,6 +12,7 @@ from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.seat import Seat
+from app.models.seat_type import SeatType
 from app.models.session import LectureSession
 from app.models.user import User
 from app.models.waitlist import Waitlist
@@ -82,6 +83,12 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
         flash(request, "This session is in priority booking. Only waitlisted users can book right now.", "warning")
         return RedirectResponse(f"/sessions/{session_id}", status_code=303)
 
+    custom_types = db.query(SeatType).filter(SeatType.is_custom == True).order_by(SeatType.name).all()
+    custom_types_data = [
+        {"id": st.id, "name": st.name, "colour": st.colour, "icon": st.icon}
+        for st in custom_types
+    ]
+
     return templates.TemplateResponse(
         "booking/select_seat.html",
         template_ctx(
@@ -89,6 +96,7 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
             lecture=lecture,
             auditorium=auditorium,
             seat_map_json=json.dumps(seat_map),
+            custom_types_json=json.dumps(custom_types_data),
             total_rows=auditorium.total_rows,
             total_cols=auditorium.total_cols,
             stage_cols=auditorium.stage_cols,
@@ -329,7 +337,8 @@ def download_invoice(request: Request, session_id: int, db: Session = Depends(ge
         return RedirectResponse("/booking/my", status_code=303)
 
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
-    pdf_bytes = generate_invoice_pdf(bookings, user, lecture, auditorium, seats)
+    custom_types_map = {f"custom_{st.id}": st for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
+    pdf_bytes = generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_types_map)
     ref = bookings[0].booking_ref or "invoice"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),

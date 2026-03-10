@@ -40,7 +40,15 @@ def _generate_invoice_number() -> str:
     return f"INV-{now.strftime('%Y%m%d')}-{rand}"
 
 
-def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
+def _seat_type_display(seat_type, custom_types_map=None):
+    if seat_type and seat_type.startswith("custom_") and custom_types_map:
+        ct = custom_types_map.get(seat_type)
+        if ct:
+            return ct.name
+    return (seat_type or "standard").replace("_", " ").title()
+
+
+def generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_types_map=None) -> bytes:
     _register_fonts()
     font = "Arial" if _FONT_REGISTERED else "Helvetica"
     font_bold = "Arial-Bold" if _FONT_REGISTERED else "Helvetica-Bold"
@@ -133,7 +141,7 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats) -> bytes:
         table_data.append([
             str(i + 1),
             seat.label,
-            seat.seat_type.title(),
+            _seat_type_display(seat.seat_type, custom_types_map),
             f"{base_price:,.2f}",
             f"{gst_amount:,.2f}",
             f"{amount:,.2f}",

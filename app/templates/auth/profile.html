@@ -38,7 +38,7 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="pf-discipline">Discipline</label>
-          <select name="discipline" id="pf-discipline" class="form-input">
+          <select name="discipline" id="pf-discipline" class="form-input" placeholder="Select discipline">
             <option value="">Select discipline</option>
             {% set disciplines = ['CSE','IT','ECE','EEE','Mechanical','Civil','AI/ML','Data Science','Commerce','BBA','BCA','Science','Arts','Law','Design','Other'] %}
             {% for d in disciplines %}
@@ -48,7 +48,7 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="pf-domain">Domain of Interest</label>
-          <select name="domain" id="pf-domain" class="form-input">
+          <select name="domain" id="pf-domain" class="form-input" placeholder="Select domain">
             <option value="">Select domain</option>
             {% set domains = [('AI','Artificial Intelligence'),('Cloud Computing','Cloud Computing'),('Quantum Computing','Quantum Computing'),('Cybersecurity','Cybersecurity'),('Data Science','Data Science'),('Web Development','Web Development'),('Mobile Development','Mobile Development'),('IoT','IoT'),('Blockchain','Blockchain'),('DevOps','DevOps'),('Other','Other')] %}
             {% for val, label in domains %}
@@ -60,7 +60,7 @@
 
       <div class="form-group">
         <label class="form-label" for="pf-year">Year of Study</label>
-        <select name="year_of_study" id="pf-year" class="form-input">
+        <select name="year_of_study" id="pf-year" class="form-input" placeholder="Select year">
           <option value="">Select year</option>
           {% for y in range(1, 6) %}
           <option value="{{ y }}" {% if profile_user.year_of_study == y %}selected{% endif %}>{{ ['1st','2nd','3rd','4th','5th'][y-1] }} Year</option>

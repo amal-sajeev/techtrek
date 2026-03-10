@@ -14,7 +14,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Source Session (sold-out)</label>
-        <select name="source_session_id" class="form-input" required>
+        <select name="source_session_id" class="form-input" required placeholder="Select sold-out session">
           <option value="">Select sold-out session...</option>
           {% for s in sessions_for_priority %}
           <option value="{{ s.id }}">{{ s.title }} — {{ s.start_time.strftime('%b %d') }}</option>
@@ -23,7 +23,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Target Session (new)</label>
-        <select name="target_session_id" class="form-input" required>
+        <select name="target_session_id" class="form-input" required placeholder="Select new session">
           <option value="">Select new session...</option>
           {% for s in sessions_for_priority %}
           <option value="{{ s.id }}">{{ s.title }} — {{ s.start_time.strftime('%b %d') }}</option>

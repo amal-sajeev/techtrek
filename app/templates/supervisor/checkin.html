@@ -20,7 +20,7 @@
           </div>
           <div class="form-group" style="flex:1">
             <label class="form-label" for="checkin-session">Session (optional)</label>
-            <select name="session_id" id="checkin-session" class="form-input">
+            <select name="session_id" id="checkin-session" class="form-input" placeholder="All sessions">
               <option value="">All sessions</option>
               {% for s in sessions %}
               <option value="{{ s.id }}" {% if selected_session and selected_session|string == s.id|string %}selected{% endif %}>{{ s.title }} ({{ s.start_time.strftime('%b %d') }})</option>

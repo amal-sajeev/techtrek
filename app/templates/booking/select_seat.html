@@ -55,6 +55,7 @@
           <span class="legend-swatch legend-accessible" aria-hidden="true"></span>
           <span class="legend-label">Accessible</span>
         </div>
+        <span id="custom-legend-items"></span>
       </div>
 
       <!-- Booking Summary (sidebar desktop / bottom-sheet mobile) -->
@@ -108,7 +109,27 @@
       vip: {{ price_vip }},
       accessible: {{ price_accessible }}
     };
-    SeatPicker.init(seatData, pricing, {{ lecture.id }}, gapData, stageOpts, entryExitConfig);
+    var customTypes = {{ custom_types_json | safe }};
+    SeatPicker.init(seatData, pricing, {{ lecture.id }}, gapData, stageOpts, entryExitConfig, customTypes);
+
+    var legendContainer = document.getElementById('custom-legend-items');
+    if (legendContainer && customTypes.length) {
+      customTypes.forEach(function(ct) {
+        var item = document.createElement('div');
+        item.className = 'legend-item';
+        item.setAttribute('role', 'listitem');
+        var swatch = document.createElement('span');
+        swatch.className = 'legend-swatch';
+        swatch.style.background = ct.colour;
+        swatch.setAttribute('aria-hidden', 'true');
+        var label = document.createElement('span');
+        label.className = 'legend-label';
+        label.textContent = ct.name;
+        item.appendChild(swatch);
+        item.appendChild(label);
+        legendContainer.appendChild(item);
+      });
+    }
 
     // Update aria-disabled on confirm button
     var btn = document.getElementById('confirm-seats-btn');
