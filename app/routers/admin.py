@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.auditorium import Auditorium
+from app.services.invoice import generate_invoice_pdf
 from app.models.booking import Booking
 from app.models.city import City
 from app.models.college import College
@@ -502,6 +503,21 @@ async def seat_layout_save(request: Request, aud_id: int, db: Session = Depends(
     else:
         aud.stage_cols = None
 
+    stage_offset_raw = form.get("stage_offset", "0")
+    try:
+        aud.stage_offset = max(0, int(stage_offset_raw))
+    except (ValueError, TypeError):
+        aud.stage_offset = 0
+
+    stage_label_raw = form.get("stage_label", "Stage")
+    aud.stage_label = (stage_label_raw or "Stage").strip()[:100]
+
+    entry_exit_raw = form.get("entry_exit_config", "[]")
+    try:
+        aud.entry_exit_config = json.loads(entry_exit_raw)
+    except (json.JSONDecodeError, ValueError):
+        aud.entry_exit_config = None
+
     row_gaps_raw = form.get("row_gaps", "[]")
     col_gaps_raw = form.get("col_gaps", "[]")
     try:
@@ -930,6 +946,45 @@ def booking_cancel(request: Request, booking_id: int, db: Session = Depends(get_
         db.commit()
         flash(request, f"Booking {b.booking_ref} cancelled.", "success")
     return RedirectResponse("/admin/bookings", status_code=303)
+
+
+@router.get("/bookings/{booking_id}/invoice")
+def admin_booking_invoice(request: Request, booking_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    booking = db.query(Booking).get(booking_id)
+    if not booking:
+        flash(request, "Booking not found.", "danger")
+        return RedirectResponse("/admin/bookings", status_code=303)
+
+    group_bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.booking_group == booking.booking_group,
+            Booking.payment_status.in_(["paid", "refunded"]),
+        )
+        .all()
+    ) if booking.booking_group else [booking]
+    if not group_bookings:
+        group_bookings = [booking]
+
+    user = db.query(User).get(booking.user_id)
+    lecture = db.query(LectureSession).get(booking.session_id)
+    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+    if not user or not lecture or not auditorium:
+        flash(request, "Related data not found.", "danger")
+        return RedirectResponse("/admin/bookings", status_code=303)
+
+    seats = [db.query(Seat).get(b.seat_id) for b in group_bookings]
+    pdf_bytes = generate_invoice_pdf(group_bookings, user, lecture, auditorium, seats)
+    ref = booking.booking_ref or "invoice"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="invoice-{ref}.pdf"'},
+    )
 
 
 @router.post("/bookings/{booking_id}/refund")

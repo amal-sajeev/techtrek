@@ -45,7 +45,15 @@
     <button type="button" class="btn btn-sm btn-outline" id="stage-width-down" title="Narrower stage" aria-label="Decrease stage width">&minus;</button>
     <input type="number" id="stage-width-input" class="form-input designer-stage-width-input" min="1" value="{{ auditorium.stage_cols or auditorium.total_cols }}" title="Number of columns the stage spans (1 to grid width)">
     <button type="button" class="btn btn-sm btn-outline" id="stage-width-up" title="Wider stage" aria-label="Increase stage width">+</button>
-    <span class="toolbar-label" style="margin-left:.25rem">columns</span>
+  </div>
+  <div class="toolbar-group">
+    <span class="toolbar-label">Markers:</span>
+    <button type="button" class="tool-btn" data-tool="entry" title="Place entry marker on grid perimeter">
+      &#10148; Entry
+    </button>
+    <button type="button" class="tool-btn" data-tool="exit" title="Place exit marker on grid perimeter">
+      &#10550; Exit
+    </button>
   </div>
 </div>
 
@@ -80,6 +88,9 @@
   <input type="hidden" name="total_rows" id="layout-total-rows" value="{{ auditorium.total_rows }}">
   <input type="hidden" name="total_cols" id="layout-total-cols" value="{{ auditorium.total_cols }}">
   <input type="hidden" name="stage_cols" id="layout-stage-cols" value="{{ auditorium.stage_cols or auditorium.total_cols }}">
+  <input type="hidden" name="stage_offset" id="layout-stage-offset" value="{{ auditorium.stage_offset or 0 }}">
+  <input type="hidden" name="stage_label" id="layout-stage-label" value="{{ auditorium.stage_label or 'Stage' }}">
+  <input type="hidden" name="entry_exit_config" id="layout-entry-exit" value="{{ (auditorium.entry_exit_config | tojson) if auditorium.entry_exit_config else '[]' }}">
   <input type="hidden" name="row_gaps" id="layout-row-gaps" value="{{ auditorium.row_gaps or '[]' }}">
   <input type="hidden" name="col_gaps" id="layout-col-gaps" value="{{ auditorium.col_gaps or '[]' }}">
 </form>
@@ -109,7 +120,10 @@
     var stageCols = {% if auditorium.stage_cols is none %}null{% else %}{{ auditorium.stage_cols }}{% endif %};
     var rowGaps = {{ (auditorium.row_gaps or '[]') | safe }};
     var colGaps = {{ (auditorium.col_gaps or '[]') | safe }};
-    SeatDesigner.init({{ auditorium.total_rows }}, {{ auditorium.total_cols }}, existing, stageCols, rowGaps, colGaps);
+    var stageOffset = {{ auditorium.stage_offset or 0 }};
+    var stageLabel = {{ (auditorium.stage_label or 'Stage') | tojson }};
+    var entryExitConfig = {{ (auditorium.entry_exit_config | tojson) if auditorium.entry_exit_config else '[]' | safe }};
+    SeatDesigner.init({{ auditorium.total_rows }}, {{ auditorium.total_cols }}, existing, stageCols, rowGaps, colGaps, stageOffset, stageLabel, entryExitConfig);
   });
 </script>
 {% endblock %}

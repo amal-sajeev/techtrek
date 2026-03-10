@@ -10,3 +10,4 @@ python-dotenv
 pydantic-settings
 qrcode[pil]
 razorpay
+reportlab

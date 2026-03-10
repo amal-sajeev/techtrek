@@ -66,6 +66,9 @@
         <td>{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
         {% if user.is_admin %}
         <td class="actions-cell">
+          {% if item.booking.payment_status in ['paid', 'refunded'] %}
+          <a href="/admin/bookings/{{ item.booking.id }}/invoice" class="btn btn-sm btn-outline" title="Download Invoice">&#128196;</a>
+          {% endif %}
           {% if item.booking.payment_status == 'paid' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
             <button type="button" class="btn btn-sm btn-outline" data-confirm="Refund this booking?" data-confirm-label="Refund" data-confirm-class="btn-primary">Refund</button>

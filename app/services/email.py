@@ -1,5 +1,6 @@
 import logging
 import smtplib
+from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
@@ -8,16 +9,21 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _send(to_email: str, subject: str, html_body: str):
+def _send(to_email: str, subject: str, html_body: str, *, invoice_pdf: bytes | None = None, invoice_filename: str = "invoice.pdf"):
     if not settings.smtp_host:
         logger.info("SMTP not configured — email to %s skipped: %s", to_email, subject)
         return
 
-    msg = MIMEMultipart("alternative")
+    msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
     msg["From"] = f"{settings.smtp_from_name} <{settings.smtp_from_email}>"
     msg["To"] = to_email
     msg.attach(MIMEText(html_body, "html"))
+
+    if invoice_pdf:
+        attachment = MIMEApplication(invoice_pdf, _subtype="pdf")
+        attachment.add_header("Content-Disposition", "attachment", filename=invoice_filename)
+        msg.attach(attachment)
 
     try:
         with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
@@ -47,7 +53,7 @@ def send_signup_confirmation(email: str, username: str):
     _send(email, "Welcome to TechTrek!", html)
 
 
-def send_booking_confirmation(email: str, username: str, session_title: str, seat_label: str, ticket_id: str, booking_ref: str):
+def send_booking_confirmation(email: str, username: str, session_title: str, seat_label: str, ticket_id: str, booking_ref: str, invoice_pdf: bytes | None = None):
     html = f"""
     <div style="font-family:Arial,sans-serif;max-width:500px;margin:auto;padding:2rem;">
       <h2 style="color:#00d4ff;">Booking Confirmed!</h2>
@@ -64,4 +70,4 @@ def send_booking_confirmation(email: str, username: str, session_title: str, sea
       <p style="font-size:.8rem;color:#888;">Cancellation policy: Rs.100 fee, remainder refunded.</p>
     </div>
     """
-    _send(email, f"Booking Confirmed — {session_title}", html)
+    _send(email, f"Booking Confirmed — {session_title}", html, invoice_pdf=invoice_pdf, invoice_filename=f"invoice-{booking_ref}.pdf")

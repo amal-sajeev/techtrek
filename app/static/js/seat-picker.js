@@ -9,6 +9,9 @@
   var colGapSet = {};
   var stageCols = null;
   var totalCols = 0;
+  var stageOffset = 0;
+  var stageLabel = "Stage";
+  var entryExitConfig = [];
 
   var STATUS_LABELS = {
     available:  "available",
@@ -24,7 +27,7 @@
     return prices.standard;
   }
 
-  function init(data, pricing, sessId, gaps, stageOpts) {
+  function init(data, pricing, sessId, gaps, stageOpts, entryExit) {
     seatMap = data;
     if (typeof pricing === "object" && pricing !== null) {
       prices = { standard: pricing.standard || 0, vip: pricing.vip || 0, accessible: pricing.accessible || 0 };
@@ -37,6 +40,9 @@
     colGapSet = {};
     stageCols = null;
     totalCols = 0;
+    stageOffset = 0;
+    stageLabel = "Stage";
+    entryExitConfig = entryExit || [];
     if (gaps) {
       if (gaps.rowGaps) gaps.rowGaps.forEach(function (r) { rowGapSet[r] = true; });
       if (gaps.colGaps) gaps.colGaps.forEach(function (c) { colGapSet[c] = true; });
@@ -44,6 +50,8 @@
     if (stageOpts) {
       stageCols = stageOpts.stageCols;
       totalCols = stageOpts.totalCols || 0;
+      stageOffset = stageOpts.stageOffset || 0;
+      stageLabel = stageOpts.stageLabel || "Stage";
     }
     render();
     updateSummary();
@@ -103,10 +111,12 @@
         el.style.gridColumn = String(gridCol(c));
 
         if (!seat || seat.type === "aisle") {
-          el.className = "seat seat-aisle";
+          el.className = "seat seat-empty-hidden";
           el.disabled = true;
           el.setAttribute("aria-hidden", "true");
           el.tabIndex = -1;
+          el.style.visibility = "hidden";
+          el.style.pointerEvents = "none";
         } else {
           var statusClass = seat.status;
           if (seat.type === "vip"        && seat.status === "available") statusClass = "vip";
@@ -142,13 +152,10 @@
     requestAnimationFrame(function () {
       if (stageEl) {
         var effectiveCols = (stageCols != null && stageCols >= 1 && stageCols <= maxCol) ? stageCols : maxCol;
-
-        var stageWidth = 24;
-        for (var ci = 1; ci <= effectiveCols; ci++) {
-          stageWidth += 5 + 36;
-          if (ci < maxCol && colGapSet[ci]) {
-            stageWidth += 14;
-          }
+        var colW = 36 + 5;
+        var stageWidth = 24 + effectiveCols * colW;
+        for (var ci = 1; ci < effectiveCols; ci++) {
+          if (colGapSet[ci]) stageWidth += 14;
         }
 
         stageEl.style.width = stageWidth + "px";
@@ -156,9 +163,61 @@
         stageEl.style.justifyContent = "center";
         stageEl.style.alignItems = "center";
         stageEl.style.boxSizing = "border-box";
+
+        if (stageOffset > 0) {
+          stageEl.style.marginLeft = (stageOffset * colW) + "px";
+        } else {
+          stageEl.style.marginLeft = "";
+        }
+
+        var stageLabelEl = stageEl.querySelector(".stage-label") || stageEl;
+        if (stageLabelEl.childNodes.length > 0 && stageLabel) {
+          stageLabelEl.textContent = stageLabel;
+        }
       }
 
+      renderEntryExitPicker(container, maxRow, maxCol);
       fitToViewport();
+    });
+  }
+
+  function renderEntryExitPicker(seatContainer, maxRow, maxCol) {
+    var wrapper = document.getElementById("seat-map-wrapper");
+    if (!wrapper) return;
+    wrapper.querySelectorAll(".picker-entry-exit").forEach(function (el) { el.remove(); });
+
+    if (!entryExitConfig || !entryExitConfig.length) return;
+
+    var containerRect = seatContainer.getBoundingClientRect();
+    var wrapperRect = wrapper.getBoundingClientRect();
+    var relTop = containerRect.top - wrapperRect.top;
+    var relLeft = containerRect.left - wrapperRect.left;
+    var colW = 41;
+    var rowH = 36;
+
+    entryExitConfig.forEach(function (marker) {
+      var el = document.createElement("div");
+      el.className = "picker-entry-exit marker-" + marker.type;
+      el.textContent = marker.label || marker.type;
+      el.title = marker.type.charAt(0).toUpperCase() + marker.type.slice(1) + ": " + (marker.label || "");
+      el.style.position = "absolute";
+
+      var pos = (marker.position - 1);
+      if (marker.side === "top") {
+        el.style.top = (relTop - 24) + "px";
+        el.style.left = (relLeft + 28 + pos * colW) + "px";
+      } else if (marker.side === "bottom") {
+        el.style.top = (relTop + containerRect.height + 4) + "px";
+        el.style.left = (relLeft + 28 + pos * colW) + "px";
+      } else if (marker.side === "left") {
+        el.style.top = (relTop + pos * rowH) + "px";
+        el.style.left = (relLeft - 50) + "px";
+      } else if (marker.side === "right") {
+        el.style.top = (relTop + pos * rowH) + "px";
+        el.style.left = (relLeft + containerRect.width + 4) + "px";
+      }
+
+      wrapper.appendChild(el);
     });
   }
 

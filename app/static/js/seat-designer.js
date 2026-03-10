@@ -4,7 +4,10 @@
   var rows = 0;
   var cols = 0;
   var stageCols = 0;
+  var stageOffset = 0;
+  var stageLabel = "Stage";
   var grid = {};
+  var entryExitMarkers = [];
   var currentTool = "standard";
   var isDrawing = false;
   var drawMode = null;
@@ -12,21 +15,28 @@
   var rowGaps = {};
   var colGaps = {};
 
-  function init(totalRows, totalCols, existingSeats, initialStageCols, initialRowGaps, initialColGaps) {
+  function init(totalRows, totalCols, existingSeats, initialStageCols, initialRowGaps, initialColGaps, initialStageOffset, initialStageLabel, initialEntryExit) {
     rows = totalRows;
     cols = totalCols;
     stageCols = (initialStageCols != null && initialStageCols >= 1 && initialStageCols <= totalCols)
       ? initialStageCols
       : totalCols;
+    stageOffset = initialStageOffset || 0;
+    stageLabel = initialStageLabel || "Stage";
     grid = {};
     rowGaps = {};
     colGaps = {};
+    entryExitMarkers = [];
 
     if (initialRowGaps && initialRowGaps.length) {
       initialRowGaps.forEach(function (r) { rowGaps[r] = true; });
     }
     if (initialColGaps && initialColGaps.length) {
       initialColGaps.forEach(function (c) { colGaps[c] = true; });
+    }
+
+    if (initialEntryExit && initialEntryExit.length) {
+      entryExitMarkers = initialEntryExit.slice();
     }
 
     if (existingSeats && existingSeats.length > 0) {
@@ -48,6 +58,9 @@
     updateFillAllLabel();
     updateGridSizeDisplay();
     updateStageWidthControl();
+    renderEntryExitMarkers();
+    initStageDrag();
+    updateStageLabelDisplay();
   }
 
   function rowLetter(r) {
@@ -146,7 +159,11 @@
     if (!bar) return;
     var pct = Math.round((stageCols / cols) * 100);
     bar.style.width = pct + "%";
-    bar.title = "Stage width: " + stageCols + " of " + cols + " columns (" + pct + "%)";
+    var offsetPct = Math.round((stageOffset / cols) * 100);
+    bar.style.marginLeft = offsetPct + "%";
+    bar.title = "Stage width: " + stageCols + " of " + cols + " columns · Drag to reposition";
+    var textEl = bar.querySelector(".designer-stage-bar-text");
+    if (textEl) textEl.textContent = stageLabel.toUpperCase();
     if (wrapper && gridEl) {
       requestAnimationFrame(function () {
         wrapper.style.width = gridEl.offsetWidth + "px";
@@ -348,6 +365,7 @@
 
     updateStats();
     updateGridSizeDisplay();
+    renderPerimeterMarkers();
   }
 
   function handleCellClick(e) {
@@ -412,6 +430,7 @@
         });
         btn.classList.add("tool-active");
         updateFillAllLabel();
+        renderEntryExitMarkers();
       });
     });
 
@@ -802,6 +821,15 @@
     var stageColsInput = document.getElementById("layout-stage-cols");
     if (stageColsInput) stageColsInput.value = stageCols;
 
+    var stageOffsetInput = document.getElementById("layout-stage-offset");
+    if (stageOffsetInput) stageOffsetInput.value = stageOffset;
+
+    var stageLabelInput = document.getElementById("layout-stage-label");
+    if (stageLabelInput) stageLabelInput.value = stageLabel;
+
+    var entryExitInput = document.getElementById("layout-entry-exit");
+    if (entryExitInput) entryExitInput.value = JSON.stringify(entryExitMarkers);
+
     var rowGapsInput = document.getElementById("layout-row-gaps");
     var colGapsInput = document.getElementById("layout-col-gaps");
     if (rowGapsInput) rowGapsInput.value = JSON.stringify(gapKeysToArray(rowGaps));
@@ -809,6 +837,243 @@
 
     var form = document.getElementById("layout-form");
     if (form) form.submit();
+  }
+
+  /* ---- Entry/Exit markers ---- */
+
+  function renderEntryExitMarkers() {
+    var container = document.querySelector(".designer-container");
+    if (!container) return;
+    container.querySelectorAll(".entry-exit-zone, .entry-exit-marker").forEach(function (el) { el.remove(); });
+
+    if (currentTool !== "entry" && currentTool !== "exit") return;
+
+    var gridEl = document.getElementById("layout-grid");
+    if (!gridEl) return;
+
+    var positions = [
+      { side: "top", count: cols },
+      { side: "bottom", count: cols },
+      { side: "left", count: rows },
+      { side: "right", count: rows }
+    ];
+
+    positions.forEach(function (cfg) {
+      for (var i = 1; i <= cfg.count; i++) {
+        var existing = entryExitMarkers.find(function (m) { return m.side === cfg.side && m.position === i; });
+        var zone = document.createElement("button");
+        zone.type = "button";
+        zone.className = "entry-exit-zone";
+        zone.dataset.side = cfg.side;
+        zone.dataset.position = i;
+
+        if (existing) {
+          zone.classList.add("marker-placed", "marker-" + existing.type);
+          zone.textContent = (existing.label || existing.type).substring(0, 8);
+          zone.title = existing.type.charAt(0).toUpperCase() + existing.type.slice(1) + ": " + (existing.label || existing.type) + " — Click to remove, double-click to edit label";
+        } else {
+          zone.textContent = "+";
+          zone.title = "Click to place " + currentTool + " marker";
+        }
+
+        zone.addEventListener("click", function (ev) {
+          var side = ev.currentTarget.dataset.side;
+          var pos = parseInt(ev.currentTarget.dataset.position);
+          toggleMarker(side, pos);
+        });
+        zone.addEventListener("dblclick", function (ev) {
+          ev.preventDefault();
+          var side = ev.currentTarget.dataset.side;
+          var pos = parseInt(ev.currentTarget.dataset.position);
+          editMarkerLabel(side, pos);
+        });
+
+        container.appendChild(zone);
+      }
+    });
+
+    requestAnimationFrame(function () { positionEntryExitZones(); });
+  }
+
+  function positionEntryExitZones() {
+    var gridEl = document.getElementById("layout-grid");
+    if (!gridEl) return;
+    var gridRect = gridEl.getBoundingClientRect();
+    var container = document.querySelector(".designer-container");
+    var containerRect = container.getBoundingClientRect();
+
+    var zones = container.querySelectorAll(".entry-exit-zone");
+    var markerSize = 28;
+    var gap = 2;
+
+    zones.forEach(function (zone) {
+      var side = zone.dataset.side;
+      var pos = parseInt(zone.dataset.position) - 1;
+      var relTop = gridRect.top - containerRect.top;
+      var relLeft = gridRect.left - containerRect.left;
+
+      zone.style.position = "absolute";
+      zone.style.width = markerSize + "px";
+      zone.style.height = markerSize + "px";
+
+      if (side === "top") {
+        zone.style.top = (relTop - markerSize - gap) + "px";
+        zone.style.left = (relLeft + 40 + pos * (36 + 5)) + "px";
+      } else if (side === "bottom") {
+        zone.style.top = (relTop + gridRect.height + gap) + "px";
+        zone.style.left = (relLeft + 40 + pos * (36 + 5)) + "px";
+      } else if (side === "left") {
+        zone.style.top = (relTop + 32 + pos * 36) + "px";
+        zone.style.left = (relLeft - markerSize - gap) + "px";
+      } else if (side === "right") {
+        zone.style.top = (relTop + 32 + pos * 36) + "px";
+        zone.style.left = (relLeft + gridRect.width + gap) + "px";
+      }
+    });
+  }
+
+  function toggleMarker(side, position) {
+    var idx = entryExitMarkers.findIndex(function (m) { return m.side === side && m.position === position; });
+    if (idx >= 0) {
+      entryExitMarkers.splice(idx, 1);
+    } else {
+      var markerType = (currentTool === "entry" || currentTool === "exit") ? currentTool : "entry";
+      var label = prompt("Label for this " + markerType + " (leave empty for default):", markerType.charAt(0).toUpperCase() + markerType.slice(1));
+      if (label === null) return;
+      entryExitMarkers.push({
+        type: markerType,
+        side: side,
+        position: position,
+        label: label || (markerType.charAt(0).toUpperCase() + markerType.slice(1))
+      });
+    }
+    renderEntryExitMarkers();
+  }
+
+  function editMarkerLabel(side, position) {
+    var marker = entryExitMarkers.find(function (m) { return m.side === side && m.position === position; });
+    if (!marker) return;
+    var newLabel = prompt("Edit label:", marker.label);
+    if (newLabel !== null) {
+      marker.label = newLabel || marker.type.charAt(0).toUpperCase() + marker.type.slice(1);
+      renderEntryExitMarkers();
+    }
+  }
+
+  function renderPerimeterMarkers() {
+    var container = document.querySelector(".designer-container");
+    if (!container) return;
+    container.querySelectorAll(".entry-exit-marker-display").forEach(function (el) { el.remove(); });
+
+    var gridEl = document.getElementById("layout-grid");
+    if (!gridEl) return;
+
+    entryExitMarkers.forEach(function (marker) {
+      var el = document.createElement("div");
+      el.className = "entry-exit-marker-display marker-" + marker.type;
+      el.textContent = (marker.label || marker.type).substring(0, 10);
+      el.title = marker.type.charAt(0).toUpperCase() + marker.type.slice(1) + ": " + (marker.label || marker.type);
+      container.appendChild(el);
+    });
+
+    requestAnimationFrame(function () { positionPerimeterMarkers(); });
+  }
+
+  function positionPerimeterMarkers() {
+    var gridEl = document.getElementById("layout-grid");
+    var container = document.querySelector(".designer-container");
+    if (!gridEl || !container) return;
+    var gridRect = gridEl.getBoundingClientRect();
+    var containerRect = container.getBoundingClientRect();
+    var markerSize = 28;
+    var gap = 2;
+    var displays = container.querySelectorAll(".entry-exit-marker-display");
+    var idx = 0;
+
+    entryExitMarkers.forEach(function (marker) {
+      if (idx >= displays.length) return;
+      var el = displays[idx++];
+      var pos = marker.position - 1;
+      var relTop = gridRect.top - containerRect.top;
+      var relLeft = gridRect.left - containerRect.left;
+
+      el.style.position = "absolute";
+      el.style.width = markerSize + "px";
+      el.style.height = markerSize + "px";
+
+      if (marker.side === "top") {
+        el.style.top = (relTop - markerSize - gap) + "px";
+        el.style.left = (relLeft + 40 + pos * (36 + 5)) + "px";
+      } else if (marker.side === "bottom") {
+        el.style.top = (relTop + gridRect.height + gap) + "px";
+        el.style.left = (relLeft + 40 + pos * (36 + 5)) + "px";
+      } else if (marker.side === "left") {
+        el.style.top = (relTop + 32 + pos * 36) + "px";
+        el.style.left = (relLeft - markerSize - gap) + "px";
+      } else if (marker.side === "right") {
+        el.style.top = (relTop + 32 + pos * 36) + "px";
+        el.style.left = (relLeft + gridRect.width + gap) + "px";
+      }
+    });
+  }
+
+  /* ---- Draggable stage ---- */
+
+  function initStageDrag() {
+    var bar = document.getElementById("designer-stage-bar");
+    if (!bar) return;
+    bar.style.cursor = "grab";
+
+    var dragging = false;
+    var startX = 0;
+    var startOffset = 0;
+
+    bar.addEventListener("mousedown", function (e) {
+      if (e.target.classList.contains("designer-stage-bar-text") && e.detail >= 2) return;
+      e.preventDefault();
+      dragging = true;
+      startX = e.clientX;
+      startOffset = stageOffset;
+      bar.style.cursor = "grabbing";
+    });
+
+    document.addEventListener("mousemove", function (e) {
+      if (!dragging) return;
+      var wrapper = document.getElementById("designer-stage-wrapper");
+      if (!wrapper) return;
+      var wrapperW = wrapper.offsetWidth;
+      var colWidth = wrapperW / cols;
+      var dx = e.clientX - startX;
+      var colDelta = Math.round(dx / colWidth);
+      var newOffset = Math.max(0, Math.min(cols - stageCols, startOffset + colDelta));
+      stageOffset = newOffset;
+      updateStageBar();
+    });
+
+    document.addEventListener("mouseup", function () {
+      if (dragging) {
+        dragging = false;
+        bar.style.cursor = "grab";
+      }
+    });
+  }
+
+  function updateStageLabelDisplay() {
+    var bar = document.getElementById("designer-stage-bar");
+    if (!bar) return;
+    var textEl = bar.querySelector(".designer-stage-bar-text");
+    if (!textEl) return;
+    textEl.textContent = stageLabel.toUpperCase();
+    textEl.style.cursor = "pointer";
+    textEl.title = "Double-click to edit stage label";
+    textEl.addEventListener("dblclick", function (e) {
+      e.stopPropagation();
+      var newLabel = prompt("Stage label:", stageLabel);
+      if (newLabel !== null && newLabel.trim()) {
+        stageLabel = newLabel.trim();
+        textEl.textContent = stageLabel.toUpperCase();
+      }
+    });
   }
 
   window.SeatDesigner = { init: init };

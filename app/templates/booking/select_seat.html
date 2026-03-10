@@ -20,7 +20,7 @@
       <div class="seat-map-wrapper" id="seat-map-wrapper">
         <div class="seat-map-scalable" id="seat-map-scalable">
           <div class="seat-stage" id="seat-stage" role="presentation">
-            <span>STAGE</span>
+            <span class="stage-label">{{ stage_label }}</span>
           </div>
           <div class="seat-map-container">
             <div
@@ -96,14 +96,17 @@
     };
     var stageOpts = {
       stageCols: {% if stage_cols is none %}null{% else %}{{ stage_cols }}{% endif %},
-      totalCols: {{ total_cols }}
+      totalCols: {{ total_cols }},
+      stageOffset: {{ stage_offset }},
+      stageLabel: {{ stage_label | tojson }}
     };
+    var entryExitConfig = {{ entry_exit_config | safe }};
     var pricing = {
       standard: {{ price }},
       vip: {{ price_vip }},
       accessible: {{ price_accessible }}
     };
-    SeatPicker.init(seatData, pricing, {{ lecture.id }}, gapData, stageOpts);
+    SeatPicker.init(seatData, pricing, {{ lecture.id }}, gapData, stageOpts, entryExitConfig);
 
     // Update aria-disabled on confirm button
     var btn = document.getElementById('confirm-seats-btn');

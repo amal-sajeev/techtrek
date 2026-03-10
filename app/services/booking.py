@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.utils import now_ist
 from app.models.booking import Booking, _generate_ticket_id
+from app.services.invoice import _generate_invoice_number
 from app.models.seat import Seat
 from app.models.session import LectureSession
 from app.models.user import User
+from app.models.auditorium import Auditorium
 from app.services.email import send_booking_confirmation
 
 CANCELLATION_FEE = 100.0
@@ -156,6 +158,7 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
     if len(holds) > 1 and group_id:
         group_qr = _generate_qr_base64(f"GROUP-{group_id}")
 
+    invoice_num = _generate_invoice_number()
     for b in holds:
         seat = db.query(Seat).get(b.seat_id)
         b.payment_status = "paid"
@@ -163,6 +166,7 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
         b.held_until = None
         b.amount_paid = _price_for_seat(lecture, seat.seat_type if seat else "standard")
         b.ticket_id = _generate_ticket_id()
+        b.invoice_number = invoice_num
         b.qr_code_data = _generate_qr_base64(b.ticket_id)
         b.booking_group = group_id
         if group_qr:
@@ -171,6 +175,15 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
 
     if holds:
         user = db.query(User).get(holds[0].user_id)
+        auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+        invoice_pdf = None
+        if user and lecture and auditorium:
+            try:
+                from app.services.invoice import generate_invoice_pdf
+                all_seats = [db.query(Seat).get(b.seat_id) for b in holds]
+                invoice_pdf = generate_invoice_pdf(holds, user, lecture, auditorium, all_seats)
+            except Exception:
+                pass
         for b in holds:
             seat = db.query(Seat).get(b.seat_id)
             if user and seat:
@@ -178,6 +191,7 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
                     user.email, user.username,
                     lecture.title if lecture else "Session",
                     seat.label, b.ticket_id, b.booking_ref,
+                    invoice_pdf=invoice_pdf,
                 )
 
     return holds

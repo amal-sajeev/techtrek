@@ -1614,6 +1614,7 @@ tr:last-child td { border-bottom:none }
 }
 
 .seat-map-wrapper {
+  position: relative;
   background: var(--bg-surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
@@ -1703,6 +1704,61 @@ tr:last-child td { border-bottom:none }
 .legend-taken      { background: var(--seat-taken) }
 .legend-vip        { background: var(--seat-vip) }
 .legend-accessible { background: var(--seat-accessible) }
+
+.seat-empty-hidden {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  cursor: default;
+  pointer-events: none;
+}
+
+/* ---- ENTRY/EXIT MARKERS ---- */
+.entry-exit-zone {
+  position: absolute;
+  width: 28px; height: 28px;
+  border: 2px dashed rgba(0,212,255,.35);
+  border-radius: 4px;
+  background: rgba(0,212,255,.06);
+  color: var(--text-muted);
+  font-size: .55rem;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  transition: border-color .15s, background .15s;
+}
+.entry-exit-zone:hover { border-color: var(--accent); background: rgba(0,212,255,.12); }
+.entry-exit-zone.marker-placed { border-style: solid; }
+.entry-exit-zone.marker-entry { border-color: #10b981; background: rgba(16,185,129,.12); color: #10b981; }
+.entry-exit-zone.marker-exit  { border-color: #f59e0b; background: rgba(245,158,11,.12); color: #f59e0b; }
+
+.entry-exit-marker-display {
+  position: absolute;
+  width: 28px; height: 28px;
+  border-radius: 4px;
+  font-size: .5rem; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  z-index: 5;
+  pointer-events: none;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.entry-exit-marker-display.marker-entry { background: rgba(16,185,129,.2); border: 2px solid #10b981; color: #10b981; }
+.entry-exit-marker-display.marker-exit  { background: rgba(245,158,11,.2); border: 2px solid #f59e0b; color: #f59e0b; }
+
+.picker-entry-exit {
+  font-size: .6rem; font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+  z-index: 5;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+.picker-entry-exit.marker-entry { background: rgba(16,185,129,.15); border: 1.5px solid #10b981; color: #10b981; }
+.picker-entry-exit.marker-exit  { background: rgba(245,158,11,.15); border: 1.5px solid #f59e0b; color: #f59e0b; }
+
+.designer-container { position: relative; }
 
 /* ---- BOOKING SUMMARY PANEL ---- */
 .booking-summary {
@@ -2473,6 +2529,20 @@ tr:last-child td { border-bottom:none }
 [data-theme="light"] .seat::after { background: rgba(255,255,255,0.25); }
 [data-theme="light"] .legend-swatch { border-color: rgba(0,0,0,0.12); }
 [data-theme="light"] .seat-label-chip { color: #0881a2; background: rgba(8,129,162,0.08); border-color: rgba(8,129,162,0.24); }
+
+[data-theme="light"] .seat-available  { background: #d1fae5; border: 2px solid #059669; box-shadow: 0 0 4px rgba(5,150,105,.2); color: #065f46; }
+[data-theme="light"] .seat-selected   { background: #cffafe; border: 2px solid #0891b2; box-shadow: 0 0 8px rgba(8,145,178,.35); color: #155e75; }
+[data-theme="light"] .seat-taken      { background: #e2e8f0; border: 2px solid #94a3b8; box-shadow: none; opacity: .65; color: #64748b; }
+[data-theme="light"] .seat-vip        { background: #fef3c7; border: 2px solid #d97706; box-shadow: 0 0 4px rgba(217,119,6,.2); color: #92400e; }
+[data-theme="light"] .seat-accessible { background: #ede9fe; border: 2px solid #7c3aed; box-shadow: 0 0 4px rgba(124,58,237,.2); color: #5b21b6; }
+[data-theme="light"] .seat-yours      { background: #e0e7ff; border: 2px solid #4f46e5; box-shadow: 0 0 6px rgba(79,70,229,.3); color: #3730a3; }
+[data-theme="light"] .seat-available:hover { background: #a7f3d0; box-shadow: 0 4px 12px rgba(5,150,105,.3); }
+
+[data-theme="light"] .legend-available  { background: #d1fae5; border: 2px solid #059669; }
+[data-theme="light"] .legend-selected   { background: #cffafe; border: 2px solid #0891b2; }
+[data-theme="light"] .legend-taken      { background: #e2e8f0; border: 2px solid #94a3b8; }
+[data-theme="light"] .legend-vip        { background: #fef3c7; border: 2px solid #d97706; }
+[data-theme="light"] .legend-accessible { background: #ede9fe; border: 2px solid #7c3aed; }
 
 /* ---- FLASH MESSAGES ---- */
 [data-theme="light"] .flash-success { background: rgba(4,120,87,0.10); border-color: rgba(4,120,87,0.38); color: #054d38; }

@@ -36,6 +36,7 @@ class Booking(Base):
     cancellation_fee = Column(Float, nullable=True)
     checked_in = Column(Boolean, default=False)
     checked_in_at = Column(DateTime, nullable=True)
+    invoice_number = Column(String(30), nullable=True, index=True)
     razorpay_order_id = Column(String(50), nullable=True)
     razorpay_payment_id = Column(String(50), nullable=True)
     razorpay_signature = Column(String(128), nullable=True)

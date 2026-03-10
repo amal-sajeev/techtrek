@@ -1,8 +1,10 @@
 import json
 
 
+import io
+
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -21,6 +23,7 @@ from app.services.booking import (
     get_user_bookings,
     hold_seats,
 )
+from app.services.invoice import generate_invoice_pdf
 from app.services.razorpay import create_order as rz_create_order
 from app.services.razorpay import verify_payment as rz_verify_payment
 
@@ -88,6 +91,9 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
             total_rows=auditorium.total_rows,
             total_cols=auditorium.total_cols,
             stage_cols=auditorium.stage_cols,
+            stage_offset=auditorium.stage_offset or 0,
+            stage_label=auditorium.stage_label or "Stage",
+            entry_exit_config=json.dumps(auditorium.entry_exit_config or []),
             row_gaps=auditorium.row_gaps or "[]",
             col_gaps=auditorium.col_gaps or "[]",
             price=float(lecture.price),
@@ -292,6 +298,42 @@ def confirmation_page(request: Request, session_id: int, db: Session = Depends(g
             seats=seats,
             total=total,
         ),
+    )
+
+
+@router.get("/invoice/{session_id}")
+def download_invoice(request: Request, session_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.user_id == user.id,
+            Booking.session_id == session_id,
+            Booking.payment_status.in_(["paid", "refunded"]),
+        )
+        .order_by(Booking.booked_at.desc())
+        .all()
+    )
+    if not bookings:
+        flash(request, "No bookings found for this session.", "warning")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    lecture = db.query(LectureSession).get(session_id)
+    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+    if not lecture or not auditorium:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    seats = [db.query(Seat).get(b.seat_id) for b in bookings]
+    pdf_bytes = generate_invoice_pdf(bookings, user, lecture, auditorium, seats)
+    ref = bookings[0].booking_ref or "invoice"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="invoice-{ref}.pdf"'},
     )
 
 
