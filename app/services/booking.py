@@ -14,7 +14,7 @@ from app.models.seat import Seat
 from app.models.session import LectureSession
 from app.models.user import User
 from app.models.auditorium import Auditorium
-from app.services.email import send_booking_confirmation, send_cancellation_confirmation
+from app.services.email import send_booking_confirmation, send_group_booking_confirmation, send_cancellation_confirmation, send_group_cancellation_confirmation
 
 CANCELLATION_FEE = 100.0
 TICKET_PRICE = 500.0
@@ -177,27 +177,41 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
         user = db.query(User).get(holds[0].user_id)
         auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
         invoice_pdf = None
+        all_seats = [db.query(Seat).get(b.seat_id) for b in holds]
         if user and lecture and auditorium:
             try:
                 from app.services.invoice import generate_invoice_pdf
-                all_seats = [db.query(Seat).get(b.seat_id) for b in holds]
                 invoice_pdf = generate_invoice_pdf(holds, user, lecture, auditorium, all_seats)
             except Exception:
                 pass
-        for b in holds:
-            seat = db.query(Seat).get(b.seat_id)
-            if user and seat:
-                send_booking_confirmation(
-                    user.email, user.username,
-                    lecture.title if lecture else "Session",
-                    seat.label, b.ticket_id, b.booking_ref,
-                    invoice_pdf=invoice_pdf,
-                )
+
+        session_title = lecture.title if lecture else "Session"
+        if user and len(holds) > 1:
+            tickets = []
+            for b, seat in zip(holds, all_seats):
+                if seat:
+                    tickets.append({
+                        "seat_label": seat.label,
+                        "ticket_id": b.ticket_id,
+                        "booking_ref": b.booking_ref,
+                        "amount": float(b.amount_paid or 0),
+                    })
+            total = sum(t["amount"] for t in tickets)
+            send_group_booking_confirmation(
+                user.email, user.username, session_title,
+                tickets, total, invoice_pdf=invoice_pdf,
+            )
+        elif user and len(holds) == 1 and all_seats[0]:
+            send_booking_confirmation(
+                user.email, user.username, session_title,
+                all_seats[0].label, holds[0].ticket_id, holds[0].booking_ref,
+                invoice_pdf=invoice_pdf,
+            )
 
     return holds
 
 
-def cancel_booking_user(db: Session, booking_id: int, user_id: int) -> dict:
+def cancel_booking_user(db: Session, booking_id: int, user_id: int, *, send_email: bool = True) -> dict:
     b = db.query(Booking).filter(Booking.id == booking_id, Booking.user_id == user_id).first()
     if not b or b.payment_status != "paid":
         return {"ok": False, "msg": "Booking not found or already cancelled."}
@@ -212,17 +226,88 @@ def cancel_booking_user(db: Session, booking_id: int, user_id: int) -> dict:
     b.refund_amount = refund
     db.commit()
 
-    user = db.query(User).get(user_id)
-    seat = db.query(Seat).get(b.seat_id)
-    if user and seat:
-        send_cancellation_confirmation(
-            user.email, user.username,
-            lecture.title if lecture else "Session",
-            seat.label, b.booking_ref,
-            float(price), float(fee), float(refund),
-        )
+    if send_email:
+        user = db.query(User).get(user_id)
+        seat = db.query(Seat).get(b.seat_id)
+        if user and seat:
+            invoice_pdf = None
+            auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+            if auditorium:
+                try:
+                    from app.services.invoice import generate_invoice_pdf
+                    invoice_pdf = generate_invoice_pdf([b], user, lecture, auditorium, [seat])
+                except Exception:
+                    pass
+            send_cancellation_confirmation(
+                user.email, user.username,
+                lecture.title if lecture else "Session",
+                seat.label, b.booking_ref,
+                float(price), float(fee), float(refund),
+                invoice_pdf=invoice_pdf,
+            )
 
     return {"ok": True, "msg": f"Booking cancelled. Refund of ₹{refund:.0f} will be processed (₹{fee:.0f} cancellation fee).", "refund": refund, "fee": fee}
+
+
+def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
+    bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.booking_group == group_id,
+            Booking.user_id == user_id,
+            Booking.payment_status == "paid",
+        )
+        .all()
+    )
+    if not bookings:
+        return {"ok": False, "msg": "No active bookings found in this group.", "cancelled": 0}
+
+    lecture = db.query(LectureSession).get(bookings[0].session_id)
+    cancelled_items = []
+    total_refund = 0.0
+    total_fees = 0.0
+
+    for b in bookings:
+        price = b.amount_paid or float(lecture.price) if lecture else TICKET_PRICE
+        fee = CANCELLATION_FEE
+        refund = max(0, price - fee)
+
+        b.payment_status = "refunded"
+        b.cancellation_fee = fee
+        b.refund_amount = refund
+        total_refund += refund
+        total_fees += fee
+
+        seat = db.query(Seat).get(b.seat_id)
+        cancelled_items.append({
+            "seat_label": seat.label if seat else "—",
+            "amount_paid": float(price),
+            "fee": float(fee),
+            "refund": float(refund),
+        })
+
+    db.commit()
+
+    user = db.query(User).get(user_id)
+    if user:
+        invoice_pdf = None
+        auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+        if auditorium:
+            try:
+                from app.services.invoice import generate_invoice_pdf
+                all_seats = [db.query(Seat).get(b.seat_id) for b in bookings]
+                invoice_pdf = generate_invoice_pdf(bookings, user, lecture, auditorium, all_seats)
+            except Exception:
+                pass
+        send_group_cancellation_confirmation(
+            user.email, user.username,
+            lecture.title if lecture else "Session",
+            cancelled_items, total_fees, total_refund,
+            invoice_pdf=invoice_pdf,
+        )
+
+    count = len(cancelled_items)
+    return {"ok": True, "msg": f"Cancelled {count} ticket(s). Total refund: ₹{total_refund:.0f}.", "cancelled": count, "refund": total_refund}
 
 
 def cancel_existing_holds(db: Session, user_id: int, session_id: int):

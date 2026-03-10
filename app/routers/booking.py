@@ -18,6 +18,7 @@ from app.models.waitlist import Waitlist
 from app.services.booking import (
     _price_for_seat,
     cancel_booking_user,
+    cancel_group_bookings,
     confirm_payment,
     get_seat_map,
     get_user_bookings,
@@ -487,28 +488,8 @@ def cancel_group(request: Request, group_id: str, db: Session = Depends(get_db))
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
 
-    bookings = (
-        db.query(Booking)
-        .filter(
-            Booking.booking_group == group_id,
-            Booking.user_id == user.id,
-            Booking.payment_status == "paid",
-        )
-        .all()
-    )
-    if not bookings:
-        flash(request, "No active bookings found in this group.", "warning")
-        return RedirectResponse("/booking/my", status_code=303)
-
-    cancelled = 0
-    total_refund = 0.0
-    for b in bookings:
-        result = cancel_booking_user(db, b.id, user.id)
-        if result["ok"]:
-            cancelled += 1
-            total_refund += result.get("refund", 0)
-
-    flash(request, f"Cancelled {cancelled} ticket(s). Total refund: ₹{total_refund:.0f}.", "success")
+    result = cancel_group_bookings(db, group_id, user.id)
+    flash(request, result["msg"], "success" if result["ok"] else "warning")
     return RedirectResponse("/booking/my", status_code=303)
 
 
