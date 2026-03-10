@@ -157,23 +157,37 @@
     renderGrid();
   }
 
+  function getDataArea() {
+    var gridEl = document.getElementById("layout-grid");
+    if (!gridEl) return null;
+    var colLabels = gridEl.querySelectorAll(".designer-col-label");
+    if (!colLabels.length) return null;
+    var gridRect = gridEl.getBoundingClientRect();
+    var first = colLabels[0].getBoundingClientRect();
+    var last = colLabels[colLabels.length - 1].getBoundingClientRect();
+    return {
+      left: first.left - gridRect.left,
+      width: last.right - first.left,
+      gridWidth: gridEl.offsetWidth
+    };
+  }
+
   function updateStageBar() {
     var bar = document.getElementById("designer-stage-bar");
     var wrapper = document.getElementById("designer-stage-wrapper");
     var gridEl = document.getElementById("layout-grid");
-    if (!bar) return;
-    var pct = Math.round((stageCols / cols) * 100);
-    bar.style.width = pct + "%";
-    var offsetPct = Math.round((stageOffset / cols) * 100);
-    bar.style.marginLeft = offsetPct + "%";
+    if (!bar || !wrapper || !gridEl) return;
     bar.title = "Stage width: " + stageCols + " of " + cols + " columns · Drag to reposition";
     var textEl = bar.querySelector(".designer-stage-bar-text");
     if (textEl) textEl.textContent = stageLabel.toUpperCase();
-    if (wrapper && gridEl) {
-      requestAnimationFrame(function () {
-        wrapper.style.width = gridEl.offsetWidth + "px";
-      });
-    }
+    requestAnimationFrame(function () {
+      wrapper.style.width = gridEl.offsetWidth + "px";
+      var area = getDataArea();
+      if (!area) return;
+      var colWidth = area.width / cols;
+      bar.style.width = Math.round(stageCols * colWidth) + "px";
+      bar.style.marginLeft = Math.round(area.left + stageOffset * colWidth) + "px";
+    });
   }
 
   function renderGrid() {
@@ -1064,10 +1078,9 @@
 
     document.addEventListener("mousemove", function (e) {
       if (!dragging) return;
-      var wrapper = document.getElementById("designer-stage-wrapper");
-      if (!wrapper) return;
-      var wrapperW = wrapper.offsetWidth;
-      var colWidth = wrapperW / cols;
+      var area = getDataArea();
+      if (!area) return;
+      var colWidth = area.width / cols;
       var dx = e.clientX - startX;
       var colDelta = Math.round(dx / colWidth);
       var newOffset = Math.max(0, Math.min(cols - stageCols, startOffset + colDelta));
@@ -1190,14 +1203,24 @@
     }
 
     if (stageEl) {
-      var colW = 41;
       var effectiveCols = Math.min(stageCols, cols);
-      var stageWidth = 24 + effectiveCols * colW;
-      for (var sg = 1; sg < effectiveCols; sg++) {
-        if (colGaps[sg]) stageWidth += 14;
+      var previewSeats = container.querySelectorAll(".seat");
+      var firstSeat = null, lastSeat = null;
+      var containerRect = container.getBoundingClientRect();
+      previewSeats.forEach(function (s) {
+        if (s.style.visibility === "hidden") return;
+        var r = s.getBoundingClientRect();
+        if (!firstSeat || r.left < firstSeat.left) firstSeat = r;
+        if (!lastSeat || r.right > lastSeat.right) lastSeat = r;
+      });
+      if (firstSeat && lastSeat) {
+        var dataLeft = firstSeat.left - containerRect.left;
+        var dataWidth = lastSeat.right - firstSeat.left;
+        var colW = dataWidth / cols;
+        var sw = effectiveCols * colW;
+        stageEl.style.width = Math.round(sw) + "px";
+        stageEl.style.marginLeft = Math.round(dataLeft + stageOffset * colW) + "px";
       }
-      stageEl.style.width = stageWidth + "px";
-      stageEl.style.marginLeft = stageOffset > 0 ? (stageOffset * colW) + "px" : "";
       var labelEl = stageEl.querySelector(".stage-label");
       if (labelEl) labelEl.textContent = stageLabel;
     }

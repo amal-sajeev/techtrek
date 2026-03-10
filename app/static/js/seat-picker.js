@@ -152,23 +152,38 @@
     requestAnimationFrame(function () {
       if (stageEl) {
         var effectiveCols = (stageCols != null && stageCols >= 1 && stageCols <= maxCol) ? stageCols : maxCol;
-        var colW = 36 + 5;
-        var stageWidth = 24 + effectiveCols * colW;
-        for (var ci = 1; ci < effectiveCols; ci++) {
-          if (colGapSet[ci]) stageWidth += 14;
+
+        var rowLabels = container.querySelectorAll(".seat-row-label");
+        var dataSeats = container.querySelectorAll(".seat");
+        if (rowLabels.length && dataSeats.length) {
+          var containerRect = container.getBoundingClientRect();
+          var firstLabel = rowLabels[0].getBoundingClientRect();
+          var labelRight = firstLabel.right - containerRect.left;
+
+          var firstSeat = null, lastSeat = null;
+          dataSeats.forEach(function (s) {
+            if (s.style.visibility === "hidden") return;
+            var r = s.getBoundingClientRect();
+            if (!firstSeat || r.left < firstSeat.left) firstSeat = r;
+            if (!lastSeat || r.right > lastSeat.right) lastSeat = r;
+          });
+
+          if (firstSeat && lastSeat) {
+            var dataLeft = firstSeat.left - containerRect.left;
+            var dataRight = lastSeat.right - containerRect.left;
+            var dataWidth = dataRight - dataLeft;
+            var colW = dataWidth / maxCol;
+
+            var sw = effectiveCols * colW;
+            stageEl.style.width = Math.round(sw) + "px";
+            stageEl.style.marginLeft = Math.round(dataLeft + stageOffset * colW) + "px";
+          }
         }
 
-        stageEl.style.width = stageWidth + "px";
         stageEl.style.display = "flex";
         stageEl.style.justifyContent = "center";
         stageEl.style.alignItems = "center";
         stageEl.style.boxSizing = "border-box";
-
-        if (stageOffset > 0) {
-          stageEl.style.marginLeft = (stageOffset * colW) + "px";
-        } else {
-          stageEl.style.marginLeft = "";
-        }
 
         var stageLabelEl = stageEl.querySelector(".stage-label") || stageEl;
         if (stageLabelEl.childNodes.length > 0 && stageLabel) {

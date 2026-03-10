@@ -1168,7 +1168,7 @@ tr:last-child td { border-bottom:none }
 .designer-container { overflow:visible; border:1px solid var(--border); border-radius:var(--radius-lg); padding:2rem 1rem; background:var(--bg-primary) }
 .designer-stage { min-width:max-content; margin-bottom:.5rem; font-family:var(--font-mono); font-size:.75rem; text-transform:uppercase; letter-spacing:.1em; color:var(--text-muted) }
 .layout-grid { display:grid; gap:4px; width:max-content; margin:0 auto }
-.designer-stage-wrapper { display:flex; justify-content:center; margin:0 auto 6px; transition:width .2s ease }
+.designer-stage-wrapper { display:flex; justify-content:flex-start; margin:0 auto 6px; transition:width .2s ease }
 .designer-stage-bar { width:100%; display:flex; align-items:center; justify-content:center; min-height:44px; padding:.5rem 1rem; background:linear-gradient(180deg, var(--bg-elevated) 0%, var(--bg-surface) 100%); border:1px solid var(--border); border-radius:var(--radius-sm) var(--radius-sm) 0 0; border-bottom:2px solid var(--border-strong); transition:width .2s ease }
 .designer-stage-bar-text { font-family:var(--font-display); font-size:.8rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--text-secondary) }
 .designer-corner { min-width:36px; min-height:36px; border-radius:var(--radius-sm); background:var(--bg-surface); border:1px solid var(--border) }
