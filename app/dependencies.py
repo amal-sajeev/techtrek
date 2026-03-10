@@ -7,6 +7,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.database import SessionLocal
+from app.models.speaker import Speaker
 from app.models.user import User
 from app.utils import now_ist  # noqa: F401 — re-exported for routers
 
@@ -65,15 +66,19 @@ def get_flashes(request: Request) -> list:
 def template_ctx(request: Request, **kwargs) -> dict:
     user_id = request.session.get("user_id")
     user = None
+    is_speaker = False
     if user_id:
         db = SessionLocal()
         try:
             user = db.query(User).filter(User.id == user_id).first()
+            if user:
+                is_speaker = db.query(Speaker).filter(Speaker.user_id == user.id).first() is not None
         finally:
             db.close()
     ctx = {
         "request": request,
         "user": user,
+        "is_speaker": is_speaker,
         "flashes": get_flashes(request),
     }
     ctx.update(kwargs)

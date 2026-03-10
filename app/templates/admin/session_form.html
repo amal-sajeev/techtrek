@@ -11,7 +11,8 @@
   <button type="button" class="wizard-step" data-step="2">2. Details &amp; Price</button>
   <button type="button" class="wizard-step" data-step="3">3. Agenda</button>
   <button type="button" class="wizard-step" data-step="4">4. Speaker</button>
-  <button type="button" class="wizard-step" data-step="5">5. Review &amp; Publish</button>
+  <button type="button" class="wizard-step" data-step="5">5. Certificate</button>
+  <button type="button" class="wizard-step" data-step="6">6. Review &amp; Publish</button>
 </div>
 
 <form method="post" action="{{ '/admin/sessions/' ~ lecture.id ~ '/edit' if lecture else '/admin/sessions/new' }}" id="session-wizard-form">
@@ -140,8 +141,67 @@
     </div>
   </div>
 
-  <!-- Step 5: Review -->
+  <!-- Step 5: Certificate -->
   <div class="wizard-panel" data-panel="5">
+    <h3 class="wizard-panel-title">Certificate Settings</h3>
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees. Leave blank for defaults.</p>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label class="form-label" for="cert-title">Certificate Title</label>
+        <input type="text" name="cert_title" id="cert-title" class="form-input" value="{{ lecture.cert_title if lecture and lecture.cert_title else '' }}" placeholder="Certificate of Attendance">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cert-color">Color Scheme</label>
+        <select name="cert_color_scheme" id="cert-color" class="form-input" data-no-tomselect>
+          {% set schemes = [('', 'Teal (Default)'), ('teal', 'Teal'), ('navy', 'Navy'), ('emerald', 'Emerald'), ('royal', 'Royal Purple'), ('crimson', 'Crimson')] %}
+          {% for val, label in schemes %}
+          <option value="{{ val }}" {% if lecture and lecture.cert_color_scheme == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="cert-subtitle">Custom Subtitle / Message</label>
+      <textarea name="cert_subtitle" id="cert-subtitle" class="form-input" rows="2" placeholder="This certificate is proudly presented to">{{ lecture.cert_subtitle if lecture and lecture.cert_subtitle else '' }}</textarea>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="cert-signer-name">Signer Name</label>
+        <input type="text" name="cert_signer_name" id="cert-signer-name" class="form-input" value="{{ lecture.cert_signer_name if lecture and lecture.cert_signer_name else '' }}" placeholder="e.g. Dr. Priya Sharma">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cert-signer-desg">Signer Designation</label>
+        <input type="text" name="cert_signer_designation" id="cert-signer-desg" class="form-input" value="{{ lecture.cert_signer_designation if lecture and lecture.cert_signer_designation else '' }}" placeholder="e.g. Program Director">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="cert-footer">Custom Footer Text</label>
+      <input type="text" name="cert_footer" id="cert-footer" class="form-input" value="{{ lecture.cert_footer if lecture and lecture.cert_footer else '' }}" placeholder="&copy; 2026 TechTrek. All rights reserved.">
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="cert-logo-url">Logo URL</label>
+        <input type="url" name="cert_logo_url" id="cert-logo-url" class="form-input" value="{{ lecture.cert_logo_url if lecture and lecture.cert_logo_url else '' }}" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="cert-bg-url">Background Image URL</label>
+        <input type="url" name="cert_bg_url" id="cert-bg-url" class="form-input" value="{{ lecture.cert_bg_url if lecture and lecture.cert_bg_url else '' }}" placeholder="https://...">
+      </div>
+    </div>
+
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+      <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Step 6: Review -->
+  <div class="wizard-panel" data-panel="6">
     <h3 class="wizard-panel-title">Review &amp; Publish</h3>
     <p class="text-muted">Review all fields above, then click submit.</p>
     <div id="wizard-review" class="wizard-review"></div>
@@ -170,7 +230,7 @@
         if (sel.tomselect) sel.tomselect.sync();
       });
     }
-    if (n === 5) buildReview();
+    if (n === 6) buildReview();
   }
 
   steps.forEach(function(s) {
@@ -204,6 +264,15 @@
     } else if (aud.options[aud.selectedIndex]) {
       venue = aud.options[aud.selectedIndex].text;
     }
+    var certTitle = document.getElementById('cert-title').value || 'Certificate of Attendance';
+    var certColor = document.getElementById('cert-color');
+    var certColorLabel = certColor.options[certColor.selectedIndex] ? certColor.options[certColor.selectedIndex].text : 'Teal';
+    var certSigner = document.getElementById('cert-signer-name').value;
+    var certSignerDesg = document.getElementById('cert-signer-desg').value;
+    var certRow = certTitle;
+    if (certSigner) certRow += ' &middot; Signed by ' + certSigner;
+    if (certSignerDesg) certRow += ' (' + certSignerDesg + ')';
+
     r.innerHTML = '<table class="table"><tbody>' +
       '<tr><td><strong>Title</strong></td><td>' + title + '</td></tr>' +
       '<tr><td><strong>Speaker</strong></td><td>' + speaker + '</td></tr>' +
@@ -211,6 +280,7 @@
       '<tr><td><strong>Date/Time</strong></td><td>' + start + '</td></tr>' +
       '<tr><td><strong>Pricing</strong></td><td>' + priceDisplay + '</td></tr>' +
       '<tr><td><strong>Status</strong></td><td>' + status + '</td></tr>' +
+      '<tr><td><strong>Certificate</strong></td><td>' + certRow + ' &middot; ' + certColorLabel + '</td></tr>' +
       '</tbody></table>';
   }
 

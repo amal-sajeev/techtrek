@@ -50,6 +50,14 @@ def _availability_label(stats):
     return "available"
 
 
+def _public_status_label(session, stats):
+    if session.status == "completed":
+        return "completed"
+    if stats["available"] == 0:
+        return "sold-out"
+    return "open"
+
+
 @router.get("/")
 def home(request: Request, db: Session = Depends(get_db)):
     now = now_ist()
@@ -73,6 +81,7 @@ def home(request: Request, db: Session = Depends(get_db)):
             "speaker_obj": speaker,
             "stats": stats,
             "availability": _availability_label(stats),
+            "event_status": _public_status_label(s, stats),
             "days_until": days_until,
             "hours_until": hours_until,
         })
@@ -174,6 +183,7 @@ def sessions_list(
             "auditorium": db.query(Auditorium).get(s.auditorium_id),
             "stats": stats,
             "availability": _availability_label(stats),
+            "event_status": _public_status_label(s, stats),
         })
 
     cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
@@ -243,6 +253,8 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
         if any_priority > 0 and not has_priority:
             availability = "priority-only"
 
+    event_status = _public_status_label(lecture, stats)
+
     return templates.TemplateResponse(
         "public/session_detail.html",
         template_ctx(
@@ -251,6 +263,7 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
             auditorium=auditorium,
             stats=stats,
             availability=availability,
+            event_status=event_status,
             on_waitlist=on_waitlist,
             has_priority=has_priority,
         ),

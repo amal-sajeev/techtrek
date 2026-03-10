@@ -129,6 +129,14 @@
               </div>
             </div>
 
+            {% if g.all_checked_in %}
+            <div style="padding:0 1.25rem 1rem;display:flex;gap:.5rem;flex-wrap:wrap;">
+              {% for b in g.bookings if b.checked_in and b.payment_status == 'paid' %}
+              <a href="/booking/certificate/{{ b.id }}" class="btn btn-sm btn-primary" onclick="event.stopPropagation();">&#127891; Certificate{{ ' (' ~ loop.index ~ ')' if g.bookings|selectattr('checked_in')|list|length > 1 else '' }}</a>
+              {% endfor %}
+            </div>
+            {% endif %}
+
           </div>
         </a>
         {% endfor %}

@@ -744,6 +744,37 @@ def speaker_delete(request: Request, speaker_id: int, db: Session = Depends(get_
     return RedirectResponse("/admin/speakers", status_code=303)
 
 
+@router.post("/speakers/{speaker_id}/invite")
+def speaker_invite(request: Request, speaker_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    sp = db.query(Speaker).get(speaker_id)
+    if not sp:
+        flash(request, "Speaker not found.", "danger")
+        return RedirectResponse("/admin/speakers", status_code=303)
+    if not sp.email:
+        flash(request, "Speaker has no email address. Add an email first.", "danger")
+        return RedirectResponse("/admin/speakers", status_code=303)
+    if sp.user_id:
+        flash(request, f"Speaker '{sp.name}' is already linked to a user account.", "warning")
+        return RedirectResponse("/admin/speakers", status_code=303)
+
+    import secrets
+    sp.invite_token = secrets.token_hex(32)
+    sp.invite_token_expires = now_ist() + timedelta(days=7)
+    db.commit()
+
+    base_url = str(request.base_url).rstrip("/")
+    invite_url = f"{base_url}/auth/speaker-invite/{sp.invite_token}"
+
+    from app.services.email import send_speaker_invite
+    send_speaker_invite(sp.email, sp.name, invite_url)
+
+    flash(request, f"Invite sent to {sp.email}.", "success")
+    return RedirectResponse("/admin/speakers", status_code=303)
+
+
 # ─── Sessions ───
 
 @router.get("/sessions")
@@ -810,6 +841,14 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         price_vip=float(form["price_vip"]) if form.get("price_vip", "").strip() else None,
         price_accessible=float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None,
         status=form.get("status", "draft"),
+        cert_title=form.get("cert_title", "").strip() or None,
+        cert_subtitle=form.get("cert_subtitle", "").strip() or None,
+        cert_footer=form.get("cert_footer", "").strip() or None,
+        cert_signer_name=form.get("cert_signer_name", "").strip() or None,
+        cert_signer_designation=form.get("cert_signer_designation", "").strip() or None,
+        cert_logo_url=form.get("cert_logo_url", "").strip() or None,
+        cert_bg_url=form.get("cert_bg_url", "").strip() or None,
+        cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
     )
     db.add(session_obj)
     db.commit()
@@ -872,6 +911,14 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.price_vip = float(form["price_vip"]) if form.get("price_vip", "").strip() else None
     lecture.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
     lecture.status = form.get("status", lecture.status)
+    lecture.cert_title = form.get("cert_title", "").strip() or None
+    lecture.cert_subtitle = form.get("cert_subtitle", "").strip() or None
+    lecture.cert_footer = form.get("cert_footer", "").strip() or None
+    lecture.cert_signer_name = form.get("cert_signer_name", "").strip() or None
+    lecture.cert_signer_designation = form.get("cert_signer_designation", "").strip() or None
+    lecture.cert_logo_url = form.get("cert_logo_url", "").strip() or None
+    lecture.cert_bg_url = form.get("cert_bg_url", "").strip() or None
+    lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
 
     _save_agenda_items(db, form, sess_id)
 

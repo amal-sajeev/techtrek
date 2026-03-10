@@ -522,3 +522,38 @@ def join_waitlist(request: Request, session_id: int, db: Session = Depends(get_d
         flash(request, "You've been added to the waitlist!", "success")
 
     return RedirectResponse(f"/sessions/{session_id}", status_code=303)
+
+
+@router.get("/certificate/{booking_id}")
+def download_certificate(request: Request, booking_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    booking = db.query(Booking).filter(Booking.id == booking_id).first()
+    if not booking or booking.user_id != user.id:
+        flash(request, "Booking not found.", "danger")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    if not booking.checked_in:
+        flash(request, "Certificate is only available after check-in.", "warning")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    if booking.payment_status != "paid":
+        flash(request, "Certificate is only available for paid bookings.", "warning")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    lecture = db.query(LectureSession).get(booking.session_id)
+    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+    if not lecture:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/booking/my", status_code=303)
+
+    from app.services.certificate import generate_certificate_pdf
+    pdf_bytes = generate_certificate_pdf(booking, user, lecture, auditorium)
+    ref = booking.booking_ref or "certificate"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="certificate-{ref}.pdf"'},
+    )

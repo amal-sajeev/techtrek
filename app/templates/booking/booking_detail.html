@@ -103,6 +103,10 @@
 
         <div class="confirmation-actions">
           <a href="/booking/invoice/{{ lecture.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          {% set cert_bookings = bookings|selectattr('checked_in')|selectattr('payment_status', 'equalto', 'paid')|list %}
+          {% for b in cert_bookings %}
+          <a href="/booking/certificate/{{ b.id }}" class="btn btn-outline">&#127891; Certificate{% if cert_bookings|length > 1 %} ({{ b.booking_ref }}){% endif %}</a>
+          {% endfor %}
           <a href="/booking/my" class="btn btn-primary">Back to My Bookings</a>
           <a href="/sessions" class="btn btn-outline">Browse Sessions</a>
           {% if is_group and group_id and bookings|selectattr('payment_status', 'equalto', 'paid')|list|length > 1 %}

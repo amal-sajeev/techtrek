@@ -14,7 +14,7 @@ html{scroll-behavior:smooth}
   --bg-elevated:  #1c2128;
   --bg-card:      #1c2128;
   --bg-glass:     rgba(13,17,23,0.85);
-  --cyan:         #18606e;
+  --cyan:         #00d4ff;
   --cyan-dim:     rgba(0,212,255,0.12);
   --cyan-glow:    0 0 20px rgba(0,212,255,0.35), 0 0 60px rgba(0,212,255,0.12);
   --amber:        #f59e0b;
@@ -588,6 +588,8 @@ a:hover { color:var(--text-primary) }
 .badge-filling-up       { background:rgba(245,158,11,.8); color:#000 }
 .badge-sold-out         { background:rgba(244,63,94,.8);  color:#fff }
 .badge-priority-only    { background:rgba(139,92,246,.8); color:#fff }
+.badge-open             { background:rgba(16,185,129,.8); color:#fff }
+.badge-completed        { background:rgba(148,163,184,.7); color:#fff }
 
 .card-body { padding:1.25rem; flex:1 }
 .card-title { font-size:1.05rem; font-weight:600; margin-bottom:.375rem; line-height:1.3 }
@@ -806,6 +808,8 @@ td code {
 .badge-filling-up   { background:var(--warning-light); color:var(--warning);  border:1px solid rgba(245,158,11,.3) }
 .badge-sold-out     { background:var(--danger-light);  color:var(--danger);   border:1px solid rgba(244,63,94,.3) }
 .badge-priority-only{ background:var(--violet-dim);    color:var(--violet);   border:1px solid rgba(139,92,246,.3) }
+.badge-open         { background:var(--success-light); color:var(--success);  border:1px solid rgba(16,185,129,.3) }
+.badge-completed    { background:rgba(148,163,184,.15); color:rgba(148,163,184,.9); border:1px solid rgba(148,163,184,.3) }
 .badge-draft        { background:rgba(245,158,11,.15); color:#f59e0b;          border:1px solid rgba(245,158,11,.35) }
 
 /* ---- SEATS ---- */
@@ -2801,6 +2805,8 @@ tr:last-child td { border-bottom:none }
 [data-theme="light"] .badge-filling-up { background: rgba(201,106,6,0.12); color: #7c3608; border-color: rgba(201,106,6,0.32); }
 [data-theme="light"] .badge-sold-out { background: rgba(200,30,30,0.12); color: #8b1a1a; border-color: rgba(200,30,30,0.32); }
 [data-theme="light"] .badge-priority-only { background: rgba(124,58,237,0.10); color: #5b21b6; border-color: rgba(124,58,237,0.32); }
+[data-theme="light"] .badge-open { background: rgba(4,120,87,0.12); color: #054d38; border-color: rgba(4,120,87,0.32); }
+[data-theme="light"] .badge-completed { background: rgba(100,116,139,0.12); color: #475569; border-color: rgba(100,116,139,0.32); }
 [data-theme="light"] .badge-draft { background: rgba(201,106,6,0.10); color: #7c3608; border-color: rgba(201,106,6,0.32); }
 [data-theme="light"] .badge-muted { background: rgba(71,99,120,0.10); color: #344e62; border-color: rgba(71,99,120,0.28); }
 [data-theme="light"] .badge-success { background: rgba(4,120,87,0.12); color: #054d38; border: 1px solid rgba(4,120,87,0.32); }
@@ -2810,6 +2816,8 @@ tr:last-child td { border-bottom:none }
 [data-theme="light"] .card-badge.badge-available { background: rgba(4,120,87,0.90); color: #fff; }
 [data-theme="light"] .card-badge.badge-filling-up { background: rgba(201,106,6,0.90); color: #fff; }
 [data-theme="light"] .card-badge.badge-sold-out { background: rgba(200,30,30,0.88); color: #fff; }
+[data-theme="light"] .card-badge.badge-open { background: rgba(4,120,87,0.90); color: #fff; }
+[data-theme="light"] .card-badge.badge-completed { background: rgba(100,116,139,0.85); color: #fff; }
 
 /* ---- TESTIMONIALS ---- */
 [data-theme="light"] .testimonial-card {
@@ -3406,7 +3414,7 @@ tr:last-child td { border-bottom:none }
 .ts-dropdown .option { padding:8px 12px; color:var(--text-primary) }
 .ts-dropdown .option:hover,
 .ts-dropdown .option.active {
-  background:var(--cyan);
+  background:#18606e;
   color:#fff;
 }
 .ts-dropdown .no-results { color:var(--text-muted); padding:8px 12px }
@@ -3445,7 +3453,7 @@ tr:last-child td { border-bottom:none }
 [data-theme="light"] .ts-dropdown .option { color:var(--text-primary) }
 [data-theme="light"] .ts-dropdown .option:hover,
 [data-theme="light"] .ts-dropdown .option.active {
-  background:var(--cyan);
+  background:#0881a2;
   color:#fff;
 }
 

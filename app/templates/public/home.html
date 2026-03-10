@@ -163,7 +163,7 @@
         <div class="card-image">
           <img src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
                alt="{{ item.session.title }}" loading="lazy">
-          <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
+          <span class="card-badge badge-{{ item.event_status }}">{{ item.event_status | replace('-', ' ') | title }}</span>
         </div>
         <div class="card-body">
           <h3 class="card-title">{{ item.session.title }}</h3>

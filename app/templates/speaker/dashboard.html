@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Speaker Dashboard — TechTrek{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:2rem;padding-bottom:3rem;">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
+    <div>
+      <h1 style="font-size:1.75rem;font-weight:700;margin:0;">Speaker Dashboard</h1>
+      <p style="color:var(--text-secondary);margin:.25rem 0 0;">Welcome, {{ speaker.name }}</p>
+    </div>
+    <a href="/speaker/profile" class="btn btn-outline btn-sm">Edit Profile</a>
+  </div>
+
+  <div class="admin-stats" style="margin-bottom:2rem;">
+    <div class="admin-stat-card">
+      <div class="admin-stat-value">{{ total }}</div>
+      <div class="admin-stat-label">Total Sessions</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="admin-stat-value">{{ upcoming }}</div>
+      <div class="admin-stat-label">Upcoming</div>
+    </div>
+    <div class="admin-stat-card">
+      <div class="admin-stat-value">{{ completed }}</div>
+      <div class="admin-stat-label">Completed</div>
+    </div>
+  </div>
+
+  {% if sessions %}
+  <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:1rem;">Your Sessions</h2>
+  <div class="table-responsive">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Date & Time</th>
+          <th>Duration</th>
+          <th>Status</th>
+          <th>Bookings</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in sessions %}
+        {% set s = item.session %}
+        <tr>
+          <td><strong>{{ s.title }}</strong></td>
+          <td>{{ s.start_time.strftime('%d %b %Y, %I:%M %p') }}</td>
+          <td>{{ s.duration_minutes }} min</td>
+          <td>
+            <span class="badge {% if s.status == 'published' %}badge-success{% elif s.status == 'draft' %}badge-draft{% elif s.status == 'completed' %}badge-available{% elif s.status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">
+              {{ s.status|replace('_',' ')|title }}
+            </span>
+          </td>
+          <td>{{ item.bookings }}</td>
+          <td>
+            <a href="/speaker/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <h3>No sessions assigned yet</h3>
+    <p>Sessions assigned to you by the admin will appear here.</p>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

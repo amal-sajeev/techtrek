@@ -27,7 +27,7 @@
       </div>
       <div class="filter-city">
         <label for="filter-city" class="sr-only">City</label>
-        <select name="city_id" id="filter-city" class="form-input" aria-label="Filter by city" placeholder="All cities">
+        <select name="city_id" id="filter-city" class="form-input" aria-label="Filter by city">
           <option value="">All cities</option>
           {% for city in cities %}
           <option value="{{ city.id }}" {% if city_id == city.id %}selected{% endif %}>{{ city.name }}{% if city.state %}, {{ city.state }}{% endif %}</option>
@@ -36,7 +36,7 @@
       </div>
       <div class="filter-college">
         <label for="filter-college" class="sr-only">College</label>
-        <select name="college_id" id="filter-college" class="form-input" aria-label="Filter by college" placeholder="All colleges">
+        <select name="college_id" id="filter-college" class="form-input" aria-label="Filter by college">
           <option value="">All colleges</option>
           {% for college in colleges %}
           <option value="{{ college.id }}" {% if college_id == college.id %}selected{% endif %}>{{ college.name }}</option>
@@ -45,7 +45,7 @@
       </div>
       <div class="filter-sort">
         <label for="filter-sort" class="sr-only">Sort</label>
-        <select name="sort" id="filter-sort" class="form-input" placeholder="Sort by">
+        <select name="sort" id="filter-sort" class="form-input">
           <option value="date"  {% if sort == 'date'  %}selected{% endif %}>Sort by Date</option>
           <option value="price" {% if sort == 'price' %}selected{% endif %}>Sort by Price</option>
           <option value="title" {% if sort == 'title' %}selected{% endif %}>Sort by Title</option>
@@ -83,7 +83,7 @@
               src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
               alt="{{ item.session.title }}"
               loading="lazy">
-            <span class="card-badge badge-{{ item.availability }}">{{ item.availability | replace('-', ' ') | title }}</span>
+            <span class="card-badge badge-{{ item.event_status }}">{{ item.event_status | replace('-', ' ') | title }}</span>
           </div>
           <div class="card-body">
             <h3 class="card-title">{{ item.session.title }}</h3>

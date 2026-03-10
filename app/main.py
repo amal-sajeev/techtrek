@@ -50,14 +50,40 @@ with engine.connect() as conn:
             conn.commit()
         except Exception:
             conn.rollback()
+    for col, col_type in [
+        ("user_id", "INTEGER REFERENCES users(id) UNIQUE"),
+        ("invite_token", "VARCHAR(64) UNIQUE"),
+        ("invite_token_expires", "TIMESTAMP"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE speakers ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+    for col, col_type in [
+        ("cert_title", "VARCHAR(300)"),
+        ("cert_subtitle", "TEXT"),
+        ("cert_footer", "VARCHAR(500)"),
+        ("cert_signer_name", "VARCHAR(200)"),
+        ("cert_signer_designation", "VARCHAR(200)"),
+        ("cert_logo_url", "VARCHAR(500)"),
+        ("cert_bg_url", "VARCHAR(500)"),
+        ("cert_color_scheme", "VARCHAR(20)"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE lecture_sessions ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
-from app.routers import auth, public, booking, admin, supervisor  # noqa: E402
+from app.routers import auth, public, booking, admin, supervisor, speaker  # noqa: E402
 
 application.include_router(auth.router)
 application.include_router(public.router)
 application.include_router(booking.router)
 application.include_router(admin.router)
 application.include_router(supervisor.router)
+application.include_router(speaker.router)
 
 app = application
 

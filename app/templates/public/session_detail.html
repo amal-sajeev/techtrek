@@ -30,6 +30,7 @@
     <div class="session-detail">
       <div class="session-detail-main">
         <h1 class="session-detail-title">{{ lecture.title }}</h1>
+        <span class="badge badge-{{ event_status }}">{{ event_status | replace('-', ' ') | title }}</span>
 
         <!-- Speaker section -->
         {% if lecture.speaker_rel %}

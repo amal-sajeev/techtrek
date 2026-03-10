@@ -3,7 +3,8 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.dependencies import flash, get_db, template_ctx, templates
+from app.dependencies import flash, get_db, now_ist, template_ctx, templates
+from app.models.speaker import Speaker
 from app.models.user import User
 from app.services.email import send_signup_confirmation
 
@@ -16,6 +17,27 @@ def _hash_pw(password: str) -> str:
 
 def _verify_pw(password: str, hashed: str) -> bool:
     return bcrypt.checkpw(password.encode(), hashed.encode())
+
+
+def _try_link_speaker_token(request: Request, db: Session, user: User):
+    """If the session contains a pending speaker invite token, link the user."""
+    token = request.session.pop("pending_speaker_token", None)
+    if not token:
+        return
+    speaker = db.query(Speaker).filter(
+        Speaker.invite_token == token,
+        Speaker.user_id.is_(None),
+    ).first()
+    if not speaker:
+        return
+    if speaker.invite_token_expires and speaker.invite_token_expires < now_ist():
+        flash(request, "Speaker invite has expired. Ask admin to resend.", "danger")
+        return
+    speaker.user_id = user.id
+    speaker.invite_token = None
+    speaker.invite_token_expires = None
+    db.commit()
+    flash(request, f"Your account is now linked as speaker: {speaker.name}", "success")
 
 
 @router.get("/login")
@@ -37,6 +59,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login", status_code=303)
 
     request.session["user_id"] = user.id
+    _try_link_speaker_token(request, db, user)
     flash(request, f"Welcome back, {user.username}!", "success")
     next_url = request.query_params.get("next", "/")
     return RedirectResponse(next_url, status_code=303)
@@ -105,10 +128,12 @@ async def register(request: Request, db: Session = Depends(get_db)):
     db.refresh(user)
 
     request.session["user_id"] = user.id
+    _try_link_speaker_token(request, db, user)
     msg = "Account created! You are the admin." if is_first_user else "Account created!"
     flash(request, msg, "success")
     send_signup_confirmation(user.email, user.username)
-    return RedirectResponse("/", status_code=303)
+    next_url = request.session.pop("speaker_invite_next", "/")
+    return RedirectResponse(next_url, status_code=303)
 
 
 @router.get("/profile")
@@ -160,6 +185,40 @@ async def profile_update(request: Request, db: Session = Depends(get_db)):
 
     flash(request, "Profile updated.", "success")
     return RedirectResponse("/auth/profile", status_code=303)
+
+
+@router.get("/speaker-invite/{token}")
+def speaker_invite_accept(request: Request, token: str, db: Session = Depends(get_db)):
+    speaker = db.query(Speaker).filter(Speaker.invite_token == token).first()
+    if not speaker:
+        flash(request, "Invalid or already-used invite link.", "danger")
+        return RedirectResponse("/", status_code=303)
+    if speaker.invite_token_expires and speaker.invite_token_expires < now_ist():
+        flash(request, "This invite link has expired. Ask the admin to resend.", "danger")
+        return RedirectResponse("/", status_code=303)
+    if speaker.user_id:
+        flash(request, "This speaker account is already linked.", "info")
+        return RedirectResponse("/speaker/", status_code=303)
+
+    user_id = request.session.get("user_id")
+    if user_id:
+        user = db.query(User).filter(User.id == user_id).first()
+        if user:
+            existing = db.query(Speaker).filter(Speaker.user_id == user.id).first()
+            if existing:
+                flash(request, f"Your account is already linked to speaker: {existing.name}", "warning")
+                return RedirectResponse("/speaker/", status_code=303)
+            speaker.user_id = user.id
+            speaker.invite_token = None
+            speaker.invite_token_expires = None
+            db.commit()
+            flash(request, f"Welcome, {speaker.name}! Your speaker account is now active.", "success")
+            return RedirectResponse("/speaker/", status_code=303)
+
+    request.session["pending_speaker_token"] = token
+    request.session["speaker_invite_next"] = "/speaker/"
+    flash(request, "Please log in or create an account to accept the speaker invite.", "info")
+    return RedirectResponse(f"/auth/login?next=/speaker/", status_code=303)
 
 
 @router.get("/logout")

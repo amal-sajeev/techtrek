@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Speaker Profile — TechTrek{% endblock %}
+
+{% block content %}
+<div class="auth-page">
+  <div class="auth-box" style="max-width:560px">
+    <div class="auth-header">
+      <div class="auth-logo">&#9889; TECHTREK</div>
+      <p class="auth-title">Speaker Profile</p>
+    </div>
+
+    {% if speaker.photo_url %}
+    <div style="text-align:center;margin-bottom:1rem;">
+      <img src="{{ speaker.photo_url }}" alt="{{ speaker.name }}" style="width:100px;height:100px;object-fit:cover;border-radius:50%;border:2px solid var(--border);">
+    </div>
+    {% endif %}
+
+    <form method="post" action="/speaker/profile">
+      <div class="form-group">
+        <label class="form-label" for="sp-name">Display Name <span class="required">*</span></label>
+        <input type="text" name="name" id="sp-name" class="form-input" value="{{ speaker.name }}" required>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="sp-title">Title / Designation</label>
+        <input type="text" name="title" id="sp-title" class="form-input" value="{{ speaker.title or '' }}" placeholder="e.g. Senior Engineer at Google">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="sp-bio">Bio</label>
+        <textarea name="bio" id="sp-bio" class="form-input" rows="5" placeholder="Tell attendees about yourself...">{{ speaker.bio or '' }}</textarea>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="sp-photo">Photo URL</label>
+        <input type="url" name="photo_url" id="sp-photo" class="form-input" value="{{ speaker.photo_url or '' }}" placeholder="https://...">
+      </div>
+
+      <div style="display:flex;gap:1rem;margin-top:1rem;">
+        <a href="/speaker/" class="btn btn-outline" style="flex:1;text-align:center;">Back to Dashboard</a>
+        <button type="submit" class="btn btn-primary" style="flex:1;">Save Profile</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

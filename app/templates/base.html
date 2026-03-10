@@ -35,6 +35,9 @@
       <a href="/sessions" class="nav-link">Sessions</a>
       {% if user %}
           <a href="/booking/my" class="nav-link">My Bookings</a>
+        {% if is_speaker %}
+          <a href="/speaker/" class="nav-link nav-admin">Speaker</a>
+        {% endif %}
         {% if user.is_admin %}
           <a href="/admin/" class="nav-link nav-admin">Admin</a>
         {% elif user.is_supervisor %}
@@ -72,6 +75,9 @@
   {% if user %}
       <a href="/booking/my" class="nav-drawer-link">My Bookings</a>
       <a href="/auth/profile" class="nav-drawer-link">Profile</a>
+    {% if is_speaker %}
+      <a href="/speaker/" class="nav-drawer-link">Speaker Dashboard</a>
+    {% endif %}
     {% if user.is_admin %}
       <a href="/admin/" class="nav-drawer-link">Admin Panel</a>
     {% elif user.is_supervisor %}
