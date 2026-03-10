@@ -91,13 +91,13 @@
     grid[key] = {
       row: r,
       col: c,
-      label: type === "aisle" ? "" : rowLetter(r) + c,
+      label: (type === "aisle") ? "" : rowLetter(r) + c,
       type: type,
-      active: type !== "aisle",
+      active: (type !== "aisle"),
     };
   }
 
-  var SEAT_TOOLS = { standard: 1, vip: 1, accessible: 1, aisle: 1, eraser: 1, custom: 1 };
+  var SEAT_TOOLS = { standard: 1, vip: 1, accessible: 1, reserved: 1, aisle: 1, eraser: 1, custom: 1 };
 
   function isCustomType(type) {
     return type && type.indexOf("custom_") === 0;
@@ -400,7 +400,7 @@
             cell.classList.add("cell-" + cellType);
             cell.title = grid[key].label ? grid[key].label + " — " + cellType : cellType;
           }
-          cell.textContent = cellType === "aisle" ? "—" : grid[key].label;
+          cell.textContent = (cellType === "aisle") ? "—" : grid[key].label;
         } else {
           cell.classList.add("cell-empty");
           cell.title = "Row " + rowLetter(r) + ", seat " + c2 + " — click or drag to add";
@@ -686,9 +686,9 @@
     return {
       row: newRow,
       col: newCol,
-      label: s.type === "aisle" ? "" : rowLetter(newRow) + newCol,
+      label: (s.type === "aisle") ? "" : rowLetter(newRow) + newCol,
       type: s.type,
-      active: s.type !== "aisle"
+      active: (s.type !== "aisle"),
     };
   }
 
@@ -893,6 +893,7 @@
     var total = 0;
     var vip = 0;
     var accessible = 0;
+    var reserved = 0;
     var customCounts = {};
     Object.keys(grid).forEach(function (key) {
       var s = grid[key];
@@ -900,6 +901,7 @@
         total++;
         if (s.type === "vip") vip++;
         else if (s.type === "accessible") accessible++;
+        else if (s.type === "reserved") reserved++;
         else if (isCustomType(s.type) && customTypes[s.type]) {
           var name = customTypes[s.type].name;
           customCounts[name] = (customCounts[name] || 0) + 1;
@@ -912,7 +914,8 @@
       var html =
         "Total seats: <strong>" + total +
         "</strong> | VIP: <strong>" + vip +
-        "</strong> | Accessible: <strong>" + accessible + "</strong>";
+        "</strong> | Accessible: <strong>" + accessible +
+        "</strong> | Reserved (VVIP): <strong>" + reserved + "</strong>";
       Object.keys(customCounts).forEach(function (name) {
         html += " | " + name + ": <strong>" + customCounts[name] + "</strong>";
       });
@@ -1297,6 +1300,7 @@
             var cssClass = "seat seat-available";
             if (seatType === "vip") cssClass = "seat seat-vip";
             else if (seatType === "accessible") cssClass = "seat seat-accessible";
+            else if (seatType === "reserved") cssClass = "seat seat-reserved";
             el.className = cssClass;
             el.title = grid[key].label + " \u2014 " + seatType;
           }

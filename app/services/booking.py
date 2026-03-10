@@ -47,6 +47,8 @@ def get_seat_map(db: Session, session_id: int, auditorium_id: int):
         status = "available"
         if seat.seat_type == "aisle":
             status = "aisle"
+        elif seat.seat_type == "reserved":
+            status = "reserved"
         elif seat.id in booked_seat_ids:
             status = "taken"
         seat_map.append(
@@ -74,7 +76,7 @@ def hold_seats(
 
     valid_seat_ids = set(
         sid for (sid,) in db.query(Seat.id)
-        .filter(Seat.auditorium_id == lecture.auditorium_id, Seat.is_active == True, Seat.seat_type != "aisle")
+        .filter(Seat.auditorium_id == lecture.auditorium_id, Seat.is_active == True, Seat.seat_type.notin_(["aisle", "reserved"]))
         .all()
     )
     seat_ids = [sid for sid in seat_ids if sid in valid_seat_ids]

@@ -20,6 +20,9 @@
     <button class="tool-btn" data-tool="accessible" title="Wheelchair-accessible">
       <span class="tool-swatch tool-accessible"></span> Accessible
     </button>
+    <button class="tool-btn" data-tool="reserved" title="Reserved for VVIPs (greyed out, unselectable)">
+      <span class="tool-swatch tool-reserved"></span> Reserved
+    </button>
     <button class="tool-btn" data-tool="aisle" title="Walkway (no seat)">
       <span class="tool-swatch tool-aisle"></span> Aisle
     </button>
@@ -77,6 +80,7 @@
   <span class="designer-legend-item"><span class="designer-legend-swatch tool-standard"></span> Standard</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch tool-vip"></span> VIP</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch tool-accessible"></span> Accessible</span>
+  <span class="designer-legend-item"><span class="designer-legend-swatch tool-reserved"></span> Reserved (VVIP)</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch tool-aisle"></span> Aisle</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch cell-empty"></span> Empty (click to add)</span>
   <span class="designer-legend-item"><span class="designer-legend-swatch designer-gap-swatch"></span> Walkway gap</span>
@@ -141,6 +145,7 @@
         <div class="legend-item"><span class="legend-swatch legend-taken"></span><span class="legend-label">Taken</span></div>
         <div class="legend-item"><span class="legend-swatch legend-vip"></span><span class="legend-label">VIP</span></div>
         <div class="legend-item"><span class="legend-swatch legend-accessible"></span><span class="legend-label">Accessible</span></div>
+        <div class="legend-item"><span class="legend-swatch legend-reserved"></span><span class="legend-label">Reserved (VVIP)</span></div>
       </div>
     </div>
   </div>
@@ -150,7 +155,7 @@
   <p><strong>How to build your layout</strong></p>
   <ol class="designer-help-steps">
     <li>Set the <strong>grid size</strong> with <strong>+ Row</strong> / <strong>+ Column</strong> (or &minus; Row / &minus; Column to shrink). Every auditorium can have a different shape.</li>
-    <li>Choose a <strong>seat type</strong> (Standard, VIP, Accessible, or Aisle). <strong>Click</strong> or <strong>drag</strong> to paint; <strong>right-click</strong> or Eraser to clear.</li>
+    <li>Choose a <strong>seat type</strong> (Standard, VIP, Accessible, Reserved, or Aisle). <strong>Click</strong> or <strong>drag</strong> to paint; <strong>right-click</strong> or Eraser to clear.</li>
     <li>Use <strong>Fill all with [type]</strong> to fill the grid, or click a <strong>row letter</strong> or <strong>column number</strong> to fill that row/column. Put <strong>aisles</strong> wherever you want.</li>
     <li><strong>Right-click</strong> a row letter or column number for options to <strong>insert before/after</strong>, <strong>delete</strong>, or <strong>clear</strong> that row/column from anywhere in the grid.</li>
     <li><strong>Shift+click</strong> a row letter or column number to add a <strong>walkway gap</strong> (extra space between sections). You can also click the thin handles between rows. Gaps appear on the public booking page.</li>

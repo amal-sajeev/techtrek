@@ -22,7 +22,7 @@ router = APIRouter(tags=["public"])
 def _seat_stats(db: Session, session_id: int, auditorium_id: int):
     total = (
         db.query(func.count(Seat.id))
-        .filter(Seat.auditorium_id == auditorium_id, Seat.is_active == True, Seat.seat_type != "aisle")
+        .filter(Seat.auditorium_id == auditorium_id, Seat.is_active == True, Seat.seat_type.notin_(["aisle", "reserved"]))
         .scalar()
     )
     now = now_ist()

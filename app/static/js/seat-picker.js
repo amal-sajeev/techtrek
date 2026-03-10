@@ -19,7 +19,8 @@
     taken:      "taken — unavailable",
     selected:   "selected",
     vip:        "VIP available",
-    accessible: "accessible available"
+    accessible: "accessible available",
+    reserved:   "reserved — VVIP"
   };
 
   function priceForType(type) {
@@ -128,6 +129,16 @@
           el.tabIndex = -1;
           el.style.visibility = "hidden";
           el.style.pointerEvents = "none";
+        } else if (seat.status === "reserved") {
+          el.className = "seat seat-reserved";
+          el.disabled = true;
+          el.dataset.seatId = seat.id;
+          el.dataset.label  = seat.label;
+          el.dataset.type   = seat.type;
+          el.setAttribute("aria-label", "Seat " + seat.label + ", reserved — VVIP");
+          el.setAttribute("aria-disabled", "true");
+          el.setAttribute("role", "checkbox");
+          el.setAttribute("aria-pressed", "false");
         } else {
           var statusClass = seat.status;
           if (seat.type === "vip"        && seat.status === "available") statusClass = "vip";

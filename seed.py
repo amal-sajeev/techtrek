@@ -46,9 +46,24 @@ def seed():
         full_name="Charlie Patel", college="BITS Pilani",
         discipline="ECE", domain="IoT", year_of_study=4,
     )
-    db.add_all([admin, alice, bob, charlie])
+    speaker_sarah = User(
+        username="sarah", email="sarah@deepmind.example.com", password_hash=pw("speaker123"),
+        full_name="Dr. Sarah Chen",
+    )
+    speaker_james = User(
+        username="james", email="james@fastly.example.com", password_hash=pw("speaker123"),
+        full_name="James Kowalski",
+    )
+    speaker_maria = User(
+        username="maria", email="maria@rust.example.com", password_hash=pw("speaker123"),
+        full_name="Maria Gonzalez",
+    )
+    db.add_all([admin, alice, bob, charlie, speaker_sarah, speaker_james, speaker_maria])
     db.commit()
+    for u in [speaker_sarah, speaker_james, speaker_maria]:
+        db.refresh(u)
     print("Created users: admin/admin123, alice/user123, bob/user123, charlie/user123")
+    print("Created speaker users: sarah/speaker123, james/speaker123, maria/speaker123")
 
     # ── Cities ──
     cities = [
@@ -81,9 +96,9 @@ def seed():
 
     # ── Speakers ──
     speakers = [
-        Speaker(name="Dr. Sarah Chen", title="VP of AI Research, DeepMind", bio="Leading researcher in autonomous agents and reinforcement learning with 15+ years of experience.", email="sarah@deepmind.example.com", photo_url="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop"),
-        Speaker(name="James Kowalski", title="Staff Engineer, Fastly", bio="WebAssembly pioneer and edge computing evangelist. Co-author of the WASI spec.", email="james@fastly.example.com"),
-        Speaker(name="Maria Gonzalez", title="Rust Core Team Member", bio="Systems programming expert and Rust educator. Author of 'Rust in Action'.", email="maria@rust.example.com"),
+        Speaker(name="Dr. Sarah Chen", title="VP of AI Research, DeepMind", bio="Leading researcher in autonomous agents and reinforcement learning with 15+ years of experience.", email="sarah@deepmind.example.com", photo_url="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200&h=200&fit=crop", user_id=speaker_sarah.id),
+        Speaker(name="James Kowalski", title="Staff Engineer, Fastly", bio="WebAssembly pioneer and edge computing evangelist. Co-author of the WASI spec.", email="james@fastly.example.com", user_id=speaker_james.id),
+        Speaker(name="Maria Gonzalez", title="Rust Core Team Member", bio="Systems programming expert and Rust educator. Author of 'Rust in Action'.", email="maria@rust.example.com", user_id=speaker_maria.id),
         Speaker(name="Alex Petrov", title="Principal DB Engineer, Neon", bio="PostgreSQL internals expert. Speaker at PGConf and author of 'Database Internals'.", email="alex@neon.example.com"),
         Speaker(name="Priya Sharma", title="Accessibility Lead, Google", bio="WCAG expert and inclusive design advocate. Built Google's accessibility testing framework.", email="priya@google.example.com"),
         Speaker(name="Michael Torres", title="CISO, CrowdStrike", bio="Cybersecurity veteran with experience in zero-trust architecture and threat detection.", email="michael@crowdstrike.example.com"),
@@ -263,11 +278,12 @@ def seed():
     print(f"Created {len(subs)} newsletter subscribers")
 
     print("\n--- Seeding complete! ---")
-    print("Admin login:  admin / admin123")
-    print("User logins:  alice / user123, bob / user123, charlie / user123")
-    print(f"Sessions:     {len(sessions_data)} (across 3 auditoriums in 3 cities)")
-    print(f"Speakers:     {len(speakers)}")
-    print(f"Testimonials: {len(testimonials)}")
+    print("Admin login:    admin / admin123")
+    print("User logins:    alice / user123, bob / user123, charlie / user123")
+    print("Speaker logins: sarah / speaker123, james / speaker123, maria / speaker123")
+    print(f"Sessions:       {len(sessions_data)} (across 3 auditoriums in 3 cities)")
+    print(f"Speakers:       {len(speakers)} ({3} with linked accounts)")
+    print(f"Testimonials:   {len(testimonials)}")
     db.close()
 
 
