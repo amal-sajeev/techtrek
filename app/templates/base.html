@@ -6,7 +6,8 @@
   <title>{% block title %}TechTrek{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1117'/><text y='24' x='4' font-size='22' font-family='monospace'>⚡</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.css">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=85">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=97">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v=97">
   <script>
     (function(){
       var t = localStorage.getItem('techtrek-theme');
@@ -31,10 +32,12 @@
     </a>
 
     <div class="navbar-links" id="navbar-links">
-      <a href="/" class="nav-link">Home</a>
-      <a href="/sessions" class="nav-link">Sessions</a>
+      <a href="/" class="nav-link">{{ _('Home') }}</a>
+      <a href="/sessions" class="nav-link">{{ _('Sessions') }}</a>
+      <a href="/schedule" class="nav-link">{{ _('Schedule') }}</a>
+      <a href="/recordings" class="nav-link">{{ _('Recordings') }}</a>
       {% if user %}
-          <a href="/booking/my" class="nav-link">My Bookings</a>
+          <a href="/booking/my" class="nav-link">{{ _('My Bookings') }}</a>
         {% if is_speaker %}
           <a href="/speaker/" class="nav-link nav-admin">Speaker</a>
         {% endif %}
@@ -70,10 +73,12 @@
 <div class="nav-overlay" id="nav-overlay"></div>
 <div class="nav-drawer" id="nav-drawer">
   <div class="nav-drawer-header">&#9889; TECHTREK</div>
-  <a href="/" class="nav-drawer-link">Home</a>
-  <a href="/sessions" class="nav-drawer-link">Sessions</a>
+  <a href="/" class="nav-drawer-link">{{ _('Home') }}</a>
+  <a href="/sessions" class="nav-drawer-link">{{ _('Sessions') }}</a>
+  <a href="/schedule" class="nav-drawer-link">{{ _('Schedule') }}</a>
+  <a href="/recordings" class="nav-drawer-link">{{ _('Recordings') }}</a>
   {% if user %}
-      <a href="/booking/my" class="nav-drawer-link">My Bookings</a>
+      <a href="/booking/my" class="nav-drawer-link">{{ _('My Bookings') }}</a>
       <a href="/auth/profile" class="nav-drawer-link">Profile</a>
     {% if is_speaker %}
       <a href="/speaker/" class="nav-drawer-link">Speaker Dashboard</a>
@@ -112,22 +117,16 @@
 
 <!-- Footer -->
 <footer class="footer">
-  <div class="container">
-    <div class="footer-inner">
-      <div class="footer-brand">
-        <span>&#9889; TECHTREK</span>
-        <p class="footer-tagline">// tech lectures, live and unforgettable.</p>
-      </div>
-      <div class="footer-links">
-        <a href="/">Home</a>
-        <a href="/sessions">Sessions</a>
-        <a href="/auth/login">Login</a>
-      </div>
-    </div>
-    <div class="footer-bottom">
-      <p>&copy; 2026 TechTrek. All systems operational.</p>
-    </div>
+  <div>
+    <span class="footer-brand">&#9889; TECHTREK</span>
+    <p class="footer-tagline"><span style="color:var(--cyan);opacity:.5">// </span>tech lectures, live and unforgettable.</p>
   </div>
+  <div class="footer-links">
+    <a href="/">Home</a>
+    <a href="/sessions">Sessions</a>
+    <a href="/auth/login">Login</a>
+  </div>
+  <div class="footer-bottom">&copy; 2026 TechTrek. All systems operational.</div>
 </footer>
 
 <!-- QR zoom modal -->

@@ -15,6 +15,7 @@ from app.models.session import LectureSession
 from app.models.user import User
 from app.models.auditorium import Auditorium
 from app.services.email import send_booking_confirmation, send_group_booking_confirmation, send_cancellation_confirmation, send_group_cancellation_confirmation
+from app.services.razorpay import process_refund as rz_process_refund
 
 CANCELLATION_FEE = 100.0
 TICKET_PRICE = 500.0
@@ -223,6 +224,12 @@ def cancel_booking_user(db: Session, booking_id: int, user_id: int, *, send_emai
     fee = CANCELLATION_FEE
     refund = max(0, price - fee)
 
+    rz_warning = ""
+    if b.razorpay_payment_id and refund > 0:
+        rz_result = rz_process_refund(b.razorpay_payment_id, int(refund * 100))
+        if not rz_result:
+            rz_warning = " (Razorpay refund failed — process manually)"
+
     b.payment_status = "refunded"
     b.cancellation_fee = fee
     b.refund_amount = refund
@@ -248,7 +255,7 @@ def cancel_booking_user(db: Session, booking_id: int, user_id: int, *, send_emai
                 invoice_pdf=invoice_pdf,
             )
 
-    return {"ok": True, "msg": f"Booking cancelled. Refund of ₹{refund:.0f} will be processed (₹{fee:.0f} cancellation fee).", "refund": refund, "fee": fee}
+    return {"ok": True, "msg": f"Booking cancelled. Refund of ₹{refund:.0f} will be processed (₹{fee:.0f} cancellation fee).{rz_warning}", "refund": refund, "fee": fee}
 
 
 def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
@@ -268,11 +275,17 @@ def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
     cancelled_items = []
     total_refund = 0.0
     total_fees = 0.0
+    rz_failures = 0
 
     for b in bookings:
         price = b.amount_paid or float(lecture.price) if lecture else TICKET_PRICE
         fee = CANCELLATION_FEE
         refund = max(0, price - fee)
+
+        if b.razorpay_payment_id and refund > 0:
+            rz_result = rz_process_refund(b.razorpay_payment_id, int(refund * 100))
+            if not rz_result:
+                rz_failures += 1
 
         b.payment_status = "refunded"
         b.cancellation_fee = fee
@@ -309,7 +322,8 @@ def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
         )
 
     count = len(cancelled_items)
-    return {"ok": True, "msg": f"Cancelled {count} ticket(s). Total refund: ₹{total_refund:.0f}.", "cancelled": count, "refund": total_refund}
+    rz_warning = f" ({rz_failures} Razorpay refund(s) failed — process manually)" if rz_failures else ""
+    return {"ok": True, "msg": f"Cancelled {count} ticket(s). Total refund: ₹{total_refund:.0f}.{rz_warning}", "cancelled": count, "refund": total_refund}
 
 
 def cancel_existing_holds(db: Session, user_id: int, session_id: int):

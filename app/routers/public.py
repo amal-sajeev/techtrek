@@ -1,8 +1,10 @@
+import io
+from collections import defaultdict
 from datetime import datetime, date, time
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse
-from sqlalchemy import func
+from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
@@ -267,6 +269,162 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
             on_waitlist=on_waitlist,
             has_priority=has_priority,
         ),
+    )
+
+
+@router.get("/recordings")
+def recordings_page(request: Request, db: Session = Depends(get_db)):
+    sessions = (
+        db.query(LectureSession)
+        .filter(
+            LectureSession.is_recording_public == True,
+            or_(
+                LectureSession.recording_url.isnot(None),
+                LectureSession.recording_file.isnot(None),
+            ),
+        )
+        .order_by(LectureSession.start_time.desc())
+        .all()
+    )
+    enriched = []
+    for s in sessions:
+        aud = db.query(Auditorium).get(s.auditorium_id)
+        enriched.append({"session": s, "auditorium": aud})
+    return templates.TemplateResponse(
+        "public/recordings.html",
+        template_ctx(request, sessions=enriched),
+    )
+
+
+def _schedule_query(db: Session, college_id: str = "", auditorium_id: str = ""):
+    query = db.query(LectureSession).filter(
+        LectureSession.status.in_(["published", "completed"])
+    )
+    if auditorium_id:
+        try:
+            query = query.filter(LectureSession.auditorium_id == int(auditorium_id))
+        except ValueError:
+            pass
+    elif college_id:
+        try:
+            aud_ids = [a.id for a in db.query(Auditorium.id).filter(Auditorium.college_id == int(college_id)).all()]
+            if aud_ids:
+                query = query.filter(LectureSession.auditorium_id.in_(aud_ids))
+            else:
+                query = query.filter(False)
+        except ValueError:
+            pass
+    return query.order_by(LectureSession.start_time).all()
+
+
+@router.get("/schedule")
+def schedule_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    college_id: str = Query("", alias="college_id"),
+    auditorium_id: str = Query("", alias="auditorium_id"),
+):
+    sessions = _schedule_query(db, college_id, auditorium_id)
+    grouped = defaultdict(list)
+    for s in sessions:
+        aud = db.query(Auditorium).get(s.auditorium_id)
+        date_key = s.start_time.strftime("%Y-%m-%d")
+        grouped[date_key].append({"session": s, "auditorium": aud})
+
+    colleges = db.query(College).order_by(College.name).all()
+    auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
+
+    return templates.TemplateResponse(
+        "public/schedule.html",
+        template_ctx(
+            request,
+            grouped=dict(sorted(grouped.items())),
+            colleges=colleges, auditoriums=auditoriums,
+            college_id=college_id, auditorium_id=auditorium_id,
+        ),
+    )
+
+
+@router.get("/api/schedule")
+def api_schedule(
+    db: Session = Depends(get_db),
+    college_id: str = Query("", alias="college_id"),
+    auditorium_id: str = Query("", alias="auditorium_id"),
+):
+    sessions = _schedule_query(db, college_id, auditorium_id)
+    result = defaultdict(list)
+    for s in sessions:
+        aud = db.query(Auditorium).get(s.auditorium_id)
+        date_key = s.start_time.strftime("%Y-%m-%d")
+        result[date_key].append({
+            "id": s.id,
+            "title": s.title,
+            "speaker": s.speaker,
+            "start_time": s.start_time.isoformat(),
+            "duration_minutes": s.duration_minutes,
+            "venue": aud.name if aud else "",
+            "location": aud.location if aud else "",
+            "status": s.status,
+        })
+    return JSONResponse(content=dict(sorted(result.items())))
+
+
+@router.get("/schedule/export-pdf")
+def schedule_export_pdf(
+    db: Session = Depends(get_db),
+    college_id: str = Query("", alias="college_id"),
+    auditorium_id: str = Query("", alias="auditorium_id"),
+):
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib import colors
+    from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
+    from reportlab.lib.styles import getSampleStyleSheet
+
+    sessions = _schedule_query(db, college_id, auditorium_id)
+    grouped = defaultdict(list)
+    for s in sessions:
+        aud = db.query(Auditorium).get(s.auditorium_id)
+        date_key = s.start_time.strftime("%Y-%m-%d")
+        grouped[date_key].append({"session": s, "auditorium": aud})
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4)
+    styles = getSampleStyleSheet()
+    elements = []
+
+    elements.append(Paragraph("TechTrek Schedule", styles["Title"]))
+    elements.append(Spacer(1, 12))
+
+    for date_key in sorted(grouped.keys()):
+        dt = datetime.strptime(date_key, "%Y-%m-%d")
+        elements.append(Paragraph(dt.strftime("%A, %B %d, %Y"), styles["Heading2"]))
+        data = [["Time", "Title", "Speaker", "Venue"]]
+        for item in grouped[date_key]:
+            s = item["session"]
+            aud = item["auditorium"]
+            data.append([
+                s.start_time.strftime("%I:%M %p"),
+                s.title,
+                s.speaker,
+                f"{aud.name}, {aud.location}" if aud else "",
+            ])
+        t = Table(data, colWidths=[70, 200, 120, 140])
+        t.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1a1a2e")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+        ]))
+        elements.append(t)
+        elements.append(Spacer(1, 16))
+
+    doc.build(elements)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="techtrek_schedule.pdf"'},
     )
 
 

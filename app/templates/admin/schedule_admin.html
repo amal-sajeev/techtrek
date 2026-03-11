@@ -1,0 +1,68 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Schedule — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Schedule</h1>
+</div>
+
+<form method="get" action="/admin/schedule" class="filter-bar mb-3">
+  <select name="college_id" class="form-input" onchange="this.form.submit()">
+    <option value="">All Colleges</option>
+    {% for c in colleges %}
+    <option value="{{ c.id }}" {% if college_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+    {% endfor %}
+  </select>
+  <select name="auditorium_id" class="form-input" onchange="this.form.submit()">
+    <option value="">All Auditoriums</option>
+    {% for a in auditoriums %}
+    <option value="{{ a.id }}" {% if auditorium_id == a.id|string %}selected{% endif %}>{{ a.name }} — {{ a.location }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+</form>
+
+{% if grouped %}
+  {% for date_key, items in grouped.items() %}
+  {% set dt = items[0].session.start_time %}
+  <div style="margin-bottom:2rem">
+    <h3 style="margin-bottom:1rem;opacity:.7">{{ dt.strftime('%A, %B %d, %Y') }}</h3>
+    <div class="table-responsive">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Time</th>
+            <th>Title</th>
+            <th>Speaker</th>
+            <th>Venue</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in items %}
+          {% set s = item.session %}
+          {% set aud = item.auditorium %}
+          <tr>
+            <td>{{ s.start_time.strftime('%I:%M %p') }}</td>
+            <td><strong>{{ s.title }}</strong></td>
+            <td>{{ s.speaker }}</td>
+            <td>{{ aud.name if aud else '—' }}</td>
+            <td><span class="badge badge-{{ s.status }}">{{ s.status | title }}</span></td>
+            <td class="actions-cell">
+              <a href="/admin/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endfor %}
+{% else %}
+<div class="empty-state">
+  <h3>No sessions found</h3>
+  <p>{% if college_id or auditorium_id %}No sessions match the selected filters.{% else %}No published sessions available.{% endif %}</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,7 +1,9 @@
 import csv
 import io
 import json
+from collections import defaultdict
 from datetime import datetime, timedelta
+from pathlib import Path
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
@@ -9,6 +11,8 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
+from app.services.activity_log import log_activity
+from app.models.activity_log import ActivityLog
 from app.models.auditorium import Auditorium
 from app.services.invoice import generate_invoice_pdf
 from app.models.booking import Booking
@@ -17,12 +21,16 @@ from app.models.college import College
 from app.models.seat import Seat
 from app.models.seat_type import SeatType
 from app.models.session import LectureSession
+from app.models.session_speaker import SessionSpeaker, SPEAKER_ROLES
 from app.models.speaker import Speaker
 from app.models.agenda import AgendaItem
 from app.models.testimonial import Testimonial
 from app.models.user import User
+from app.services.razorpay import process_refund as rz_process_refund
 from app.models.waitlist import Waitlist
 from app.config import settings
+
+RECORDINGS_DIR = Path(__file__).resolve().parent.parent / "static" / "recordings"
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -172,6 +180,8 @@ async def city_create(request: Request, db: Session = Depends(get_db)):
         is_active="is_active" in form,
     )
     db.add(city)
+    db.flush()
+    log_activity(db, category="admin", action="create", description=f"Created city '{city.name}'", request=request, user_id=admin.id, target_type="city", target_id=city.id)
     db.commit()
     flash(request, f"City '{city.name}' created.", "success")
     return RedirectResponse("/admin/cities", status_code=303)
@@ -204,6 +214,7 @@ async def city_update(request: Request, city_id: int, db: Session = Depends(get_
     city.name = form.get("name", city.name).strip()
     city.state = form.get("state", city.state).strip()
     city.is_active = "is_active" in form
+    log_activity(db, category="admin", action="update", description=f"Updated city '{city.name}'", request=request, user_id=admin.id, target_type="city", target_id=city.id)
     db.commit()
     flash(request, f"City '{city.name}' updated.", "success")
     return RedirectResponse("/admin/cities", status_code=303)
@@ -216,6 +227,7 @@ def city_delete(request: Request, city_id: int, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login", status_code=303)
     city = db.query(City).get(city_id)
     if city:
+        log_activity(db, category="admin", action="delete", description=f"Deleted city '{city.name}'", request=request, user_id=admin.id, target_type="city", target_id=city_id)
         db.delete(city)
         db.commit()
         flash(request, f"City '{city.name}' deleted.", "success")
@@ -230,8 +242,9 @@ def city_toggle(request: Request, city_id: int, db: Session = Depends(get_db)):
     city = db.query(City).get(city_id)
     if city:
         city.is_active = not city.is_active
-        db.commit()
         status = "active" if city.is_active else "inactive"
+        log_activity(db, category="admin", action="update", description=f"Toggled city '{city.name}' to {status}", request=request, user_id=admin.id, target_type="city", target_id=city_id)
+        db.commit()
         flash(request, f"City '{city.name}' is now {status}.", "success")
     return RedirectResponse("/admin/cities", status_code=303)
 
@@ -279,6 +292,8 @@ async def college_create(request: Request, db: Session = Depends(get_db)):
         is_active="is_active" in form,
     )
     db.add(col)
+    db.flush()
+    log_activity(db, category="admin", action="create", description=f"Created college '{col.name}'", request=request, user_id=admin.id, target_type="college", target_id=col.id)
     db.commit()
     flash(request, f"College '{col.name}' created.", "success")
     return RedirectResponse("/admin/colleges", status_code=303)
@@ -313,6 +328,7 @@ async def college_update(request: Request, college_id: int, db: Session = Depend
     col.city_id = int(form.get("city_id", col.city_id))
     col.address = form.get("address", "").strip() or None
     col.is_active = "is_active" in form
+    log_activity(db, category="admin", action="update", description=f"Updated college '{col.name}'", request=request, user_id=admin.id, target_type="college", target_id=college_id)
     db.commit()
     flash(request, f"College '{col.name}' updated.", "success")
     return RedirectResponse("/admin/colleges", status_code=303)
@@ -325,6 +341,7 @@ def college_delete(request: Request, college_id: int, db: Session = Depends(get_
         return RedirectResponse("/auth/login", status_code=303)
     col = db.query(College).get(college_id)
     if col:
+        log_activity(db, category="admin", action="delete", description=f"Deleted college '{col.name}'", request=request, user_id=admin.id, target_type="college", target_id=college_id)
         db.delete(col)
         db.commit()
         flash(request, f"College '{col.name}' deleted.", "success")
@@ -376,6 +393,8 @@ async def auditorium_create(request: Request, db: Session = Depends(get_db)):
     db.add(aud)
     db.commit()
     db.refresh(aud)
+    log_activity(db, category="admin", action="create", description=f"Created auditorium '{aud.name}'", request=request, user_id=admin.id, target_type="auditorium", target_id=aud.id)
+    db.commit()
     flash(request, f"Auditorium '{aud.name}' created.", "success")
     return RedirectResponse(f"/admin/auditoriums/{aud.id}/layout", status_code=303)
 
@@ -415,6 +434,7 @@ async def auditorium_update(request: Request, aud_id: int, db: Session = Depends
     aud.description = form.get("description", "").strip()
     aud.total_rows = int(form.get("total_rows", aud.total_rows))
     aud.total_cols = int(form.get("total_cols", aud.total_cols))
+    log_activity(db, category="admin", action="update", description=f"Updated auditorium '{aud.name}'", request=request, user_id=admin.id, target_type="auditorium", target_id=aud_id)
     db.commit()
     flash(request, f"Auditorium '{aud.name}' updated.", "success")
     return RedirectResponse("/admin/auditoriums", status_code=303)
@@ -427,6 +447,7 @@ def auditorium_delete(request: Request, aud_id: int, db: Session = Depends(get_d
         return RedirectResponse("/auth/login", status_code=303)
     aud = db.query(Auditorium).get(aud_id)
     if aud:
+        log_activity(db, category="admin", action="delete", description=f"Deleted auditorium '{aud.name}'", request=request, user_id=admin.id, target_type="auditorium", target_id=aud_id)
         db.delete(aud)
         db.commit()
         flash(request, f"Auditorium '{aud.name}' deleted.", "success")
@@ -471,6 +492,8 @@ async def seat_type_create(request: Request, db: Session = Depends(get_db)):
         is_custom=True,
     )
     db.add(st)
+    db.flush()
+    log_activity(db, category="admin", action="create", description=f"Created seat type '{st.name}'", request=request, user_id=admin.id, target_type="seat_type", target_id=st.id)
     db.commit()
     flash(request, f"Seat type '{st.name}' created.", "success")
     return RedirectResponse("/admin/seat-types", status_code=303)
@@ -503,6 +526,7 @@ async def seat_type_update(request: Request, st_id: int, db: Session = Depends(g
     st.name = form.get("name", st.name).strip()
     st.colour = form.get("colour", st.colour).strip()
     st.icon = form.get("icon", "").strip() or None
+    log_activity(db, category="admin", action="update", description=f"Updated seat type '{st.name}'", request=request, user_id=admin.id, target_type="seat_type", target_id=st_id)
     db.commit()
     flash(request, f"Seat type '{st.name}' updated.", "success")
     return RedirectResponse("/admin/seat-types", status_code=303)
@@ -519,6 +543,7 @@ def seat_type_delete(request: Request, st_id: int, db: Session = Depends(get_db)
         if in_use:
             flash(request, f"Cannot delete '{st.name}' — it is used by {in_use} seat(s).", "danger")
             return RedirectResponse("/admin/seat-types", status_code=303)
+        log_activity(db, category="admin", action="delete", description=f"Deleted seat type '{st.name}'", request=request, user_id=admin.id, target_type="seat_type", target_id=st_id)
         db.delete(st)
         db.commit()
         flash(request, f"Seat type '{st.name}' deleted.", "success")
@@ -648,6 +673,8 @@ async def seat_layout_save(request: Request, aud_id: int, db: Session = Depends(
         db.add(seat)
 
     aud.layout_config = layout
+    seat_count = sum(1 for item in layout if item.get("type") != "aisle")
+    log_activity(db, category="admin", action="update", description=f"Saved seat layout for '{aud.name}' ({seat_count} seats)", request=request, user_id=admin.id, target_type="auditorium", target_id=aud_id)
     db.commit()
     flash(request, "Seat layout saved.", "success")
     return RedirectResponse(f"/admin/auditoriums/{aud_id}/layout", status_code=303)
@@ -656,14 +683,22 @@ async def seat_layout_save(request: Request, aud_id: int, db: Session = Depends(
 # ─── Speakers ───
 
 @router.get("/speakers")
-def speakers_list(request: Request, db: Session = Depends(get_db)):
+def speakers_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    role: str = Query("", alias="role"),
+):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    speakers = db.query(Speaker).order_by(Speaker.name).all()
+    query = db.query(Speaker)
+    if role:
+        query = query.join(SessionSpeaker).filter(SessionSpeaker.role == role)
+    speakers = query.order_by(Speaker.name).all()
     return templates.TemplateResponse(
         "admin/speakers.html",
-        _admin_ctx(request, active_page="speakers", speakers=speakers),
+        _admin_ctx(request, active_page="speakers", speakers=speakers,
+                   speaker_roles=SPEAKER_ROLES, role_filter=role),
     )
 
 
@@ -692,6 +727,8 @@ async def speaker_create(request: Request, db: Session = Depends(get_db)):
         email=form.get("email", "").strip() or None,
     )
     db.add(sp)
+    db.flush()
+    log_activity(db, category="admin", action="create", description=f"Created speaker '{sp.name}'", request=request, user_id=admin.id, target_type="speaker", target_id=sp.id)
     db.commit()
     flash(request, f"Speaker '{sp.name}' created.", "success")
     return RedirectResponse("/admin/speakers", status_code=303)
@@ -726,6 +763,7 @@ async def speaker_update(request: Request, speaker_id: int, db: Session = Depend
     sp.bio = form.get("bio", "").strip() or None
     sp.photo_url = form.get("photo_url", "").strip() or None
     sp.email = form.get("email", "").strip() or None
+    log_activity(db, category="admin", action="update", description=f"Updated speaker '{sp.name}'", request=request, user_id=admin.id, target_type="speaker", target_id=speaker_id)
     db.commit()
     flash(request, f"Speaker '{sp.name}' updated.", "success")
     return RedirectResponse("/admin/speakers", status_code=303)
@@ -738,6 +776,7 @@ def speaker_delete(request: Request, speaker_id: int, db: Session = Depends(get_
         return RedirectResponse("/auth/login", status_code=303)
     sp = db.query(Speaker).get(speaker_id)
     if sp:
+        log_activity(db, category="admin", action="delete", description=f"Deleted speaker '{sp.name}'", request=request, user_id=admin.id, target_type="speaker", target_id=speaker_id)
         db.delete(sp)
         db.commit()
         flash(request, f"Speaker '{sp.name}' deleted.", "success")
@@ -769,9 +808,16 @@ def speaker_invite(request: Request, speaker_id: int, db: Session = Depends(get_
     invite_url = f"{base_url}/auth/speaker-invite/{sp.invite_token}"
 
     from app.services.email import send_speaker_invite
-    send_speaker_invite(sp.email, sp.name, invite_url)
+    sent = send_speaker_invite(sp.email, sp.name, invite_url)
 
-    flash(request, f"Invite sent to {sp.email}.", "success")
+    if sent:
+        log_activity(db, category="admin", action="invite_sent", description=f"Sent speaker invite to '{sp.name}' ({sp.email})", request=request, user_id=admin.id, target_type="speaker", target_id=speaker_id)
+        db.commit()
+        flash(request, f"Invite sent to {sp.email}.", "success")
+    else:
+        log_activity(db, category="system", action="email_failed", description=f"Speaker invite email to '{sp.name}' ({sp.email}) failed", request=request, user_id=admin.id, target_type="speaker", target_id=speaker_id)
+        db.commit()
+        flash(request, f"Invite token created but email to {sp.email} failed. Check SMTP settings or share the link manually: {invite_url}", "warning")
     return RedirectResponse("/admin/speakers", status_code=303)
 
 
@@ -807,7 +853,8 @@ def session_new(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         "admin/session_form.html",
         _admin_ctx(request, active_page="sessions", lecture=None,
-                   auditoriums=auditoriums, speakers=speakers, cities=cities, agenda_items=[]),
+                   auditoriums=auditoriums, speakers=speakers, cities=cities,
+                   agenda_items=[], session_speakers=[], speaker_roles=SPEAKER_ROLES),
     )
 
 
@@ -849,13 +896,18 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         cert_logo_url=form.get("cert_logo_url", "").strip() or None,
         cert_bg_url=form.get("cert_bg_url", "").strip() or None,
         cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
+        recording_url=form.get("recording_url", "").strip() or None,
+        is_recording_public="is_recording_public" in form,
     )
     db.add(session_obj)
     db.commit()
     db.refresh(session_obj)
 
     _save_agenda_items(db, form, session_obj.id)
+    _save_session_speakers(db, form, session_obj.id)
 
+    log_activity(db, category="admin", action="create", description=f"Created session '{session_obj.title}'", request=request, user_id=admin.id, target_type="session", target_id=session_obj.id)
+    db.commit()
     flash(request, f"Session '{session_obj.title}' created.", "success")
     return RedirectResponse("/admin/sessions", status_code=303)
 
@@ -873,10 +925,13 @@ def session_edit(request: Request, sess_id: int, db: Session = Depends(get_db)):
     speakers = db.query(Speaker).order_by(Speaker.name).all()
     cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
     agenda_items = db.query(AgendaItem).filter(AgendaItem.session_id == sess_id).order_by(AgendaItem.order).all()
+    session_speakers = db.query(SessionSpeaker).filter(SessionSpeaker.session_id == sess_id).all()
     return templates.TemplateResponse(
         "admin/session_form.html",
         _admin_ctx(request, active_page="sessions", lecture=lecture,
-                   auditoriums=auditoriums, speakers=speakers, cities=cities, agenda_items=agenda_items),
+                   auditoriums=auditoriums, speakers=speakers, cities=cities,
+                   agenda_items=agenda_items, session_speakers=session_speakers,
+                   speaker_roles=SPEAKER_ROLES),
     )
 
 
@@ -919,9 +974,13 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.cert_logo_url = form.get("cert_logo_url", "").strip() or None
     lecture.cert_bg_url = form.get("cert_bg_url", "").strip() or None
     lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
+    lecture.recording_url = form.get("recording_url", "").strip() or None
+    lecture.is_recording_public = "is_recording_public" in form
 
     _save_agenda_items(db, form, sess_id)
+    _save_session_speakers(db, form, sess_id)
 
+    log_activity(db, category="admin", action="update", description=f"Updated session '{lecture.title}'", request=request, user_id=admin.id, target_type="session", target_id=sess_id)
     db.commit()
     flash(request, f"Session '{lecture.title}' updated.", "success")
     return RedirectResponse("/admin/sessions", status_code=303)
@@ -949,6 +1008,56 @@ def _save_agenda_items(db: Session, form, session_id: int):
     db.commit()
 
 
+def _save_session_speakers(db: Session, form, session_id: int):
+    db.query(SessionSpeaker).filter(SessionSpeaker.session_id == session_id).delete()
+    idx = 0
+    while True:
+        sp_id_raw = form.get(f"session_speaker_id_{idx}")
+        if sp_id_raw is None:
+            break
+        sp_id_raw = sp_id_raw.strip()
+        if sp_id_raw:
+            role = form.get(f"session_speaker_role_{idx}", "Guest").strip()
+            if role not in SPEAKER_ROLES:
+                role = "Guest"
+            ss = SessionSpeaker(
+                session_id=session_id,
+                speaker_id=int(sp_id_raw),
+                role=role,
+            )
+            db.add(ss)
+        idx += 1
+    db.flush()
+
+
+@router.post("/sessions/{sess_id}/recording-upload")
+async def session_recording_upload(request: Request, sess_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    lecture = db.query(LectureSession).get(sess_id)
+    if not lecture:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/admin/sessions", status_code=303)
+
+    form = await request.form()
+    upload = form.get("recording_file")
+    if upload and hasattr(upload, "filename") and upload.filename:
+        RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
+        safe_name = f"session_{sess_id}_{upload.filename.replace(' ', '_')}"
+        dest = RECORDINGS_DIR / safe_name
+        with open(dest, "wb") as f:
+            content = await upload.read()
+            f.write(content)
+        lecture.recording_file = f"/static/recordings/{safe_name}"
+        log_activity(db, category="admin", action="upload", description=f"Uploaded recording for '{lecture.title}'", request=request, user_id=admin.id, target_type="session", target_id=sess_id)
+        db.commit()
+        flash(request, "Recording file uploaded.", "success")
+    else:
+        flash(request, "No file selected.", "warning")
+    return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+
+
 @router.post("/sessions/{sess_id}/delete")
 def session_delete(request: Request, sess_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
@@ -956,6 +1065,7 @@ def session_delete(request: Request, sess_id: int, db: Session = Depends(get_db)
         return RedirectResponse("/auth/login", status_code=303)
     lecture = db.query(LectureSession).get(sess_id)
     if lecture:
+        log_activity(db, category="admin", action="delete", description=f"Deleted session '{lecture.title}'", request=request, user_id=admin.id, target_type="session", target_id=sess_id)
         db.delete(lecture)
         db.commit()
         flash(request, f"Session '{lecture.title}' deleted.", "success")
@@ -1090,6 +1200,7 @@ def booking_cancel(request: Request, booking_id: int, db: Session = Depends(get_
     b = db.query(Booking).get(booking_id)
     if b:
         b.payment_status = "cancelled"
+        log_activity(db, category="admin", action="cancel", description=f"Admin cancelled booking {b.booking_ref}", request=request, user_id=admin.id, target_type="booking", target_id=booking_id)
         db.commit()
         flash(request, f"Booking {b.booking_ref} cancelled.", "success")
     return RedirectResponse("/admin/bookings", status_code=303)
@@ -1141,10 +1252,39 @@ def booking_refund(request: Request, booking_id: int, db: Session = Depends(get_
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     b = db.query(Booking).get(booking_id)
-    if b:
+    can_refund = b and b.payment_status in ("paid", "refunded") and (
+        b.payment_status == "paid" or b.refund_status == "failed"
+    )
+    if can_refund:
+        price = b.amount_paid or 0
+        refund_amount = float(price)
+
+        rz_ok = True
+        rz_result = None
+        if b.razorpay_payment_id and refund_amount > 0:
+            rz_result = rz_process_refund(b.razorpay_payment_id, int(refund_amount * 100))
+            rz_ok = rz_result is not None
+
         b.payment_status = "refunded"
+        b.refund_amount = refund_amount
+        if rz_result and isinstance(rz_result, dict):
+            b.refund_id = rz_result.get("id")
+            b.refund_status = "initiated"
+        elif rz_ok:
+            b.refund_status = "completed"
+            b.refund_processed_at = now_ist()
+        else:
+            b.refund_status = "failed"
+
+        log_activity(db, category="admin", action="refund", description=f"Admin refunded booking {b.booking_ref} (₹{refund_amount:.0f})", request=request, user_id=admin.id, target_type="booking", target_id=booking_id)
         db.commit()
-        flash(request, f"Booking {b.booking_ref} refunded.", "success")
+
+        if rz_ok:
+            flash(request, f"Booking {b.booking_ref} refunded (₹{refund_amount:.0f}).", "success")
+        else:
+            flash(request, f"Booking {b.booking_ref} marked refunded but Razorpay API call failed — process the ₹{refund_amount:.0f} refund manually.", "warning")
+    elif b and b.payment_status != "paid":
+        flash(request, f"Booking {b.booking_ref} is not in 'paid' status — cannot refund.", "danger")
     return RedirectResponse("/admin/bookings", status_code=303)
 
 
@@ -1228,9 +1368,11 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             if newly_checked and not already_checked:
                 msg = f"Group check-in successful! {len(newly_checked)} ticket(s) checked in."
                 status = "success"
+                log_activity(db, category="admin", action="checkin", description=f"Group check-in: {len(newly_checked)} ticket(s) for '{lecture.title if lecture else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
             elif newly_checked and already_checked:
                 msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in."
                 status = "success"
+                log_activity(db, category="admin", action="checkin", description=f"Partial group check-in: {len(newly_checked)} new for '{lecture.title if lecture else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
             else:
                 msg = f"All {len(already_checked)} ticket(s) in this group were already checked in."
                 status = "warning"
@@ -1261,10 +1403,11 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
         else:
             booking.checked_in = True
             booking.checked_in_at = now_ist()
-            db.commit()
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)
             lecture = db.query(LectureSession).get(booking.session_id)
+            log_activity(db, category="admin", action="checkin", description=f"Checked in ticket '{ticket_id}' (seat {seat.label if seat else '?'}) for '{lecture.title if lecture else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=booking.id)
+            db.commit()
             result = {
                 "status": "success",
                 "msg": "Check-in successful!",
@@ -1349,6 +1492,7 @@ async def grant_priority(request: Request, db: Session = Depends(get_db)):
         e.priority_expires_at = expires
         e.notified = True
 
+    log_activity(db, category="admin", action="grant_priority", description=f"Granted priority to {len(entries)} waitlisted user(s) for session #{target_session_id}", request=request, user_id=admin.id, target_type="waitlist", target_id=source_session_id)
     db.commit()
     flash(request, f"Priority granted to {len(entries)} waitlisted user(s).", "success")
     return RedirectResponse("/admin/waitlist", status_code=303)
@@ -1376,8 +1520,9 @@ def toggle_admin(request: Request, user_id: int, db: Session = Depends(get_db)):
     u = db.query(User).get(user_id)
     if u and u.id != admin.id:
         u.is_admin = not u.is_admin
-        db.commit()
         status = "admin" if u.is_admin else "regular user"
+        log_activity(db, category="admin", action="role_change", description=f"Changed {u.username} role to {status}", request=request, user_id=admin.id, target_type="user", target_id=user_id)
+        db.commit()
         flash(request, f"{u.username} is now a {status}.", "success")
     return RedirectResponse("/admin/users", status_code=303)
 
@@ -1390,7 +1535,131 @@ def toggle_supervisor(request: Request, user_id: int, db: Session = Depends(get_
     u = db.query(User).get(user_id)
     if u and u.id != admin.id:
         u.is_supervisor = not u.is_supervisor
-        db.commit()
         status = "supervisor" if u.is_supervisor else "regular user"
+        log_activity(db, category="admin", action="role_change", description=f"Changed {u.username} role to {status}", request=request, user_id=admin.id, target_type="user", target_id=user_id)
+        db.commit()
         flash(request, f"{u.username} is now a {status}.", "success")
     return RedirectResponse("/admin/users", status_code=303)
+
+
+# ─── Schedule (Admin) ───
+
+@router.get("/schedule")
+def admin_schedule(
+    request: Request,
+    db: Session = Depends(get_db),
+    college_id: str = Query("", alias="college_id"),
+    auditorium_id: str = Query("", alias="auditorium_id"),
+):
+    admin = _require_supervisor_or_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    query = db.query(LectureSession).filter(
+        LectureSession.status.in_(["published", "completed"])
+    )
+    if auditorium_id:
+        try:
+            query = query.filter(LectureSession.auditorium_id == int(auditorium_id))
+        except ValueError:
+            pass
+    elif college_id:
+        try:
+            aud_ids = [a.id for a in db.query(Auditorium.id).filter(Auditorium.college_id == int(college_id)).all()]
+            if aud_ids:
+                query = query.filter(LectureSession.auditorium_id.in_(aud_ids))
+            else:
+                query = query.filter(False)
+        except ValueError:
+            pass
+
+    sessions = query.order_by(LectureSession.start_time).all()
+
+    grouped = defaultdict(list)
+    for s in sessions:
+        aud = db.query(Auditorium).get(s.auditorium_id)
+        date_key = s.start_time.strftime("%Y-%m-%d")
+        grouped[date_key].append({"session": s, "auditorium": aud})
+
+    colleges = db.query(College).order_by(College.name).all()
+    auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
+
+    return templates.TemplateResponse(
+        "admin/schedule_admin.html",
+        _admin_ctx(
+            request, active_page="schedule",
+            grouped=dict(sorted(grouped.items())),
+            colleges=colleges, auditoriums=auditoriums,
+            college_id=college_id, auditorium_id=auditorium_id,
+        ),
+    )
+
+
+# ─── Activity Log ───
+
+ACTIVITY_LOG_PAGE_SIZE = 50
+
+@router.get("/activity-log")
+def activity_log_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    category: str = Query("", alias="category"),
+    q: str = Query("", alias="q"),
+    date_from: str = Query("", alias="date_from"),
+    date_to: str = Query("", alias="date_to"),
+    page: int = Query(1, alias="page", ge=1),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    query = db.query(ActivityLog)
+
+    if category:
+        query = query.filter(ActivityLog.category == category)
+    if q:
+        search = f"%{q}%"
+        query = query.filter(
+            ActivityLog.description.ilike(search)
+            | ActivityLog.action.ilike(search)
+        )
+    if date_from:
+        try:
+            dt_from = datetime.fromisoformat(date_from)
+            query = query.filter(ActivityLog.timestamp >= dt_from)
+        except ValueError:
+            pass
+    if date_to:
+        try:
+            dt_to = datetime.fromisoformat(date_to)
+            dt_to = dt_to.replace(hour=23, minute=59, second=59)
+            query = query.filter(ActivityLog.timestamp <= dt_to)
+        except ValueError:
+            pass
+
+    total = query.count()
+    total_pages = max(1, (total + ACTIVITY_LOG_PAGE_SIZE - 1) // ACTIVITY_LOG_PAGE_SIZE)
+    page = min(page, total_pages)
+
+    logs = (
+        query.order_by(ActivityLog.timestamp.desc())
+        .offset((page - 1) * ACTIVITY_LOG_PAGE_SIZE)
+        .limit(ACTIVITY_LOG_PAGE_SIZE)
+        .all()
+    )
+
+    return templates.TemplateResponse(
+        "admin/activity_log.html",
+        _admin_ctx(
+            request,
+            active_page="activity_log",
+            logs=logs,
+            total=total,
+            page=page,
+            total_pages=total_pages,
+            filter_category=category,
+            filter_q=q,
+            filter_date_from=date_from,
+            filter_date_to=date_to,
+        ),
+    )

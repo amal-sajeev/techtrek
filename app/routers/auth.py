@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.speaker import Speaker
 from app.models.user import User
+from app.services.activity_log import log_activity
 from app.services.email import send_signup_confirmation
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -55,11 +56,15 @@ async def login(request: Request, db: Session = Depends(get_db)):
         (User.username == login_id) | (User.email == login_id)
     ).first()
     if not user or not _verify_pw(password, user.password_hash):
+        log_activity(db, category="auth", action="login_failed", description=f"Failed login attempt for '{login_id}'", request=request)
+        db.commit()
         flash(request, "Invalid username/email or password.", "danger")
         return RedirectResponse("/auth/login", status_code=303)
 
     request.session["user_id"] = user.id
     _try_link_speaker_token(request, db, user)
+    log_activity(db, category="auth", action="login", description=f"{user.username} logged in", request=request, user_id=user.id, target_type="user", target_id=user.id)
+    db.commit()
     flash(request, f"Welcome back, {user.username}!", "success")
     next_url = request.query_params.get("next", "/")
     return RedirectResponse(next_url, status_code=303)
@@ -129,6 +134,8 @@ async def register(request: Request, db: Session = Depends(get_db)):
 
     request.session["user_id"] = user.id
     _try_link_speaker_token(request, db, user)
+    log_activity(db, category="auth", action="register", description=f"New user registered: {user.username} ({user.email})", request=request, user_id=user.id, target_type="user", target_id=user.id)
+    db.commit()
     msg = "Account created! You are the admin." if is_first_user else "Account created!"
     flash(request, msg, "success")
     send_signup_confirmation(user.email, user.username)
@@ -181,6 +188,7 @@ async def profile_update(request: Request, db: Session = Depends(get_db)):
     user.discipline = discipline or None
     user.domain = domain or None
     user.year_of_study = year_of_study
+    log_activity(db, category="auth", action="profile_update", description=f"{user.username} updated their profile", request=request, user_id=user.id, target_type="user", target_id=user.id)
     db.commit()
 
     flash(request, "Profile updated.", "success")
@@ -211,6 +219,7 @@ def speaker_invite_accept(request: Request, token: str, db: Session = Depends(ge
             speaker.user_id = user.id
             speaker.invite_token = None
             speaker.invite_token_expires = None
+            log_activity(db, category="auth", action="invite_accepted", description=f"{user.username} accepted speaker invite for '{speaker.name}'", request=request, user_id=user.id, target_type="speaker", target_id=speaker.id)
             db.commit()
             flash(request, f"Welcome, {speaker.name}! Your speaker account is now active.", "success")
             return RedirectResponse("/speaker/", status_code=303)
@@ -222,7 +231,11 @@ def speaker_invite_accept(request: Request, token: str, db: Session = Depends(ge
 
 
 @router.get("/logout")
-def logout(request: Request):
+def logout(request: Request, db: Session = Depends(get_db)):
+    user_id = request.session.get("user_id")
+    if user_id:
+        log_activity(db, category="auth", action="logout", description="User logged out", request=request, user_id=user_id, target_type="user", target_id=user_id)
+        db.commit()
     request.session.clear()
     flash(request, "You have been logged out.", "info")
     return RedirectResponse("/", status_code=303)

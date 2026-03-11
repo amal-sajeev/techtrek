@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
+from app.services.activity_log import log_activity
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.seat import Seat
@@ -135,6 +136,8 @@ async def hold_seats_route(request: Request, session_id: int, db: Session = Depe
         flash(request, "Some seats are no longer available. Please try again.", "danger")
         return RedirectResponse(f"/booking/select/{session_id}", status_code=303)
 
+    log_activity(db, category="booking", action="hold", description=f"Held {len(bookings)} seat(s) for session #{session_id}", request=request, user_id=user.id, target_type="session", target_id=session_id)
+    db.commit()
     return RedirectResponse(f"/booking/checkout/{session_id}", status_code=303)
 
 
@@ -248,6 +251,7 @@ async def verify_payment_route(request: Request, session_id: int, db: Session = 
 
     for b in confirmed:
         b.razorpay_payment_id = payment_id
+    log_activity(db, category="booking", action="payment", description=f"Payment verified for {len(confirmed)} seat(s), session #{session_id}", request=request, user_id=user.id, target_type="session", target_id=session_id, extra={"payment_id": payment_id})
     db.commit()
 
     flash(request, f"Booking confirmed! {len(confirmed)} seat(s) booked.", "success")
@@ -265,6 +269,8 @@ def pay(request: Request, session_id: int, db: Session = Depends(get_db)):
         flash(request, "Payment failed — your hold may have expired.", "danger")
         return RedirectResponse(f"/booking/select/{session_id}", status_code=303)
 
+    log_activity(db, category="booking", action="payment", description=f"Free booking confirmed for {len(confirmed)} seat(s), session #{session_id}", request=request, user_id=user.id, target_type="session", target_id=session_id)
+    db.commit()
     flash(request, f"Booking confirmed! {len(confirmed)} seat(s) booked.", "success")
     return RedirectResponse(f"/booking/confirmation/{session_id}", status_code=303)
 
@@ -487,6 +493,9 @@ def cancel_booking(request: Request, booking_id: int, db: Session = Depends(get_
         return RedirectResponse("/auth/login", status_code=303)
 
     result = cancel_booking_user(db, booking_id, user.id)
+    if result["ok"]:
+        log_activity(db, category="booking", action="cancel", description=f"User cancelled booking #{booking_id}", request=request, user_id=user.id, target_type="booking", target_id=booking_id)
+        db.commit()
     flash(request, result["msg"], "success" if result["ok"] else "danger")
     return RedirectResponse("/booking/my", status_code=303)
 
@@ -498,6 +507,9 @@ def cancel_group(request: Request, group_id: str, db: Session = Depends(get_db))
         return RedirectResponse("/auth/login", status_code=303)
 
     result = cancel_group_bookings(db, group_id, user.id)
+    if result["ok"]:
+        log_activity(db, category="booking", action="cancel", description=f"User cancelled group booking '{group_id}'", request=request, user_id=user.id, target_type="booking")
+        db.commit()
     flash(request, result["msg"], "success" if result["ok"] else "warning")
     return RedirectResponse("/booking/my", status_code=303)
 
@@ -551,6 +563,8 @@ def download_certificate(request: Request, booking_id: int, db: Session = Depend
 
     from app.services.certificate import generate_certificate_pdf
     pdf_bytes = generate_certificate_pdf(booking, user, lecture, auditorium)
+    log_activity(db, category="booking", action="certificate", description=f"Downloaded certificate for session '{lecture.title}'", request=request, user_id=user.id, target_type="booking", target_id=booking_id)
+    db.commit()
     ref = booking.booking_ref or "certificate"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),

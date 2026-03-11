@@ -9,10 +9,11 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _send(to_email: str, subject: str, html_body: str, *, invoice_pdf: bytes | None = None, invoice_filename: str = "invoice.pdf"):
+def _send(to_email: str, subject: str, html_body: str, *, invoice_pdf: bytes | None = None, invoice_filename: str = "invoice.pdf") -> bool:
+    """Returns True if the email was sent successfully, False otherwise."""
     if not settings.smtp_host:
         logger.info("SMTP not configured — email to %s skipped: %s", to_email, subject)
-        return
+        return False
 
     msg = MIMEMultipart("mixed")
     msg["Subject"] = subject
@@ -34,8 +35,10 @@ def _send(to_email: str, subject: str, html_body: str, *, invoice_pdf: bytes | N
                 server.login(settings.smtp_user, settings.smtp_password)
             server.sendmail(settings.smtp_from_email, to_email, msg.as_string())
         logger.info("Email sent to %s: %s", to_email, subject)
+        return True
     except Exception:
         logger.exception("Failed to send email to %s", to_email)
+        return False
 
 
 def send_signup_confirmation(email: str, username: str):
@@ -296,4 +299,4 @@ def send_speaker_invite(email: str, speaker_name: str, invite_url: str):
     </td></tr>
   </table>
 </body></html>"""
-    _send(email, "You're Invited to TechTrek as a Speaker!", html)
+    return _send(email, "You're Invited to TechTrek as a Speaker!", html)

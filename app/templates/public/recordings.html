@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Recordings — TechTrek{% endblock %}
+
+{% block content %}
+{% set img_pool = [
+  'photo-1591115765373-5207764f72e7',
+  'photo-1505373877841-8d25f7d46678',
+  'photo-1558494949-ef010cbdcc31',
+  'photo-1517245386807-bb43f82c33c4',
+  'photo-1488229297570-58520851e868',
+  'photo-1550751827-4bd374c3f58b',
+  'photo-1496181133206-80ce9b88a853',
+  'photo-1573164713714-d95e436ab8d1'
+] %}
+
+<section class="section">
+  <div class="container">
+    <h1 class="page-title reveal">Session Recordings</h1>
+    <p class="text-muted reveal" style="margin-bottom:2rem">Watch recordings of past sessions.</p>
+
+    {% if sessions %}
+    <div class="session-grid">
+      {% for item in sessions %}
+      {% set s = item.session %}
+      {% set aud = item.auditorium %}
+      {% set img_id = img_pool[s.id % 8] %}
+      <a href="/sessions/{{ s.id }}" class="card card-hover reveal">
+        <div class="card-image">
+          <img
+            src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
+            alt="{{ s.title }}"
+            loading="lazy">
+          <span class="card-badge" style="background:var(--color-accent);color:#000">&#9654; Recording</span>
+        </div>
+        <div class="card-body">
+          <h3 class="card-title">{{ s.title }}</h3>
+          <p class="card-meta">{{ s.speaker }}</p>
+          <div class="card-details">
+            <span class="card-detail">&#128197; {{ s.start_time.strftime('%b %d, %Y') }}</span>
+            {% if aud %}
+            <span class="card-detail">&#128205; {{ aud.location }}</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="card-footer">
+          <span class="card-cta-hint">Watch &rarr;</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state reveal">
+      <h3>No recordings available yet</h3>
+      <p>Recordings will appear here once they are published by the admin team.</p>
+      <a href="/sessions" class="btn btn-primary">Browse Sessions</a>
+    </div>
+    {% endif %}
+  </div>
+</section>
+{% endblock %}

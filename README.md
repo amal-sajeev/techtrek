@@ -82,9 +82,46 @@ And add `psycopg2-binary` to your dependencies:
 pip install psycopg2-binary
 ```
 
+## Internationalization (i18n) — Planning
+
+### Decision
+
+Since TechTrek uses **FastAPI** (not Flask), Flask-Babel is not directly usable. The chosen
+approach is **Babel** (the core Python i18n library) with custom Jinja2 integration:
+
+- Template strings are marked with `_()` / `gettext()` markers
+- Extraction uses `pybabel extract -F babel.cfg -o messages.pot .`
+- Translation files stored in `app/translations/<locale>/LC_MESSAGES/`
+- Locale switching middleware and UI will be added in a future sprint
+
+### Supported Locales (initial rollout)
+
+| Locale | Language | Status |
+|--------|----------|--------|
+| `en` | English | Default — all strings authored in English |
+| `hi` | Hindi | Planned — pending stakeholder confirmation |
+| TBD | Regional language | Planned — to be decided with stakeholders |
+
+### Configuration
+
+Add to `.env`:
+
+```
+BABEL_DEFAULT_LOCALE=en
+BABEL_DEFAULT_TIMEZONE=Asia/Kolkata
+```
+
+### Current Status
+
+- `babel.cfg` extraction config created
+- `BABEL_DEFAULT_LOCALE` and `BABEL_DEFAULT_TIMEZONE` added to `config.py`
+- Template string audit and `_()` marking is in progress as a preparatory step
+- Full translation file authoring and locale switching UI deferred to an upcoming sprint
+
 ## Tech Stack
 
 - **Backend**: FastAPI, SQLAlchemy, Jinja2
 - **Frontend**: HTML/CSS/JS (no frameworks)
 - **Database**: SQLite (development) / PostgreSQL (production)
 - **Auth**: Session-based with bcrypt password hashing
+- **i18n**: Babel (planned)

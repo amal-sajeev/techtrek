@@ -6,6 +6,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.dependencies import AuthRedirect, flash, get_db, now_ist, template_ctx, templates
+from app.services.activity_log import log_activity
 from app.models.agenda import AgendaItem
 from app.models.booking import Booking
 from app.models.session import LectureSession
@@ -131,6 +132,7 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
             db.add(item)
         idx += 1
 
+    log_activity(db, category="speaker", action="update", description=f"Speaker '{speaker.name}' updated session '{lecture.title}'", request=request, user_id=user.id, target_type="session", target_id=session_id)
     db.commit()
     flash(request, f"Session '{lecture.title}' updated.", "success")
     return RedirectResponse("/speaker/", status_code=303)
@@ -156,9 +158,9 @@ async def profile_update(request: Request, db: Session = Depends(get_db)):
     speaker.photo_url = form.get("photo_url", "").strip() or None
     db.commit()
 
-    # Also update the display name on sessions
     for s in speaker.sessions:
         s.speaker = speaker.name
+    log_activity(db, category="speaker", action="profile_update", description=f"Speaker '{speaker.name}' updated their profile", request=request, user_id=user.id, target_type="speaker", target_id=speaker.id)
     db.commit()
 
     flash(request, "Speaker profile updated.", "success")

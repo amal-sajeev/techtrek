@@ -14,6 +14,13 @@ from app.utils import now_ist  # noqa: F401 — re-exported for routers
 BASE_DIR = Path(__file__).resolve().parent
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
+def _gettext_noop(s: str) -> str:
+    """Passthrough until real translations are wired up."""
+    return s
+
+templates.env.globals["_"] = _gettext_noop
+templates.env.globals["gettext"] = _gettext_noop
+
 
 def get_db():
     db = SessionLocal()

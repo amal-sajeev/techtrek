@@ -6,13 +6,16 @@ from app.models.seat import Seat
 from app.models.speaker import Speaker
 from app.models.agenda import AgendaItem
 from app.models.session import LectureSession
+from app.models.session_speaker import SessionSpeaker
 from app.models.booking import Booking
 from app.models.waitlist import Waitlist
 from app.models.testimonial import Testimonial, NewsletterSubscriber
 from app.models.seat_type import SeatType
+from app.models.activity_log import ActivityLog
+from app.models.webhook_log import WebhookLog
 
 __all__ = [
     "User", "City", "College", "Auditorium", "Seat", "Speaker", "AgendaItem",
-    "LectureSession", "Booking", "Waitlist", "Testimonial", "NewsletterSubscriber",
-    "SeatType",
+    "LectureSession", "SessionSpeaker", "Booking", "Waitlist", "Testimonial",
+    "NewsletterSubscriber", "SeatType", "ActivityLog", "WebhookLog",
 ]

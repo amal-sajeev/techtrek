@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -31,10 +31,14 @@ class LectureSession(Base):
     cert_logo_url = Column(String(500), nullable=True)
     cert_bg_url = Column(String(500), nullable=True)
     cert_color_scheme = Column(String(20), nullable=True)
+    recording_url = Column(String(500), nullable=True)
+    recording_file = Column(String(500), nullable=True)
+    is_recording_public = Column(Boolean, default=False)
     created_at = Column(DateTime, default=now_ist)
 
     auditorium = relationship("Auditorium", back_populates="sessions")
     speaker_rel = relationship("Speaker", back_populates="sessions")
+    session_speakers = relationship("SessionSpeaker", back_populates="session", cascade="all, delete-orphan")
     bookings = relationship("Booking", back_populates="session")
     agenda_items = relationship("AgendaItem", back_populates="session", cascade="all, delete-orphan", order_by="AgendaItem.order")
     waitlist_entries = relationship(

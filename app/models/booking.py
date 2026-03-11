@@ -40,6 +40,9 @@ class Booking(Base):
     razorpay_order_id = Column(String(50), nullable=True)
     razorpay_payment_id = Column(String(50), nullable=True)
     razorpay_signature = Column(String(128), nullable=True)
+    refund_id = Column(String(50), nullable=True)
+    refund_status = Column(String(30), nullable=True)
+    refund_processed_at = Column(DateTime, nullable=True)
     held_until = Column(DateTime, nullable=True)
     booked_at = Column(DateTime, default=now_ist)
 

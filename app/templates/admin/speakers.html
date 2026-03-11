@@ -7,6 +7,15 @@
   <a href="/admin/speakers/new" class="btn btn-primary">+ New Speaker</a>
 </div>
 
+<form method="get" action="/admin/speakers" class="filter-bar mb-3">
+  <select name="role" class="form-input" onchange="this.form.submit()">
+    <option value="">All Roles</option>
+    {% for role in speaker_roles %}
+    <option value="{{ role }}" {% if role_filter == role %}selected{% endif %}>{{ role }}</option>
+    {% endfor %}
+  </select>
+</form>
+
 {% if speakers %}
 <div class="table-responsive">
   <table class="table">

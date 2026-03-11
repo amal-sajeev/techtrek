@@ -10,9 +10,10 @@
   <button type="button" class="wizard-step active" data-step="1">1. Venue &amp; Date</button>
   <button type="button" class="wizard-step" data-step="2">2. Details &amp; Price</button>
   <button type="button" class="wizard-step" data-step="3">3. Agenda</button>
-  <button type="button" class="wizard-step" data-step="4">4. Speaker</button>
+  <button type="button" class="wizard-step" data-step="4">4. Speakers</button>
   <button type="button" class="wizard-step" data-step="5">5. Certificate</button>
-  <button type="button" class="wizard-step" data-step="6">6. Review &amp; Publish</button>
+  <button type="button" class="wizard-step" data-step="6">6. Recordings</button>
+  <button type="button" class="wizard-step" data-step="7">7. Review &amp; Publish</button>
 </div>
 
 <form method="post" action="{{ '/admin/sessions/' ~ lecture.id ~ '/edit' if lecture else '/admin/sessions/new' }}" id="session-wizard-form">
@@ -118,23 +119,50 @@
     </div>
   </div>
 
-  <!-- Step 4: Speaker -->
+  <!-- Step 4: Speakers -->
   <div class="wizard-panel" data-panel="4">
-    <h3 class="wizard-panel-title">Speaker</h3>
+    <h3 class="wizard-panel-title">Speakers</h3>
     <div class="form-group">
-      <label class="form-label" for="sess-speaker-select">Select a Speaker (optional)</label>
+      <label class="form-label" for="sess-speaker-select">Primary Speaker (legacy, optional)</label>
       <select name="speaker_id" id="sess-speaker-select" class="form-input" placeholder="Select a speaker">
         <option value="">-- None --</option>
         {% for sp in speakers %}
         <option value="{{ sp.id }}" {% if lecture and lecture.speaker_id == sp.id %}selected{% endif %}>{{ sp.name }}{% if sp.title %} — {{ sp.title }}{% endif %}</option>
         {% endfor %}
       </select>
-      <p class="text-muted" style="font-size:.8rem;margin-top:.25rem">Or type a name below if the speaker is not in the system.</p>
     </div>
     <div class="form-group">
-      <label class="form-label" for="sess-speaker">Speaker Name (displayed on session)</label>
+      <label class="form-label" for="sess-speaker">Speaker Name (displayed on session card)</label>
       <input type="text" name="speaker" id="sess-speaker" class="form-input" value="{{ lecture.speaker if lecture else '' }}" required>
     </div>
+    <hr style="border-color:var(--color-border);margin:1.5rem 0">
+    <h4 style="margin-bottom:.75rem">Session Speakers &amp; Roles</h4>
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Assign speakers with specific roles for this session.</p>
+    <div id="session-speakers-container">
+      {% for ss in session_speakers %}
+      <div class="session-speaker-row" data-idx="{{ loop.index0 }}">
+        <div class="form-row">
+          <div class="form-group" style="flex:2">
+            <select name="session_speaker_id_{{ loop.index0 }}" class="form-input" data-no-tomselect>
+              <option value="">Select speaker</option>
+              {% for sp in speakers %}
+              <option value="{{ sp.id }}" {% if ss.speaker_id == sp.id %}selected{% endif %}>{{ sp.name }}{% if sp.title %} — {{ sp.title }}{% endif %}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group">
+            <select name="session_speaker_role_{{ loop.index0 }}" class="form-input" data-no-tomselect>
+              {% for role in speaker_roles %}
+              <option value="{{ role }}" {% if ss.role == role %}selected{% endif %}>{{ role }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="button" class="btn btn-sm btn-danger ss-remove" title="Remove">&times;</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="btn btn-sm btn-outline mt-2" id="add-session-speaker">+ Add Speaker Role</button>
     <div class="wizard-nav">
       <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
       <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
@@ -200,8 +228,37 @@
     </div>
   </div>
 
-  <!-- Step 6: Review -->
+  <!-- Step 6: Recordings -->
   <div class="wizard-panel" data-panel="6">
+    <h3 class="wizard-panel-title">Recordings</h3>
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Add a recording URL or upload a file after the event. Toggle public visibility when ready.</p>
+    <div class="form-group">
+      <label class="form-label" for="recording-url">Recording URL (YouTube, Vimeo, or direct link)</label>
+      <input type="url" name="recording_url" id="recording-url" class="form-input" value="{{ lecture.recording_url if lecture and lecture.recording_url else '' }}" placeholder="https://youtube.com/watch?v=...">
+    </div>
+    {% if lecture %}
+    <div class="form-group">
+      <label class="form-label">Upload Recording File</label>
+      {% if lecture.recording_file %}
+      <p class="text-muted" style="font-size:.85rem">Current file: <code>{{ lecture.recording_file }}</code></p>
+      {% endif %}
+      <p class="text-muted" style="font-size:.8rem">Use the separate upload form below (after saving) to upload a recording file.</p>
+    </div>
+    {% endif %}
+    <div class="form-group">
+      <label class="form-label">
+        <input type="checkbox" name="is_recording_public" {% if lecture and lecture.is_recording_public %}checked{% endif %}>
+        Make recording publicly visible
+      </label>
+    </div>
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+      <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Step 7: Review -->
+  <div class="wizard-panel" data-panel="7">
     <h3 class="wizard-panel-title">Review &amp; Publish</h3>
     <p class="text-muted">Review all fields above, then click submit.</p>
     <div id="wizard-review" class="wizard-review"></div>
@@ -211,6 +268,20 @@
     </div>
   </div>
 </form>
+{% if lecture %}
+<hr style="border-color:var(--color-border);margin:2rem 0">
+<h3 style="margin-bottom:1rem">Upload Recording File</h3>
+<form method="post" action="/admin/sessions/{{ lecture.id }}/recording-upload" enctype="multipart/form-data">
+  <div class="form-row">
+    <div class="form-group" style="flex:2">
+      <input type="file" name="recording_file" class="form-input" accept="video/*,audio/*">
+    </div>
+    <div class="form-group" style="flex:0 0 auto">
+      <button type="submit" class="btn btn-primary">Upload</button>
+    </div>
+  </div>
+</form>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
@@ -230,7 +301,7 @@
         if (sel.tomselect) sel.tomselect.sync();
       });
     }
-    if (n === 6) buildReview();
+    if (n === 7) buildReview();
   }
 
   steps.forEach(function(s) {
@@ -273,14 +344,31 @@
     if (certSigner) certRow += ' &middot; Signed by ' + certSigner;
     if (certSignerDesg) certRow += ' (' + certSignerDesg + ')';
 
+    var ssRows = document.querySelectorAll('.session-speaker-row');
+    var speakerRoles = [];
+    ssRows.forEach(function(row) {
+      var sel = row.querySelector('select[name^="session_speaker_id_"]');
+      var roleSel = row.querySelector('select[name^="session_speaker_role_"]');
+      if (sel && sel.value) {
+        var name = sel.options[sel.selectedIndex].text;
+        var role = roleSel ? roleSel.options[roleSel.selectedIndex].text : '';
+        speakerRoles.push(name + ' (' + role + ')');
+      }
+    });
+    var speakerRolesText = speakerRoles.length ? speakerRoles.join(', ') : '(none assigned)';
+
+    var recUrl = document.getElementById('recording-url').value || '(none)';
+
     r.innerHTML = '<table class="table"><tbody>' +
       '<tr><td><strong>Title</strong></td><td>' + title + '</td></tr>' +
       '<tr><td><strong>Speaker</strong></td><td>' + speaker + '</td></tr>' +
+      '<tr><td><strong>Speaker Roles</strong></td><td>' + speakerRolesText + '</td></tr>' +
       '<tr><td><strong>Venue</strong></td><td>' + venue + '</td></tr>' +
       '<tr><td><strong>Date/Time</strong></td><td>' + start + '</td></tr>' +
       '<tr><td><strong>Pricing</strong></td><td>' + priceDisplay + '</td></tr>' +
       '<tr><td><strong>Status</strong></td><td>' + status + '</td></tr>' +
       '<tr><td><strong>Certificate</strong></td><td>' + certRow + ' &middot; ' + certColorLabel + '</td></tr>' +
+      '<tr><td><strong>Recording</strong></td><td>' + recUrl + '</td></tr>' +
       '</tbody></table>';
   }
 
@@ -326,6 +414,37 @@
       if (name) spInput.value = name;
     });
   }
+
+  // Session Speakers with Roles
+  var ssIdx = {{ session_speakers|length }};
+  var speakerOptions = [{% for sp in speakers %}{ id: '{{ sp.id }}', text: '{{ sp.name }}{% if sp.title %} — {{ sp.title }}{% endif %}' },{% endfor %}];
+  var roleOptions = [{% for role in speaker_roles %}'{{ role }}',{% endfor %}];
+
+  document.getElementById('add-session-speaker').addEventListener('click', function() {
+    var container = document.getElementById('session-speakers-container');
+    var row = document.createElement('div');
+    row.className = 'session-speaker-row';
+    row.dataset.idx = ssIdx;
+    var spOpts = '<option value="">Select speaker</option>';
+    speakerOptions.forEach(function(sp) { spOpts += '<option value="' + sp.id + '">' + sp.text + '</option>'; });
+    var roleOpts = '';
+    roleOptions.forEach(function(r) { roleOpts += '<option value="' + r + '">' + r + '</option>'; });
+    row.innerHTML = '<div class="form-row">' +
+      '<div class="form-group" style="flex:2"><select name="session_speaker_id_' + ssIdx + '" class="form-input" data-no-tomselect>' + spOpts + '</select></div>' +
+      '<div class="form-group"><select name="session_speaker_role_' + ssIdx + '" class="form-input" data-no-tomselect>' + roleOpts + '</select></div>' +
+      '<button type="button" class="btn btn-sm btn-danger ss-remove" title="Remove">&times;</button>' +
+      '</div>';
+    container.appendChild(row);
+    ssIdx++;
+    bindSSRemoveButtons();
+  });
+
+  function bindSSRemoveButtons() {
+    document.querySelectorAll('.ss-remove').forEach(function(btn) {
+      btn.onclick = function() { btn.closest('.session-speaker-row').remove(); };
+    });
+  }
+  bindSSRemoveButtons();
 })();
 </script>
 {% endblock %}

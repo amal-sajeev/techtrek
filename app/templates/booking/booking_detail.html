@@ -82,6 +82,24 @@
                     <span>Paid: <strong>&#8377;{{ b.amount_paid|round(0)|int if b.amount_paid else 0 }}</strong></span>
                     {% endif %}
                   </div>
+                  {% if b.refund_status %}
+                  <div class="booking-detail-row">
+                    <span class="booking-detail-icon">&#128260;</span>
+                    <span>Refund Status:
+                      {% if b.refund_status == 'completed' %}
+                      <span class="badge badge-success">Completed</span>
+                      {% elif b.refund_status == 'failed' %}
+                      <span class="badge badge-danger">Failed</span>
+                      {% elif b.refund_status == 'processing' %}
+                      <span class="badge badge-warning">Processing</span>
+                      {% elif b.refund_status == 'initiated' %}
+                      <span class="badge badge-info">Initiated</span>
+                      {% else %}
+                      <span class="badge badge-secondary">{{ b.refund_status|title }}</span>
+                      {% endif %}
+                    </span>
+                  </div>
+                  {% endif %}
                 </div>
               </div>
               <div class="ticket-detail-side">

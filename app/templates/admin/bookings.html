@@ -42,6 +42,7 @@
         <th>Session</th>
         <th>Seat</th>
         <th>Status</th>
+        <th>Refund</th>
         <th>Booked</th>
         {% if user.is_admin %}<th>Actions</th>{% endif %}
       </tr>
@@ -63,6 +64,23 @@
           </span>
           {% if item.booking.checked_in %}<br><small class="text-muted">Checked in</small>{% endif %}
         </td>
+        <td>
+          {% if item.booking.refund_status %}
+            {% if item.booking.refund_status == 'completed' %}
+            <span class="badge badge-success">Completed</span>
+            {% elif item.booking.refund_status == 'failed' %}
+            <span class="badge badge-danger">Failed</span>
+            {% elif item.booking.refund_status == 'processing' %}
+            <span class="badge badge-warning">Processing</span>
+            {% elif item.booking.refund_status == 'initiated' %}
+            <span class="badge badge-info">Initiated</span>
+            {% else %}
+            <span class="badge badge-secondary">{{ item.booking.refund_status|title }}</span>
+            {% endif %}
+          {% else %}
+          —
+          {% endif %}
+        </td>
         <td>{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
         {% if user.is_admin %}
         <td class="actions-cell">
@@ -75,6 +93,10 @@
           </form>
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Cancel this booking?" data-confirm-label="Cancel">Cancel</button>
+          </form>
+          {% elif item.booking.refund_status == 'failed' %}
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
+            <button type="button" class="btn btn-sm btn-outline" data-confirm="Retry refund for this booking?" data-confirm-label="Retry" data-confirm-class="btn-primary">Retry Refund</button>
           </form>
           {% elif item.booking.payment_status == 'hold' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">

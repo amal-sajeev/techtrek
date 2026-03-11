@@ -1,0 +1,101 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Activity Log — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Activity Log</h1>
+  <span class="text-secondary">{{ total }} event{{ 's' if total != 1 else '' }} found</span>
+</div>
+
+<form method="get" action="/admin/activity-log" class="log-filter-bar">
+  <div class="log-filter-row">
+    <div class="log-filter-field">
+      <label class="form-label" for="log-category">Category</label>
+      <select name="category" id="log-category" class="form-input" data-no-tomselect>
+        <option value="">All categories</option>
+        <option value="auth" {% if filter_category == 'auth' %}selected{% endif %}>Auth</option>
+        <option value="admin" {% if filter_category == 'admin' %}selected{% endif %}>Admin</option>
+        <option value="booking" {% if filter_category == 'booking' %}selected{% endif %}>Booking</option>
+        <option value="speaker" {% if filter_category == 'speaker' %}selected{% endif %}>Speaker</option>
+        <option value="system" {% if filter_category == 'system' %}selected{% endif %}>System</option>
+      </select>
+    </div>
+    <div class="log-filter-field log-filter-search">
+      <label class="form-label" for="log-search">Search</label>
+      <input type="text" name="q" id="log-search" class="form-input" placeholder="Search descriptions..." value="{{ filter_q }}">
+    </div>
+    <div class="log-filter-field">
+      <label class="form-label" for="log-from">From</label>
+      <input type="date" name="date_from" id="log-from" class="form-input" value="{{ filter_date_from }}">
+    </div>
+    <div class="log-filter-field">
+      <label class="form-label" for="log-to">To</label>
+      <input type="date" name="date_to" id="log-to" class="form-input" value="{{ filter_date_to }}">
+    </div>
+    <div class="log-filter-actions">
+      <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+      <a href="/admin/activity-log" class="btn btn-outline btn-sm">Clear</a>
+    </div>
+  </div>
+</form>
+
+{% if logs %}
+<div class="table-responsive">
+  <table class="admin-table log-table">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>Category</th>
+        <th>Action</th>
+        <th>User</th>
+        <th>Description</th>
+        <th>IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr>
+        <td class="log-timestamp">
+          {{ log.timestamp.strftime('%b %d, %Y') }}<br>
+          <span class="text-secondary">{{ log.timestamp.strftime('%I:%M:%S %p') }}</span>
+        </td>
+        <td>
+          <span class="log-badge log-badge-{{ log.category }}">{{ log.category }}</span>
+        </td>
+        <td class="log-action">{{ log.action }}</td>
+        <td class="log-user">
+          {% if log.user %}
+            {{ log.user.username }}
+          {% else %}
+            <span class="text-muted">system</span>
+          {% endif %}
+        </td>
+        <td class="log-description">{{ log.description }}</td>
+        <td class="log-ip">{{ log.ip_address or '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{% if total_pages > 1 %}
+<div class="log-pagination">
+  {% if page > 1 %}
+    <a href="/admin/activity-log?page={{ page - 1 }}&category={{ filter_category }}&q={{ filter_q }}&date_from={{ filter_date_from }}&date_to={{ filter_date_to }}" class="btn btn-sm btn-outline">&laquo; Previous</a>
+  {% endif %}
+  <span class="log-pagination-info">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="/admin/activity-log?page={{ page + 1 }}&category={{ filter_category }}&q={{ filter_q }}&date_from={{ filter_date_from }}&date_to={{ filter_date_to }}" class="btn btn-sm btn-outline">Next &raquo;</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">&#128220;</div>
+  <h3>No activity logs found</h3>
+  <p class="text-secondary">{% if filter_category or filter_q or filter_date_from or filter_date_to %}Try adjusting your filters.{% else %}Activity will appear here as users interact with the system.{% endif %}</p>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -75,8 +75,31 @@ with engine.connect() as conn:
             conn.commit()
         except Exception:
             conn.rollback()
+    # Task #3: Recording fields on sessions
+    for col, col_type in [
+        ("recording_url", "VARCHAR(500)"),
+        ("recording_file", "VARCHAR(500)"),
+        ("is_recording_public", "BOOLEAN DEFAULT FALSE"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE lecture_sessions ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+    # Task #5: Refund tracking fields on bookings
+    for col, col_type in [
+        ("refund_id", "VARCHAR(50)"),
+        ("refund_status", "VARCHAR(30)"),
+        ("refund_processed_at", "TIMESTAMP"),
+    ]:
+        try:
+            conn.execute(text(f"ALTER TABLE bookings ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 from app.routers import auth, public, booking, admin, supervisor, speaker  # noqa: E402
+from app.routers import webhook  # noqa: E402
 
 application.include_router(auth.router)
 application.include_router(public.router)
@@ -84,6 +107,7 @@ application.include_router(booking.router)
 application.include_router(admin.router)
 application.include_router(supervisor.router)
 application.include_router(speaker.router)
+application.include_router(webhook.router)
 
 app = application
 

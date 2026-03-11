@@ -1,13 +1,21 @@
-/* ---- SPEAKER SECTION (session detail) ---- */
+/* ---- SPEAKER SECTION (legacy — used by other pages if any) ---- */
 .speaker-section {
   display: flex;
   gap: 1.25rem;
   align-items: flex-start;
-  margin-bottom: 2rem;
+  margin-bottom: 1.25rem;
   padding: 1.25rem;
-  border: 1px solid var(--color-border, rgba(255,255,255,0.08));
-  border-radius: 12px;
-  background: var(--color-surface-2, rgba(255,255,255,0.03));
+  padding-left: 1.5rem;
+  border: none;
+  border-left: 3px solid var(--cyan, #00d4ff);
+  border-radius: 0 12px 12px 0;
+  background: var(--bg-elevated, rgba(255,255,255,0.03));
+  transition: transform .2s var(--ease-out, ease), box-shadow .2s;
+}
+.speaker-section:last-child { margin-bottom: 0 }
+.speaker-section:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0,0,0,.2);
 }
 
 .speaker-photo {
@@ -22,7 +30,7 @@
   width: 72px;
   height: 72px;
   border-radius: 50%;
-  background: var(--color-accent, #00d4ff);
+  background: var(--cyan, #00d4ff);
   color: #000;
   font-size: 1.75rem;
   font-weight: 700;
@@ -35,45 +43,48 @@
 .speaker-info {
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.25rem;
 }
 
 .speaker-name-lg {
-  font-size: 1.1rem;
+  font-size: 20px;
   font-weight: 700;
 }
 
 .speaker-role-lg {
-  font-size: 0.875rem;
-  opacity: 0.65;
+  font-size: 19px;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .speaker-bio {
   margin-top: 0.5rem;
-  font-size: 0.9rem;
-  line-height: 1.6;
-  opacity: 0.85;
+  font-size: 19px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  opacity: 0.9;
   max-width: 55ch;
 }
 
 .session-detail-speaker-plain {
-  font-size: 1rem;
-  opacity: 0.7;
+  font-size: 19px;
+  color: var(--text-secondary);
   margin-bottom: 1.5rem;
 }
 
-/* ---- AGENDA ---- */
+/* ---- AGENDA (legacy) ---- */
 .agenda-section {
   margin-bottom: 2rem;
 }
 
 .agenda-title {
-  font-size: 1rem;
+  font-size: 19px;
   font-weight: 600;
   margin-bottom: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  opacity: 0.6;
+  color: var(--text-secondary);
+  opacity: 0.8;
 }
 
 .agenda-list {
@@ -86,8 +97,19 @@
 }
 
 .agenda-item {
-  padding: 0.75rem 0;
-  border-bottom: 1px solid var(--color-border, rgba(255,255,255,0.07));
+  padding: 0.85rem 0 0.85rem 1.25rem;
+  border-bottom: 1px solid var(--border, rgba(255,255,255,0.07));
+  position: relative;
+}
+
+.agenda-item::before {
+  content: "\25B8";
+  position: absolute;
+  left: 0;
+  top: 0.9rem;
+  color: var(--cyan, #00d4ff);
+  font-size: 17px;
+  line-height: 1;
 }
 
 .agenda-item:last-child {
@@ -97,67 +119,252 @@
 .agenda-item-header {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
+  gap: 0.75rem;
 }
 
 .agenda-item-title {
   font-weight: 500;
+  font-size: 19px;
 }
 
 .agenda-item-duration {
-  font-size: 0.8rem;
-  opacity: 0.5;
+  font-size: 17px;
+  color: var(--cyan, #00d4ff);
   white-space: nowrap;
-  margin-left: 1rem;
+  font-family: var(--font-mono, monospace);
+  background: var(--cyan-dim, rgba(0,212,255,0.08));
+  border: 1px solid rgba(0,212,255,.15);
+  padding: .15rem .55rem;
+  border-radius: 4px;
+  flex-shrink: 0;
 }
 
 .agenda-item-desc {
-  font-size: 0.875rem;
-  opacity: 0.65;
-  margin: 0.3rem 0 0;
-  line-height: 1.5;
+  font-size: 19px;
+  color: var(--text-secondary);
+  opacity: 0.8;
+  margin: 0.35rem 0 0;
+  line-height: 1.6;
 }
 
 /* ---- BOOKING BOX ADDITIONS ---- */
 .booking-social-proof {
-  font-size: 0.85rem;
-  opacity: 0.7;
+  font-size: 19px;
+  color: var(--text-secondary);
   margin: 0.5rem 0;
-  padding: 0.4rem 0.6rem;
-  background: var(--color-surface-2, rgba(0,212,255,0.06));
+  padding: 0.5rem 0.75rem;
+  background: var(--cyan-dim, rgba(0,212,255,0.06));
   border-radius: 6px;
-  border-left: 3px solid var(--color-accent, #00d4ff);
+  border-left: 3px solid var(--cyan, #00d4ff);
 }
 
 .booking-trust-list {
   list-style: none;
   padding: 0;
-  margin: 1rem 0 0;
+  margin: 1.25rem 0 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 }
 
 .booking-trust-list li {
-  font-size: 0.8rem;
-  opacity: 0.55;
-  padding-left: 1rem;
+  font-size: 19px;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  padding-left: 1.25rem;
   position: relative;
+  line-height: 1.5;
 }
 
 .booking-trust-list li::before {
-  content: "✓";
+  content: "\2713";
   position: absolute;
   left: 0;
-  opacity: 0.8;
+  color: var(--green, #10b981);
+  opacity: 0.9;
 }
 
 /* ---- CARD CTA HINT ---- */
 .card-cta-hint {
-  font-size: 0.8rem;
+  font-size: 19px;
   font-weight: 600;
-  color: var(--color-accent, #00d4ff);
-  opacity: 0.85;
+  color: var(--cyan, #00d4ff);
   letter-spacing: 0.02em;
 }
 
+/* ---- LIGHT THEME OVERRIDES ---- */
+[data-theme="light"] .speaker-section {
+  border-left-color: #0881a2;
+  background: rgba(255,255,255,.5);
+}
+[data-theme="light"] .speaker-section:hover {
+  box-shadow: 0 4px 20px rgba(0,40,80,.12);
+}
+[data-theme="light"] .speaker-initials-lg {
+  background: #0881a2;
+  color: #fff;
+}
+[data-theme="light"] .booking-social-proof {
+  background: rgba(8,129,162,.06);
+  border-left-color: #0881a2;
+}
+[data-theme="light"] .booking-trust-list li::before {
+  color: #047857;
+}
+[data-theme="light"] .agenda-item::before {
+  color: #0881a2;
+}
+[data-theme="light"] .agenda-item-duration {
+  color: #0881a2;
+  background: rgba(8,129,162,.06);
+  border-color: rgba(8,129,162,.18);
+}
+
+
+/* ====================================================
+   HERO FULL-BLEED SPLIT — LAYOUT & FADE FIX
+   ==================================================== */
+
+/* 1. Break hero free from the centered container */
+.hero .container {
+  max-width: 100%;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+}
+
+/* 2. Flex row: text left / image right */
+.hero-split {
+  display: flex !important;
+  align-items: center;
+  min-height: 520px;
+  padding: 0;
+}
+
+/* 3. Left text column — 50 % of viewport, with breathing room */
+.hero-text {
+  width: 50%;
+  min-width: 0;
+  max-width: none;
+  margin-right: 0;
+  padding: 2rem clamp(1.5rem, 3vw, 3rem) 2rem max(2rem, 7vw);
+  position: relative;
+  z-index: 3;
+}
+
+/* 4. Hero stats row inside text column */
+.hero-stats {
+  display: flex;
+  gap: 2.5rem;
+  margin-top: .5rem;
+}
+
+/* 5. FADE FIX — was using non-existent --bg-body var.
+      Use hardcoded #010409 (= --bg-void) for dark mode.
+      The gradient covers from solid left → blends into image right. */
+.hero-session-fade {
+  background:
+    /* horizontal: solid left → transparent blend over image */
+    linear-gradient(90deg,
+      #010409 0%,
+      #010409 36%,
+      rgba(1,4,9,.92) 44%,
+      rgba(1,4,9,.7) 52%,
+      rgba(1,4,9,.3) 64%,
+      rgba(1,4,9,.08) 78%,
+      transparent 90%),
+    /* vertical bottom vignette so overlay reads cleanly */
+    linear-gradient(0deg,
+      rgba(1,4,9,.88) 0%,
+      rgba(1,4,9,.55) 20%,
+      rgba(1,4,9,.18) 40%,
+      transparent 60%),
+    /* top edge darkening */
+    linear-gradient(180deg,
+      rgba(1,4,9,.45) 0%,
+      transparent 22%);
+  pointer-events: none;
+}
+
+/* 6. Session overlay — floating glass card over image */
+.hero-session-overlay {
+  position: absolute;
+  right: 2.5rem;
+  bottom: 2.5rem;
+  width: clamp(280px, 38%, 500px);
+  padding: 1.5rem 1.75rem 1.625rem;
+  z-index: 3;
+
+  /* glassmorphism card */
+  background: rgba(1, 4, 9, 0.42);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid rgba(0,212,255,.18);
+  border-radius: 18px;
+  box-shadow:
+    0 8px 40px rgba(0,0,0,.55),
+    0 0 0 1px rgba(0,212,255,.05),
+    inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* 7. Light-mode fade — use the sky tone */
+[data-theme="light"] .hero-session-fade {
+  background:
+    linear-gradient(90deg,
+      #dcedf5 0%,
+      #dcedf5 34%,
+      rgba(220,237,245,.92) 42%,
+      rgba(220,237,245,.7) 52%,
+      rgba(220,237,245,.28) 64%,
+      rgba(220,237,245,.06) 78%,
+      transparent 90%),
+    linear-gradient(0deg,
+      rgba(220,237,245,.88) 0%,
+      rgba(220,237,245,.55) 20%,
+      transparent 55%),
+    linear-gradient(180deg,
+      rgba(220,237,245,.45) 0%,
+      transparent 22%);
+}
+
+[data-theme="light"] .hero-session-overlay {
+  background: rgba(255,255,255,.45);
+  border-color: rgba(8,129,162,.22);
+  box-shadow:
+    0 8px 40px rgba(0,60,110,.18),
+    inset 0 1px 0 rgba(255,255,255,.7);
+}
+
+/* 8. Responsive: stack on smaller screens */
+@media (max-width: 900px) {
+  .hero .container { padding: 0 }
+  .hero-split { flex-direction: column; min-height: auto }
+  .hero-text {
+    width: 100%;
+    padding: 2rem 1.5rem 1rem;
+  }
+  .hero-session-overlay {
+    position: relative;
+    right: auto; bottom: auto;
+    width: calc(100% - 3rem);
+    margin: 0 1.5rem 1.5rem;
+  }
+  .hero-session-img {
+    width: 100%;
+    position: relative;
+    height: 280px;
+    display: block;
+  }
+  .hero-session-bg {
+    position: relative;
+    inset: auto;
+    overflow: hidden;
+  }
+  .hero-session-fade {
+    background: linear-gradient(0deg,
+      #010409 0%,
+      rgba(1,4,9,.6) 30%,
+      transparent 60%) !important;
+  }
+}

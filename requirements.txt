@@ -11,3 +11,4 @@ pydantic-settings
 qrcode[pil]
 razorpay
 reportlab
+babel

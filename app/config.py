@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@techtrek.in"
     smtp_from_name: str = "TechTrek"
 
+    babel_default_locale: str = "en"
+    babel_default_timezone: str = "Asia/Kolkata"
+
     model_config = {"env_file": ".env"}
 
 

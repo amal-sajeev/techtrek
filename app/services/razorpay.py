@@ -35,10 +35,20 @@ def verify_payment(order_id: str, payment_id: str, signature: str) -> bool:
     return hmac.compare_digest(expected, signature)
 
 
+def verify_webhook_signature(body: bytes, signature: str, secret: str) -> bool:
+    """Verify the Razorpay webhook signature using HMAC SHA256."""
+    expected = hmac.new(
+        secret.encode(),
+        body,
+        hashlib.sha256,
+    ).hexdigest()
+    return hmac.compare_digest(expected, signature)
+
+
 def process_refund(payment_id: str, amount_paise: int) -> dict | None:
     """Issue a partial refund via Razorpay. Returns refund data or None on failure."""
     try:
-        refund = client.payment.refund(payment_id, amount_paise, {"speed": "normal"})
+        refund = client.payment.refund(payment_id, {"amount": amount_paise, "speed": "normal"})
         log.info("Razorpay refund issued: %s for %d paise", refund.get("id"), amount_paise)
         return refund
     except Exception:

@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Schedule — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <h1 class="page-title reveal">Event Schedule</h1>
+
+    <form class="filter-bar reveal" id="schedule-filter" method="get" action="/schedule">
+      <div class="filter-college">
+        <label for="sched-college" class="sr-only">College</label>
+        <select name="college_id" id="sched-college" class="form-input" aria-label="Filter by college">
+          <option value="">All Colleges</option>
+          {% for c in colleges %}
+          <option value="{{ c.id }}" {% if college_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-auditorium">
+        <label for="sched-auditorium" class="sr-only">Auditorium</label>
+        <select name="auditorium_id" id="sched-auditorium" class="form-input" aria-label="Filter by auditorium">
+          <option value="">All Auditoriums</option>
+          {% for a in auditoriums %}
+          <option value="{{ a.id }}" {% if auditorium_id == a.id|string %}selected{% endif %}>{{ a.name }} — {{ a.location }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+      <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">&#128424; Print</button>
+      <a href="/schedule/export-pdf?college_id={{ college_id }}&auditorium_id={{ auditorium_id }}" class="btn btn-outline btn-sm">&#128196; PDF</a>
+    </form>
+
+    <div id="schedule-content">
+    {% if grouped %}
+      {% for date_key, items in grouped.items() %}
+      {% set dt = items[0].session.start_time %}
+      <div class="schedule-date-group reveal">
+        <h2 class="schedule-date-heading">{{ dt.strftime('%A, %B %d, %Y') }}</h2>
+        <div class="schedule-timeline">
+          {% for item in items %}
+          {% set s = item.session %}
+          {% set aud = item.auditorium %}
+          <div class="schedule-card">
+            <div class="schedule-time">
+              <span class="schedule-time-text">{{ s.start_time.strftime('%I:%M %p') }}</span>
+              <span class="schedule-duration">{{ s.duration_minutes }} min</span>
+            </div>
+            <div class="schedule-info">
+              <a href="/sessions/{{ s.id }}" class="schedule-title">{{ s.title }}</a>
+              <p class="schedule-speaker">{{ s.speaker }}</p>
+              {% if aud %}
+              <p class="schedule-venue">&#128205; {{ aud.name }}, {{ aud.location }}</p>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state reveal">
+        <h3>No sessions found</h3>
+        <p>{% if college_id or auditorium_id %}No sessions match the selected filters.{% else %}No published sessions available yet.{% endif %}</p>
+      </div>
+    {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var collegeSel = document.getElementById('sched-college');
+  var audSel = document.getElementById('sched-auditorium');
+  if (collegeSel) collegeSel.addEventListener('change', function() { document.getElementById('schedule-filter').submit(); });
+  if (audSel) audSel.addEventListener('change', function() { document.getElementById('schedule-filter').submit(); });
+})();
+</script>
+{% endblock %}

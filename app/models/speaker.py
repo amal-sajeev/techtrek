@@ -23,3 +23,4 @@ class Speaker(Base):
 
     user = relationship("User", backref="speaker_profile")
     sessions = relationship("LectureSession", back_populates="speaker_rel")
+    session_assignments = relationship("SessionSpeaker", back_populates="speaker", cascade="all, delete-orphan")
