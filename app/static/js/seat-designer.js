@@ -103,6 +103,15 @@
     return type && type.indexOf("custom_") === 0;
   }
 
+  function contrastColor(hex) {
+    if (!hex || hex.charAt(0) !== "#") return "#fff";
+    var r = parseInt(hex.slice(1, 3), 16) / 255;
+    var g = parseInt(hex.slice(3, 5), 16) / 255;
+    var b = parseInt(hex.slice(5, 7), 16) / 255;
+    var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    return lum > 0.5 ? "#000" : "#fff";
+  }
+
   function getEffectiveTool() {
     if (currentTool === "custom" && selectedCustomType) {
       return "custom_" + selectedCustomType;
@@ -395,6 +404,7 @@
           if (isCustomType(cellType) && customTypes[cellType]) {
             cell.classList.add("cell-custom");
             cell.style.backgroundColor = customTypes[cellType].colour;
+            cell.style.color = contrastColor(customTypes[cellType].colour);
             cell.title = grid[key].label ? grid[key].label + " — " + customTypes[cellType].name : customTypes[cellType].name;
           } else {
             cell.classList.add("cell-" + cellType);
@@ -1295,6 +1305,7 @@
           if (isCustomType(seatType) && customTypes[seatType]) {
             el.className = "seat seat-custom";
             el.style.backgroundColor = customTypes[seatType].colour;
+            el.style.color = contrastColor(customTypes[seatType].colour);
             el.title = grid[key].label + " \u2014 " + customTypes[seatType].name;
           } else {
             var cssClass = "seat seat-available";

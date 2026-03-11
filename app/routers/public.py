@@ -165,6 +165,13 @@ def sessions_list(
             )
         except ValueError:
             pass
+    # Normalize: if college is set, force city to match that college
+    selected_college = None
+    if college_id is not None:
+        selected_college = db.query(College).get(college_id)
+        if selected_college and selected_college.city_id:
+            city_id = selected_college.city_id
+
     if college_id is not None:
         query = query.filter(Auditorium.college_id == college_id)
     if city_id is not None:
@@ -188,8 +195,16 @@ def sessions_list(
             "event_status": _public_status_label(s, stats),
         })
 
-    cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
-    colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
+    # Constrain dropdown options: city limits colleges, college limits cities
+    if city_id is not None:
+        colleges = db.query(College).filter(College.is_active == True, College.city_id == city_id).order_by(College.name).all()
+    else:
+        colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
+
+    if selected_college and selected_college.city_id:
+        cities = db.query(City).filter(City.is_active == True, City.id == selected_college.city_id).order_by(City.name).all()
+    else:
+        cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
 
     return templates.TemplateResponse(
         "public/sessions.html",

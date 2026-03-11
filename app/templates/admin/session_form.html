@@ -9,8 +9,8 @@
 <div class="wizard-steps mb-3">
   <button type="button" class="wizard-step active" data-step="1">1. Venue &amp; Date</button>
   <button type="button" class="wizard-step" data-step="2">2. Details &amp; Price</button>
-  <button type="button" class="wizard-step" data-step="3">3. Agenda</button>
-  <button type="button" class="wizard-step" data-step="4">4. Speakers</button>
+  <button type="button" class="wizard-step" data-step="3">3. Speakers</button>
+  <button type="button" class="wizard-step" data-step="4">4. Agenda</button>
   <button type="button" class="wizard-step" data-step="5">5. Certificate</button>
   <button type="button" class="wizard-step" data-step="6">6. Recordings</button>
   <button type="button" class="wizard-step" data-step="7">7. Review &amp; Publish</button>
@@ -90,37 +90,8 @@
     </div>
   </div>
 
-  <!-- Step 3: Agenda -->
+  <!-- Step 3: Speakers -->
   <div class="wizard-panel" data-panel="3">
-    <h3 class="wizard-panel-title">Agenda Items</h3>
-    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Add individual talks/segments for this event. Each item is a short-format session slot.</p>
-    <div id="agenda-container">
-      {% for item in agenda_items %}
-      <div class="agenda-row" data-idx="{{ loop.index0 }}">
-        <div class="form-row">
-          <div class="form-group" style="flex:2">
-            <input type="text" name="agenda_title_{{ loop.index0 }}" class="form-input" value="{{ item.title }}" placeholder="Talk title">
-          </div>
-          <div class="form-group">
-            <input type="text" name="agenda_speaker_{{ loop.index0 }}" class="form-input" value="{{ item.speaker_name or '' }}" placeholder="Speaker name">
-          </div>
-          <div class="form-group" style="flex:0 0 80px">
-            <input type="number" name="agenda_duration_{{ loop.index0 }}" class="form-input" value="{{ item.duration_minutes }}" placeholder="Min" min="5">
-          </div>
-          <button type="button" class="btn btn-sm btn-danger agenda-remove" title="Remove">&times;</button>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    <button type="button" class="btn btn-sm btn-outline mt-2" id="add-agenda-item">+ Add Agenda Item</button>
-    <div class="wizard-nav">
-      <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
-      <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
-    </div>
-  </div>
-
-  <!-- Step 4: Speakers -->
-  <div class="wizard-panel" data-panel="4">
     <h3 class="wizard-panel-title">Speakers</h3>
     <div class="form-group">
       <label class="form-label" for="sess-speaker-select">Primary Speaker (legacy, optional)</label>
@@ -163,6 +134,47 @@
       {% endfor %}
     </div>
     <button type="button" class="btn btn-sm btn-outline mt-2" id="add-session-speaker">+ Add Speaker Role</button>
+    <div class="wizard-nav">
+      <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+      <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
+    </div>
+  </div>
+
+  <!-- Step 4: Agenda -->
+  <div class="wizard-panel" data-panel="4">
+    <h3 class="wizard-panel-title">Agenda Items</h3>
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Add individual talks/segments for this event. Each item is a short-format session slot. Speaker options come from Step 3.</p>
+    <div id="agenda-container">
+      {% for item in agenda_items %}
+      <div class="agenda-row" data-idx="{{ loop.index0 }}">
+        <div class="form-row">
+          <div class="form-group" style="flex:2">
+            <input type="text" name="agenda_title_{{ loop.index0 }}" class="form-input" value="{{ item.title }}" placeholder="Talk title">
+          </div>
+          <div class="form-group">
+            <select name="agenda_speaker_{{ loop.index0 }}" class="form-input agenda-speaker-select" placeholder="Select speaker">
+              <option value="">-- No speaker --</option>
+              {% if item.speaker_name %}
+              <option value="{{ item.speaker_name }}" selected>{{ item.speaker_name }}</option>
+              {% endif %}
+              {% for ss in session_speakers %}
+              {% set sp = None %}
+              {% for s in speakers %}{% if s.id == ss.speaker_id %}{% set sp = s %}{% endif %}{% endfor %}
+              {% if sp %}
+              <option value="{{ sp.name }}" {% if item.speaker_name == sp.name %}selected{% endif %}>{{ sp.name }}</option>
+              {% endif %}
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="flex:0 0 80px">
+            <input type="number" name="agenda_duration_{{ loop.index0 }}" class="form-input" value="{{ item.duration_minutes }}" placeholder="Min" min="5">
+          </div>
+          <button type="button" class="btn btn-sm btn-danger agenda-remove" title="Remove">&times;</button>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <button type="button" class="btn btn-sm btn-outline mt-2" id="add-agenda-item">+ Add Agenda Item</button>
     <div class="wizard-nav">
       <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
       <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
@@ -301,6 +313,7 @@
         if (sel.tomselect) sel.tomselect.sync();
       });
     }
+    if (n === 4) syncAgendaSpeakerOptions();
     if (n === 7) buildReview();
   }
 
@@ -313,6 +326,68 @@
   document.querySelectorAll('.wizard-prev').forEach(function(btn) {
     btn.addEventListener('click', function() { goToStep(currentStep - 1); });
   });
+
+  // --- Speaker data ---
+  var speakerOptions = [{% for sp in speakers %}{ id: '{{ sp.id }}', text: '{{ sp.name }}{% if sp.title %} — {{ sp.title }}{% endif %}', name: '{{ sp.name }}' },{% endfor %}];
+  var roleOptions = [{% for role in speaker_roles %}'{{ role }}',{% endfor %}];
+
+  function getSelectedSpeakers() {
+    var names = [];
+    function pushUnique(name) {
+      if (!name) return;
+      if (names.indexOf(name) === -1) names.push(name);
+    }
+
+    // Include primary speaker (legacy selector) in agenda options.
+    if (spSelect) {
+      var primaryName = '';
+      if (spSelect.tomselect) {
+        var pVal = spSelect.tomselect.getValue();
+        var pOpt = spSelect.tomselect.options[pVal];
+        if (pOpt) primaryName = (pOpt.text || '').split(' — ')[0];
+      } else if (spSelect.options[spSelect.selectedIndex]) {
+        var pNativeOpt = spSelect.options[spSelect.selectedIndex];
+        if (pNativeOpt && pNativeOpt.value) primaryName = pNativeOpt.text.split(' — ')[0];
+      }
+      pushUnique(primaryName);
+    }
+
+    document.querySelectorAll('.session-speaker-row').forEach(function(row) {
+      var sel = row.querySelector('select[name^="session_speaker_id_"]');
+      if (sel && sel.value) {
+        var spId = sel.value;
+        for (var i = 0; i < speakerOptions.length; i++) {
+          if (speakerOptions[i].id === spId) {
+            pushUnique(speakerOptions[i].name);
+            break;
+          }
+        }
+      }
+    });
+    return names;
+  }
+
+  function syncAgendaSpeakerOptions() {
+    var selectedNames = getSelectedSpeakers();
+    document.querySelectorAll('.agenda-speaker-select').forEach(function(sel) {
+      var current = sel.value;
+      if (sel.tomselect) {
+        current = sel.tomselect.getValue();
+        sel.tomselect.destroy();
+      }
+      sel.innerHTML = '<option value="">-- No speaker --</option>';
+      selectedNames.forEach(function(name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        if (name === current) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      if (typeof TomSelect !== 'undefined') {
+        new TomSelect(sel, { create: false, placeholder: 'Select speaker' });
+      }
+    });
+  }
 
   function buildReview() {
     var r = document.getElementById('wizard-review');
@@ -372,32 +447,7 @@
       '</tbody></table>';
   }
 
-  // Agenda items
-  var agendaIdx = {{ agenda_items|length }};
-  document.getElementById('add-agenda-item').addEventListener('click', function() {
-    var container = document.getElementById('agenda-container');
-    var row = document.createElement('div');
-    row.className = 'agenda-row';
-    row.dataset.idx = agendaIdx;
-    row.innerHTML = '<div class="form-row">' +
-      '<div class="form-group" style="flex:2"><input type="text" name="agenda_title_' + agendaIdx + '" class="form-input" placeholder="Talk title"></div>' +
-      '<div class="form-group"><input type="text" name="agenda_speaker_' + agendaIdx + '" class="form-input" placeholder="Speaker name"></div>' +
-      '<div class="form-group" style="flex:0 0 80px"><input type="number" name="agenda_duration_' + agendaIdx + '" class="form-input" value="20" placeholder="Min" min="5"></div>' +
-      '<button type="button" class="btn btn-sm btn-danger agenda-remove" title="Remove">&times;</button>' +
-      '</div>';
-    container.appendChild(row);
-    agendaIdx++;
-    bindRemoveButtons();
-  });
-
-  function bindRemoveButtons() {
-    document.querySelectorAll('.agenda-remove').forEach(function(btn) {
-      btn.onclick = function() { btn.closest('.agenda-row').remove(); };
-    });
-  }
-  bindRemoveButtons();
-
-  // Auto-fill speaker name when selecting from dropdown
+  // --- Auto-fill speaker name when selecting from dropdown ---
   var spSelect = document.getElementById('sess-speaker-select');
   var spInput = document.getElementById('sess-speaker');
   if (spSelect) {
@@ -412,13 +462,12 @@
         if (opt && opt.value) name = opt.text.split(' — ')[0];
       }
       if (name) spInput.value = name;
+      syncAgendaSpeakerOptions();
     });
   }
 
-  // Session Speakers with Roles
+  // --- Session Speakers with Roles (Step 3) ---
   var ssIdx = {{ session_speakers|length }};
-  var speakerOptions = [{% for sp in speakers %}{ id: '{{ sp.id }}', text: '{{ sp.name }}{% if sp.title %} — {{ sp.title }}{% endif %}' },{% endfor %}];
-  var roleOptions = [{% for role in speaker_roles %}'{{ role }}',{% endfor %}];
 
   document.getElementById('add-session-speaker').addEventListener('click', function() {
     var container = document.getElementById('session-speakers-container');
@@ -445,6 +494,54 @@
     });
   }
   bindSSRemoveButtons();
+
+  // --- Agenda items (Step 4) ---
+  var agendaIdx = {{ agenda_items|length }};
+
+  function buildAgendaSpeakerSelect(idx, selectedValue) {
+    var names = getSelectedSpeakers();
+    var html = '<select name="agenda_speaker_' + idx + '" class="form-input agenda-speaker-select" placeholder="Select speaker">' +
+      '<option value="">-- No speaker --</option>';
+    names.forEach(function(name) {
+      html += '<option value="' + name + '"' + (name === selectedValue ? ' selected' : '') + '>' + name + '</option>';
+    });
+    html += '</select>';
+    return html;
+  }
+
+  document.getElementById('add-agenda-item').addEventListener('click', function() {
+    var container = document.getElementById('agenda-container');
+    var row = document.createElement('div');
+    row.className = 'agenda-row';
+    row.dataset.idx = agendaIdx;
+    row.innerHTML = '<div class="form-row">' +
+      '<div class="form-group" style="flex:2"><input type="text" name="agenda_title_' + agendaIdx + '" class="form-input" placeholder="Talk title"></div>' +
+      '<div class="form-group">' + buildAgendaSpeakerSelect(agendaIdx, '') + '</div>' +
+      '<div class="form-group" style="flex:0 0 80px"><input type="number" name="agenda_duration_' + agendaIdx + '" class="form-input" value="20" placeholder="Min" min="5"></div>' +
+      '<button type="button" class="btn btn-sm btn-danger agenda-remove" title="Remove">&times;</button>' +
+      '</div>';
+    container.appendChild(row);
+    var newSel = row.querySelector('.agenda-speaker-select');
+    if (typeof TomSelect !== 'undefined' && newSel) {
+      new TomSelect(newSel, { create: false, placeholder: 'Select speaker' });
+    }
+    agendaIdx++;
+    bindRemoveButtons();
+  });
+
+  function bindRemoveButtons() {
+    document.querySelectorAll('.agenda-remove').forEach(function(btn) {
+      btn.onclick = function() { btn.closest('.agenda-row').remove(); };
+    });
+  }
+  bindRemoveButtons();
+
+  // Initialize TomSelect on existing agenda speaker selects
+  document.querySelectorAll('.agenda-speaker-select').forEach(function(sel) {
+    if (typeof TomSelect !== 'undefined' && !sel.tomselect) {
+      new TomSelect(sel, { create: false, placeholder: 'Select speaker' });
+    }
+  });
 })();
 </script>
 {% endblock %}

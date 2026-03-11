@@ -1602,6 +1602,7 @@ tr:last-child td { border-bottom:none }
 
 /* ---- SEAT LABEL CHIP ---- */
 .seat-label-chip { display:inline-block; background:var(--cyan-dim); border:1px solid var(--cyan); border-radius:var(--radius-md); padding:.35rem .75rem; font-family:var(--font-mono); font-size:.85rem; font-weight:600; color:var(--cyan); letter-spacing:.02em }
+.seat-number { font-weight:700; letter-spacing:.04em }
 .seat-type-tag { font-size:.75rem; opacity:.85; margin-left:.2rem; text-transform:uppercase }
 
 /* ---- SEAT DESIGNER CELLS ---- */
@@ -3147,11 +3148,15 @@ tr:last-child td { border-bottom:none }
 [data-theme="light"] .seat-yours      { background: #e0e7ff; border: 2px solid #4f46e5; box-shadow: 0 0 6px rgba(79,70,229,.3); color: #3730a3; }
 [data-theme="light"] .seat-available:hover { background: #a7f3d0; box-shadow: 0 4px 12px rgba(5,150,105,.3); }
 
+[data-theme="light"] .seat-reserved   { background: #e5e7eb; border: 2px solid #9ca3af; box-shadow: none; color: #4b5563; }
+[data-theme="light"] .seat-custom     { border: 2px solid rgba(0,0,0,0.15); }
+
 [data-theme="light"] .legend-available  { background: #d1fae5; border: 2px solid #059669; }
 [data-theme="light"] .legend-selected   { background: #cffafe; border: 2px solid #0891b2; }
 [data-theme="light"] .legend-taken      { background: #e2e8f0; border: 2px solid #94a3b8; }
 [data-theme="light"] .legend-vip        { background: #fef3c7; border: 2px solid #d97706; }
 [data-theme="light"] .legend-accessible { background: #ede9fe; border: 2px solid #7c3aed; }
+[data-theme="light"] .legend-reserved   { background: #e5e7eb; border: 2px solid #9ca3af; }
 
 /* ---- FLASH MESSAGES ---- */
 [data-theme="light"] .flash-success { background: rgba(4,120,87,0.10); border-color: rgba(4,120,87,0.38); color: #054d38; }
@@ -3350,6 +3355,10 @@ tr:last-child td { border-bottom:none }
   border-color: rgba(0,60,110,0.14);
 }
 [data-theme="light"] .cell-empty:hover { background: rgba(8,129,162,0.07); border-color: rgba(8,129,162,0.32); color: #0881a2; }
+[data-theme="light"] .cell-standard  { background: #818cf8; color: #fff; }
+[data-theme="light"] .cell-vip       { background: #fbbf24; color: #000; }
+[data-theme="light"] .cell-accessible { background: #34d399; color: #000; }
+[data-theme="light"] .cell-reserved  { background: #d1d5db; color: #374151; }
 [data-theme="light"] .designer-legend {
   background: rgba(255,255,255,0.88);
   border-color: rgba(0,60,110,0.15);

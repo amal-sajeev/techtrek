@@ -899,6 +899,16 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         recording_url=form.get("recording_url", "").strip() or None,
         is_recording_public="is_recording_public" in form,
     )
+    speaker_ids = _collect_speaker_ids_from_form(form)
+    conflicts = _check_speaker_overlaps(
+        db, speaker_ids, start_time,
+        int(form.get("duration_minutes", 30)),
+        int(form.get("auditorium_id")),
+    )
+    if conflicts:
+        flash(request, "Speaker scheduling conflict: " + " | ".join(conflicts), "danger")
+        return RedirectResponse("/admin/sessions/new", status_code=303)
+
     db.add(session_obj)
     db.commit()
     db.refresh(session_obj)
@@ -977,6 +987,18 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.recording_url = form.get("recording_url", "").strip() or None
     lecture.is_recording_public = "is_recording_public" in form
 
+    speaker_ids = _collect_speaker_ids_from_form(form)
+    conflicts = _check_speaker_overlaps(
+        db, speaker_ids, start_time,
+        int(form.get("duration_minutes", 30)),
+        int(form.get("auditorium_id", lecture.auditorium_id)),
+        exclude_session_id=sess_id,
+    )
+    if conflicts:
+        db.rollback()
+        flash(request, "Speaker scheduling conflict: " + " | ".join(conflicts), "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+
     _save_agenda_items(db, form, sess_id)
     _save_session_speakers(db, form, sess_id)
 
@@ -984,6 +1006,60 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     db.commit()
     flash(request, f"Session '{lecture.title}' updated.", "success")
     return RedirectResponse("/admin/sessions", status_code=303)
+
+
+def _collect_speaker_ids_from_form(form) -> list[int]:
+    ids = []
+    idx = 0
+    while True:
+        raw = form.get(f"session_speaker_id_{idx}")
+        if raw is None:
+            break
+        raw = raw.strip()
+        if raw:
+            ids.append(int(raw))
+        idx += 1
+    return ids
+
+
+def _check_speaker_overlaps(
+    db: Session,
+    speaker_ids: list[int],
+    start_time: datetime,
+    duration_minutes: int,
+    auditorium_id: int,
+    exclude_session_id: int | None = None,
+) -> list[str]:
+    """Return human-readable conflict messages for speakers double-booked at a different venue."""
+    if not speaker_ids:
+        return []
+    end_time = start_time + timedelta(minutes=duration_minutes)
+    conflicts: list[str] = []
+    for sp_id in speaker_ids:
+        q = (
+            db.query(SessionSpeaker)
+            .join(LectureSession, SessionSpeaker.session_id == LectureSession.id)
+            .filter(
+                SessionSpeaker.speaker_id == sp_id,
+                LectureSession.auditorium_id != auditorium_id,
+            )
+        )
+        if exclude_session_id is not None:
+            q = q.filter(SessionSpeaker.session_id != exclude_session_id)
+        for ss in q.all():
+            other = db.query(LectureSession).get(ss.session_id)
+            if not other:
+                continue
+            other_end = other.start_time + timedelta(minutes=other.duration_minutes)
+            if start_time < other_end and other.start_time < end_time:
+                sp = db.query(Speaker).get(sp_id)
+                sp_name = sp.name if sp else f"Speaker #{sp_id}"
+                conflicts.append(
+                    f"{sp_name} is already assigned to '{other.title}' "
+                    f"({other.start_time.strftime('%b %d %I:%M %p')}–"
+                    f"{other_end.strftime('%I:%M %p')}) at a different venue."
+                )
+    return conflicts
 
 
 def _save_agenda_items(db: Session, form, session_id: int):

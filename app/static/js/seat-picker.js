@@ -33,6 +33,15 @@
     return type && type.indexOf("custom_") === 0;
   }
 
+  function contrastColor(hex) {
+    if (!hex || hex.charAt(0) !== "#") return "#fff";
+    var r = parseInt(hex.slice(1, 3), 16) / 255;
+    var g = parseInt(hex.slice(3, 5), 16) / 255;
+    var b = parseInt(hex.slice(5, 7), 16) / 255;
+    var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    return lum > 0.5 ? "#000" : "#fff";
+  }
+
   function init(data, pricing, sessId, gaps, stageOpts, entryExit, initialCustomTypes) {
     seatMap = data;
     if (typeof pricing === "object" && pricing !== null) {
@@ -147,6 +156,7 @@
           if (isCustomType(seat.type) && customTypes[seat.type] && seat.status === "available") {
             el.className = "seat seat-custom";
             el.style.backgroundColor = customTypes[seat.type].colour;
+            el.style.color = contrastColor(customTypes[seat.type].colour);
           } else {
             el.className = "seat seat-" + statusClass;
           }
@@ -357,6 +367,7 @@
       if (isCustomType(t) && customTypes[t]) {
         btn.classList.add("seat-custom");
         btn.style.backgroundColor = customTypes[t].colour;
+        btn.style.color = contrastColor(customTypes[t].colour);
       } else if (t === "vip") {
         btn.classList.add("seat-vip");
       } else if (t === "accessible") {
@@ -401,10 +412,18 @@
         var seatPrice = priceForType(s.type);
         var typeName = (isCustomType(s.type) && customTypes[s.type]) ? customTypes[s.type].name : s.type;
         var typeTag = typeName !== "standard" ? ' <span class="seat-type-tag">' + typeName.toUpperCase() + '</span>' : '';
+        var seatLabelStyle = ' style="color:var(--seat-available)"';
+        if (s.type === "vip") {
+          seatLabelStyle = ' style="color:var(--seat-vip)"';
+        } else if (s.type === "accessible") {
+          seatLabelStyle = ' style="color:var(--seat-accessible)"';
+        } else if (isCustomType(s.type) && customTypes[s.type]) {
+          seatLabelStyle = ' style="color:' + customTypes[s.type].colour + '"';
+        }
         var li = document.createElement("li");
         li.className = "selected-seat-item";
         li.innerHTML =
-          '<span class="seat-label-chip">' + s.label + typeTag + "</span>" +
+          '<span class="seat-label-chip"><span class="seat-number"' + seatLabelStyle + '>' + s.label + "</span>" + typeTag + "</span>" +
           '<span class="seat-price">\u20B9' + seatPrice.toFixed(0) + "</span>";
         listEl.appendChild(li);
       });

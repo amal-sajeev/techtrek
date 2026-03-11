@@ -166,6 +166,30 @@
     form.classList.remove('loading');
   }
 
+  function syncDropdown(localSel, remoteSel) {
+    if (!localSel || !remoteSel) return;
+    var currentVal = localSel.tomselect ? localSel.tomselect.getValue() : localSel.value;
+
+    if (localSel.tomselect) {
+      localSel.tomselect.destroy();
+    }
+
+    localSel.innerHTML = remoteSel.innerHTML;
+
+    var hasOption = false;
+    for (var i = 0; i < localSel.options.length; i++) {
+      if (localSel.options[i].value === currentVal) { hasOption = true; break; }
+    }
+    localSel.value = hasOption ? currentVal : '';
+
+    new TomSelect(localSel, {
+      create: false,
+      allowEmptyOption: true,
+      controlInput: '<input>',
+      plugins: ['clear_button']
+    });
+  }
+
   function fetchSessions() {
     showSkeleton();
     var url = buildUrl();
@@ -178,13 +202,13 @@
         if (newGrid && grid) {
           grid.innerHTML = newGrid.innerHTML;
           grid.className = newGrid.className;
-          // re-trigger animations
           grid.querySelectorAll('.card').forEach(function(c, i) {
             c.style.animationDelay = (i * 0.05) + 's';
             c.style.animation = 'fadeInUp .4s both';
           });
         }
-        // update URL without reload
+        syncDropdown(citySel, doc.getElementById('filter-city'));
+        syncDropdown(collegeSel, doc.getElementById('filter-college'));
         history.replaceState({}, '', url);
         hideSkeleton();
         initCarouselDots(grid, dots);
@@ -205,7 +229,13 @@
     dateInput.addEventListener('change', fetchSessions);
   }
   if (citySel) {
-    citySel.addEventListener('change', fetchSessions);
+    citySel.addEventListener('change', function() {
+      if (collegeSel) {
+        if (collegeSel.tomselect) collegeSel.tomselect.setValue('', true);
+        else collegeSel.value = '';
+      }
+      fetchSessions();
+    });
   }
   if (collegeSel) {
     collegeSel.addEventListener('change', fetchSessions);
