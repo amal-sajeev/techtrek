@@ -393,7 +393,11 @@ a:hover { color:var(--text-primary) }
 @keyframes float1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-20px,-30px) scale(1.06)} }
 @keyframes float2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(20px,-20px) scale(1.04)} }
 
-.hero .container { position:relative; z-index:1 }
+.hero .container { position:relative; z-index:1; pointer-events:none }
+.hero .container a,
+.hero .container button,
+.hero .container .btn,
+.hero .container input { pointer-events:auto }
 
 .hero-eyebrow {
   display: inline-flex;
@@ -2276,6 +2280,7 @@ tr:last-child td { border-bottom:none }
   flex-direction: column;
   overflow: hidden;
 }
+.booking-summary .btn { padding-left: 1rem; padding-right: 1rem }
 .booking-summary::before {
   content: '';
   position: absolute;
@@ -3366,10 +3371,12 @@ tr:last-child td { border-bottom:none }
 .hero-session-img {
   position: absolute;
   top: 0; right: 0;
-  width: 50%;
+  width: 60%;
   height: 100%;
   object-fit: cover;
   object-position: center;
+  -webkit-mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.15) 20%, rgba(0,0,0,.6) 40%, black 60%);
+  mask-image: linear-gradient(90deg, transparent 0%, rgba(0,0,0,.15) 20%, rgba(0,0,0,.6) 40%, black 60%);
   animation: heroImgReveal .9s .2s var(--ease-out) both;
 }
 @keyframes heroImgReveal {
@@ -3380,19 +3387,13 @@ tr:last-child td { border-bottom:none }
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(90deg,
-      var(--bg-body) 50%,
-      rgba(1,4,9,.82) 58%,
-      rgba(1,4,9,.45) 68%,
-      rgba(1,4,9,.15) 82%,
-      transparent 100%),
     linear-gradient(0deg,
-      var(--bg-body) 0%,
-      rgba(1,4,9,.75) 25%,
-      transparent 50%),
+      rgba(1,4,9,.8) 0%,
+      rgba(1,4,9,.4) 20%,
+      transparent 45%),
     linear-gradient(180deg,
-      rgba(1,4,9,.45) 0%,
-      transparent 20%);
+      rgba(1,4,9,.35) 0%,
+      transparent 18%);
   pointer-events: none;
 }
 
@@ -3730,19 +3731,13 @@ tr:last-child td { border-bottom:none }
 /* ---- LIGHT THEME OVERRIDES ---- */
 [data-theme="light"] .hero-session-fade {
   background:
-    linear-gradient(90deg,
-      var(--bg-body) 50%,
-      rgba(255,255,255,.85) 58%,
-      rgba(255,255,255,.5) 68%,
-      rgba(255,255,255,.15) 82%,
-      transparent 100%),
     linear-gradient(0deg,
-      var(--bg-body) 0%,
-      rgba(255,255,255,.75) 25%,
-      transparent 50%),
+      rgba(255,255,255,.85) 0%,
+      rgba(255,255,255,.4) 20%,
+      transparent 45%),
     linear-gradient(180deg,
-      rgba(255,255,255,.45) 0%,
-      transparent 20%);
+      rgba(255,255,255,.35) 0%,
+      transparent 18%);
 }
 [data-theme="light"] .hsess-title {
   color: #111;
@@ -3820,11 +3815,13 @@ tr:last-child td { border-bottom:none }
 
 /* ---- RESPONSIVE: HERO SESSION IMAGE ---- */
 @media (max-width: 960px) {
-  .hero-session-img { width: 100% }
+  .hero-session-img {
+    width: 100%;
+    -webkit-mask-image: linear-gradient(0deg, transparent 0%, rgba(0,0,0,.4) 20%, black 50%);
+    mask-image: linear-gradient(0deg, transparent 0%, rgba(0,0,0,.4) 20%, black 50%);
+  }
   .hero-session-fade {
-    background:
-      linear-gradient(0deg, var(--bg-body) 10%, rgba(1,4,9,.75) 35%, rgba(1,4,9,.35) 60%, transparent 100%),
-      linear-gradient(90deg, rgba(1,4,9,.5) 0%, transparent 40%);
+    background: linear-gradient(0deg, rgba(1,4,9,.85) 0%, rgba(1,4,9,.5) 30%, transparent 60%);
   }
   .hero-session-overlay {
     width: 100%;
@@ -3872,7 +3869,7 @@ tr:last-child td { border-bottom:none }
 
 /* from @media (max-width:960px) */
 .force-mobile .hero.hero-compact { max-height:none; min-height:auto; padding-bottom:3rem }
-.force-mobile .hero-session-img { width:100% }
+.force-mobile .hero-session-img { width:100%; -webkit-mask-image:linear-gradient(0deg,transparent 0%,rgba(0,0,0,.4) 20%,black 50%); mask-image:linear-gradient(0deg,transparent 0%,rgba(0,0,0,.4) 20%,black 50%) }
 .force-mobile .hero-session-overlay { width:100%; padding:1.25rem 1.5rem }
 .force-mobile .hsess-title { font-size:19px }
 
