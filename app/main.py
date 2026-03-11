@@ -78,7 +78,6 @@ with engine.connect() as conn:
     # Task #3: Recording fields on sessions
     for col, col_type in [
         ("recording_url", "VARCHAR(500)"),
-        ("recording_file", "VARCHAR(500)"),
         ("is_recording_public", "BOOLEAN DEFAULT FALSE"),
     ]:
         try:
@@ -86,6 +85,12 @@ with engine.connect() as conn:
             conn.commit()
         except Exception:
             conn.rollback()
+    # Drop deprecated recording_file column
+    try:
+        conn.execute(text("ALTER TABLE lecture_sessions DROP COLUMN recording_file"))
+        conn.commit()
+    except Exception:
+        conn.rollback()
     # Task #5: Refund tracking fields on bookings
     for col, col_type in [
         ("refund_id", "VARCHAR(50)"),

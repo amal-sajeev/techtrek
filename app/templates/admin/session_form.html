@@ -243,20 +243,12 @@
   <!-- Step 6: Recordings -->
   <div class="wizard-panel" data-panel="6">
     <h3 class="wizard-panel-title">Recordings</h3>
-    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Add a recording URL or upload a file after the event. Toggle public visibility when ready.</p>
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Paste a link to a hosted recording (YouTube, Vimeo, Dailymotion, Twitch, etc.). Toggle public visibility when ready.</p>
     <div class="form-group">
-      <label class="form-label" for="recording-url">Recording URL (YouTube, Vimeo, or direct link)</label>
+      <label class="form-label" for="recording-url">Recording URL</label>
       <input type="url" name="recording_url" id="recording-url" class="form-input" value="{{ lecture.recording_url if lecture and lecture.recording_url else '' }}" placeholder="https://youtube.com/watch?v=...">
+      <p class="text-muted" style="font-size:.75rem;margin-top:.35rem">Supported: YouTube, Vimeo, Dailymotion, Twitch, Facebook Video, Streamable, Wistia, Loom, Google Drive</p>
     </div>
-    {% if lecture %}
-    <div class="form-group">
-      <label class="form-label">Upload Recording File</label>
-      {% if lecture.recording_file %}
-      <p class="text-muted" style="font-size:.85rem">Current file: <code>{{ lecture.recording_file }}</code></p>
-      {% endif %}
-      <p class="text-muted" style="font-size:.8rem">Use the separate upload form below (after saving) to upload a recording file.</p>
-    </div>
-    {% endif %}
     <div class="form-group">
       <label class="form-label">
         <input type="checkbox" name="is_recording_public" {% if lecture and lecture.is_recording_public %}checked{% endif %}>
@@ -280,20 +272,6 @@
     </div>
   </div>
 </form>
-{% if lecture %}
-<hr style="border-color:var(--color-border);margin:2rem 0">
-<h3 style="margin-bottom:1rem">Upload Recording File</h3>
-<form method="post" action="/admin/sessions/{{ lecture.id }}/recording-upload" enctype="multipart/form-data">
-  <div class="form-row">
-    <div class="form-group" style="flex:2">
-      <input type="file" name="recording_file" class="form-input" accept="video/*,audio/*">
-    </div>
-    <div class="form-group" style="flex:0 0 auto">
-      <button type="submit" class="btn btn-primary">Upload</button>
-    </div>
-  </div>
-</form>
-{% endif %}
 {% endblock %}
 
 {% block scripts %}

@@ -144,31 +144,18 @@
     {% endif %}
 
     <!-- Recording -->
-    {% if lecture.is_recording_public and (lecture.recording_url or lecture.recording_file) %}
+    {% if lecture.is_recording_public and lecture.recording_url %}
     <div class="session-about-wrap" style="margin-top:28px">
       <div class="session-sec-head">
         <span class="session-sec-label">Session Recording</span>
         <div class="session-sec-line"></div>
       </div>
-      {% if lecture.recording_url %}
-        {% if 'youtube.com' in lecture.recording_url or 'youtu.be' in lecture.recording_url %}
-          {% set yt_id = lecture.recording_url.split('v=')[-1].split('&')[0] if 'v=' in lecture.recording_url else lecture.recording_url.split('/')[-1].split('?')[0] %}
-          <div class="video-embed-wrap">
-            <iframe src="https://www.youtube.com/embed/{{ yt_id }}" allowfullscreen></iframe>
-          </div>
-        {% elif 'vimeo.com' in lecture.recording_url %}
-          {% set vimeo_id = lecture.recording_url.split('/')[-1] %}
-          <div class="video-embed-wrap">
-            <iframe src="https://player.vimeo.com/video/{{ vimeo_id }}" allowfullscreen></iframe>
-          </div>
-        {% else %}
-          <a href="{{ lecture.recording_url }}" target="_blank" class="btn btn-primary">&#9654; Watch Recording</a>
-        {% endif %}
-      {% elif lecture.recording_file %}
-        <video controls class="video-player-local">
-          <source src="{{ lecture.recording_file }}" type="video/mp4">
-          Your browser does not support the video tag.
-        </video>
+      {% if embed_url %}
+        <div class="video-embed-wrap">
+          <iframe src="{{ embed_url }}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+        </div>
+      {% else %}
+        <a href="{{ lecture.recording_url }}" target="_blank" rel="noopener" class="btn btn-primary">&#9654; Watch Recording</a>
       {% endif %}
     </div>
     {% endif %}

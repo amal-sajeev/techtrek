@@ -1,10 +1,12 @@
 import io
+import re
 from collections import defaultdict
 from datetime import datetime, date, time
+from urllib.parse import urlparse, parse_qs
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
-from sqlalchemy import func, or_
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
@@ -19,6 +21,87 @@ from app.models.testimonial import Testimonial, NewsletterSubscriber
 from app.models.user import User
 
 router = APIRouter(tags=["public"])
+
+
+def _build_embed_url(recording_url: str | None) -> str | None:
+    """Convert a supported hosted-video URL into its embeddable iframe src."""
+    if not recording_url:
+        return None
+    parsed = urlparse(recording_url)
+    host = (parsed.hostname or "").lower()
+
+    # YouTube
+    if host in ("youtube.com", "www.youtube.com"):
+        qs = parse_qs(parsed.query)
+        vid = qs.get("v", [None])[0]
+        if vid:
+            return f"https://www.youtube.com/embed/{vid}"
+    if host == "youtu.be":
+        vid = parsed.path.lstrip("/").split("/")[0]
+        if vid:
+            return f"https://www.youtube.com/embed/{vid}"
+
+    # Vimeo
+    if host in ("vimeo.com", "player.vimeo.com"):
+        parts = [p for p in parsed.path.split("/") if p]
+        vid = parts[-1] if parts else None
+        if vid and vid.isdigit():
+            return f"https://player.vimeo.com/video/{vid}"
+
+    # Dailymotion
+    if host in ("dailymotion.com", "www.dailymotion.com"):
+        m = re.search(r"/video/([a-zA-Z0-9]+)", parsed.path)
+        if m:
+            return f"https://www.dailymotion.com/embed/video/{m.group(1)}"
+    if host == "dai.ly":
+        vid = parsed.path.lstrip("/").split("/")[0]
+        if vid:
+            return f"https://www.dailymotion.com/embed/video/{vid}"
+
+    # Twitch
+    if host in ("twitch.tv", "www.twitch.tv"):
+        parts = [p for p in parsed.path.split("/") if p]
+        if len(parts) >= 2 and parts[0] == "videos":
+            return f"https://player.twitch.tv/?video={parts[1]}&parent=localhost"
+        if parts:
+            return f"https://player.twitch.tv/?channel={parts[0]}&parent=localhost"
+    if host == "clips.twitch.tv":
+        slug = parsed.path.lstrip("/").split("/")[0]
+        if slug:
+            return f"https://clips.twitch.tv/embed?clip={slug}&parent=localhost"
+
+    # Facebook Video
+    if host in ("facebook.com", "www.facebook.com", "fb.watch"):
+        from urllib.parse import quote_plus
+        return f"https://www.facebook.com/plugins/video.php?href={quote_plus(recording_url)}"
+
+    # Streamable
+    if host == "streamable.com":
+        vid = parsed.path.lstrip("/").split("/")[0]
+        if vid:
+            return f"https://streamable.com/e/{vid}"
+
+    # Wistia
+    if host in ("wistia.com", "fast.wistia.com"):
+        parts = [p for p in parsed.path.split("/") if p]
+        if "medias" in parts:
+            idx = parts.index("medias")
+            if idx + 1 < len(parts):
+                return f"https://fast.wistia.com/embed/medias/{parts[idx + 1]}"
+
+    # Loom
+    if host in ("loom.com", "www.loom.com"):
+        m = re.search(r"/share/([a-f0-9]+)", parsed.path)
+        if m:
+            return f"https://www.loom.com/embed/{m.group(1)}"
+
+    # Google Drive
+    if host == "drive.google.com":
+        m = re.search(r"/d/([a-zA-Z0-9_-]+)", parsed.path)
+        if m:
+            return f"https://drive.google.com/file/d/{m.group(1)}/preview"
+
+    return None
 
 
 def _seat_stats(db: Session, session_id: int, auditorium_id: int):
@@ -272,6 +355,8 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
 
     event_status = _public_status_label(lecture, stats)
 
+    embed_url = _build_embed_url(lecture.recording_url) if lecture.recording_url else None
+
     return templates.TemplateResponse(
         "public/session_detail.html",
         template_ctx(
@@ -283,6 +368,7 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
             event_status=event_status,
             on_waitlist=on_waitlist,
             has_priority=has_priority,
+            embed_url=embed_url,
         ),
     )
 
@@ -293,10 +379,7 @@ def recordings_page(request: Request, db: Session = Depends(get_db)):
         db.query(LectureSession)
         .filter(
             LectureSession.is_recording_public == True,
-            or_(
-                LectureSession.recording_url.isnot(None),
-                LectureSession.recording_file.isnot(None),
-            ),
+            LectureSession.recording_url.isnot(None),
         )
         .order_by(LectureSession.start_time.desc())
         .all()

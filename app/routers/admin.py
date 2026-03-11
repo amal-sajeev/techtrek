@@ -3,7 +3,7 @@ import io
 import json
 from collections import defaultdict
 from datetime import datetime, timedelta
-from pathlib import Path
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import RedirectResponse, StreamingResponse
@@ -30,7 +30,36 @@ from app.services.razorpay import process_refund as rz_process_refund
 from app.models.waitlist import Waitlist
 from app.config import settings
 
-RECORDINGS_DIR = Path(__file__).resolve().parent.parent / "static" / "recordings"
+
+RECORDING_ALLOWED_HOSTS = {
+    "youtube.com", "www.youtube.com", "youtu.be",
+    "vimeo.com", "player.vimeo.com",
+    "dailymotion.com", "www.dailymotion.com", "dai.ly",
+    "twitch.tv", "www.twitch.tv", "clips.twitch.tv",
+    "facebook.com", "www.facebook.com", "fb.watch",
+    "streamable.com",
+    "wistia.com", "fast.wistia.com",
+    "loom.com", "www.loom.com",
+    "drive.google.com",
+}
+
+
+def _validate_recording_url(url: str | None) -> str | None:
+    """Return an error message if the URL is invalid, or None if it's acceptable."""
+    if not url:
+        return None
+    parsed = urlparse(url)
+    if parsed.scheme != "https":
+        return "Recording URL must use HTTPS."
+    host = parsed.hostname or ""
+    if host not in RECORDING_ALLOWED_HOSTS:
+        return (
+            f"Unsupported recording host '{host}'. "
+            "Supported: YouTube, Vimeo, Dailymotion, Twitch, Facebook, "
+            "Streamable, Wistia, Loom, Google Drive."
+        )
+    return None
+
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -875,6 +904,12 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
     speaker_id_raw = form.get("speaker_id")
     speaker_id = int(speaker_id_raw) if speaker_id_raw and speaker_id_raw != "" else None
 
+    recording_url = form.get("recording_url", "").strip() or None
+    rec_err = _validate_recording_url(recording_url)
+    if rec_err:
+        flash(request, rec_err, "danger")
+        return RedirectResponse("/admin/sessions/new", status_code=303)
+
     session_obj = LectureSession(
         auditorium_id=int(form.get("auditorium_id")),
         speaker_id=speaker_id,
@@ -896,7 +931,7 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         cert_logo_url=form.get("cert_logo_url", "").strip() or None,
         cert_bg_url=form.get("cert_bg_url", "").strip() or None,
         cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
-        recording_url=form.get("recording_url", "").strip() or None,
+        recording_url=recording_url,
         is_recording_public="is_recording_public" in form,
     )
     speaker_ids = _collect_speaker_ids_from_form(form)
@@ -984,7 +1019,14 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.cert_logo_url = form.get("cert_logo_url", "").strip() or None
     lecture.cert_bg_url = form.get("cert_bg_url", "").strip() or None
     lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
-    lecture.recording_url = form.get("recording_url", "").strip() or None
+
+    recording_url = form.get("recording_url", "").strip() or None
+    rec_err = _validate_recording_url(recording_url)
+    if rec_err:
+        db.rollback()
+        flash(request, rec_err, "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+    lecture.recording_url = recording_url
     lecture.is_recording_public = "is_recording_public" in form
 
     speaker_ids = _collect_speaker_ids_from_form(form)
@@ -1105,33 +1147,6 @@ def _save_session_speakers(db: Session, form, session_id: int):
         idx += 1
     db.flush()
 
-
-@router.post("/sessions/{sess_id}/recording-upload")
-async def session_recording_upload(request: Request, sess_id: int, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    lecture = db.query(LectureSession).get(sess_id)
-    if not lecture:
-        flash(request, "Session not found.", "danger")
-        return RedirectResponse("/admin/sessions", status_code=303)
-
-    form = await request.form()
-    upload = form.get("recording_file")
-    if upload and hasattr(upload, "filename") and upload.filename:
-        RECORDINGS_DIR.mkdir(parents=True, exist_ok=True)
-        safe_name = f"session_{sess_id}_{upload.filename.replace(' ', '_')}"
-        dest = RECORDINGS_DIR / safe_name
-        with open(dest, "wb") as f:
-            content = await upload.read()
-            f.write(content)
-        lecture.recording_file = f"/static/recordings/{safe_name}"
-        log_activity(db, category="admin", action="upload", description=f"Uploaded recording for '{lecture.title}'", request=request, user_id=admin.id, target_type="session", target_id=sess_id)
-        db.commit()
-        flash(request, "Recording file uploaded.", "success")
-    else:
-        flash(request, "No file selected.", "warning")
-    return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
 
 
 @router.post("/sessions/{sess_id}/delete")
