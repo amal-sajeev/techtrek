@@ -6,8 +6,8 @@
   <title>{% block title %}TechTrek{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1117'/><text y='24' x='4' font-size='22' font-family='monospace'>⚡</text></svg>">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.css">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=100">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v=100">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=105">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v=105">
   <script>
     (function(){
       var t = localStorage.getItem('techtrek-theme');
@@ -37,7 +37,7 @@
       <a href="/schedule" class="nav-link">{{ _('Schedule') }}</a>
       <a href="/recordings" class="nav-link">{{ _('Recordings') }}</a>
       {% if user %}
-          <a href="/booking/my" class="nav-link">{{ _('My Bookings') }}</a>
+          <a href="/booking/my" class="nav-link">{{ _('Bookings') }}</a>
         {% if is_speaker %}
           <a href="/speaker/" class="nav-link nav-admin">Speaker</a>
         {% endif %}
@@ -78,7 +78,7 @@
   <a href="/schedule" class="nav-drawer-link">{{ _('Schedule') }}</a>
   <a href="/recordings" class="nav-drawer-link">{{ _('Recordings') }}</a>
   {% if user %}
-      <a href="/booking/my" class="nav-drawer-link">{{ _('My Bookings') }}</a>
+      <a href="/booking/my" class="nav-drawer-link">{{ _('Bookings') }}</a>
       <a href="/auth/profile" class="nav-drawer-link">Profile</a>
     {% if is_speaker %}
       <a href="/speaker/" class="nav-drawer-link">Speaker Dashboard</a>
@@ -282,17 +282,21 @@ document.querySelectorAll('.reveal, .stagger').forEach(el=>revealObserver.observ
 
 // ---- GLOBAL FORM SUBMIT LOADING ----
 // Any form with data-loading="true" or any submit button with data-loading gets a spinner.
-// Also handles generic forms without per-page logic (admin forms, booking forms, etc.)
+// Defer disabling the button so we don't cancel form submission (some browsers abort if button is disabled during submit).
 document.addEventListener('submit', function(e) {
   var form = e.target;
-  // Skip forms that have their own handler (novalidate forms handle themselves)
   if (form.hasAttribute('novalidate')) return;
-  // Skip forms that were already handled
   var btn = form.querySelector('[type=submit]:not([data-no-loading])');
   if (btn && !btn.disabled && !btn.classList.contains('btn-loading')) {
     btn.classList.add('btn-loading');
-    btn.disabled = true;
-    // Safety: re-enable after 8s in case of error
+    var doDisable = function() {
+      btn.disabled = true;
+    };
+    if (typeof requestAnimationFrame !== 'undefined') {
+      requestAnimationFrame(function() { requestAnimationFrame(doDisable); });
+    } else {
+      setTimeout(doDisable, 0);
+    }
     setTimeout(function() {
       btn.classList.remove('btn-loading');
       btn.disabled = false;

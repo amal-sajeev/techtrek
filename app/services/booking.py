@@ -227,7 +227,11 @@ def cancel_booking_user(db: Session, booking_id: int, user_id: int, *, send_emai
     rz_warning = ""
     if b.razorpay_payment_id and refund > 0:
         rz_result = rz_process_refund(b.razorpay_payment_id, int(refund * 100))
-        if not rz_result:
+        if rz_result and isinstance(rz_result, dict):
+            b.refund_id = rz_result.get("id")
+            b.refund_status = "initiated"
+        elif not rz_result:
+            b.refund_status = "failed"
             rz_warning = " (Razorpay refund failed — process manually)"
 
     b.payment_status = "refunded"
@@ -284,7 +288,11 @@ def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
 
         if b.razorpay_payment_id and refund > 0:
             rz_result = rz_process_refund(b.razorpay_payment_id, int(refund * 100))
-            if not rz_result:
+            if rz_result and isinstance(rz_result, dict):
+                b.refund_id = rz_result.get("id")
+                b.refund_status = "initiated"
+            elif not rz_result:
+                b.refund_status = "failed"
                 rz_failures += 1
 
         b.payment_status = "refunded"

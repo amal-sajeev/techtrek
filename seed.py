@@ -1,5 +1,6 @@
 """Seed script to populate the database with sample data for development."""
 
+import argparse
 import bcrypt
 from datetime import datetime, timedelta, timezone
 
@@ -13,16 +14,37 @@ from app.models.speaker import Speaker
 from app.models.session import LectureSession
 from app.models.agenda import AgendaItem
 from app.models.testimonial import Testimonial, NewsletterSubscriber
+from app.models.booking import Booking
+from app.models.waitlist import Waitlist
+from app.models.activity_log import ActivityLog
 
 
-def seed():
+def seed(force: bool = False):
     Base.metadata.create_all(bind=engine)
     db = SessionLocal()
 
-    if db.query(User).count() > 0:
-        print("Database already seeded. Skipping.")
+    if db.query(User).count() > 0 and not force:
+        print("Database already seeded. Skipping. (Use --force to clear and re-seed.)")
         db.close()
         return
+
+    if force and db.query(User).count() > 0:
+        print("Force re-seed: clearing existing data...")
+        db.query(AgendaItem).delete()
+        db.query(Booking).delete()
+        db.query(Waitlist).delete()
+        db.query(ActivityLog).delete()
+        db.query(LectureSession).delete()
+        db.query(Seat).delete()
+        db.query(Auditorium).delete()
+        db.query(College).delete()
+        db.query(City).delete()
+        db.query(Testimonial).delete()
+        db.query(NewsletterSubscriber).delete()
+        db.query(Speaker).delete()
+        db.query(User).delete()
+        db.commit()
+        print("Cleared. Seeding...")
 
     pw = lambda p: bcrypt.hashpw(p.encode(), bcrypt.gensalt()).decode()
 
@@ -58,12 +80,16 @@ def seed():
         username="maria", email="maria@rust.example.com", password_hash=pw("speaker123"),
         full_name="Maria Gonzalez",
     )
-    db.add_all([admin, alice, bob, charlie, speaker_sarah, speaker_james, speaker_maria])
+    speaker_amal = User(
+        username="amalsajeev", email="amsajeev333@gmail.com", password_hash=pw("speaker123"),
+        full_name="Amal Sajeev",
+    )
+    db.add_all([admin, alice, bob, charlie, speaker_sarah, speaker_james, speaker_maria, speaker_amal])
     db.commit()
-    for u in [speaker_sarah, speaker_james, speaker_maria]:
+    for u in [speaker_sarah, speaker_james, speaker_maria, speaker_amal]:
         db.refresh(u)
     print("Created users: admin/admin123, alice/user123, bob/user123, charlie/user123")
-    print("Created speaker users: sarah/speaker123, james/speaker123, maria/speaker123")
+    print("Created speaker users: sarah/speaker123, james/speaker123, maria/speaker123, amalsajeev/speaker123 (amsajeev333@gmail.com)")
 
     # ── Cities ──
     cities = [
@@ -104,6 +130,7 @@ def seed():
         Speaker(name="Michael Torres", title="CISO, CrowdStrike", bio="Cybersecurity veteran with experience in zero-trust architecture and threat detection.", email="michael@crowdstrike.example.com"),
         Speaker(name="Anika Desai", title="CTO, Razorpay", bio="Fintech leader scaling payment infrastructure for millions of businesses across India."),
         Speaker(name="Rahul Mehta", title="ML Lead, Microsoft Research", bio="Quantum computing researcher working on practical quantum ML applications."),
+        Speaker(name="Amal Sajeev", title="Principal Engineer & Tech Speaker", bio="Full-stack architect and developer advocate with 12+ years building scalable systems. Former tech lead at multiple product companies. Passionate about clean code, APIs, and teaching the next generation of engineers.", email="amsajeev333@gmail.com", user_id=speaker_amal.id),
     ]
     db.add_all(speakers)
     db.commit()
@@ -217,6 +244,35 @@ def seed():
             "description": "Practical introduction to quantum machine learning — what works today and what's coming.",
             "start_time": now + timedelta(days=14, hours=11), "price": 500, "price_vip": 1200, "price_accessible": 400, "status": "published",
         },
+        # —— Amal Sajeev: 4 detailed sessions for speaker account testing ——
+        {
+            "auditorium_id": aud1.id, "speaker_id": speakers[8].id,
+            "title": "Building Production-Ready APIs: Design, Security, and Scale",
+            "speaker": "Amal Sajeev",
+            "description": "A deep dive into designing REST and GraphQL APIs that are secure, versioned, and built to scale. We cover authentication (OAuth2, JWT), rate limiting, idempotency, error contracts, and observability. You'll leave with a concrete checklist and patterns you can apply in your next service.",
+            "start_time": now + timedelta(days=2, hours=10), "price": 500, "price_vip": 1200, "price_accessible": 400, "status": "published",
+        },
+        {
+            "auditorium_id": aud2.id, "speaker_id": speakers[8].id,
+            "title": "From Monolith to Microservices: A Practical Migration Guide",
+            "speaker": "Amal Sajeev",
+            "description": "Real-world strategies for incrementally breaking down a monolith without big-bang rewrites. We discuss bounded contexts, strangler fig pattern, shared databases vs events, and how to keep teams unblocked during the transition. Includes lessons from migrations at high-traffic product companies.",
+            "start_time": now + timedelta(days=4, hours=14), "price": 500, "price_vip": 1000, "price_accessible": 400, "status": "published",
+        },
+        {
+            "auditorium_id": aud3.id, "speaker_id": speakers[8].id,
+            "title": "Clean Code in the Real World: Readability, Tests, and Refactoring",
+            "speaker": "Amal Sajeev",
+            "description": "Principles from Clean Code and Beyond applied to everyday codebases. We focus on naming, small functions, testability, and safe refactoring techniques. Live refactoring of sample code to show before/after and how to introduce change without breaking production.",
+            "start_time": now + timedelta(days=6, hours=9), "price": 500, "price_vip": 1200, "price_accessible": 400, "status": "published",
+        },
+        {
+            "auditorium_id": aud1.id, "speaker_id": speakers[8].id,
+            "title": "Developer Experience: Building Tools and Docs That Engineers Love",
+            "speaker": "Amal Sajeev",
+            "description": "Why great DX leads to faster adoption and fewer support tickets. We cover CLI design, SDK ergonomics, API documentation (OpenAPI, guides, examples), internal platforms, and measuring developer happiness. With practical examples from open-source and in-house tools.",
+            "start_time": now + timedelta(days=8, hours=11), "price": 500, "price_vip": 1200, "price_accessible": 400, "status": "published",
+        },
     ]
 
     created_sessions = []
@@ -247,6 +303,30 @@ def seed():
             ("Partitioning Strategies", "Alex Petrov", 15),
             ("Connection Pooling Deep Dive", "Alex Petrov", 15),
             ("Query Optimization Workshop", "Alex Petrov", 20),
+        ]),
+        (created_sessions[8].id, [
+            ("API design principles & versioning", "Amal Sajeev", 20),
+            ("Auth, rate limits, idempotency", "Amal Sajeev", 25),
+            ("Error contracts & observability", "Amal Sajeev", 20),
+            ("Checklist & Q&A", "Amal Sajeev", 25),
+        ]),
+        (created_sessions[9].id, [
+            ("Bounded contexts & migration strategies", "Amal Sajeev", 25),
+            ("Strangler fig & incremental extraction", "Amal Sajeev", 25),
+            ("Data and events during transition", "Amal Sajeev", 20),
+            ("Q&A and war stories", "Amal Sajeev", 20),
+        ]),
+        (created_sessions[10].id, [
+            ("Naming and small functions", "Amal Sajeev", 20),
+            ("Testability and dependency injection", "Amal Sajeev", 25),
+            ("Live refactoring demo", "Amal Sajeev", 35),
+            ("Q&A", "Amal Sajeev", 20),
+        ]),
+        (created_sessions[11].id, [
+            ("Why DX matters: metrics and outcomes", "Amal Sajeev", 15),
+            ("CLIs, SDKs, and API docs", "Amal Sajeev", 30),
+            ("Internal platforms & measuring happiness", "Amal Sajeev", 25),
+            ("Q&A", "Amal Sajeev", 20),
         ]),
     ]
     for sess_id, items in agenda_data:
@@ -280,12 +360,15 @@ def seed():
     print("\n--- Seeding complete! ---")
     print("Admin login:    admin / admin123")
     print("User logins:    alice / user123, bob / user123, charlie / user123")
-    print("Speaker logins: sarah / speaker123, james / speaker123, maria / speaker123")
+    print("Speaker logins: sarah / speaker123, james / speaker123, maria / speaker123, amalsajeev / speaker123")
     print(f"Sessions:       {len(sessions_data)} (across 3 auditoriums in 3 cities)")
-    print(f"Speakers:       {len(speakers)} ({3} with linked accounts)")
+    print(f"Speakers:       {len(speakers)} (4 with linked accounts)")
     print(f"Testimonials:   {len(testimonials)}")
     db.close()
 
 
 if __name__ == "__main__":
-    seed()
+    p = argparse.ArgumentParser(description="Seed the TechTrek database.")
+    p.add_argument("--force", "-f", action="store_true", help="Clear existing data and re-seed.")
+    args = p.parse_args()
+    seed(force=args.force)

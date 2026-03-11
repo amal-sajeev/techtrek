@@ -175,27 +175,35 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_type
     elements.append(Spacer(1, 6 * mm))
 
     # --- Refund section (if any bookings are refunded) ---
+    _refund_status_labels = {
+        "initiated": "Initiated",
+        "processing": "Processing",
+        "completed": "Completed",
+        "failed": "Failed",
+    }
     refunded = [b for b in bookings if b.payment_status == "refunded" and b.refund_amount]
     if refunded:
         elements.append(Paragraph("Refund Details", styles["SectionTitle"]))
-        refund_data = [["Seat", f"Cancellation Fee ({rupee})", f"Refund Amount ({rupee})", "Status"]]
+        refund_data = [["Seat", f"Cancellation Fee ({rupee})", f"Refund Amount ({rupee})", "Refund ID", "Status"]]
         for b in refunded:
             seat = next((s for s, bk in zip(seats, bookings) if bk.id == b.id), None)
             refund_data.append([
                 seat.label if seat else "—",
                 f"{float(b.cancellation_fee or 0):,.2f}",
                 f"{float(b.refund_amount or 0):,.2f}",
-                "Refunded",
+                b.refund_id or "—",
+                _refund_status_labels.get(b.refund_status, "Refunded"),
             ])
-        r_widths = [doc.width * w for w in [0.25, 0.25, 0.25, 0.25]]
+        r_widths = [doc.width * w for w in [0.18, 0.20, 0.20, 0.24, 0.18]]
         refund_table = Table(refund_data, colWidths=r_widths, repeatRows=1)
         refund_table.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#f59e0b")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
             ("FONTNAME", (0, 0), (-1, 0), font_bold),
             ("FONTNAME", (0, 1), (-1, -1), font),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
+            ("ALIGN", (1, 0), (2, -1), "RIGHT"),
+            ("ALIGN", (4, 0), (4, -1), "CENTER"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#cccccc")),
             ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
             ("TOPPADDING", (0, 0), (-1, -1), 5),
@@ -218,6 +226,14 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_type
     if b0.booked_at:
         payment_rows.append(["Payment Date", b0.booked_at.strftime("%d %b %Y, %I:%M %p IST")])
     payment_rows.append(["Payment Status", b0.payment_status.title()])
+
+    if refunded:
+        rb = refunded[0]
+        if rb.refund_id:
+            payment_rows.append(["Razorpay Refund ID", rb.refund_id])
+        payment_rows.append(["Refund Status", _refund_status_labels.get(rb.refund_status, "Refunded")])
+        if rb.refund_processed_at:
+            payment_rows.append(["Refund Processed At", rb.refund_processed_at.strftime("%d %b %Y, %I:%M %p IST")])
 
     pay_table = Table(payment_rows, colWidths=[doc.width * 0.35, doc.width * 0.65])
     pay_table.setStyle(TableStyle([

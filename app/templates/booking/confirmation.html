@@ -25,9 +25,9 @@
             <p class="booking-ref-small">Scan to check in all {{ bookings|length }} tickets at once</p>
             <img src="data:image/png;base64,{{ bookings[0].group_qr_data }}" alt="Group QR Code" class="ticket-qr" width="140" height="140" style="margin:.75rem auto">
             {% if bookings[0].booking_group %}
-            <div style="margin-top:.5rem">
-              <a href="/tickets/group/{{ bookings[0].booking_group }}" class="btn btn-outline btn-sm">View Group Page</a>
-              <button type="button" class="btn btn-sm btn-outline" onclick="copyLink('/tickets/group/{{ bookings[0].booking_group }}', this)" style="margin-left:.25rem">&#128279; Copy Group Link</button>
+            <div style="margin-top:.75rem; display:flex; gap:1rem; justify-content:center; flex-wrap:wrap">
+              <a href="/tickets/group/{{ bookings[0].booking_group }}" class="btn btn-outline btn-sm" style="font-size:14.75px">View Group Page</a>
+              <button type="button" class="btn btn-sm btn-outline" style="font-size:14.75px" onclick="copyLink('/tickets/group/{{ bookings[0].booking_group }}', this)">&#128279; Copy Group Link</button>
             </div>
             {% endif %}
           </div>

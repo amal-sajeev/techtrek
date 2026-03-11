@@ -60,6 +60,24 @@
     </div>
   </div>
 </section>
+
+<div class="payment-processing-overlay" id="processing-overlay">
+  <div class="processing-card">
+    <div class="processing-spinner">
+      <svg viewBox="0 0 50 50">
+        <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="90 150" stroke-dashoffset="0">
+          <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+    </div>
+    <h2 class="processing-title">Processing your payment</h2>
+    <p class="processing-message">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Do <strong>not</strong> close, refresh, or navigate away from this page.
+    </p>
+    <p class="processing-sub">Your transaction is being verified. This usually takes a few seconds.</p>
+  </div>
+</div>
 {% endblock %}
 
 {% block scripts %}
@@ -104,13 +122,33 @@
 
   var payBtn = document.getElementById('pay-btn');
   var errDiv = document.getElementById('pay-error');
+  var overlay = document.getElementById('processing-overlay');
   var sessionId = {{ lecture.id }};
   var paying = false;
+  var verifying = false;
 
   function showError(msg) {
     errDiv.textContent = msg;
     errDiv.style.display = 'block';
   }
+
+  function showProcessing() {
+    verifying = true;
+    overlay.classList.add('active');
+  }
+
+  function hideProcessing() {
+    verifying = false;
+    overlay.classList.remove('active');
+  }
+
+  function warnBeforeUnload(e) {
+    if (verifying) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  }
+  window.addEventListener('beforeunload', warnBeforeUnload);
 
   payBtn.addEventListener('click', function() {
     if (paying) return;
@@ -143,6 +181,7 @@
           },
           theme: { color: '#6c63ff' },
           handler: function(response) {
+            showProcessing();
             payBtn.textContent = 'Verifying...';
             fetch('/booking/verify-payment/' + sessionId, {
               method: 'POST',
@@ -157,8 +196,10 @@
             .then(function(vRes) {
               if (vRes.ok && vRes.data.redirect) {
                 clearInterval(timer);
+                verifying = false;
                 window.location.href = vRes.data.redirect;
               } else {
+                hideProcessing();
                 showError(vRes.data.error || 'Verification failed.');
                 paying = false;
                 payBtn.classList.remove('btn-loading');
@@ -167,6 +208,7 @@
               }
             })
             .catch(function() {
+              hideProcessing();
               showError('Network error during verification. Please check My Bookings.');
               paying = false;
               payBtn.classList.remove('btn-loading');
