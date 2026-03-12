@@ -114,7 +114,7 @@
       <div class="session-speaker-row" data-idx="{{ loop.index0 }}">
         <div class="form-row">
           <div class="form-group" style="flex:2">
-            <select name="session_speaker_id_{{ loop.index0 }}" class="form-input" data-no-tomselect>
+            <select name="session_speaker_id_{{ loop.index0 }}" class="form-input">
               <option value="">Select speaker</option>
               {% for sp in speakers %}
               <option value="{{ sp.id }}" {% if ss.speaker_id == sp.id %}selected{% endif %}>{{ sp.name }}{% if sp.title %} — {{ sp.title }}{% endif %}</option>
@@ -664,11 +664,12 @@
     var roleOpts = '';
     roleOptions.forEach(function(r) { roleOpts += '<option value="' + r + '">' + r + '</option>'; });
     row.innerHTML = '<div class="form-row">' +
-      '<div class="form-group" style="flex:2"><select name="session_speaker_id_' + ssIdx + '" class="form-input" data-no-tomselect>' + spOpts + '</select></div>' +
+      '<div class="form-group" style="flex:2"><select name="session_speaker_id_' + ssIdx + '" class="form-input">' + spOpts + '</select></div>' +
       '<div class="form-group"><select name="session_speaker_role_' + ssIdx + '" class="form-input" data-no-tomselect>' + roleOpts + '</select></div>' +
       '<button type="button" class="btn btn-sm btn-danger ss-remove" title="Remove">&times;</button>' +
       '</div>';
     container.appendChild(row);
+    if (window.TechTrekInitSelects) window.TechTrekInitSelects(row);
     ssIdx++;
     bindSSRemoveButtons();
   });
