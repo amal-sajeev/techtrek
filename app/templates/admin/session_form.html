@@ -255,22 +255,28 @@
           <input type="hidden" id="cert-style-border" name="cert_style_border" value="classic">
           <div id="cert-border-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
 
-            <!-- Classic: double rect + filled gold L-bracket plates at all four corners -->
-            <label class="bsp-opt active" data-val="classic" title="Classic — double border with solid gold corner brackets">
+            <!-- Classic: three square-corner rules + bold gold corner medallions (square plate + diamond + dot) -->
+            <label class="bsp-opt active" data-val="classic" title="Classic — triple square border with gold corner medallions">
               <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <!-- gold L-bracket plates drawn first so border lines sit on top -->
-                <path d="M1.5 13.5 L1.5 1.5 L13.5 1.5 L13.5 4.5 L4.5 4.5 L4.5 13.5 Z" fill="#d4a853"/>
-                <path d="M62.5 13.5 L62.5 1.5 L50.5 1.5 L50.5 4.5 L59.5 4.5 L59.5 13.5 Z" fill="#d4a853"/>
-                <path d="M1.5 30.5 L1.5 42.5 L13.5 42.5 L13.5 39.5 L4.5 39.5 L4.5 30.5 Z" fill="#d4a853"/>
-                <path d="M62.5 30.5 L62.5 42.5 L50.5 42.5 L50.5 39.5 L59.5 39.5 L59.5 30.5 Z" fill="#d4a853"/>
-                <!-- inner-face highlight on each bracket -->
-                <path d="M13.5 1.5 L13.5 4.5 L4.5 4.5 L4.5 13.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
-                <path d="M50.5 1.5 L50.5 4.5 L59.5 4.5 L59.5 13.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
-                <path d="M4.5 30.5 L4.5 39.5 L13.5 39.5 L13.5 42.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
-                <path d="M59.5 30.5 L59.5 39.5 L50.5 39.5 L50.5 42.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
-                <!-- border lines drawn on top -->
-                <rect x="1.5" y="1.5" width="61" height="41" rx="2" stroke="#0e7490" stroke-width="1.75"/>
-                <rect x="6.5" y="6.5" width="51" height="31" rx="1" stroke="#0e7490" stroke-width="0.6"/>
+                <!-- Three nested square-corner rects -->
+                <rect x="1.5" y="1.5" width="61" height="41" stroke="#0e7490" stroke-width="1.75"/>
+                <rect x="5" y="5" width="54" height="34" stroke="#d4a853" stroke-width="0.7"/>
+                <rect x="8.5" y="8.5" width="47" height="27" stroke="#00d4ff" stroke-width="0.45"/>
+                <!-- Gold corner medallion squares (drawn over the corners) -->
+                <rect x="0" y="0" width="7" height="7" fill="#d4a853"/>
+                <rect x="57" y="0" width="7" height="7" fill="#d4a853"/>
+                <rect x="0" y="37" width="7" height="7" fill="#d4a853"/>
+                <rect x="57" y="37" width="7" height="7" fill="#d4a853"/>
+                <!-- Brand-color diamond insets -->
+                <path d="M3.5 0.5 L6.5 3.5 L3.5 6.5 L0.5 3.5 Z" fill="#0e7490"/>
+                <path d="M60.5 0.5 L63.5 3.5 L60.5 6.5 L57.5 3.5 Z" fill="#0e7490"/>
+                <path d="M3.5 37.5 L6.5 40.5 L3.5 43.5 L0.5 40.5 Z" fill="#0e7490"/>
+                <path d="M60.5 37.5 L63.5 40.5 L60.5 43.5 L57.5 40.5 Z" fill="#0e7490"/>
+                <!-- Tiny gold center dots -->
+                <circle cx="3.5" cy="3.5" r="1.2" fill="#d4a853"/>
+                <circle cx="60.5" cy="3.5" r="1.2" fill="#d4a853"/>
+                <circle cx="3.5" cy="40.5" r="1.2" fill="#d4a853"/>
+                <circle cx="60.5" cy="40.5" r="1.2" fill="#d4a853"/>
               </svg>
               <span>Classic</span>
             </label>
@@ -285,16 +291,46 @@
               <span>Modern</span>
             </label>
 
-            <!-- Elegant: two hairlines with wide gap + gold diamonds at the midpoint of each side -->
-            <label class="bsp-opt" data-val="elegant" title="Elegant — fine double lines with mid-side diamond ornaments">
+            <!-- Elegant: two hairline rounded rects with wide gap, crosshair corners, elongated mid-side diamonds -->
+            <label class="bsp-opt" data-val="elegant" title="Elegant — hairline double border with crosshair corners and elongated mid-side diamonds">
               <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="1.5" y="1.5" width="61" height="41" rx="1" stroke="#0e7490" stroke-width="0.75"/>
-                <rect x="9" y="9" width="46" height="26" rx="0.5" stroke="#0e7490" stroke-width="0.5"/>
-                <!-- diamonds sitting in the gap between the two border lines -->
-                <path d="M32 2 L35.5 5.5 L32 9 L28.5 5.5 Z" fill="#d4a853"/>
-                <path d="M32 35 L35.5 38.5 L32 42 L28.5 38.5 Z" fill="#d4a853"/>
-                <path d="M2 22 L5.5 18.5 L9 22 L5.5 25.5 Z" fill="#d4a853"/>
-                <path d="M55 22 L58.5 18.5 L62 22 L58.5 25.5 Z" fill="#d4a853"/>
+                <!-- Two thin rounded rects with wide gap -->
+                <rect x="1" y="1" width="62" height="42" rx="2" stroke="#0e7490" stroke-width="0.75"/>
+                <rect x="9.5" y="9.5" width="45" height="25" rx="1" stroke="#00d4ff" stroke-width="0.45"/>
+                <!-- Corner crosshairs + tip dots + center diamonds -->
+                <!-- TL -->
+                <line x1="0" y1="3.5" x2="7" y2="3.5" stroke="#00d4ff" stroke-width="0.5"/>
+                <line x1="3.5" y1="0" x2="3.5" y2="7" stroke="#00d4ff" stroke-width="0.5"/>
+                <circle cx="0.5" cy="3.5" r="0.9" fill="#d4a853"/><circle cx="6.5" cy="3.5" r="0.9" fill="#d4a853"/>
+                <circle cx="3.5" cy="0.5" r="0.9" fill="#d4a853"/><circle cx="3.5" cy="6.5" r="0.9" fill="#d4a853"/>
+                <path d="M3.5 2.2 L4.8 3.5 L3.5 4.8 L2.2 3.5 Z" fill="#d4a853"/>
+                <!-- TR -->
+                <line x1="57" y1="3.5" x2="64" y2="3.5" stroke="#00d4ff" stroke-width="0.5"/>
+                <line x1="60.5" y1="0" x2="60.5" y2="7" stroke="#00d4ff" stroke-width="0.5"/>
+                <circle cx="57.5" cy="3.5" r="0.9" fill="#d4a853"/><circle cx="63.5" cy="3.5" r="0.9" fill="#d4a853"/>
+                <circle cx="60.5" cy="0.5" r="0.9" fill="#d4a853"/><circle cx="60.5" cy="6.5" r="0.9" fill="#d4a853"/>
+                <path d="M60.5 2.2 L61.8 3.5 L60.5 4.8 L59.2 3.5 Z" fill="#d4a853"/>
+                <!-- BL -->
+                <line x1="0" y1="40.5" x2="7" y2="40.5" stroke="#00d4ff" stroke-width="0.5"/>
+                <line x1="3.5" y1="37" x2="3.5" y2="44" stroke="#00d4ff" stroke-width="0.5"/>
+                <circle cx="0.5" cy="40.5" r="0.9" fill="#d4a853"/><circle cx="6.5" cy="40.5" r="0.9" fill="#d4a853"/>
+                <circle cx="3.5" cy="37.5" r="0.9" fill="#d4a853"/><circle cx="3.5" cy="43.5" r="0.9" fill="#d4a853"/>
+                <path d="M3.5 39.2 L4.8 40.5 L3.5 41.8 L2.2 40.5 Z" fill="#d4a853"/>
+                <!-- BR -->
+                <line x1="57" y1="40.5" x2="64" y2="40.5" stroke="#00d4ff" stroke-width="0.5"/>
+                <line x1="60.5" y1="37" x2="60.5" y2="44" stroke="#00d4ff" stroke-width="0.5"/>
+                <circle cx="57.5" cy="40.5" r="0.9" fill="#d4a853"/><circle cx="63.5" cy="40.5" r="0.9" fill="#d4a853"/>
+                <circle cx="60.5" cy="37.5" r="0.9" fill="#d4a853"/><circle cx="60.5" cy="43.5" r="0.9" fill="#d4a853"/>
+                <path d="M60.5 39.2 L61.8 40.5 L60.5 41.8 L59.2 40.5 Z" fill="#d4a853"/>
+                <!-- Mid-side elongated diamonds + flanking accent dots -->
+                <path d="M32 -0.3 L35.5 1 L32 2.3 L28.5 1 Z" fill="#d4a853"/>
+                <circle cx="26.5" cy="1" r="0.75" fill="#00d4ff"/><circle cx="37.5" cy="1" r="0.75" fill="#00d4ff"/>
+                <path d="M32 41.7 L35.5 43 L32 44.3 L28.5 43 Z" fill="#d4a853"/>
+                <circle cx="26.5" cy="43" r="0.75" fill="#00d4ff"/><circle cx="37.5" cy="43" r="0.75" fill="#00d4ff"/>
+                <path d="M-0.3 22 L1 18.5 L2.3 22 L1 25.5 Z" fill="#d4a853"/>
+                <circle cx="1" cy="15.5" r="0.75" fill="#00d4ff"/><circle cx="1" cy="28.5" r="0.75" fill="#00d4ff"/>
+                <path d="M61.7 22 L63 18.5 L64.3 22 L63 25.5 Z" fill="#d4a853"/>
+                <circle cx="63" cy="15.5" r="0.75" fill="#00d4ff"/><circle cx="63" cy="28.5" r="0.75" fill="#00d4ff"/>
               </svg>
               <span>Elegant</span>
             </label>
