@@ -113,9 +113,10 @@ def session_edit(request: Request, session_id: int, db: Session = Depends(get_db
         .order_by(AgendaItem.order)
         .all()
     )
+    all_speakers = db.query(Speaker).order_by(Speaker.name).all()
     return templates.TemplateResponse(
         "speaker/session_edit.html",
-        _speaker_ctx(request, speaker=speaker, lecture=lecture, agenda_items=agenda_items, is_primary=is_primary),
+        _speaker_ctx(request, speaker=speaker, lecture=lecture, agenda_items=agenda_items, is_primary=is_primary, all_speakers=all_speakers),
     )
 
 
@@ -154,11 +155,15 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
                 break
             title = title.strip()
             if title:
+                spk_id_raw = form.get(f"agenda_speaker_id_{idx}", "").strip()
+                spk_id = int(spk_id_raw) if spk_id_raw.isdigit() else None
+                spk_obj = db.query(Speaker).get(spk_id) if spk_id else None
                 item = AgendaItem(
                     session_id=session_id,
                     order=idx,
                     title=title,
-                    speaker_name=form.get(f"agenda_speaker_{idx}", "").strip() or None,
+                    speaker_id=spk_obj.id if spk_obj else None,
+                    speaker_name=spk_obj.name if spk_obj else None,
                     duration_minutes=int(form.get(f"agenda_duration_{idx}", 20) or 20),
                     description=form.get(f"agenda_desc_{idx}", "").strip() or None,
                 )

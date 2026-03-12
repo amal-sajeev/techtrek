@@ -83,7 +83,12 @@
           </div>
           <div class="form-group" style="flex:1;">
             <label class="form-label">Speaker</label>
-            <input type="text" name="agenda_speaker_{{ loop.index0 }}" class="form-input" value="{{ item.speaker_name or '' }}" placeholder="Speaker name">
+            <select name="agenda_speaker_id_{{ loop.index0 }}" class="form-input" data-no-tomselect>
+              <option value="">— No speaker —</option>
+              {% for sp in all_speakers %}
+              <option value="{{ sp.id }}" {% if item.speaker_id == sp.id %}selected{% endif %}>{{ sp.name }}</option>
+              {% endfor %}
+            </select>
           </div>
           <div class="form-group" style="flex:0 0 100px;">
             <label class="form-label">Min</label>
@@ -144,6 +149,18 @@
 {% if is_primary %}
 <script>
 (function(){
+  var SPEAKERS = [
+    {id:'', name:'— No speaker —'}{% for sp in all_speakers %},
+    {id:'{{ sp.id }}', name:{{ sp.name | tojson }}}{% endfor %}
+  ];
+
+  function buildSpeakerSelect(idx) {
+    var opts = SPEAKERS.map(function(sp){
+      return '<option value="'+sp.id+'">'+sp.name+'</option>';
+    }).join('');
+    return '<select name="agenda_speaker_id_'+idx+'" class="form-input" style="height:2.5rem">'+opts+'</select>';
+  }
+
   var container = document.getElementById('agenda-container');
   var addBtn = document.getElementById('add-agenda');
   var idx = container.querySelectorAll('.agenda-row').length;
@@ -157,7 +174,7 @@
         '<div class="form-group" style="flex:2;"><label class="form-label">Title</label>' +
         '<input type="text" name="agenda_title_'+idx+'" class="form-input" placeholder="Agenda item title"></div>' +
         '<div class="form-group" style="flex:1;"><label class="form-label">Speaker</label>' +
-        '<input type="text" name="agenda_speaker_'+idx+'" class="form-input" placeholder="Speaker name"></div>' +
+        buildSpeakerSelect(idx)+'</div>' +
         '<div class="form-group" style="flex:0 0 100px;"><label class="form-label">Min</label>' +
         '<input type="number" name="agenda_duration_'+idx+'" class="form-input" value="20" min="1"></div>' +
         '<button type="button" class="btn btn-sm btn-danger agenda-remove" style="margin-bottom:.6rem;">&times;</button>' +
@@ -180,9 +197,8 @@
     var rows = container.querySelectorAll('.agenda-row');
     rows.forEach(function(row, i){
       row.setAttribute('data-idx', i);
-      row.querySelectorAll('input').forEach(function(inp){
-        var name = inp.name.replace(/_\d+$/, '_'+i);
-        inp.name = name;
+      row.querySelectorAll('input, select').forEach(function(el){
+        if (el.name) el.name = el.name.replace(/_\d+$/, '_'+i);
       });
     });
     idx = rows.length;

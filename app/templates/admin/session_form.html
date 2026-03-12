@@ -246,15 +246,100 @@
       <summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:.75rem 0;user-select:none">Advanced Styling Options</summary>
       <div style="padding-bottom:1rem">
 
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem">
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label" style="font-size:.8rem">Border Style</label>
-            <select id="cert-style-border" name="cert_style_border" class="form-input" data-no-tomselect style="font-size:.85rem">
-              {% for val, lbl in [('classic','Classic'),('modern','Modern'),('elegant','Elegant'),('minimal','Minimal'),('ornate','Ornate'),('none','None')] %}
-              <option value="{{ val }}">{{ lbl }}</option>
-              {% endfor %}
-            </select>
+        <div class="form-group" style="margin-bottom:1rem">
+          <label class="form-label" style="font-size:.8rem">Border Style</label>
+          <input type="hidden" id="cert-style-border" name="cert_style_border" value="classic">
+          <div id="cert-border-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+
+            <!-- Classic: double rect + filled gold L-bracket plates at all four corners -->
+            <label class="bsp-opt active" data-val="classic" title="Classic — double border with solid gold corner brackets">
+              <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- gold L-bracket plates drawn first so border lines sit on top -->
+                <path d="M1.5 13.5 L1.5 1.5 L13.5 1.5 L13.5 4.5 L4.5 4.5 L4.5 13.5 Z" fill="#d4a853"/>
+                <path d="M62.5 13.5 L62.5 1.5 L50.5 1.5 L50.5 4.5 L59.5 4.5 L59.5 13.5 Z" fill="#d4a853"/>
+                <path d="M1.5 30.5 L1.5 42.5 L13.5 42.5 L13.5 39.5 L4.5 39.5 L4.5 30.5 Z" fill="#d4a853"/>
+                <path d="M62.5 30.5 L62.5 42.5 L50.5 42.5 L50.5 39.5 L59.5 39.5 L59.5 30.5 Z" fill="#d4a853"/>
+                <!-- inner-face highlight on each bracket -->
+                <path d="M13.5 1.5 L13.5 4.5 L4.5 4.5 L4.5 13.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
+                <path d="M50.5 1.5 L50.5 4.5 L59.5 4.5 L59.5 13.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
+                <path d="M4.5 30.5 L4.5 39.5 L13.5 39.5 L13.5 42.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
+                <path d="M59.5 30.5 L59.5 39.5 L50.5 39.5 L50.5 42.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
+                <!-- border lines drawn on top -->
+                <rect x="1.5" y="1.5" width="61" height="41" rx="2" stroke="#0e7490" stroke-width="1.75"/>
+                <rect x="6.5" y="6.5" width="51" height="31" rx="1" stroke="#0e7490" stroke-width="0.6"/>
+              </svg>
+              <span>Classic</span>
+            </label>
+
+            <!-- Modern: very thick slab frame with inner bevel highlight -->
+            <label class="bsp-opt" data-val="modern" title="Modern — bold solid-slab frame with bevel">
+              <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="4" y="4" width="56" height="36" rx="8" stroke="#0e7490" stroke-width="8"/>
+                <!-- inner bevel highlight at the inner edge of the slab -->
+                <rect x="8" y="8" width="48" height="28" rx="5" stroke="#2ab8d8" stroke-width="0.75"/>
+              </svg>
+              <span>Modern</span>
+            </label>
+
+            <!-- Elegant: two hairlines with wide gap + gold diamonds at the midpoint of each side -->
+            <label class="bsp-opt" data-val="elegant" title="Elegant — fine double lines with mid-side diamond ornaments">
+              <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1.5" y="1.5" width="61" height="41" rx="1" stroke="#0e7490" stroke-width="0.75"/>
+                <rect x="9" y="9" width="46" height="26" rx="0.5" stroke="#0e7490" stroke-width="0.5"/>
+                <!-- diamonds sitting in the gap between the two border lines -->
+                <path d="M32 2 L35.5 5.5 L32 9 L28.5 5.5 Z" fill="#d4a853"/>
+                <path d="M32 35 L35.5 38.5 L32 42 L28.5 38.5 Z" fill="#d4a853"/>
+                <path d="M2 22 L5.5 18.5 L9 22 L5.5 25.5 Z" fill="#d4a853"/>
+                <path d="M55 22 L58.5 18.5 L62 22 L58.5 25.5 Z" fill="#d4a853"/>
+              </svg>
+              <span>Elegant</span>
+            </label>
+
+            <!-- Minimal: two filled horizontal bands only — no sides -->
+            <label class="bsp-opt" data-val="minimal" title="Minimal — top and bottom bars only, no sides">
+              <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="3" width="58" height="6" fill="#0e7490" rx="0.5"/>
+                <line x1="3" y1="4.5" x2="61" y2="4.5" stroke="#2ab8d8" stroke-width="0.5" opacity="0.7"/>
+                <rect x="3" y="35" width="58" height="6" fill="#0e7490" rx="0.5"/>
+                <line x1="3" y1="36.5" x2="61" y2="36.5" stroke="#2ab8d8" stroke-width="0.5" opacity="0.7"/>
+              </svg>
+              <span>Minimal</span>
+            </label>
+
+            <!-- Ornate: triple nested borders + large filled diamond corners + small mid-side diamonds -->
+            <label class="bsp-opt" data-val="ornate" title="Ornate — triple border with diamond corners and mid-side ornaments">
+              <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="1" y="1" width="62" height="42" rx="2" stroke="#0e7490" stroke-width="1.5"/>
+                <rect x="4.5" y="4.5" width="55" height="35" rx="1.5" stroke="#d4a853" stroke-width="0.75"/>
+                <rect x="8" y="8" width="48" height="28" rx="1" stroke="#00b4cc" stroke-width="0.5"/>
+                <!-- large corner diamonds centred on the corners of the middle rect -->
+                <path d="M4.5 0.5 L8.5 4.5 L4.5 8.5 L0.5 4.5 Z" fill="#d4a853"/>
+                <path d="M59.5 0.5 L63.5 4.5 L59.5 8.5 L55.5 4.5 Z" fill="#d4a853"/>
+                <path d="M4.5 35.5 L8.5 39.5 L4.5 43.5 L0.5 39.5 Z" fill="#d4a853"/>
+                <path d="M59.5 35.5 L63.5 39.5 L59.5 43.5 L55.5 39.5 Z" fill="#d4a853"/>
+                <!-- small mid-side diamonds -->
+                <path d="M32 2 L34.5 4.5 L32 7 L29.5 4.5 Z" fill="#d4a853"/>
+                <path d="M32 37 L34.5 39.5 L32 42 L29.5 39.5 Z" fill="#d4a853"/>
+                <path d="M2 22 L4.5 19.5 L7 22 L4.5 24.5 Z" fill="#d4a853"/>
+                <path d="M57 22 L59.5 19.5 L62 22 L59.5 24.5 Z" fill="#d4a853"/>
+              </svg>
+              <span>Ornate</span>
+            </label>
+
+            <!-- None: dashed boundary + X to signal absence -->
+            <label class="bsp-opt" data-val="none" title="No border">
+              <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="2" y="2" width="60" height="40" rx="2" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 3"/>
+                <line x1="18" y1="12" x2="46" y2="32" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round"/>
+                <line x1="46" y1="12" x2="18" y2="32" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round"/>
+              </svg>
+              <span>None</span>
+            </label>
+
           </div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem">
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label" style="font-size:.8rem">Background Size</label>
             <select id="cert-style-bg-size" name="cert_style_bg_size" class="form-input" data-no-tomselect style="font-size:.85rem">
@@ -263,10 +348,6 @@
               <option value="stretch">Stretch</option>
             </select>
           </div>
-          <div></div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem">
           <div class="form-group" style="margin-bottom:0">
             <label class="form-label" style="font-size:.8rem">BG Offset X (pt)</label>
             <input type="number" id="cert-style-bg-offset-x" name="cert_style_bg_offset_x" class="form-input" value="0" step="1" style="font-size:.85rem">
@@ -292,28 +373,36 @@
         <hr style="border-color:var(--color-border,#e2e8f0);margin:.75rem 0">
         <label class="form-label" style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Text Element Styles</label>
 
-        <div style="display:grid;grid-template-columns:80px 1fr 60px 40px 28px 28px 28px;gap:6px;align-items:center;font-size:.7rem;color:var(--color-muted,#94a3b8);margin-bottom:4px;padding:0 2px">
-          <span>Element</span><span>Font</span><span>Size</span><span>Color</span><span>B</span><span>I</span><span>U</span>
-        </div>
-
-        {% for ek, el in [('brand','Brand'),('title','Title'),('subtitle','Subtitle'),('name','Name'),('attending','Attending'),('session','Session'),('details','Details'),('venue','Venue'),('signer','Signer'),('footer','Footer')] %}
-        <div class="cert-elem-row" style="display:grid;grid-template-columns:80px 1fr 60px 40px 28px 28px 28px;gap:6px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--color-border,#e2e8f0)">
-          <span style="font-size:.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ el }}">{{ el }}</span>
-          <select id="cert-style-{{ ek }}-font" name="cert_style_{{ ek }}_font" class="form-input" data-no-tomselect style="font-size:.78rem;padding:4px 6px">
-            {% for fk, fl in [('arial','Arial'),('georgia','Georgia'),('times','Times NR'),('verdana','Verdana'),('trebuchet','Trebuchet'),('courier','Courier'),('comic','Comic Sans'),('calibri','Calibri'),('palatino','Palatino'),('candara','Candara')] %}
-            <option value="{{ fk }}">{{ fl }}</option>
+        <div class="cert-elem-two-col">
+          {% for col_items in [
+            [('brand','Brand'),('title','Title'),('subtitle','Subtitle'),('name','Name'),('attending','Attending')],
+            [('session','Session'),('details','Details'),('venue','Venue'),('signer','Signer'),('footer','Footer')]
+          ] %}
+          <div>
+            <div class="cert-elem-header">
+              <span>Element</span><span>Font</span><span>Size</span><span>Color</span><span>B</span><span>I</span><span>U</span>
+            </div>
+            {% for ek, el in col_items %}
+            <div class="cert-elem-row">
+              <span style="font-size:.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ el }}">{{ el }}</span>
+              <select id="cert-style-{{ ek }}-font" name="cert_style_{{ ek }}_font" class="form-input" data-no-tomselect style="font-size:.78rem;padding:4px 6px">
+                {% for fk, fl in [('arial','Arial'),('georgia','Georgia'),('times','Times NR'),('verdana','Verdana'),('trebuchet','Trebuchet'),('courier','Courier'),('comic','Comic Sans'),('calibri','Calibri'),('palatino','Palatino'),('candara','Candara')] %}
+                <option value="{{ fk }}">{{ fl }}</option>
+                {% endfor %}
+              </select>
+              <input type="number" id="cert-style-{{ ek }}-size" name="cert_style_{{ ek }}_size" class="form-input" min="6" max="80" step="1" style="font-size:.78rem;padding:4px 6px">
+              <input type="color" id="cert-style-{{ ek }}-color" name="cert_style_{{ ek }}_color" style="width:100%;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
+              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1" title="Bold">B</button>
+              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1" title="Italic">I</button>
+              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1" title="Underline">U</button>
+              <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
+              <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
+              <input type="hidden" id="cert-style-{{ ek }}-underline" name="cert_style_{{ ek }}_underline" value="false">
+            </div>
             {% endfor %}
-          </select>
-          <input type="number" id="cert-style-{{ ek }}-size" name="cert_style_{{ ek }}_size" class="form-input" min="6" max="80" step="1" style="font-size:.78rem;padding:4px 6px">
-          <input type="color" id="cert-style-{{ ek }}-color" name="cert_style_{{ ek }}_color" style="width:100%;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
-          <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1" title="Bold">B</button>
-          <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1" title="Italic">I</button>
-          <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1" title="Underline">U</button>
-          <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
-          <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
-          <input type="hidden" id="cert-style-{{ ek }}-underline" name="cert_style_{{ ek }}_underline" value="false">
+          </div>
+          {% endfor %}
         </div>
-        {% endfor %}
 
       </div>
     </details>
@@ -349,6 +438,59 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+.bsp-opt {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 2px solid var(--color-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: .7rem;
+  color: var(--color-muted, #94a3b8);
+  transition: border-color .12s, color .12s, background .12s;
+  user-select: none;
+}
+.bsp-opt:hover {
+  border-color: var(--color-primary, #0ea5e9);
+  color: var(--color-fg, #1e293b);
+}
+.bsp-opt.active {
+  border-color: var(--color-primary, #0ea5e9);
+  background: color-mix(in srgb, var(--color-primary, #0ea5e9) 10%, transparent);
+  color: var(--color-primary, #0ea5e9);
+}
+.cert-elem-two-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 1.5rem;
+}
+@media (min-width: 860px) {
+  .cert-elem-two-col {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.cert-elem-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px 40px 28px 28px 28px;
+  gap: 6px;
+  align-items: center;
+  font-size: .7rem;
+  color: var(--color-muted, #94a3b8);
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+.cert-elem-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px 40px 28px 28px 28px;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+</style>
 <script>
 (function() {
   var steps = document.querySelectorAll('.wizard-step');
@@ -587,6 +729,24 @@
   });
 })();
 
+// ─── Border style visual picker ───
+function _syncBorderPicker() {
+  var val = (document.getElementById('cert-style-border') || {}).value || 'classic';
+  document.querySelectorAll('.bsp-opt').forEach(function(opt) {
+    opt.classList.toggle('active', opt.dataset.val === val);
+  });
+}
+document.querySelectorAll('.bsp-opt').forEach(function(opt) {
+  opt.addEventListener('click', function() {
+    var hid = document.getElementById('cert-style-border');
+    if (hid) {
+      hid.value = opt.dataset.val;
+      _syncBorderPicker();
+      if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
+    }
+  });
+});
+
 // ─── Advanced Styling: init from cert_style JSON + toggle buttons ───
 (function () {
   var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
@@ -614,6 +774,7 @@
   }
 
   setVal('cert-style-border', sty.border_style || 'classic');
+  _syncBorderPicker();
   setVal('cert-style-bg-size', sty.bg_size || 'cover');
   setVal('cert-style-bg-offset-x', (sty.bg_offset_x || 0));
   setVal('cert-style-bg-offset-y', (sty.bg_offset_y || 0));

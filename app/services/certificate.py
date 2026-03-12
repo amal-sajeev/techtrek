@@ -170,52 +170,82 @@ def _get_colors(scheme_name: str | None) -> dict:
 
 # ── Border style drawing functions ────────────────────────────────────────────
 
+def _diamond_path(c, cx, cy, r):
+    """Return a filled diamond (rhombus) path centred at (cx, cy) with radius r."""
+    p = c.beginPath()
+    p.moveTo(cx,     cy + r)
+    p.lineTo(cx + r, cy)
+    p.lineTo(cx,     cy - r)
+    p.lineTo(cx - r, cy)
+    p.close()
+    return p
+
+
 def _border_classic(c, page_w, page_h, clr):
-    """Double border with gold corner accents (default)."""
+    """Double rounded border with solid filled gold L-bracket corner hardware."""
     border_margin = 14 * mm
-    inner_margin = border_margin + 4 * mm
+    inner_margin  = border_margin + 4 * mm
 
     c.setStrokeColor(clr["border"])
     c.setLineWidth(2.5)
     c.roundRect(border_margin, border_margin,
                 page_w - 2 * border_margin, page_h - 2 * border_margin, 6 * mm)
-
     c.setStrokeColor(clr["accent"])
     c.setLineWidth(0.75)
     c.roundRect(inner_margin, inner_margin,
                 page_w - 2 * inner_margin, page_h - 2 * inner_margin, 4 * mm)
 
-    corner_len = 18 * mm
-    c.setStrokeColor(clr["gold"])
-    c.setLineWidth(1.5)
-    inset = border_margin + 6 * mm
-    tl = (inset, page_h - inset)
-    tr = (page_w - inset, page_h - inset)
-    bl = (inset, inset)
-    br = (page_w - inset, inset)
-    c.line(tl[0], tl[1], tl[0] + corner_len, tl[1])
-    c.line(tl[0], tl[1], tl[0], tl[1] - corner_len)
-    c.line(tr[0], tr[1], tr[0] - corner_len, tr[1])
-    c.line(tr[0], tr[1], tr[0], tr[1] - corner_len)
-    c.line(bl[0], bl[1], bl[0] + corner_len, bl[1])
-    c.line(bl[0], bl[1], bl[0], bl[1] + corner_len)
-    c.line(br[0], br[1], br[0] - corner_len, br[1])
-    c.line(br[0], br[1], br[0], br[1] + corner_len)
+    # Filled L-bracket plates at each corner
+    arm  = 20 * mm   # how far the plate extends along each edge
+    thick = 4 * mm   # plate arm thickness
+    c.setFillColor(clr["gold"])
+    for cx, cy, sx, sy in [
+        (border_margin,           page_h - border_margin, +1, -1),  # TL
+        (page_w - border_margin,  page_h - border_margin, -1, -1),  # TR
+        (border_margin,           border_margin,           +1, +1),  # BL
+        (page_w - border_margin,  border_margin,           -1, +1),  # BR
+    ]:
+        p = c.beginPath()
+        p.moveTo(cx,                cy)
+        p.lineTo(cx + sx * arm,     cy)
+        p.lineTo(cx + sx * arm,     cy + sy * thick)
+        p.lineTo(cx + sx * thick,   cy + sy * thick)
+        p.lineTo(cx + sx * thick,   cy + sy * arm)
+        p.lineTo(cx,                cy + sy * arm)
+        p.close()
+        c.drawPath(p, fill=1, stroke=0)
+    # Subtle inner-face highlight lines on the plates
+    c.setStrokeColor(clr["accent"])
+    c.setLineWidth(0.75)
+    for cx, cy, sx, sy in [
+        (border_margin,           page_h - border_margin, +1, -1),
+        (page_w - border_margin,  page_h - border_margin, -1, -1),
+        (border_margin,           border_margin,           +1, +1),
+        (page_w - border_margin,  border_margin,           -1, +1),
+    ]:
+        c.line(cx + sx * arm, cy, cx + sx * arm, cy + sy * thick)
+        c.line(cx + sx * thick, cy + sy * thick, cx + sx * thick, cy + sy * arm)
 
 
 def _border_modern(c, page_w, page_h, clr):
-    """Single thick rounded border, no inner border or accents."""
-    margin = 12 * mm
+    """Bold solid-slab frame with inner bevel highlight."""
+    margin = 10 * mm
     c.setStrokeColor(clr["border"])
-    c.setLineWidth(4)
+    c.setLineWidth(16)
     c.roundRect(margin, margin,
-                page_w - 2 * margin, page_h - 2 * margin, 10 * mm)
+                page_w - 2 * margin, page_h - 2 * margin, 12 * mm)
+    # Inner bevel highlight — sits at the inner edge of the slab
+    inner = margin + 8
+    c.setStrokeColor(clr["accent"])
+    c.setLineWidth(1.25)
+    c.roundRect(inner, inner,
+                page_w - 2 * inner, page_h - 2 * inner, 10 * mm)
 
 
 def _border_elegant(c, page_w, page_h, clr):
-    """Thin double-line with wider gap, no corner accents."""
+    """Thin double-line with wide gap and gold diamond ornaments at side midpoints."""
     outer = 12 * mm
-    inner = outer + 6 * mm
+    inner = outer + 8 * mm
     c.setStrokeColor(clr["border"])
     c.setLineWidth(1)
     c.roundRect(outer, outer,
@@ -224,18 +254,40 @@ def _border_elegant(c, page_w, page_h, clr):
     c.setLineWidth(0.5)
     c.roundRect(inner, inner,
                 page_w - 2 * inner, page_h - 2 * inner, 2 * mm)
+    # Filled diamond ornaments centred on each side, sitting in the gap
+    r = 5 * mm
+    c.setFillColor(clr["gold"])
+    for cx, cy in [
+        (page_w / 2,          page_h - outer),  # top
+        (page_w / 2,          outer),            # bottom
+        (outer,               page_h / 2),       # left
+        (page_w - outer,      page_h / 2),       # right
+    ]:
+        c.drawPath(_diamond_path(c, cx, cy, r), fill=1, stroke=0)
 
 
 def _border_minimal(c, page_w, page_h, clr):
-    """Single thin line, no accents."""
-    margin = 16 * mm
-    c.setStrokeColor(clr["border"])
-    c.setLineWidth(0.75)
-    c.rect(margin, margin, page_w - 2 * margin, page_h - 2 * margin)
+    """Top and bottom filled bands only — no side borders."""
+    margin = 14 * mm
+    bar_h  = 5 * mm
+    c.setFillColor(clr["border"])
+    # Top band
+    c.rect(margin, page_h - margin - bar_h,
+           page_w - 2 * margin, bar_h, fill=1, stroke=0)
+    # Bottom band
+    c.rect(margin, margin,
+           page_w - 2 * margin, bar_h, fill=1, stroke=0)
+    # Engraved inner highlight lines
+    c.setStrokeColor(clr["accent"])
+    c.setLineWidth(0.5)
+    c.line(margin, page_h - margin - 2 * mm,
+           page_w - margin, page_h - margin - 2 * mm)
+    c.line(margin, margin + bar_h - 2 * mm,
+           page_w - margin, margin + bar_h - 2 * mm)
 
 
 def _border_ornate(c, page_w, page_h, clr):
-    """Triple-border with corner flourishes."""
+    """Triple-border with filled diamond corners and mid-side ornaments."""
     m1, m2, m3 = 10 * mm, 14 * mm, 18 * mm
     c.setStrokeColor(clr["border"])
     c.setLineWidth(2)
@@ -247,26 +299,26 @@ def _border_ornate(c, page_w, page_h, clr):
     c.setLineWidth(0.5)
     c.roundRect(m3, m3, page_w - 2 * m3, page_h - 2 * m3, 3 * mm)
 
-    # corner flourishes - decorative dots at the four corners
+    # Large filled diamonds at the corners of the middle rect
+    r_corner = 6 * mm
     c.setFillColor(clr["gold"])
-    inset = m1 + 4 * mm
     for cx, cy in [
-        (inset, page_h - inset), (page_w - inset, page_h - inset),
-        (inset, inset), (page_w - inset, inset),
+        (m2,           page_h - m2),
+        (page_w - m2,  page_h - m2),
+        (m2,           m2),
+        (page_w - m2,  m2),
     ]:
-        c.circle(cx, cy, 3, fill=1, stroke=0)
-        c.circle(cx, cy, 6, fill=0, stroke=1)
-    # small diagonal corner lines
-    c.setStrokeColor(clr["gold"])
-    c.setLineWidth(1)
-    clen = 12 * mm
-    for cx, cy, dx, dy in [
-        (inset, page_h - inset, 1, -1),
-        (page_w - inset, page_h - inset, -1, -1),
-        (inset, inset, 1, 1),
-        (page_w - inset, inset, -1, 1),
+        c.drawPath(_diamond_path(c, cx, cy, r_corner), fill=1, stroke=0)
+
+    # Smaller filled diamonds at the midpoint of each side of the middle rect
+    r_mid = 3 * mm
+    for cx, cy in [
+        (page_w / 2,          page_h - m2),
+        (page_w / 2,          m2),
+        (m2,                  page_h / 2),
+        (page_w - m2,         page_h / 2),
     ]:
-        c.line(cx, cy, cx + dx * clen, cy + dy * clen)
+        c.drawPath(_diamond_path(c, cx, cy, r_mid), fill=1, stroke=0)
 
 
 def _border_none(c, page_w, page_h, clr):
