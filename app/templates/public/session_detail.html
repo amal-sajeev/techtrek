@@ -143,20 +143,27 @@
     </div>
     {% endif %}
 
-    <!-- Recording -->
-    {% if lecture.is_recording_public and lecture.recording_url %}
+    <!-- Recordings -->
+    {% if recordings %}
     <div class="session-about-wrap" style="margin-top:28px">
       <div class="session-sec-head">
-        <span class="session-sec-label">Session Recording</span>
+        <span class="session-sec-label">Session Recording{{ 's' if recordings|length > 1 else '' }}</span>
         <div class="session-sec-line"></div>
       </div>
-      {% if embed_url %}
+      {% for item in recordings %}
+      {% if item.rec.title %}
+      <p style="font-weight:600;margin-bottom:.5rem;margin-top:{% if not loop.first %}1.5rem{% else %}0{% endif %}">{{ item.rec.title }}</p>
+      {% elif not loop.first %}
+      <div style="margin-top:1.5rem"></div>
+      {% endif %}
+      {% if item.embed_url %}
         <div class="video-embed-wrap">
-          <iframe src="{{ embed_url }}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+          <iframe src="{{ item.embed_url }}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
         </div>
       {% else %}
-        <a href="{{ lecture.recording_url }}" target="_blank" rel="noopener" class="btn btn-primary">&#9654; Watch Recording</a>
+        <a href="{{ item.rec.url }}" target="_blank" rel="noopener" class="btn btn-primary">&#9654; Watch Recording</a>
       {% endif %}
+      {% endfor %}
     </div>
     {% endif %}
   </div>

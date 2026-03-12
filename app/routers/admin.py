@@ -24,6 +24,7 @@ from app.models.session import LectureSession
 from app.models.session_speaker import SessionSpeaker, SPEAKER_ROLES
 from app.models.speaker import Speaker
 from app.models.agenda import AgendaItem
+from app.models.session_recording import SessionRecording
 from app.models.testimonial import Testimonial
 from app.models.user import User
 from app.services.razorpay import process_refund as rz_process_refund
@@ -904,12 +905,6 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
     speaker_id_raw = form.get("speaker_id")
     speaker_id = int(speaker_id_raw) if speaker_id_raw and speaker_id_raw != "" else None
 
-    recording_url = form.get("recording_url", "").strip() or None
-    rec_err = _validate_recording_url(recording_url)
-    if rec_err:
-        flash(request, rec_err, "danger")
-        return RedirectResponse("/admin/sessions/new", status_code=303)
-
     session_obj = LectureSession(
         auditorium_id=int(form.get("auditorium_id")),
         speaker_id=speaker_id,
@@ -931,8 +926,6 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         cert_logo_url=form.get("cert_logo_url", "").strip() or None,
         cert_bg_url=form.get("cert_bg_url", "").strip() or None,
         cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
-        recording_url=recording_url,
-        is_recording_public="is_recording_public" in form,
     )
     speaker_ids = _collect_speaker_ids_from_form(form)
     conflicts = _check_speaker_overlaps(
@@ -940,6 +933,7 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         int(form.get("duration_minutes", 30)),
         int(form.get("auditorium_id")),
     )
+    conflicts += _check_agenda_speaker_conflicts(db, form, start_time)
     if conflicts:
         flash(request, "Speaker scheduling conflict: " + " | ".join(conflicts), "danger")
         return RedirectResponse("/admin/sessions/new", status_code=303)
@@ -1020,15 +1014,6 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.cert_bg_url = form.get("cert_bg_url", "").strip() or None
     lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
 
-    recording_url = form.get("recording_url", "").strip() or None
-    rec_err = _validate_recording_url(recording_url)
-    if rec_err:
-        db.rollback()
-        flash(request, rec_err, "danger")
-        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
-    lecture.recording_url = recording_url
-    lecture.is_recording_public = "is_recording_public" in form
-
     speaker_ids = _collect_speaker_ids_from_form(form)
     conflicts = _check_speaker_overlaps(
         db, speaker_ids, start_time,
@@ -1036,6 +1021,7 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
         int(form.get("auditorium_id", lecture.auditorium_id)),
         exclude_session_id=sess_id,
     )
+    conflicts += _check_agenda_speaker_conflicts(db, form, start_time, exclude_session_id=sess_id)
     if conflicts:
         db.rollback()
         flash(request, "Speaker scheduling conflict: " + " | ".join(conflicts), "danger")
@@ -1072,35 +1058,90 @@ def _check_speaker_overlaps(
     auditorium_id: int,
     exclude_session_id: int | None = None,
 ) -> list[str]:
-    """Return human-readable conflict messages for speakers double-booked at a different venue."""
+    """Return human-readable conflict messages for speakers double-booked at any venue."""
     if not speaker_ids:
         return []
     end_time = start_time + timedelta(minutes=duration_minutes)
     conflicts: list[str] = []
+    seen: set[tuple[int, int]] = set()  # (sp_id, other_session_id) to avoid duplicates
     for sp_id in speaker_ids:
         q = (
             db.query(SessionSpeaker)
             .join(LectureSession, SessionSpeaker.session_id == LectureSession.id)
-            .filter(
-                SessionSpeaker.speaker_id == sp_id,
-                LectureSession.auditorium_id != auditorium_id,
-            )
+            .filter(SessionSpeaker.speaker_id == sp_id)
         )
         if exclude_session_id is not None:
             q = q.filter(SessionSpeaker.session_id != exclude_session_id)
         for ss in q.all():
+            key = (sp_id, ss.session_id)
+            if key in seen:
+                continue
             other = db.query(LectureSession).get(ss.session_id)
             if not other:
                 continue
             other_end = other.start_time + timedelta(minutes=other.duration_minutes)
             if start_time < other_end and other.start_time < end_time:
+                seen.add(key)
                 sp = db.query(Speaker).get(sp_id)
                 sp_name = sp.name if sp else f"Speaker #{sp_id}"
+                venue_note = "a different venue" if other.auditorium_id != auditorium_id else "the same venue"
                 conflicts.append(
                     f"{sp_name} is already assigned to '{other.title}' "
                     f"({other.start_time.strftime('%b %d %I:%M %p')}–"
-                    f"{other_end.strftime('%I:%M %p')}) at a different venue."
+                    f"{other_end.strftime('%I:%M %p')}) at {venue_note}."
                 )
+    return conflicts
+
+
+def _check_agenda_speaker_conflicts(
+    db: Session,
+    form,
+    session_start: datetime,
+    exclude_session_id: int | None = None,
+) -> list[str]:
+    """Check agenda item speaker assignments for time conflicts with other sessions."""
+    conflicts: list[str] = []
+    seen: set[tuple[int, int]] = set()
+    cumulative_minutes = 0
+    idx = 0
+    while True:
+        title = form.get(f"agenda_title_{idx}")
+        if title is None:
+            break
+        duration = int(form.get(f"agenda_duration_{idx}", 20) or 20)
+        sp_id_raw = form.get(f"agenda_speaker_id_{idx}", "").strip()
+        if sp_id_raw:
+            sp_id = int(sp_id_raw)
+            item_start = session_start + timedelta(minutes=cumulative_minutes)
+            item_end = item_start + timedelta(minutes=duration)
+            # Check against sessions via SessionSpeaker
+            q = (
+                db.query(SessionSpeaker)
+                .join(LectureSession, SessionSpeaker.session_id == LectureSession.id)
+                .filter(SessionSpeaker.speaker_id == sp_id)
+            )
+            if exclude_session_id is not None:
+                q = q.filter(SessionSpeaker.session_id != exclude_session_id)
+            for ss in q.all():
+                key = (sp_id, ss.session_id)
+                if key in seen:
+                    continue
+                other = db.query(LectureSession).get(ss.session_id)
+                if not other:
+                    continue
+                other_end = other.start_time + timedelta(minutes=other.duration_minutes)
+                if item_start < other_end and other.start_time < item_end:
+                    seen.add(key)
+                    sp = db.query(Speaker).get(sp_id)
+                    sp_name = sp.name if sp else f"Speaker #{sp_id}"
+                    conflicts.append(
+                        f"Agenda item conflict: {sp_name} has an agenda slot "
+                        f"({item_start.strftime('%I:%M %p')}–{item_end.strftime('%I:%M %p')}) "
+                        f"that overlaps with session '{other.title}' "
+                        f"({other.start_time.strftime('%b %d %I:%M %p')}–{other_end.strftime('%I:%M %p')})."
+                    )
+        cumulative_minutes += duration
+        idx += 1
     return conflicts
 
 
@@ -1113,11 +1154,18 @@ def _save_agenda_items(db: Session, form, session_id: int):
             break
         title = title.strip()
         if title:
+            sp_id_raw = form.get(f"agenda_speaker_id_{idx}", "").strip()
+            sp_id = int(sp_id_raw) if sp_id_raw else None
+            sp_name = None
+            if sp_id:
+                sp_obj = db.query(Speaker).get(sp_id)
+                sp_name = sp_obj.name if sp_obj else None
             item = AgendaItem(
                 session_id=session_id,
                 order=idx,
                 title=title,
-                speaker_name=form.get(f"agenda_speaker_{idx}", "").strip() or None,
+                speaker_id=sp_id,
+                speaker_name=sp_name,
                 duration_minutes=int(form.get(f"agenda_duration_{idx}", 20) or 20),
                 description=form.get(f"agenda_desc_{idx}", "").strip() or None,
             )
@@ -1161,6 +1209,111 @@ def session_delete(request: Request, sess_id: int, db: Session = Depends(get_db)
         db.commit()
         flash(request, f"Session '{lecture.title}' deleted.", "success")
     return RedirectResponse("/admin/sessions", status_code=303)
+
+
+# ─── Session Recordings ───
+
+@router.get("/sessions/{sess_id}/recordings")
+def session_recordings(request: Request, sess_id: int, db: Session = Depends(get_db)):
+    from app.routers.public import _build_embed_url
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    lecture = db.query(LectureSession).get(sess_id)
+    if not lecture:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/admin/sessions", status_code=303)
+    recordings = (
+        db.query(SessionRecording)
+        .filter(SessionRecording.session_id == sess_id)
+        .order_by(SessionRecording.order)
+        .all()
+    )
+    enriched = [{"rec": r, "embed_url": _build_embed_url(r.url)} for r in recordings]
+    return templates.TemplateResponse(
+        "admin/session_recordings.html",
+        _admin_ctx(request, active_page="sessions", lecture=lecture, recordings=enriched),
+    )
+
+
+@router.post("/sessions/{sess_id}/recordings")
+async def session_recording_add(request: Request, sess_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    lecture = db.query(LectureSession).get(sess_id)
+    if not lecture:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/admin/sessions", status_code=303)
+    form = await request.form()
+    url = form.get("url", "").strip()
+    err = _validate_recording_url(url)
+    if err:
+        flash(request, err, "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
+    title = form.get("title", "").strip() or None
+    is_public = "is_public" in form
+    max_order = db.query(func.coalesce(func.max(SessionRecording.order), -1)).filter(
+        SessionRecording.session_id == sess_id
+    ).scalar()
+    rec = SessionRecording(
+        session_id=sess_id,
+        url=url,
+        title=title,
+        order=max_order + 1,
+        is_public=is_public,
+    )
+    db.add(rec)
+    db.commit()
+    flash(request, "Recording added.", "success")
+    return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
+
+
+@router.post("/sessions/{sess_id}/recordings/{rec_id}/update")
+async def session_recording_update(request: Request, sess_id: int, rec_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    rec = db.query(SessionRecording).filter(
+        SessionRecording.id == rec_id, SessionRecording.session_id == sess_id
+    ).first()
+    if not rec:
+        flash(request, "Recording not found.", "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
+    form = await request.form()
+    rec.title = form.get("title", "").strip() or None
+    db.commit()
+    flash(request, "Recording title updated.", "success")
+    return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
+
+
+@router.post("/sessions/{sess_id}/recordings/{rec_id}/toggle")
+def session_recording_toggle(request: Request, sess_id: int, rec_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    rec = db.query(SessionRecording).filter(
+        SessionRecording.id == rec_id, SessionRecording.session_id == sess_id
+    ).first()
+    if rec:
+        rec.is_public = not rec.is_public
+        db.commit()
+    return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
+
+
+@router.post("/sessions/{sess_id}/recordings/{rec_id}/delete")
+def session_recording_delete(request: Request, sess_id: int, rec_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    rec = db.query(SessionRecording).filter(
+        SessionRecording.id == rec_id, SessionRecording.session_id == sess_id
+    ).first()
+    if rec:
+        db.delete(rec)
+        db.commit()
+        flash(request, "Recording removed.", "success")
+    return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
 
 
 # ─── Bookings ───

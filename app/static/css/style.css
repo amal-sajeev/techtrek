@@ -1985,43 +1985,13 @@ tr:last-child td { border-bottom:none }
   transition: width .3s, background .3s;
 }
 
-/* ---- MOBILE SESSION CAROUSEL ---- */
+/* ---- MOBILE SESSION GRID (2-column vertical) ---- */
 @media (max-width: 640px) {
   .session-grid {
-    display: flex;
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 1rem;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding-bottom: 1rem;
-    /* hide scrollbar but keep scrollability */
-    scrollbar-width: none;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .75rem;
   }
-  .session-grid::-webkit-scrollbar { display: none }
-  .session-grid .card {
-    flex: 0 0 78vw;
-    max-width: 320px;
-    scroll-snap-align: start;
-  }
-  /* dot indicator hint */
-  .session-grid-wrap { position: relative }
-  .carousel-hint {
-    display: flex;
-    justify-content: center;
-    gap: .4rem;
-    margin-top: .875rem;
-  }
-  .carousel-hint-dot {
-    width: 6px; height: 6px;
-    border-radius: 50%;
-    background: var(--border-strong);
-    transition: background .2s;
-  }
-  .carousel-hint-dot.active { background: var(--cyan) }
-}
-@media (min-width: 641px) {
-  .carousel-hint { display: none }
 }
 
 /* ---- CHECKOUT TIMER URGENCY ---- */
@@ -3987,9 +3957,7 @@ tr:last-child td { border-bottom:none }
 .force-mobile .admin-main { padding:1rem; padding-top:3.5rem }
 
 /* from @media (max-width:640px) */
-.force-mobile .session-grid { display:flex; flex-wrap:nowrap; overflow-x:auto; gap:1rem; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding-bottom:1rem; scrollbar-width:none }
-.force-mobile .session-grid::-webkit-scrollbar { display:none }
-.force-mobile .session-grid .card { flex:0 0 78vw; max-width:320px; scroll-snap-align:start }
+.force-mobile .session-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem }
 .force-mobile .booking-card-header { flex-direction:column; gap:.75rem }
 .force-mobile .booking-card-header-right { flex-direction:row; align-items:center; flex-wrap:wrap }
 .force-mobile .booking-card-body { flex-direction:column }
@@ -4238,7 +4206,6 @@ tr:last-child td { border-bottom:none }
   .booking-card-body { padding:1rem; gap:1rem }
   .booking-card-title { font-size:19px }
   .seat-label-chip { font-size:.75rem; padding:.25rem .5rem }
-  .session-grid .card { flex:0 0 85vw }
   .confirmation-card { padding:1rem }
   .schedule-card { padding:1rem }
 }

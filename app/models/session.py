@@ -40,6 +40,7 @@ class LectureSession(Base):
     session_speakers = relationship("SessionSpeaker", back_populates="session", cascade="all, delete-orphan")
     bookings = relationship("Booking", back_populates="session")
     agenda_items = relationship("AgendaItem", back_populates="session", cascade="all, delete-orphan", order_by="AgendaItem.order")
+    session_recordings = relationship("SessionRecording", back_populates="session", cascade="all, delete-orphan", order_by="SessionRecording.order")
     waitlist_entries = relationship(
         "Waitlist",
         back_populates="session",

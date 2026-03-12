@@ -91,6 +91,13 @@ with engine.connect() as conn:
         conn.commit()
     except Exception:
         conn.rollback()
+    # Task: speaker_id on agenda_items
+    for col, col_type in [("speaker_id", "INTEGER REFERENCES speakers(id)")]:
+        try:
+            conn.execute(text(f"ALTER TABLE agenda_items ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
     # Task #5: Refund tracking fields on bookings
     for col, col_type in [
         ("refund_id", "VARCHAR(50)"),

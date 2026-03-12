@@ -109,7 +109,6 @@
         </a>
         {% endfor %}
       </div>
-      <div class="carousel-hint" id="sessions-carousel-dots" aria-hidden="true"></div>
       {% else %}
       <div class="empty-state reveal" id="session-grid">
         <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -136,7 +135,6 @@
   var sortSel = document.getElementById('filter-sort');
   var grid    = document.getElementById('session-grid');
   var skel    = document.getElementById('skeleton-grid');
-  var dots    = document.getElementById('sessions-carousel-dots');
   var debounceTimer;
 
   function buildUrl() {
@@ -211,7 +209,6 @@
         syncDropdown(collegeSel, doc.getElementById('filter-college'));
         history.replaceState({}, '', url);
         hideSkeleton();
-        initCarouselDots(grid, dots);
       })
       .catch(function() { hideSkeleton(); form.submit(); });
   }
@@ -247,29 +244,6 @@
     });
   }
 
-  // ---- CAROUSEL DOTS ----
-  function initCarouselDots(gridEl, dotsEl) {
-    if (!dotsEl || !gridEl || window.innerWidth > 640) return;
-    var cards = gridEl.querySelectorAll('.card');
-    dotsEl.innerHTML = '';
-    if (cards.length <= 1) return;
-    var maxDots = Math.min(cards.length, 7);
-    for (var i = 0; i < maxDots; i++) {
-      var dot = document.createElement('span');
-      dot.className = 'carousel-hint-dot' + (i === 0 ? ' active' : '');
-      dotsEl.appendChild(dot);
-    }
-    gridEl.addEventListener('scroll', function() {
-      var idx = Math.round(gridEl.scrollLeft / (gridEl.scrollWidth / cards.length));
-      dotsEl.querySelectorAll('.carousel-hint-dot').forEach(function(d, i) {
-        d.classList.toggle('active', i === idx);
-      });
-    }, { passive: true });
-  }
-
-  // Init on page load
-  var initialGrid = document.getElementById('session-grid');
-  initCarouselDots(initialGrid, dots);
 })();
 </script>
 {% endblock %}

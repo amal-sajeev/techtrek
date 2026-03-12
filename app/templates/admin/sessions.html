@@ -41,6 +41,7 @@
         {% if user.is_admin %}
         <td class="actions-cell">
           <a href="/admin/sessions/{{ item.session.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <a href="/admin/sessions/{{ item.session.id }}/recordings" class="btn btn-sm btn-outline">Recordings</a>
           <form method="post" action="/admin/sessions/{{ item.session.id }}/delete" style="display:inline">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this session?" data-confirm-label="Delete">Delete</button>
           </form>

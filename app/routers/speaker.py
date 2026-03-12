@@ -2,7 +2,7 @@ from datetime import datetime
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.dependencies import AuthRedirect, flash, get_db, now_ist, template_ctx, templates
@@ -10,6 +10,7 @@ from app.services.activity_log import log_activity
 from app.models.agenda import AgendaItem
 from app.models.booking import Booking
 from app.models.session import LectureSession
+from app.models.session_speaker import SessionSpeaker
 from app.models.speaker import Speaker
 from app.models.user import User
 
@@ -38,9 +39,21 @@ def _speaker_ctx(request: Request, **kwargs):
 @router.get("/")
 def dashboard(request: Request, db: Session = Depends(get_db)):
     user, speaker = _require_speaker(request, db)
+    session_ids_via_assignment = db.query(SessionSpeaker.session_id).filter(
+        SessionSpeaker.speaker_id == speaker.id
+    )
+    session_ids_via_agenda = db.query(AgendaItem.session_id).filter(
+        AgendaItem.speaker_id == speaker.id
+    )
     sessions = (
         db.query(LectureSession)
-        .filter(LectureSession.speaker_id == speaker.id)
+        .filter(
+            or_(
+                LectureSession.speaker_id == speaker.id,
+                LectureSession.id.in_(session_ids_via_assignment),
+                LectureSession.id.in_(session_ids_via_agenda),
+            )
+        )
         .order_by(LectureSession.start_time.desc())
         .all()
     )
@@ -69,13 +82,31 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     )
 
 
+def _speaker_can_access_session(speaker, lecture, db) -> bool:
+    """Return True if speaker has any relation to this session."""
+    if lecture.speaker_id == speaker.id:
+        return True
+    in_assignments = db.query(SessionSpeaker).filter(
+        SessionSpeaker.session_id == lecture.id,
+        SessionSpeaker.speaker_id == speaker.id,
+    ).first()
+    if in_assignments:
+        return True
+    in_agenda = db.query(AgendaItem).filter(
+        AgendaItem.session_id == lecture.id,
+        AgendaItem.speaker_id == speaker.id,
+    ).first()
+    return in_agenda is not None
+
+
 @router.get("/sessions/{session_id}/edit")
 def session_edit(request: Request, session_id: int, db: Session = Depends(get_db)):
     user, speaker = _require_speaker(request, db)
     lecture = db.query(LectureSession).get(session_id)
-    if not lecture or lecture.speaker_id != speaker.id:
+    if not lecture or not _speaker_can_access_session(speaker, lecture, db):
         flash(request, "Session not found or access denied.", "danger")
         return RedirectResponse("/speaker/", status_code=303)
+    is_primary = lecture.speaker_id == speaker.id
     agenda_items = (
         db.query(AgendaItem)
         .filter(AgendaItem.session_id == session_id)
@@ -84,7 +115,7 @@ def session_edit(request: Request, session_id: int, db: Session = Depends(get_db
     )
     return templates.TemplateResponse(
         "speaker/session_edit.html",
-        _speaker_ctx(request, speaker=speaker, lecture=lecture, agenda_items=agenda_items),
+        _speaker_ctx(request, speaker=speaker, lecture=lecture, agenda_items=agenda_items, is_primary=is_primary),
     )
 
 
@@ -92,45 +123,60 @@ def session_edit(request: Request, session_id: int, db: Session = Depends(get_db
 async def session_update(request: Request, session_id: int, db: Session = Depends(get_db)):
     user, speaker = _require_speaker(request, db)
     lecture = db.query(LectureSession).get(session_id)
-    if not lecture or lecture.speaker_id != speaker.id:
+    if not lecture or not _speaker_can_access_session(speaker, lecture, db):
         flash(request, "Session not found or access denied.", "danger")
         return RedirectResponse("/speaker/", status_code=303)
 
+    is_primary = lecture.speaker_id == speaker.id
     form = await request.form()
 
-    start_str = form.get("start_time", "")
-    try:
-        start_time = datetime.fromisoformat(start_str)
-    except ValueError:
-        flash(request, "Invalid date/time.", "danger")
-        return RedirectResponse(f"/speaker/sessions/{session_id}/edit", status_code=303)
+    if is_primary:
+        start_str = form.get("start_time", "")
+        try:
+            start_time = datetime.fromisoformat(start_str)
+        except ValueError:
+            flash(request, "Invalid date/time.", "danger")
+            return RedirectResponse(f"/speaker/sessions/{session_id}/edit", status_code=303)
 
-    lecture.title = form.get("title", lecture.title).strip()
-    lecture.description = form.get("description", "").strip()
-    lecture.banner_url = form.get("banner_url", "").strip() or None
-    lecture.start_time = start_time
-    lecture.duration_minutes = int(form.get("duration_minutes", 30))
-    lecture.status = form.get("status", lecture.status)
+        lecture.title = form.get("title", lecture.title).strip()
+        lecture.description = form.get("description", "").strip()
+        lecture.banner_url = form.get("banner_url", "").strip() or None
+        lecture.start_time = start_time
+        lecture.duration_minutes = int(form.get("duration_minutes", 30))
+        lecture.status = form.get("status", lecture.status)
 
-    # Update agenda items
-    db.query(AgendaItem).filter(AgendaItem.session_id == session_id).delete()
-    idx = 0
-    while True:
-        title = form.get(f"agenda_title_{idx}")
-        if title is None:
-            break
-        title = title.strip()
-        if title:
-            item = AgendaItem(
-                session_id=session_id,
-                order=idx,
-                title=title,
-                speaker_name=form.get(f"agenda_speaker_{idx}", "").strip() or None,
-                duration_minutes=int(form.get(f"agenda_duration_{idx}", 20) or 20),
-                description=form.get(f"agenda_desc_{idx}", "").strip() or None,
-            )
-            db.add(item)
-        idx += 1
+        # Primary speaker replaces all agenda items
+        db.query(AgendaItem).filter(AgendaItem.session_id == session_id).delete()
+        idx = 0
+        while True:
+            title = form.get(f"agenda_title_{idx}")
+            if title is None:
+                break
+            title = title.strip()
+            if title:
+                item = AgendaItem(
+                    session_id=session_id,
+                    order=idx,
+                    title=title,
+                    speaker_name=form.get(f"agenda_speaker_{idx}", "").strip() or None,
+                    duration_minutes=int(form.get(f"agenda_duration_{idx}", 20) or 20),
+                    description=form.get(f"agenda_desc_{idx}", "").strip() or None,
+                )
+                db.add(item)
+            idx += 1
+    else:
+        # Non-primary: only update their own agenda items by speaker_id
+        own_items = db.query(AgendaItem).filter(
+            AgendaItem.session_id == session_id,
+            AgendaItem.speaker_id == speaker.id,
+        ).all()
+        for item in own_items:
+            idx = item.order
+            new_title = form.get(f"agenda_title_{idx}", "").strip()
+            if new_title:
+                item.title = new_title
+                item.duration_minutes = int(form.get(f"agenda_duration_{idx}", item.duration_minutes) or item.duration_minutes)
+                item.description = form.get(f"agenda_desc_{idx}", "").strip() or None
 
     log_activity(db, category="speaker", action="update", description=f"Speaker '{speaker.name}' updated session '{lecture.title}'", request=request, user_id=user.id, target_type="session", target_id=session_id)
     db.commit()

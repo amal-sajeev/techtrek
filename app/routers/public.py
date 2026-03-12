@@ -18,6 +18,7 @@ from app.models.seat import Seat
 from app.models.session import LectureSession
 from app.models.speaker import Speaker
 from app.models.testimonial import Testimonial, NewsletterSubscriber
+from app.models.session_recording import SessionRecording
 from app.models.user import User
 
 router = APIRouter(tags=["public"])
@@ -355,7 +356,13 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
 
     event_status = _public_status_label(lecture, stats)
 
-    embed_url = _build_embed_url(lecture.recording_url) if lecture.recording_url else None
+    public_recordings = (
+        db.query(SessionRecording)
+        .filter(SessionRecording.session_id == session_id, SessionRecording.is_public == True)
+        .order_by(SessionRecording.order)
+        .all()
+    )
+    enriched_recordings = [{"rec": r, "embed_url": _build_embed_url(r.url)} for r in public_recordings]
 
     return templates.TemplateResponse(
         "public/session_detail.html",
@@ -368,22 +375,27 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
             event_status=event_status,
             on_waitlist=on_waitlist,
             has_priority=has_priority,
-            embed_url=embed_url,
+            recordings=enriched_recordings,
         ),
     )
 
 
 @router.get("/recordings")
 def recordings_page(request: Request, db: Session = Depends(get_db)):
-    sessions = (
-        db.query(LectureSession)
-        .filter(
-            LectureSession.is_recording_public == True,
-            LectureSession.recording_url.isnot(None),
-        )
-        .order_by(LectureSession.start_time.desc())
+    # Find sessions with at least one public SessionRecording
+    session_ids_with_recordings = (
+        db.query(SessionRecording.session_id)
+        .filter(SessionRecording.is_public == True)
+        .distinct()
         .all()
     )
+    ids = [r[0] for r in session_ids_with_recordings]
+    sessions = (
+        db.query(LectureSession)
+        .filter(LectureSession.id.in_(ids))
+        .order_by(LectureSession.start_time.desc())
+        .all()
+    ) if ids else []
     enriched = []
     for s in sessions:
         aud = db.query(Auditorium).get(s.auditorium_id)
