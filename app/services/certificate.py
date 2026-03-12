@@ -182,49 +182,47 @@ def _diamond_path(c, cx, cy, r):
 
 
 def _border_classic(c, page_w, page_h, clr, bw=1.0):
-    """Double rounded border with solid filled gold L-bracket corner hardware."""
-    border_margin = 14 * mm
-    inner_margin  = border_margin + 4 * mm
+    """Classic academic-diploma style: three square-cornered parallel rules
+    with bold gold corner medallions (square plate + brand diamond + accent dot).
+    All ornament dimensions scale proportionally with bw."""
+    b  = max(0.25, bw)
+    m1 = 10 * mm   # outer rule margin
+    m2 = 15 * mm   # middle rule
+    m3 = 20 * mm   # inner rule
 
+    # Outer rect — thickest, brand color, SQUARE corners
     c.setStrokeColor(clr["border"])
-    c.setLineWidth(2.5 * bw)
-    c.roundRect(border_margin, border_margin,
-                page_w - 2 * border_margin, page_h - 2 * border_margin, 6 * mm)
-    c.setStrokeColor(clr["accent"])
-    c.setLineWidth(0.75 * bw)
-    c.roundRect(inner_margin, inner_margin,
-                page_w - 2 * inner_margin, page_h - 2 * inner_margin, 4 * mm)
+    c.setLineWidth(2.5 * b)
+    c.rect(m1, m1, page_w - 2 * m1, page_h - 2 * m1)
 
-    # Filled L-bracket plates at each corner
-    arm  = 20 * mm   # how far the plate extends along each edge
-    thick = 4 * mm   # plate arm thickness
-    c.setFillColor(clr["gold"])
-    for cx, cy, sx, sy in [
-        (border_margin,           page_h - border_margin, +1, -1),  # TL
-        (page_w - border_margin,  page_h - border_margin, -1, -1),  # TR
-        (border_margin,           border_margin,           +1, +1),  # BL
-        (page_w - border_margin,  border_margin,           -1, +1),  # BR
-    ]:
-        p = c.beginPath()
-        p.moveTo(cx,                cy)
-        p.lineTo(cx + sx * arm,     cy)
-        p.lineTo(cx + sx * arm,     cy + sy * thick)
-        p.lineTo(cx + sx * thick,   cy + sy * thick)
-        p.lineTo(cx + sx * thick,   cy + sy * arm)
-        p.lineTo(cx,                cy + sy * arm)
-        p.close()
-        c.drawPath(p, fill=1, stroke=0)
-    # Subtle inner-face highlight lines on the plates
+    # Middle rect — gold
+    c.setStrokeColor(clr["gold"])
+    c.setLineWidth(0.8 * b)
+    c.rect(m2, m2, page_w - 2 * m2, page_h - 2 * m2)
+
+    # Inner rect — accent, thinnest
     c.setStrokeColor(clr["accent"])
-    c.setLineWidth(0.75 * bw)
-    for cx, cy, sx, sy in [
-        (border_margin,           page_h - border_margin, +1, -1),
-        (page_w - border_margin,  page_h - border_margin, -1, -1),
-        (border_margin,           border_margin,           +1, +1),
-        (page_w - border_margin,  border_margin,           -1, +1),
+    c.setLineWidth(0.5 * b)
+    c.rect(m3, m3, page_w - 2 * m3, page_h - 2 * m3)
+
+    # Corner medallions — size scales with bw
+    cap = (5.5 + 3.5 * b) * mm   # half-size of the square plate
+    ds  = cap * 0.62              # diamond radius within plate
+    for cx, cy in [
+        (m1, page_h - m1), (page_w - m1, page_h - m1),
+        (m1, m1),           (page_w - m1, m1),
     ]:
-        c.line(cx + sx * arm, cy, cx + sx * arm, cy + sy * thick)
-        c.line(cx + sx * thick, cy + sy * thick, cx + sx * thick, cy + sy * arm)
+        # Gold square plate
+        c.setFillColor(clr["gold"])
+        c.setStrokeColor(clr["border"])
+        c.setLineWidth(0.5 * b)
+        c.rect(cx - cap, cy - cap, 2 * cap, 2 * cap, fill=1, stroke=1)
+        # Brand-color inset diamond
+        c.setFillColor(clr["border"])
+        c.drawPath(_diamond_path(c, cx, cy, ds), fill=1, stroke=0)
+        # Tiny gold center dot
+        c.setFillColor(clr["gold"])
+        c.circle(cx, cy, cap * 0.22, fill=1, stroke=0)
 
 
 def _border_modern(c, page_w, page_h, clr, bw=1.0):
@@ -242,27 +240,74 @@ def _border_modern(c, page_w, page_h, clr, bw=1.0):
 
 
 def _border_elegant(c, page_w, page_h, clr, bw=1.0):
-    """Thin double-line with wide gap and gold diamond ornaments at side midpoints."""
-    outer = 12 * mm
-    inner = outer + 8 * mm
+    """Elegant luxury filigree: two hairline rounded borders with wide gap,
+    delicate corner crosshair ornaments (cross + gold tip dots + center diamond),
+    and elongated mid-side diamonds with flanking accent dots.
+    All ornament dimensions scale proportionally with bw."""
+    b  = max(0.25, bw)
+    m1 = 10 * mm   # outer rule
+    m2 = 21 * mm   # inner rule — wide gap is the visual signature
+
+    # Outer hairline — brand color, gently rounded
     c.setStrokeColor(clr["border"])
-    c.setLineWidth(1 * bw)
-    c.roundRect(outer, outer,
-                page_w - 2 * outer, page_h - 2 * outer, 3 * mm)
+    c.setLineWidth(0.9 * b)
+    c.roundRect(m1, m1, page_w - 2 * m1, page_h - 2 * m1, 4 * mm)
+
+    # Inner hairline — accent color
     c.setStrokeColor(clr["accent"])
-    c.setLineWidth(0.5 * bw)
-    c.roundRect(inner, inner,
-                page_w - 2 * inner, page_h - 2 * inner, 2 * mm)
-    # Filled diamond ornaments centred on each side, sitting in the gap
-    r = 5 * mm
-    c.setFillColor(clr["gold"])
+    c.setLineWidth(0.5 * b)
+    c.roundRect(m2, m2, page_w - 2 * m2, page_h - 2 * m2, 2 * mm)
+
+    # Corner crosshair ornaments — all sizes scale with bw
+    arm = (4.5 + 2.5 * b) * mm   # arm half-length
+    cr  = arm * 0.16              # tip dot radius
+    dr  = arm * 0.28              # center diamond radius
     for cx, cy in [
-        (page_w / 2,          page_h - outer),  # top
-        (page_w / 2,          outer),            # bottom
-        (outer,               page_h / 2),       # left
-        (page_w - outer,      page_h / 2),       # right
+        (m1, page_h - m1), (page_w - m1, page_h - m1),
+        (m1, m1),           (page_w - m1, m1),
     ]:
-        c.drawPath(_diamond_path(c, cx, cy, r), fill=1, stroke=0)
+        # Cross lines in accent color
+        c.setStrokeColor(clr["accent"])
+        c.setLineWidth(0.6 * b)
+        c.line(cx - arm, cy, cx + arm, cy)
+        c.line(cx, cy - arm, cx, cy + arm)
+        # Gold tip dots at each arm end
+        c.setFillColor(clr["gold"])
+        for dx, dy in [(arm, 0), (-arm, 0), (0, arm), (0, -arm)]:
+            c.circle(cx + dx, cy + dy, cr, fill=1, stroke=0)
+        # Small gold diamond at center
+        c.drawPath(_diamond_path(c, cx, cy, dr), fill=1, stroke=0)
+
+    # Mid-side elongated diamonds + flanking dots — sizes scale with bw
+    r_long  = (5.5 + 3.0 * b) * mm  # long radius (oriented along the edge)
+    r_short = r_long * 0.35          # short radius (perpendicular to edge)
+    dot_r   = r_long * 0.13          # flanking dot radius
+    dot_d   = r_long * 1.45          # flanking dot distance from center
+    for cx, cy, horiz in [
+        (page_w / 2, page_h - m1, True),
+        (page_w / 2, m1,          True),
+        (m1,         page_h / 2,  False),
+        (page_w - m1, page_h / 2, False),
+    ]:
+        # Elongated diamond (long axis oriented along the edge)
+        c.setFillColor(clr["gold"])
+        p = c.beginPath()
+        if horiz:
+            p.moveTo(cx, cy + r_short); p.lineTo(cx + r_long, cy)
+            p.lineTo(cx, cy - r_short); p.lineTo(cx - r_long, cy)
+        else:
+            p.moveTo(cx + r_short, cy); p.lineTo(cx, cy + r_long)
+            p.lineTo(cx - r_short, cy); p.lineTo(cx, cy - r_long)
+        p.close()
+        c.drawPath(p, fill=1, stroke=0)
+        # Flanking accent dots
+        c.setFillColor(clr["accent"])
+        if horiz:
+            c.circle(cx - dot_d, cy, dot_r, fill=1, stroke=0)
+            c.circle(cx + dot_d, cy, dot_r, fill=1, stroke=0)
+        else:
+            c.circle(cx, cy - dot_d, dot_r, fill=1, stroke=0)
+            c.circle(cx, cy + dot_d, dot_r, fill=1, stroke=0)
 
 
 def _border_minimal(c, page_w, page_h, clr, bw=1.0):
@@ -460,6 +505,7 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
     cert_footer_txt = getattr(lecture, "cert_footer", None) or "\u00a9 2026 TechTrek. All rights reserved."
     signer_name     = (getattr(lecture, "cert_signer_name", None) or "").strip()
     signer_desg     = (getattr(lecture, "cert_signer_designation", None) or "").strip()
+    signature_url   = getattr(lecture, "cert_signature_url", None) or ""
     logo_url        = getattr(lecture, "cert_logo_url", None) or ""
     bg_url          = getattr(lecture, "cert_bg_url", None) or ""
     color_scheme    = getattr(lecture, "cert_color_scheme", None)
@@ -524,20 +570,21 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
     except Exception:
         brand_color = clr["brand"]
 
+    brand_xo, brand_yo = _elem_offsets(brand_s)
     logo_img = _try_load_image(logo_url)
     if logo_img:
         iw, ih = logo_img.getSize()
         logo_h = 40
         logo_w = min(logo_h * (iw / ih) if ih else 40, 120)
         combined_w = logo_w + 6 + c.stringWidth("TECHTREK", brand_font, brand_size)
-        sx = (page_w - combined_w) / 2
-        c.drawImage(logo_img, sx, 480 + y_shift, width=logo_w, height=logo_h,
+        sx = (page_w - combined_w) / 2 + brand_xo
+        c.drawImage(logo_img, sx, 480 + brand_yo, width=logo_w, height=logo_h,
                     preserveAspectRatio=True, mask="auto")
         c.setFont(brand_font, brand_size)
         c.setFillColor(brand_color)
-        c.drawString(sx + logo_w + 6, 490 + y_shift, "TECHTREK")
+        c.drawString(sx + logo_w + 6, 490 + brand_yo, "TECHTREK")
     else:
-        _draw_styled_centered(c, "TECHTREK", 490 + y_shift, page_w, brand_s, brand_font, brand_size, brand_color)
+        _draw_styled_centered(c, "TECHTREK", 490, page_w, brand_s, brand_font, brand_size, brand_color)
 
     if brand_s.get("underline") and not logo_img:
         pass  # already handled by _draw_styled_centered
@@ -546,17 +593,18 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
     c.setLineWidth(0.75)
     rule_w = (content_x2 - content_x1) * 0.80
     rule_x = (page_w - rule_w) / 2
-    c.line(rule_x, 478 + y_shift, rule_x + rule_w, 478 + y_shift)
+    c.line(rule_x, 478 + brand_yo, rule_x + rule_w, 478 + brand_yo)
 
     # ── TITLE ZONE ────────────────────────────────────────────────────────────
-    _draw_styled_centered(c, cert_title.upper(), 420 + y_shift, page_w,
+    _draw_styled_centered(c, cert_title.upper(), 420, page_w,
                           elems.get("title"), "Helvetica-Bold", 28, clr["heading"])
 
+    title_xo, title_yo = _elem_offsets(elems.get("title"))
     c.setStrokeColor(clr["gold"])
     c.setLineWidth(0.75)
-    c.line(page_w / 2 - 100, 405 + y_shift, page_w / 2 + 100, 405 + y_shift)
+    c.line(page_w / 2 - 100, 405 + title_yo, page_w / 2 + 100, 405 + title_yo)
 
-    _draw_styled_centered(c, cert_subtitle, 390 + y_shift, page_w,
+    _draw_styled_centered(c, cert_subtitle, 390, page_w,
                           elems.get("subtitle"), "Helvetica", 12, colors.HexColor("#475569"))
 
     # ── NAME ZONE ─────────────────────────────────────────────────────────────
@@ -570,21 +618,23 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
     except Exception:
         name_color = clr["heading"]
 
-    name_y = 312 + y_shift
-    _draw_styled_centered(c, attendee_name, name_y, page_w, {**name_s, "size": name_font_size}, name_font, name_font_size, name_color)
+    name_xo, name_yo = _elem_offsets(name_s)
+    name_y = 312 + name_yo
+    _draw_styled_centered(c, attendee_name, 312, page_w, {**name_s, "size": name_font_size}, name_font, name_font_size, name_color)
 
     name_w = c.stringWidth(attendee_name, name_font, name_font_size)
-    line_x1 = (page_w - name_w) / 2 - 10
-    line_x2 = (page_w + name_w) / 2 + 10
+    ncx = page_w / 2 + name_xo
+    line_x1 = ncx - name_w / 2 - 10
+    line_x2 = ncx + name_w / 2 + 10
     c.setStrokeColor(clr["gold"])
     c.setLineWidth(1.5)
-    c.line(line_x1, 298 + y_shift, line_x2, 298 + y_shift)
+    c.line(line_x1, 298 + name_yo, line_x2, 298 + name_yo)
 
-    _draw_styled_centered(c, "for attending the session", 267 + y_shift, page_w,
+    _draw_styled_centered(c, "for attending the session", 267, page_w,
                           elems.get("attending"), "Helvetica-Oblique", 15, colors.HexColor("#475569"))
 
     display_title = f"\u201c{session_title}\u201d"
-    _draw_styled_centered(c, display_title, 239 + y_shift, page_w,
+    _draw_styled_centered(c, display_title, 239, page_w,
                           elems.get("session"), "Helvetica-Bold", 22, clr["session"])
 
     # ── DETAILS ZONE ──────────────────────────────────────────────────────────
@@ -596,20 +646,24 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
     except Exception:
         details_color = colors.HexColor("#334155")
 
+    details_xo, details_yo = _elem_offsets(details_s)
     _draw_detail_pair(c, f"Speaker: {speaker_name}", f"Date: {session_date}",
-                      152 + y_shift, details_font, details_size, details_color, page_w)
+                      152 + details_yo, details_font, details_size, details_color, page_w,
+                      x_offset=details_xo)
     if details_s.get("underline"):
         c.setStrokeColor(details_color)
         c.setLineWidth(0.5)
         _underline_detail_pair(c, f"Speaker: {speaker_name}", f"Date: {session_date}",
-                               152 + y_shift, details_font, details_size, page_w)
+                               152 + details_yo, details_font, details_size, page_w,
+                               x_offset=details_xo)
 
     venue_s = elems.get("venue", {})
-    _draw_styled_centered(c, f"Venue: {venue}", 120 + y_shift, page_w,
+    _draw_styled_centered(c, f"Venue: {venue}", 120, page_w,
                           venue_s, "Helvetica", 16, colors.HexColor("#334155"))
 
     # ── BOTTOM ZONE ───────────────────────────────────────────────────────────
     signer_s = elems.get("signer", {})
+    signer_xo, signer_yo = _elem_offsets(signer_s)
     if signer_name:
         signer_font = _resolve_font(signer_s.get("font", "arial"), signer_s.get("bold", True), signer_s.get("italic", False))
         signer_size = signer_s.get("size", 11)
@@ -618,17 +672,29 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
         except Exception:
             signer_color = clr["heading"]
 
+        sx1 = content_x1 + signer_xo
+
+        sig_img = _try_load_image(signature_url)
+        if sig_img:
+            siw, sih = sig_img.getSize()
+            sig_max_w, sig_max_h = 120, 50
+            sig_scale = min(sig_max_w / siw, sig_max_h / sih) if siw and sih else 1
+            sig_draw_w = siw * sig_scale
+            sig_draw_h = sih * sig_scale
+            c.drawImage(sig_img, sx1, 98 + signer_yo, width=sig_draw_w, height=sig_draw_h,
+                        preserveAspectRatio=True, mask="auto")
+
         c.setStrokeColor(signer_color)
         c.setLineWidth(1)
-        c.line(content_x1, 96 + y_shift, content_x1 + 120, 96 + y_shift)
+        c.line(sx1, 96 + signer_yo, sx1 + 120, 96 + signer_yo)
         c.setFont(signer_font, signer_size)
         c.setFillColor(signer_color)
-        c.drawString(content_x1, 84 + y_shift, signer_name)
+        c.drawString(sx1, 84 + signer_yo, signer_name)
         if signer_desg:
             desg_font = _resolve_font(signer_s.get("font", "arial"), False, True)
             c.setFont(desg_font, max(signer_size - 2, 7))
             c.setFillColor(colors.HexColor("#475569"))
-            c.drawString(content_x1, 72 + y_shift, signer_desg)
+            c.drawString(sx1, 72 + signer_yo, signer_desg)
 
     footer_s = elems.get("footer", {})
     footer_font = _resolve_font(footer_s.get("font", "arial"), footer_s.get("bold", False), footer_s.get("italic", False))
@@ -638,16 +704,17 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
     except Exception:
         footer_color = colors.HexColor("#94a3b8")
 
-    _draw_styled_centered(c, f"Certificate ID: {cert_id}", 72 + y_shift, page_w,
+    _draw_styled_centered(c, f"Certificate ID: {cert_id}", 72, page_w,
                           footer_s, footer_font, footer_size, footer_color)
-    _draw_styled_centered(c, cert_footer_txt, 60 + y_shift, page_w,
+    _draw_styled_centered(c, cert_footer_txt, 60, page_w,
                           footer_s, footer_font, footer_size, footer_color)
 
+    footer_xo, footer_yo = _elem_offsets(footer_s)
     qr_reader = _make_qr_image(qr_data)
     if qr_reader:
         qr_size = 70
         qr_x = content_x2 - qr_size
-        qr_y = 88 + y_shift
+        qr_y = 88 + footer_yo
         c.drawImage(qr_reader, qr_x, qr_y, width=qr_size, height=qr_size, mask="auto")
         c.setFont(footer_font, 7)
         c.setFillColor(footer_color)
@@ -657,23 +724,23 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
     return buf.getvalue()
 
 
-def _draw_detail_pair(c, left_text, right_text, y, font_name, font_size, color, page_w):
+def _draw_detail_pair(c, left_text, right_text, y, font_name, font_size, color, page_w, x_offset=0):
     gap = 20 * mm
     c.setFont(font_name, font_size)
     c.setFillColor(color)
     left_w = c.stringWidth(left_text, font_name, font_size)
     right_w = c.stringWidth(right_text, font_name, font_size)
     total_w = left_w + gap + right_w
-    start_x = (page_w - total_w) / 2
+    start_x = (page_w - total_w) / 2 + x_offset
     c.drawString(start_x, y, left_text)
     c.drawString(start_x + left_w + gap, y, right_text)
 
 
-def _underline_detail_pair(c, left_text, right_text, y, font_name, font_size, page_w):
+def _underline_detail_pair(c, left_text, right_text, y, font_name, font_size, page_w, x_offset=0):
     gap = 20 * mm
     left_w = c.stringWidth(left_text, font_name, font_size)
     right_w = c.stringWidth(right_text, font_name, font_size)
     total_w = left_w + gap + right_w
-    start_x = (page_w - total_w) / 2
+    start_x = (page_w - total_w) / 2 + x_offset
     c.line(start_x, y - 2, start_x + left_w, y - 2)
     c.line(start_x + left_w + gap, y - 2, start_x + total_w, y - 2)

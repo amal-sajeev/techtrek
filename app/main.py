@@ -76,6 +76,12 @@ with engine.connect() as conn:
             conn.commit()
         except Exception:
             conn.rollback()
+    for col, col_type in [("cert_signature_url", "VARCHAR(500)")]:
+        try:
+            conn.execute(text(f"ALTER TABLE lecture_sessions ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
     # Task #3: Recording fields on sessions
     for col, col_type in [
         ("recording_url", "VARCHAR(500)"),

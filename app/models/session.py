@@ -30,6 +30,7 @@ class LectureSession(Base):
     cert_signer_designation = Column(String(200), nullable=True)
     cert_logo_url = Column(String(500), nullable=True)
     cert_bg_url = Column(String(500), nullable=True)
+    cert_signature_url = Column(String(500), nullable=True)
     cert_color_scheme = Column(String(20), nullable=True)
     cert_style = Column(Text, nullable=True)
     recording_url = Column(String(500), nullable=True)

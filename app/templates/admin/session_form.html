@@ -213,6 +213,10 @@
         <label class="form-label" for="cert-signer-desg">Signer Designation</label>
         <input type="text" name="cert_signer_designation" id="cert-signer-desg" class="form-input" value="{{ lecture.cert_signer_designation if lecture and lecture.cert_signer_designation else '' }}" placeholder="e.g. Program Director">
       </div>
+      <div class="form-group">
+        <label class="form-label" for="cert-signature-url">Signature Image URL</label>
+        <input type="url" name="cert_signature_url" id="cert-signature-url" class="form-input" value="{{ lecture.cert_signature_url if lecture and lecture.cert_signature_url else '' }}" placeholder="https://... (image above signer line)">
+      </div>
     </div>
 
     <div class="form-group">
@@ -384,9 +388,9 @@
               </select>
               <input type="number" id="cert-style-{{ ek }}-size" name="cert_style_{{ ek }}_size" class="form-input" min="6" max="80" step="1" style="font-size:.78rem;padding:4px 6px">
               <input type="color" id="cert-style-{{ ek }}-color" name="cert_style_{{ ek }}_color" style="width:100%;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
-              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1" title="Bold">B</button>
-              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1" title="Italic">I</button>
-              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1" title="Underline">U</button>
+              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1;color:#fff" title="Bold">B</button>
+              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1;color:#fff" title="Italic">I</button>
+              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1;color:#fff" title="Underline">U</button>
               <button type="button" class="cert-pad-toggle" data-elem="{{ ek }}" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-size:.7rem;line-height:1" title="Toggle padding">&#9638;</button>
               <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
               <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
@@ -821,7 +825,6 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
       var btn = document.querySelector('.cert-style-toggle[data-target="cert-style-' + ek + '-' + prop + '"]');
       if (btn && active) {
         btn.style.background = 'var(--color-primary,#0ea5e9)';
-        btn.style.color = '#fff';
       }
     });
     var ep = es.padding || {};
@@ -837,7 +840,6 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
       var active = hid.value === 'true';
       hid.value = active ? 'false' : 'true';
       btn.style.background = active ? 'transparent' : 'var(--color-primary,#0ea5e9)';
-      btn.style.color = active ? '' : '#fff';
       if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
     });
   });
@@ -866,7 +868,7 @@ var _certPreviewSchedule = null;
 
   var fields = [
     'cert-title', 'cert-color', 'cert-subtitle',
-    'cert-signer-name', 'cert-signer-desg', 'cert-footer',
+    'cert-signer-name', 'cert-signer-desg', 'cert-signature-url', 'cert-footer',
     'cert-logo-url', 'cert-bg-url',
     'sess-title', 'sess-speaker', 'sess-start',
     'sess-duration', 'sess-auditorium',
@@ -892,6 +894,7 @@ var _certPreviewSchedule = null;
     'cert-subtitle': 'cert_subtitle',
     'cert-signer-name': 'cert_signer_name',
     'cert-signer-desg': 'cert_signer_designation',
+    'cert-signature-url': 'cert_signature_url',
     'cert-footer': 'cert_footer',
     'cert-logo-url': 'cert_logo_url',
     'cert-bg-url': 'cert_bg_url',
