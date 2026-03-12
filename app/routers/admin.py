@@ -926,6 +926,7 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         cert_logo_url=form.get("cert_logo_url", "").strip() or None,
         cert_bg_url=form.get("cert_bg_url", "").strip() or None,
         cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
+        cert_style=form.get("cert_style", "").strip() or None,
     )
     speaker_ids = _collect_speaker_ids_from_form(form)
     conflicts = _check_speaker_overlaps(
@@ -1013,6 +1014,7 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.cert_logo_url = form.get("cert_logo_url", "").strip() or None
     lecture.cert_bg_url = form.get("cert_bg_url", "").strip() or None
     lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
+    lecture.cert_style = form.get("cert_style", "").strip() or None
 
     speaker_ids = _collect_speaker_ids_from_form(form)
     conflicts = _check_speaker_overlaps(
@@ -1209,6 +1211,149 @@ def session_delete(request: Request, sess_id: int, db: Session = Depends(get_db)
         db.commit()
         flash(request, f"Session '{lecture.title}' deleted.", "success")
     return RedirectResponse("/admin/sessions", status_code=303)
+
+
+# ─── Certificate Preview ───
+
+@router.get("/sessions/{sess_id}/certificate/preview")
+def session_certificate_preview(
+    request: Request, sess_id: int, db: Session = Depends(get_db)
+):
+    import io as _io
+    from types import SimpleNamespace
+    from app.services.certificate import generate_certificate_pdf
+
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    lecture = db.query(LectureSession).get(sess_id)
+    if not lecture:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/admin/sessions", status_code=303)
+
+    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture.auditorium_id else None
+
+    dummy_booking = SimpleNamespace(
+        booking_ref="PREVIEW",
+        qr_code_data="CERT-PREVIEW-SAMPLE",
+    )
+    dummy_user = SimpleNamespace(
+        full_name="Sample Attendee",
+        username="sample_attendee",
+    )
+
+    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, lecture, auditorium)
+
+    return StreamingResponse(
+        _io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'inline; filename="certificate-preview.pdf"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
+@router.post("/sessions/{sess_id}/certificate/save")
+async def session_certificate_save(
+    request: Request, sess_id: int, db: Session = Depends(get_db)
+):
+    """Save only certificate template fields without touching other session data."""
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    lecture = db.query(LectureSession).get(sess_id)
+    if not lecture:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/admin/sessions", status_code=303)
+
+    form = await request.form()
+    lecture.cert_title = form.get("cert_title", "").strip() or None
+    lecture.cert_subtitle = form.get("cert_subtitle", "").strip() or None
+    lecture.cert_footer = form.get("cert_footer", "").strip() or None
+    lecture.cert_signer_name = form.get("cert_signer_name", "").strip() or None
+    lecture.cert_signer_designation = form.get("cert_signer_designation", "").strip() or None
+    lecture.cert_logo_url = form.get("cert_logo_url", "").strip() or None
+    lecture.cert_bg_url = form.get("cert_bg_url", "").strip() or None
+    lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
+    lecture.cert_style = form.get("cert_style", "").strip() or None
+    db.commit()
+
+    flash(request, "Certificate template saved.", "success")
+    return RedirectResponse(f"/admin/sessions/{sess_id}/edit?step=5", status_code=303)
+
+
+@router.post("/sessions/certificate/preview-image")
+async def session_certificate_preview_image(
+    request: Request, db: Session = Depends(get_db)
+):
+    """Generate a PNG thumbnail of the certificate from live form values."""
+    import io as _io
+    from types import SimpleNamespace
+    import pypdfium2
+    from app.services.certificate import generate_certificate_pdf
+    from fastapi.responses import Response
+
+    admin = _require_admin(request, db)
+    if not admin:
+        return Response(status_code=403)
+
+    form = await request.form()
+
+    aud_id = form.get("auditorium_id", "")
+    auditorium = None
+    if aud_id and aud_id.strip().isdigit():
+        auditorium = db.query(Auditorium).get(int(aud_id))
+
+    start_str = form.get("start_time", "")
+    try:
+        start_time = datetime.fromisoformat(start_str) if start_str else datetime.now()
+    except ValueError:
+        start_time = datetime.now()
+
+    draft_lecture = SimpleNamespace(
+        title=form.get("title", "").strip() or "Session Title",
+        speaker=form.get("speaker", "").strip() or "Speaker Name",
+        start_time=start_time,
+        duration_minutes=int(form.get("duration_minutes", 30) or 30),
+        cert_title=form.get("cert_title", "").strip() or None,
+        cert_subtitle=form.get("cert_subtitle", "").strip() or None,
+        cert_footer=form.get("cert_footer", "").strip() or None,
+        cert_signer_name=form.get("cert_signer_name", "").strip() or None,
+        cert_signer_designation=form.get("cert_signer_designation", "").strip() or None,
+        cert_logo_url=form.get("cert_logo_url", "").strip() or None,
+        cert_bg_url=form.get("cert_bg_url", "").strip() or None,
+        cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
+        cert_style=form.get("cert_style", "").strip() or None,
+    )
+    dummy_booking = SimpleNamespace(
+        booking_ref="PREVIEW",
+        qr_code_data="CERT-PREVIEW-SAMPLE",
+    )
+    dummy_user = SimpleNamespace(
+        full_name="Sample Attendee",
+        username="sample_attendee",
+    )
+
+    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, draft_lecture, auditorium)
+
+    pdf_doc = pypdfium2.PdfDocument(pdf_bytes)
+    page = pdf_doc[0]
+    scale = 1.5
+    bitmap = page.render(scale=scale)
+    pil_image = bitmap.to_pil()
+    png_buf = _io.BytesIO()
+    pil_image.save(png_buf, format="PNG", optimize=True)
+    page.close()
+    pdf_doc.close()
+
+    return Response(
+        content=png_buf.getvalue(),
+        media_type="image/png",
+        headers={"Cache-Control": "no-store"},
+    )
 
 
 # ─── Session Recordings ───

@@ -69,6 +69,7 @@ with engine.connect() as conn:
         ("cert_logo_url", "VARCHAR(500)"),
         ("cert_bg_url", "VARCHAR(500)"),
         ("cert_color_scheme", "VARCHAR(20)"),
+        ("cert_style", "TEXT"),
     ]:
         try:
             conn.execute(text(f"ALTER TABLE lecture_sessions ADD COLUMN {col} {col_type}"))

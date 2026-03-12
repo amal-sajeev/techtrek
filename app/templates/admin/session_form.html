@@ -16,6 +16,7 @@
 </div>
 
 <form method="post" action="{{ '/admin/sessions/' ~ lecture.id ~ '/edit' if lecture else '/admin/sessions/new' }}" id="session-wizard-form">
+  <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
   <!-- Step 1: Venue & Date -->
   <div class="wizard-panel active" data-panel="1">
     <h3 class="wizard-panel-title">Venue &amp; Date</h3>
@@ -230,6 +231,104 @@
       </div>
     </div>
 
+    {% if lecture %}
+    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin:1rem 0">
+      <button type="button" id="cert-save-btn" class="btn btn-primary btn-sm">Save Certificate Template</button>
+      <a href="/admin/sessions/{{ lecture.id }}/certificate/preview"
+         target="_blank" class="btn btn-sm btn-outline" style="font-size:.8rem">
+        Preview PDF &#8599;
+      </a>
+    </div>
+    {% endif %}
+
+    <!-- Advanced Styling -->
+    <details id="cert-advanced-styling" style="margin-top:1.5rem;border:1px solid var(--color-border,#e2e8f0);border-radius:8px;padding:0 1rem">
+      <summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:.75rem 0;user-select:none">Advanced Styling Options</summary>
+      <div style="padding-bottom:1rem">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:.8rem">Border Style</label>
+            <select id="cert-style-border" name="cert_style_border" class="form-input" data-no-tomselect style="font-size:.85rem">
+              {% for val, lbl in [('classic','Classic'),('modern','Modern'),('elegant','Elegant'),('minimal','Minimal'),('ornate','Ornate'),('none','None')] %}
+              <option value="{{ val }}">{{ lbl }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:.8rem">Background Size</label>
+            <select id="cert-style-bg-size" name="cert_style_bg_size" class="form-input" data-no-tomselect style="font-size:.85rem">
+              <option value="cover">Cover (fill)</option>
+              <option value="contain">Contain (fit)</option>
+              <option value="stretch">Stretch</option>
+            </select>
+          </div>
+          <div></div>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:1rem">
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:.8rem">BG Offset X (pt)</label>
+            <input type="number" id="cert-style-bg-offset-x" name="cert_style_bg_offset_x" class="form-input" value="0" step="1" style="font-size:.85rem">
+          </div>
+          <div class="form-group" style="margin-bottom:0">
+            <label class="form-label" style="font-size:.8rem">BG Offset Y (pt)</label>
+            <input type="number" id="cert-style-bg-offset-y" name="cert_style_bg_offset_y" class="form-input" value="0" step="1" style="font-size:.85rem">
+          </div>
+        </div>
+
+        <div style="margin-bottom:1rem">
+          <label class="form-label" style="font-size:.8rem">Content Padding (pt)</label>
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.5rem">
+            {% for dir, dlbl in [('top','Top'),('right','Right'),('bottom','Bottom'),('left','Left')] %}
+            <div>
+              <label style="font-size:.7rem;color:var(--color-muted,#94a3b8)">{{ dlbl }}</label>
+              <input type="number" id="cert-style-pad-{{ dir }}" name="cert_style_pad_{{ dir }}" class="form-input" value="0" step="1" style="font-size:.85rem">
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+
+        <hr style="border-color:var(--color-border,#e2e8f0);margin:.75rem 0">
+        <label class="form-label" style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Text Element Styles</label>
+
+        <div style="display:grid;grid-template-columns:80px 1fr 60px 40px 28px 28px 28px;gap:6px;align-items:center;font-size:.7rem;color:var(--color-muted,#94a3b8);margin-bottom:4px;padding:0 2px">
+          <span>Element</span><span>Font</span><span>Size</span><span>Color</span><span>B</span><span>I</span><span>U</span>
+        </div>
+
+        {% for ek, el in [('brand','Brand'),('title','Title'),('subtitle','Subtitle'),('name','Name'),('attending','Attending'),('session','Session'),('details','Details'),('venue','Venue'),('signer','Signer'),('footer','Footer')] %}
+        <div class="cert-elem-row" style="display:grid;grid-template-columns:80px 1fr 60px 40px 28px 28px 28px;gap:6px;align-items:center;padding:4px 2px;border-bottom:1px solid var(--color-border,#e2e8f0)">
+          <span style="font-size:.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ el }}">{{ el }}</span>
+          <select id="cert-style-{{ ek }}-font" name="cert_style_{{ ek }}_font" class="form-input" data-no-tomselect style="font-size:.78rem;padding:4px 6px">
+            {% for fk, fl in [('arial','Arial'),('georgia','Georgia'),('times','Times NR'),('verdana','Verdana'),('trebuchet','Trebuchet'),('courier','Courier'),('comic','Comic Sans'),('calibri','Calibri'),('palatino','Palatino'),('candara','Candara')] %}
+            <option value="{{ fk }}">{{ fl }}</option>
+            {% endfor %}
+          </select>
+          <input type="number" id="cert-style-{{ ek }}-size" name="cert_style_{{ ek }}_size" class="form-input" min="6" max="80" step="1" style="font-size:.78rem;padding:4px 6px">
+          <input type="color" id="cert-style-{{ ek }}-color" name="cert_style_{{ ek }}_color" style="width:100%;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
+          <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1" title="Bold">B</button>
+          <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1" title="Italic">I</button>
+          <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1" title="Underline">U</button>
+          <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
+          <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
+          <input type="hidden" id="cert-style-{{ ek }}-underline" name="cert_style_{{ ek }}_underline" value="false">
+        </div>
+        {% endfor %}
+
+      </div>
+    </details>
+
+    <!-- Live Certificate Preview -->
+    <div id="cert-preview-wrapper" style="margin:1.5rem 0">
+      <div style="margin-bottom:.5rem">
+        <span style="font-weight:600;font-size:.9rem">Live Preview</span>
+      </div>
+      <div style="width:100%;max-width:760px;aspect-ratio:841/595;background:#f1f5f9;border-radius:8px;overflow:hidden;position:relative">
+        <img id="cert-preview-image" style="width:100%;height:100%;object-fit:contain;display:block" alt="Certificate preview">
+        <div id="cert-preview-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.85rem">Loading preview&hellip;</div>
+      </div>
+    </div>
+
     <div class="wizard-nav">
       <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
       <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
@@ -269,6 +368,9 @@
     if (n === 4) syncAgendaSpeakerOptions();
     if (n === 6) buildReview();
   }
+
+  var urlStep = new URLSearchParams(window.location.search).get('step');
+  if (urlStep) goToStep(parseInt(urlStep));
 
   steps.forEach(function(s) {
     s.addEventListener('click', function() { goToStep(parseInt(s.dataset.step)); });
@@ -481,6 +583,234 @@
   document.querySelectorAll('.agenda-speaker-select').forEach(function(sel) {
     if (typeof TomSelect !== 'undefined' && !sel.tomselect) {
       new TomSelect(sel, { create: false, placeholder: 'Select speaker' });
+    }
+  });
+})();
+
+// ─── Advanced Styling: init from cert_style JSON + toggle buttons ───
+(function () {
+  var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
+  var DEFAULTS = {
+    brand:     {font:'arial',size:30,color:'#0e7490',bold:true, italic:false,underline:false},
+    title:     {font:'arial',size:28,color:'#0a1628',bold:true, italic:false,underline:false},
+    subtitle:  {font:'arial',size:12,color:'#475569',bold:false,italic:false,underline:false},
+    name:      {font:'arial',size:50,color:'#0a1628',bold:true, italic:false,underline:false},
+    attending: {font:'arial',size:15,color:'#475569',bold:false,italic:true, underline:false},
+    session:   {font:'arial',size:22,color:'#0e7490',bold:true, italic:false,underline:false},
+    details:   {font:'arial',size:16,color:'#334155',bold:false,italic:false,underline:false},
+    venue:     {font:'arial',size:16,color:'#334155',bold:false,italic:false,underline:false},
+    signer:    {font:'arial',size:11,color:'#0a1628',bold:true, italic:false,underline:false},
+    footer:    {font:'arial',size:8, color:'#94a3b8',bold:false,italic:false,underline:false}
+  };
+
+  var raw = {{ (lecture.cert_style or '{}')|tojson }};
+  var sty = {};
+  try { sty = JSON.parse(raw); } catch(e) {}
+  var elems = sty.elements || {};
+
+  function setVal(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.value = val;
+  }
+
+  setVal('cert-style-border', sty.border_style || 'classic');
+  setVal('cert-style-bg-size', sty.bg_size || 'cover');
+  setVal('cert-style-bg-offset-x', (sty.bg_offset_x || 0));
+  setVal('cert-style-bg-offset-y', (sty.bg_offset_y || 0));
+  var pad = sty.padding || {};
+  setVal('cert-style-pad-top', pad.top || 0);
+  setVal('cert-style-pad-right', pad.right || 0);
+  setVal('cert-style-pad-bottom', pad.bottom || 0);
+  setVal('cert-style-pad-left', pad.left || 0);
+
+  ELEMENTS.forEach(function(ek) {
+    var es = elems[ek] || DEFAULTS[ek] || {};
+    var d = DEFAULTS[ek] || {};
+    setVal('cert-style-' + ek + '-font', es.font || d.font);
+    setVal('cert-style-' + ek + '-size', es.size != null ? es.size : d.size);
+    setVal('cert-style-' + ek + '-color', es.color || d.color);
+    ['bold','italic','underline'].forEach(function(prop) {
+      var active = es[prop] != null ? es[prop] : d[prop];
+      var hid = document.getElementById('cert-style-' + ek + '-' + prop);
+      if (hid) hid.value = active ? 'true' : 'false';
+      var btn = document.querySelector('.cert-style-toggle[data-target="cert-style-' + ek + '-' + prop + '"]');
+      if (btn && active) {
+        btn.style.background = 'var(--color-primary,#0ea5e9)';
+        btn.style.color = '#fff';
+      }
+    });
+  });
+
+  document.querySelectorAll('.cert-style-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var hid = document.getElementById(btn.dataset.target);
+      if (!hid) return;
+      var active = hid.value === 'true';
+      hid.value = active ? 'false' : 'true';
+      btn.style.background = active ? 'transparent' : 'var(--color-primary,#0ea5e9)';
+      btn.style.color = active ? '' : '#fff';
+      if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
+    });
+  });
+})();
+
+// ─── Certificate live preview (server-rendered PNG) ───
+var _certPreviewSchedule = null;
+(function () {
+  var img = document.getElementById('cert-preview-image');
+  var loader = document.getElementById('cert-preview-loading');
+  if (!img) return;
+
+  var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
+
+  var fields = [
+    'cert-title', 'cert-color', 'cert-subtitle',
+    'cert-signer-name', 'cert-signer-desg', 'cert-footer',
+    'cert-logo-url', 'cert-bg-url',
+    'sess-title', 'sess-speaker', 'sess-start',
+    'sess-duration', 'sess-auditorium',
+    'cert-style-border', 'cert-style-bg-size',
+    'cert-style-bg-offset-x', 'cert-style-bg-offset-y',
+    'cert-style-pad-top', 'cert-style-pad-right',
+    'cert-style-pad-bottom', 'cert-style-pad-left',
+  ];
+  ELEMENTS.forEach(function(ek) {
+    ['font','size','color','bold','italic','underline'].forEach(function(prop) {
+      fields.push('cert-style-' + ek + '-' + prop);
+    });
+  });
+
+  var timer = null;
+  var ctrl = null;
+  var prevUrl = null;
+
+  var map = {
+    'cert-title': 'cert_title',
+    'cert-color': 'cert_color_scheme',
+    'cert-subtitle': 'cert_subtitle',
+    'cert-signer-name': 'cert_signer_name',
+    'cert-signer-desg': 'cert_signer_designation',
+    'cert-footer': 'cert_footer',
+    'cert-logo-url': 'cert_logo_url',
+    'cert-bg-url': 'cert_bg_url',
+    'sess-title': 'title',
+    'sess-speaker': 'speaker',
+    'sess-start': 'start_time',
+    'sess-duration': 'duration_minutes',
+    'sess-auditorium': 'auditorium_id',
+  };
+
+  function refresh() {
+    if (ctrl) ctrl.abort();
+    ctrl = new AbortController();
+    if (loader) loader.style.display = 'flex';
+
+    var fd = new FormData();
+    for (var htmlId in map) {
+      var el = document.getElementById(htmlId);
+      if (el) fd.append(map[htmlId], el.value || '');
+    }
+
+    var styleJson = _buildCertStyleJson();
+    fd.append('cert_style', styleJson);
+
+    fetch('/admin/sessions/certificate/preview-image', {
+      method: 'POST',
+      body: fd,
+      signal: ctrl.signal,
+    })
+    .then(function(r) { return r.blob(); })
+    .then(function(blob) {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      prevUrl = URL.createObjectURL(blob);
+      img.src = prevUrl;
+      if (loader) loader.style.display = 'none';
+    })
+    .catch(function(e) {
+      if (e.name !== 'AbortError') console.error('Preview error:', e);
+    });
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(refresh, 500);
+  }
+  _certPreviewSchedule = schedule;
+
+  fields.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', schedule);
+    el.addEventListener('change', schedule);
+  });
+
+  refresh();
+})();
+
+// ─── Build cert_style JSON from form fields ───
+function _buildCertStyleJson() {
+  var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
+  function gv(id, fallback) { var el = document.getElementById(id); return el ? el.value : (fallback || ''); }
+  var obj = {
+    border_style: gv('cert-style-border', 'classic'),
+    bg_size: gv('cert-style-bg-size', 'cover'),
+    bg_offset_x: parseFloat(gv('cert-style-bg-offset-x', '0')) || 0,
+    bg_offset_y: parseFloat(gv('cert-style-bg-offset-y', '0')) || 0,
+    padding: {
+      top: parseFloat(gv('cert-style-pad-top', '0')) || 0,
+      right: parseFloat(gv('cert-style-pad-right', '0')) || 0,
+      bottom: parseFloat(gv('cert-style-pad-bottom', '0')) || 0,
+      left: parseFloat(gv('cert-style-pad-left', '0')) || 0,
+    },
+    elements: {}
+  };
+  ELEMENTS.forEach(function(ek) {
+    obj.elements[ek] = {
+      font: gv('cert-style-' + ek + '-font', 'arial'),
+      size: parseInt(gv('cert-style-' + ek + '-size', '12')) || 12,
+      color: gv('cert-style-' + ek + '-color', '#000000'),
+      bold: gv('cert-style-' + ek + '-bold') === 'true',
+      italic: gv('cert-style-' + ek + '-italic') === 'true',
+      underline: gv('cert-style-' + ek + '-underline') === 'true',
+    };
+  });
+  return JSON.stringify(obj);
+}
+
+// ─── Save Certificate Template button ───
+(function () {
+  var btn = document.getElementById('cert-save-btn');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var form = document.getElementById('session-wizard-form');
+    if (!form) return;
+
+    var existing = form.querySelector('input[name="cert_style"]');
+    if (!existing) {
+      existing = document.createElement('input');
+      existing.type = 'hidden';
+      existing.name = 'cert_style';
+      form.appendChild(existing);
+    }
+    existing.value = _buildCertStyleJson();
+
+    var origAction = form.action;
+    var sessId = origAction.match(/sessions\/(\d+)\/edit/);
+    if (!sessId) return;
+    form.action = '/admin/sessions/' + sessId[1] + '/certificate/save';
+    form.submit();
+    form.action = origAction;
+  });
+})();
+
+// ─── Populate cert_style hidden field on form submit ───
+(function () {
+  var form = document.getElementById('session-wizard-form');
+  if (!form) return;
+  form.addEventListener('submit', function() {
+    var hid = document.getElementById('cert-style-hidden');
+    if (hid && typeof _buildCertStyleJson === 'function') {
+      hid.value = _buildCertStyleJson();
     }
   });
 })();
