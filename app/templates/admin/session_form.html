@@ -337,6 +337,10 @@
             </label>
 
           </div>
+          <div class="form-group" style="margin-top:.75rem;max-width:180px">
+            <label class="form-label" style="font-size:.8rem">Border Width</label>
+            <input type="number" id="cert-style-border-width" name="cert_style_border_width" class="form-input" value="1" min="0.25" max="10" step="0.25" style="font-size:.85rem">
+          </div>
         </div>
 
         <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem">
@@ -358,18 +362,6 @@
           </div>
         </div>
 
-        <div style="margin-bottom:1rem">
-          <label class="form-label" style="font-size:.8rem">Content Padding (pt)</label>
-          <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:.5rem">
-            {% for dir, dlbl in [('top','Top'),('right','Right'),('bottom','Bottom'),('left','Left')] %}
-            <div>
-              <label style="font-size:.7rem;color:var(--color-muted,#94a3b8)">{{ dlbl }}</label>
-              <input type="number" id="cert-style-pad-{{ dir }}" name="cert_style_pad_{{ dir }}" class="form-input" value="0" step="1" style="font-size:.85rem">
-            </div>
-            {% endfor %}
-          </div>
-        </div>
-
         <hr style="border-color:var(--color-border,#e2e8f0);margin:.75rem 0">
         <label class="form-label" style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Text Element Styles</label>
 
@@ -380,7 +372,7 @@
           ] %}
           <div>
             <div class="cert-elem-header">
-              <span>Element</span><span>Font</span><span>Size</span><span>Color</span><span>B</span><span>I</span><span>U</span>
+              <span>Element</span><span>Font</span><span>Size</span><span>Color</span><span>B</span><span>I</span><span>U</span><span style="text-align:center">Pad</span>
             </div>
             {% for ek, el in col_items %}
             <div class="cert-elem-row">
@@ -395,9 +387,18 @@
               <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1" title="Bold">B</button>
               <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1" title="Italic">I</button>
               <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1" title="Underline">U</button>
+              <button type="button" class="cert-pad-toggle" data-elem="{{ ek }}" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-size:.7rem;line-height:1" title="Toggle padding">&#9638;</button>
               <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
               <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
               <input type="hidden" id="cert-style-{{ ek }}-underline" name="cert_style_{{ ek }}_underline" value="false">
+            </div>
+            <div class="cert-elem-pad-row" id="cert-pad-row-{{ ek }}" style="display:none">
+              {% for dir, dlbl in [('top','T'),('right','R'),('bottom','B'),('left','L')] %}
+              <div style="display:flex;align-items:center;gap:2px">
+                <label style="font-size:.65rem;color:var(--color-muted,#94a3b8);min-width:10px">{{ dlbl }}</label>
+                <input type="number" id="cert-style-{{ ek }}-pad-{{ dir }}" name="cert_style_{{ ek }}_pad_{{ dir }}" class="form-input" value="0" step="1" style="font-size:.75rem;padding:2px 4px;width:52px">
+              </div>
+              {% endfor %}
             </div>
             {% endfor %}
           </div>
@@ -474,7 +475,7 @@
 }
 .cert-elem-header {
   display: grid;
-  grid-template-columns: 80px 1fr 60px 40px 28px 28px 28px;
+  grid-template-columns: 80px 1fr 60px 40px 28px 28px 28px 28px;
   gap: 6px;
   align-items: center;
   font-size: .7rem;
@@ -484,10 +485,18 @@
 }
 .cert-elem-row {
   display: grid;
-  grid-template-columns: 80px 1fr 60px 40px 28px 28px 28px;
+  grid-template-columns: 80px 1fr 60px 40px 28px 28px 28px 28px;
   gap: 6px;
   align-items: center;
   padding: 4px 2px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+.cert-elem-pad-row {
+  display: none;
+  grid-template-columns: repeat(4, auto);
+  gap: 6px;
+  padding: 4px 2px 6px 80px;
+  background: color-mix(in srgb, var(--color-border, #e2e8f0) 30%, transparent);
   border-bottom: 1px solid var(--color-border, #e2e8f0);
 }
 </style>
@@ -548,11 +557,11 @@
 
     document.querySelectorAll('.session-speaker-row').forEach(function(row) {
       var sel = row.querySelector('select[name^="session_speaker_id_"]');
-      if (sel && sel.value) {
-        var spId = sel.value;
-        for (var i = 0; i < speakerOptions.length; i++) {
-          if (speakerOptions[i].id === spId) { pushUnique(spId, speakerOptions[i].name); break; }
-        }
+      if (!sel) return;
+      var spId = sel.tomselect ? sel.tomselect.getValue() : sel.value;
+      if (!spId) return;
+      for (var i = 0; i < speakerOptions.length; i++) {
+        if (speakerOptions[i].id === spId) { pushUnique(spId, speakerOptions[i].name); break; }
       }
     });
     return result;
@@ -560,6 +569,7 @@
 
   function syncAgendaSpeakerOptions() {
     var speakers = getSelectedSpeakerObjects();
+    if (!speakers.length) return;
     document.querySelectorAll('.agenda-speaker-select').forEach(function(sel) {
       var current = sel.tomselect ? sel.tomselect.getValue() : sel.value;
       if (sel.tomselect) sel.tomselect.destroy();
@@ -572,7 +582,7 @@
         sel.appendChild(opt);
       });
       if (typeof TomSelect !== 'undefined') {
-        new TomSelect(sel, { create: false, placeholder: 'Select speaker' });
+        new TomSelect(sel, { create: false, placeholder: 'Select speaker', dropdownParent: 'body' });
       }
     });
   }
@@ -612,9 +622,19 @@
     ssRows.forEach(function(row) {
       var sel = row.querySelector('select[name^="session_speaker_id_"]');
       var roleSel = row.querySelector('select[name^="session_speaker_role_"]');
-      if (sel && sel.value) {
-        var name = sel.options[sel.selectedIndex].text;
-        var role = roleSel ? roleSel.options[roleSel.selectedIndex].text : '';
+      var selVal = sel && (sel.tomselect ? sel.tomselect.getValue() : sel.value);
+      if (selVal) {
+        var name = '';
+        if (sel.tomselect) {
+          var selOpt = sel.tomselect.options[selVal];
+          name = selOpt ? selOpt.text.split(' \u2014 ')[0] : selVal;
+        } else {
+          name = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : selVal;
+        }
+        var role = '';
+        if (roleSel) {
+          role = roleSel.tomselect ? (roleSel.tomselect.options[roleSel.tomselect.getValue()] || {}).text || '' : roleSel.options[roleSel.selectedIndex] ? roleSel.options[roleSel.selectedIndex].text : '';
+        }
         speakerRoles.push(name + ' (' + role + ')');
       }
     });
@@ -670,16 +690,23 @@
       '</div>';
     container.appendChild(row);
     if (window.TechTrekInitSelects) window.TechTrekInitSelects(row);
+    var newSpSel = row.querySelector('select[name^="session_speaker_id_"]');
+    if (newSpSel) newSpSel.addEventListener('change', syncAgendaSpeakerOptions);
     ssIdx++;
     bindSSRemoveButtons();
   });
 
   function bindSSRemoveButtons() {
     document.querySelectorAll('.ss-remove').forEach(function(btn) {
-      btn.onclick = function() { btn.closest('.session-speaker-row').remove(); };
+      btn.onclick = function() { btn.closest('.session-speaker-row').remove(); syncAgendaSpeakerOptions(); };
     });
   }
   bindSSRemoveButtons();
+  // Bind change events on server-rendered session speaker selects
+  document.querySelectorAll('.session-speaker-row').forEach(function(row) {
+    var sel = row.querySelector('select[name^="session_speaker_id_"]');
+    if (sel) sel.addEventListener('change', syncAgendaSpeakerOptions);
+  });
 
   // --- Agenda items (Step 4) ---
   var agendaIdx = {{ agenda_items|length }};
@@ -709,7 +736,7 @@
     container.appendChild(row);
     var newSel = row.querySelector('.agenda-speaker-select');
     if (typeof TomSelect !== 'undefined' && newSel) {
-      new TomSelect(newSel, { create: false, placeholder: 'Select speaker' });
+      new TomSelect(newSel, { create: false, placeholder: 'Select speaker', dropdownParent: 'body' });
     }
     agendaIdx++;
     bindRemoveButtons();
@@ -725,7 +752,7 @@
   // Initialize TomSelect on existing agenda speaker selects
   document.querySelectorAll('.agenda-speaker-select').forEach(function(sel) {
     if (typeof TomSelect !== 'undefined' && !sel.tomselect) {
-      new TomSelect(sel, { create: false, placeholder: 'Select speaker' });
+      new TomSelect(sel, { create: false, placeholder: 'Select speaker', dropdownParent: 'body' });
     }
   });
 })();
@@ -776,14 +803,10 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
 
   setVal('cert-style-border', sty.border_style || 'classic');
   _syncBorderPicker();
+  setVal('cert-style-border-width', sty.border_width != null ? sty.border_width : 1);
   setVal('cert-style-bg-size', sty.bg_size || 'cover');
   setVal('cert-style-bg-offset-x', (sty.bg_offset_x || 0));
   setVal('cert-style-bg-offset-y', (sty.bg_offset_y || 0));
-  var pad = sty.padding || {};
-  setVal('cert-style-pad-top', pad.top || 0);
-  setVal('cert-style-pad-right', pad.right || 0);
-  setVal('cert-style-pad-bottom', pad.bottom || 0);
-  setVal('cert-style-pad-left', pad.left || 0);
 
   ELEMENTS.forEach(function(ek) {
     var es = elems[ek] || DEFAULTS[ek] || {};
@@ -801,6 +824,10 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
         btn.style.color = '#fff';
       }
     });
+    var ep = es.padding || {};
+    ['top','right','bottom','left'].forEach(function(dir) {
+      setVal('cert-style-' + ek + '-pad-' + dir, ep[dir] || 0);
+    });
   });
 
   document.querySelectorAll('.cert-style-toggle').forEach(function(btn) {
@@ -812,6 +839,18 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
       btn.style.background = active ? 'transparent' : 'var(--color-primary,#0ea5e9)';
       btn.style.color = active ? '' : '#fff';
       if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
+    });
+  });
+
+  document.querySelectorAll('.cert-pad-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var ek = btn.dataset.elem;
+      var row = document.getElementById('cert-pad-row-' + ek);
+      if (!row) return;
+      var open = row.style.display !== 'none';
+      row.style.display = open ? 'none' : 'grid';
+      btn.style.background = open ? 'transparent' : 'var(--color-primary,#0ea5e9)';
+      btn.style.color = open ? '' : '#fff';
     });
   });
 })();
@@ -831,14 +870,15 @@ var _certPreviewSchedule = null;
     'cert-logo-url', 'cert-bg-url',
     'sess-title', 'sess-speaker', 'sess-start',
     'sess-duration', 'sess-auditorium',
-    'cert-style-border', 'cert-style-bg-size',
+    'cert-style-border', 'cert-style-border-width', 'cert-style-bg-size',
     'cert-style-bg-offset-x', 'cert-style-bg-offset-y',
-    'cert-style-pad-top', 'cert-style-pad-right',
-    'cert-style-pad-bottom', 'cert-style-pad-left',
   ];
   ELEMENTS.forEach(function(ek) {
     ['font','size','color','bold','italic','underline'].forEach(function(prop) {
       fields.push('cert-style-' + ek + '-' + prop);
+    });
+    ['top','right','bottom','left'].forEach(function(dir) {
+      fields.push('cert-style-' + ek + '-pad-' + dir);
     });
   });
 
@@ -915,15 +955,10 @@ function _buildCertStyleJson() {
   function gv(id, fallback) { var el = document.getElementById(id); return el ? el.value : (fallback || ''); }
   var obj = {
     border_style: gv('cert-style-border', 'classic'),
+    border_width: parseFloat(gv('cert-style-border-width', '1')) || 1,
     bg_size: gv('cert-style-bg-size', 'cover'),
     bg_offset_x: parseFloat(gv('cert-style-bg-offset-x', '0')) || 0,
     bg_offset_y: parseFloat(gv('cert-style-bg-offset-y', '0')) || 0,
-    padding: {
-      top: parseFloat(gv('cert-style-pad-top', '0')) || 0,
-      right: parseFloat(gv('cert-style-pad-right', '0')) || 0,
-      bottom: parseFloat(gv('cert-style-pad-bottom', '0')) || 0,
-      left: parseFloat(gv('cert-style-pad-left', '0')) || 0,
-    },
     elements: {}
   };
   ELEMENTS.forEach(function(ek) {
@@ -934,6 +969,12 @@ function _buildCertStyleJson() {
       bold: gv('cert-style-' + ek + '-bold') === 'true',
       italic: gv('cert-style-' + ek + '-italic') === 'true',
       underline: gv('cert-style-' + ek + '-underline') === 'true',
+      padding: {
+        top: parseFloat(gv('cert-style-' + ek + '-pad-top', '0')) || 0,
+        right: parseFloat(gv('cert-style-' + ek + '-pad-right', '0')) || 0,
+        bottom: parseFloat(gv('cert-style-' + ek + '-pad-bottom', '0')) || 0,
+        left: parseFloat(gv('cert-style-' + ek + '-pad-left', '0')) || 0,
+      },
     };
   });
   return JSON.stringify(obj);

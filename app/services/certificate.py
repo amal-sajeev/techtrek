@@ -181,17 +181,17 @@ def _diamond_path(c, cx, cy, r):
     return p
 
 
-def _border_classic(c, page_w, page_h, clr):
+def _border_classic(c, page_w, page_h, clr, bw=1.0):
     """Double rounded border with solid filled gold L-bracket corner hardware."""
     border_margin = 14 * mm
     inner_margin  = border_margin + 4 * mm
 
     c.setStrokeColor(clr["border"])
-    c.setLineWidth(2.5)
+    c.setLineWidth(2.5 * bw)
     c.roundRect(border_margin, border_margin,
                 page_w - 2 * border_margin, page_h - 2 * border_margin, 6 * mm)
     c.setStrokeColor(clr["accent"])
-    c.setLineWidth(0.75)
+    c.setLineWidth(0.75 * bw)
     c.roundRect(inner_margin, inner_margin,
                 page_w - 2 * inner_margin, page_h - 2 * inner_margin, 4 * mm)
 
@@ -216,7 +216,7 @@ def _border_classic(c, page_w, page_h, clr):
         c.drawPath(p, fill=1, stroke=0)
     # Subtle inner-face highlight lines on the plates
     c.setStrokeColor(clr["accent"])
-    c.setLineWidth(0.75)
+    c.setLineWidth(0.75 * bw)
     for cx, cy, sx, sy in [
         (border_margin,           page_h - border_margin, +1, -1),
         (page_w - border_margin,  page_h - border_margin, -1, -1),
@@ -227,31 +227,30 @@ def _border_classic(c, page_w, page_h, clr):
         c.line(cx + sx * thick, cy + sy * thick, cx + sx * thick, cy + sy * arm)
 
 
-def _border_modern(c, page_w, page_h, clr):
+def _border_modern(c, page_w, page_h, clr, bw=1.0):
     """Bold solid-slab frame with inner bevel highlight."""
     margin = 10 * mm
     c.setStrokeColor(clr["border"])
-    c.setLineWidth(16)
+    c.setLineWidth(16 * bw)
     c.roundRect(margin, margin,
                 page_w - 2 * margin, page_h - 2 * margin, 12 * mm)
-    # Inner bevel highlight — sits at the inner edge of the slab
     inner = margin + 8
     c.setStrokeColor(clr["accent"])
-    c.setLineWidth(1.25)
+    c.setLineWidth(1.25 * bw)
     c.roundRect(inner, inner,
                 page_w - 2 * inner, page_h - 2 * inner, 10 * mm)
 
 
-def _border_elegant(c, page_w, page_h, clr):
+def _border_elegant(c, page_w, page_h, clr, bw=1.0):
     """Thin double-line with wide gap and gold diamond ornaments at side midpoints."""
     outer = 12 * mm
     inner = outer + 8 * mm
     c.setStrokeColor(clr["border"])
-    c.setLineWidth(1)
+    c.setLineWidth(1 * bw)
     c.roundRect(outer, outer,
                 page_w - 2 * outer, page_h - 2 * outer, 3 * mm)
     c.setStrokeColor(clr["accent"])
-    c.setLineWidth(0.5)
+    c.setLineWidth(0.5 * bw)
     c.roundRect(inner, inner,
                 page_w - 2 * inner, page_h - 2 * inner, 2 * mm)
     # Filled diamond ornaments centred on each side, sitting in the gap
@@ -266,37 +265,34 @@ def _border_elegant(c, page_w, page_h, clr):
         c.drawPath(_diamond_path(c, cx, cy, r), fill=1, stroke=0)
 
 
-def _border_minimal(c, page_w, page_h, clr):
+def _border_minimal(c, page_w, page_h, clr, bw=1.0):
     """Top and bottom filled bands only — no side borders."""
     margin = 14 * mm
-    bar_h  = 5 * mm
+    bar_h  = 5 * mm * bw
     c.setFillColor(clr["border"])
-    # Top band
     c.rect(margin, page_h - margin - bar_h,
            page_w - 2 * margin, bar_h, fill=1, stroke=0)
-    # Bottom band
     c.rect(margin, margin,
            page_w - 2 * margin, bar_h, fill=1, stroke=0)
-    # Engraved inner highlight lines
     c.setStrokeColor(clr["accent"])
-    c.setLineWidth(0.5)
+    c.setLineWidth(0.5 * bw)
     c.line(margin, page_h - margin - 2 * mm,
            page_w - margin, page_h - margin - 2 * mm)
     c.line(margin, margin + bar_h - 2 * mm,
            page_w - margin, margin + bar_h - 2 * mm)
 
 
-def _border_ornate(c, page_w, page_h, clr):
+def _border_ornate(c, page_w, page_h, clr, bw=1.0):
     """Triple-border with filled diamond corners and mid-side ornaments."""
     m1, m2, m3 = 10 * mm, 14 * mm, 18 * mm
     c.setStrokeColor(clr["border"])
-    c.setLineWidth(2)
+    c.setLineWidth(2 * bw)
     c.roundRect(m1, m1, page_w - 2 * m1, page_h - 2 * m1, 5 * mm)
     c.setStrokeColor(clr["gold"])
-    c.setLineWidth(1)
+    c.setLineWidth(1 * bw)
     c.roundRect(m2, m2, page_w - 2 * m2, page_h - 2 * m2, 4 * mm)
     c.setStrokeColor(clr["accent"])
-    c.setLineWidth(0.5)
+    c.setLineWidth(0.5 * bw)
     c.roundRect(m3, m3, page_w - 2 * m3, page_h - 2 * m3, 3 * mm)
 
     # Large filled diamonds at the corners of the middle rect
@@ -321,7 +317,7 @@ def _border_ornate(c, page_w, page_h, clr):
         c.drawPath(_diamond_path(c, cx, cy, r_mid), fill=1, stroke=0)
 
 
-def _border_none(c, page_w, page_h, clr):
+def _border_none(c, page_w, page_h, clr, bw=1.0):
     """No border at all."""
     pass
 
@@ -336,6 +332,17 @@ BORDER_STYLES = {
 }
 
 
+def _elem_offsets(elem_style):
+    """Return (x_offset, y_offset) from per-element padding."""
+    if not elem_style:
+        return 0, 0
+    p = elem_style.get("padding") or {}
+    return (
+        float(p.get("left", 0)) - float(p.get("right", 0)),
+        float(p.get("bottom", 0)) - float(p.get("top", 0)),
+    )
+
+
 def _draw_centered_text(c, text, y, font_name, font_size, color, page_w):
     c.setFont(font_name, font_size)
     c.setFillColor(color)
@@ -343,7 +350,7 @@ def _draw_centered_text(c, text, y, font_name, font_size, color, page_w):
 
 
 def _draw_styled_centered(c, text, y, page_w, elem_style, default_font, default_size, default_color):
-    """Draw centered text using per-element style overrides. Handles underline flag."""
+    """Draw centered text using per-element style overrides. Handles underline flag and element padding."""
     font_name = _resolve_font(
         elem_style.get("font", "arial"),
         elem_style.get("bold", False),
@@ -356,15 +363,19 @@ def _draw_styled_centered(c, text, y, page_w, elem_style, default_font, default_
     except Exception:
         color = default_color
 
+    x_off, y_off = _elem_offsets(elem_style)
+    cx = page_w / 2 + x_off
+    ay = y + y_off
+
     c.setFont(font_name, font_size)
     c.setFillColor(color)
-    c.drawCentredString(page_w / 2, y, text)
+    c.drawCentredString(cx, ay, text)
 
     if elem_style and elem_style.get("underline"):
         tw = c.stringWidth(text, font_name, font_size)
         c.setStrokeColor(color)
         c.setLineWidth(0.75)
-        c.line(page_w / 2 - tw / 2, y - 2, page_w / 2 + tw / 2, y - 2)
+        c.line(cx - tw / 2, ay - 2, cx + tw / 2, ay - 2)
 
 
 def _try_load_image(url: str):
@@ -393,23 +404,25 @@ def _make_qr_image(data: str):
         return None
 
 
+_DEFAULT_ELEM_PAD = {"top": 0, "right": 0, "bottom": 0, "left": 0}
+
 DEFAULT_STYLE = {
-    "padding": {"top": 0, "right": 0, "bottom": 0, "left": 0},
     "border_style": "classic",
+    "border_width": 1.0,
     "bg_size": "cover",
     "bg_offset_x": 0,
     "bg_offset_y": 0,
     "elements": {
-        "brand":     {"font": "arial", "size": 30, "color": "#0e7490", "bold": True,  "italic": False, "underline": False},
-        "title":     {"font": "arial", "size": 28, "color": "#0a1628", "bold": True,  "italic": False, "underline": False},
-        "subtitle":  {"font": "arial", "size": 12, "color": "#475569", "bold": False, "italic": False, "underline": False},
-        "name":      {"font": "arial", "size": 50, "color": "#0a1628", "bold": True,  "italic": False, "underline": False},
-        "attending": {"font": "arial", "size": 15, "color": "#475569", "bold": False, "italic": True,  "underline": False},
-        "session":   {"font": "arial", "size": 22, "color": "#0e7490", "bold": True,  "italic": False, "underline": False},
-        "details":   {"font": "arial", "size": 16, "color": "#334155", "bold": False, "italic": False, "underline": False},
-        "venue":     {"font": "arial", "size": 16, "color": "#334155", "bold": False, "italic": False, "underline": False},
-        "signer":    {"font": "arial", "size": 11, "color": "#0a1628", "bold": True,  "italic": False, "underline": False},
-        "footer":    {"font": "arial", "size": 8,  "color": "#94a3b8", "bold": False, "italic": False, "underline": False},
+        "brand":     {"font": "arial", "size": 30, "color": "#0e7490", "bold": True,  "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "title":     {"font": "arial", "size": 28, "color": "#0a1628", "bold": True,  "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "subtitle":  {"font": "arial", "size": 12, "color": "#475569", "bold": False, "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "name":      {"font": "arial", "size": 50, "color": "#0a1628", "bold": True,  "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "attending": {"font": "arial", "size": 15, "color": "#475569", "bold": False, "italic": True,  "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "session":   {"font": "arial", "size": 22, "color": "#0e7490", "bold": True,  "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "details":   {"font": "arial", "size": 16, "color": "#334155", "bold": False, "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "venue":     {"font": "arial", "size": 16, "color": "#334155", "bold": False, "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "signer":    {"font": "arial", "size": 11, "color": "#0a1628", "bold": True,  "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
+        "footer":    {"font": "arial", "size": 8,  "color": "#94a3b8", "bold": False, "italic": False, "underline": False, "padding": {**_DEFAULT_ELEM_PAD}},
     },
 }
 
@@ -424,8 +437,8 @@ def _parse_cert_style(lecture) -> dict:
         except (json.JSONDecodeError, TypeError):
             style = {}
     merged = {
-        "padding": {**DEFAULT_STYLE["padding"], **(style.get("padding") or {})},
         "border_style": style.get("border_style", DEFAULT_STYLE["border_style"]),
+        "border_width": float(style.get("border_width", DEFAULT_STYLE["border_width"])),
         "bg_size": style.get("bg_size", DEFAULT_STYLE["bg_size"]),
         "bg_offset_x": float(style.get("bg_offset_x", 0)),
         "bg_offset_y": float(style.get("bg_offset_y", 0)),
@@ -433,7 +446,9 @@ def _parse_cert_style(lecture) -> dict:
     }
     for key, defaults in DEFAULT_STYLE["elements"].items():
         elem = style.get("elements", {}).get(key, {})
-        merged["elements"][key] = {**defaults, **elem}
+        elem_merged = {**defaults, **elem}
+        elem_merged["padding"] = {**_DEFAULT_ELEM_PAD, **(elem.get("padding") or {})}
+        merged["elements"][key] = elem_merged
     return merged
 
 
@@ -452,15 +467,6 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
     clr = _get_colors(color_scheme)
     sty = _parse_cert_style(lecture)
     elems = sty["elements"]
-    pad = sty["padding"]
-
-    # Padding offsets: top/bottom shift content, left/right shift margins
-    pad_top = float(pad.get("top", 0))
-    pad_bot = float(pad.get("bottom", 0))
-    pad_left = float(pad.get("left", 0))
-    pad_right = float(pad.get("right", 0))
-    # Vertical shift for all content positions (positive = up)
-    y_shift = pad_bot - pad_top
 
     attendee_name = user.full_name or user.username
     session_title = lecture.title
@@ -502,11 +508,12 @@ def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
 
     # ── Border ────────────────────────────────────────────────────────────────
     border_fn = BORDER_STYLES.get(sty.get("border_style", "classic"), _border_classic)
-    border_fn(c, page_w, page_h, clr)
+    border_width = max(0.25, sty.get("border_width", 1.0))
+    border_fn(c, page_w, page_h, clr, bw=border_width)
 
     inner_margin = 14 * mm + 4 * mm
-    content_x1 = inner_margin + 10 + pad_left
-    content_x2 = page_w - inner_margin - 10 - pad_right
+    content_x1 = inner_margin + 10
+    content_x2 = page_w - inner_margin - 10
 
     # ── HEADER ZONE ───────────────────────────────────────────────────────────
     brand_s = elems.get("brand", {})
