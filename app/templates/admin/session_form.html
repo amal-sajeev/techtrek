@@ -180,80 +180,81 @@
 
   <!-- Step 5: Certificate -->
   <div class="wizard-panel" data-panel="5">
-    <h3 class="wizard-panel-title">Certificate Settings</h3>
-    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees. Leave blank for defaults.</p>
 
-    <div class="form-row">
-      <div class="form-group" style="flex:2">
-        <label class="form-label" for="cert-title">Certificate Title</label>
-        <input type="text" name="cert_title" id="cert-title" class="form-input" value="{{ lecture.cert_title if lecture and lecture.cert_title else '' }}" placeholder="Certificate of Attendance">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="cert-color">Color Scheme</label>
-        <select name="cert_color_scheme" id="cert-color" class="form-input" data-no-tomselect>
-          {% set schemes = [('', 'Teal (Default)'), ('teal', 'Teal'), ('navy', 'Navy'), ('emerald', 'Emerald'), ('royal', 'Royal Purple'), ('crimson', 'Crimson')] %}
-          {% for val, label in schemes %}
-          <option value="{{ val }}" {% if lecture and lecture.cert_color_scheme == val %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
+    <div class="cert-split-wrap">
 
-    <div class="form-group">
-      <label class="form-label" for="cert-subtitle">Custom Subtitle / Message</label>
-      <textarea name="cert_subtitle" id="cert-subtitle" class="form-input" rows="2" placeholder="This certificate is proudly presented to">{{ lecture.cert_subtitle if lecture and lecture.cert_subtitle else '' }}</textarea>
-    </div>
+      <!-- LEFT: scrollable settings panel -->
+      <div class="cert-split-left">
+        <h3 class="wizard-panel-title">Certificate Settings</h3>
+        <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees. Leave blank for defaults.</p>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="cert-signer-name">Signer Name</label>
-        <input type="text" name="cert_signer_name" id="cert-signer-name" class="form-input" value="{{ lecture.cert_signer_name if lecture and lecture.cert_signer_name else '' }}" placeholder="e.g. Dr. Priya Sharma">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="cert-signer-desg">Signer Designation</label>
-        <input type="text" name="cert_signer_designation" id="cert-signer-desg" class="form-input" value="{{ lecture.cert_signer_designation if lecture and lecture.cert_signer_designation else '' }}" placeholder="e.g. Program Director">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="cert-signature-url">Signature Image URL</label>
-        <input type="url" name="cert_signature_url" id="cert-signature-url" class="form-input" value="{{ lecture.cert_signature_url if lecture and lecture.cert_signature_url else '' }}" placeholder="https://... (image above signer line)">
-      </div>
-    </div>
+        <div class="form-row">
+          <div class="form-group" style="flex:2">
+            <label class="form-label" for="cert-title">Certificate Title</label>
+            <input type="text" name="cert_title" id="cert-title" class="form-input" value="{{ lecture.cert_title if lecture and lecture.cert_title else '' }}" placeholder="Certificate of Attendance">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cert-color">Color Scheme</label>
+            <select name="cert_color_scheme" id="cert-color" class="form-input" data-no-tomselect>
+              {% set schemes = [('', 'Teal (Default)'), ('teal', 'Teal'), ('navy', 'Navy'), ('emerald', 'Emerald'), ('royal', 'Royal Purple'), ('crimson', 'Crimson')] %}
+              {% for val, label in schemes %}
+              <option value="{{ val }}" {% if lecture and lecture.cert_color_scheme == val %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
 
-    <div class="form-group">
-      <label class="form-label" for="cert-footer">Custom Footer Text</label>
-      <input type="text" name="cert_footer" id="cert-footer" class="form-input" value="{{ lecture.cert_footer if lecture and lecture.cert_footer else '' }}" placeholder="&copy; 2026 TechTrek. All rights reserved.">
-    </div>
+        <div class="form-group">
+          <label class="form-label" for="cert-subtitle">Custom Subtitle / Message</label>
+          <textarea name="cert_subtitle" id="cert-subtitle" class="form-input" rows="2" placeholder="This certificate is proudly presented to">{{ lecture.cert_subtitle if lecture and lecture.cert_subtitle else '' }}</textarea>
+        </div>
 
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="cert-logo-url">Logo URL</label>
-        <input type="url" name="cert_logo_url" id="cert-logo-url" class="form-input" value="{{ lecture.cert_logo_url if lecture and lecture.cert_logo_url else '' }}" placeholder="https://...">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="cert-bg-url">Background Image URL</label>
-        <input type="url" name="cert_bg_url" id="cert-bg-url" class="form-input" value="{{ lecture.cert_bg_url if lecture and lecture.cert_bg_url else '' }}" placeholder="https://...">
-      </div>
-    </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="cert-signer-name">Signer Name</label>
+            <input type="text" name="cert_signer_name" id="cert-signer-name" class="form-input" value="{{ lecture.cert_signer_name if lecture and lecture.cert_signer_name else '' }}" placeholder="e.g. Dr. Priya Sharma">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cert-signer-desg">Signer Designation</label>
+            <input type="text" name="cert_signer_designation" id="cert-signer-desg" class="form-input" value="{{ lecture.cert_signer_designation if lecture and lecture.cert_signer_designation else '' }}" placeholder="e.g. Program Director">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cert-signature-url">Signature Image URL</label>
+            <input type="url" name="cert_signature_url" id="cert-signature-url" class="form-input" value="{{ lecture.cert_signature_url if lecture and lecture.cert_signature_url else '' }}" placeholder="https://... (image above signer line)">
+          </div>
+        </div>
 
-    {% if lecture %}
-    <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin:1rem 0">
-      <button type="button" id="cert-save-btn" class="btn btn-primary btn-sm">Save Certificate Template</button>
-      <a href="/admin/sessions/{{ lecture.id }}/certificate/preview"
-         target="_blank" class="btn btn-sm btn-outline" style="font-size:.8rem">
-        Preview PDF &#8599;
-      </a>
-    </div>
-    {% endif %}
+        <div class="form-group">
+          <label class="form-label" for="cert-footer">Custom Footer Text</label>
+          <input type="text" name="cert_footer" id="cert-footer" class="form-input" value="{{ lecture.cert_footer if lecture and lecture.cert_footer else '' }}" placeholder="&copy; 2026 TechTrek. All rights reserved.">
+        </div>
 
-    <!-- Advanced Styling -->
-    <details id="cert-advanced-styling" style="margin-top:1.5rem;border:1px solid var(--color-border,#e2e8f0);border-radius:8px;padding:0 1rem">
-      <summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:.75rem 0;user-select:none">Advanced Styling Options</summary>
-      <div style="padding-bottom:1rem">
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label" for="cert-logo-url">Logo URL</label>
+            <input type="url" name="cert_logo_url" id="cert-logo-url" class="form-input" value="{{ lecture.cert_logo_url if lecture and lecture.cert_logo_url else '' }}" placeholder="https://...">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="cert-bg-url">Background Image URL</label>
+            <input type="url" name="cert_bg_url" id="cert-bg-url" class="form-input" value="{{ lecture.cert_bg_url if lecture and lecture.cert_bg_url else '' }}" placeholder="https://...">
+          </div>
+        </div>
 
-        <div class="form-group" style="margin-bottom:1rem">
-          <label class="form-label" style="font-size:.8rem">Border Style</label>
-          <input type="hidden" id="cert-style-border" name="cert_style_border" value="classic">
-          <div id="cert-border-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+        {% if lecture %}
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin:1rem 0">
+          <button type="button" id="cert-save-btn" class="btn btn-primary btn-sm">Save Certificate Template</button>
+        </div>
+        {% endif %}
+
+        <!-- Advanced Styling — open by default -->
+        <details id="cert-advanced-styling" open style="margin-top:1.5rem;border:1px solid var(--color-border,#e2e8f0);border-radius:8px;padding:0 1rem">
+          <summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:.75rem 0;user-select:none">Advanced Styling Options</summary>
+          <div style="padding-bottom:1rem">
+
+            <div class="form-group" style="margin-bottom:1rem">
+              <label class="form-label" style="font-size:.8rem">Border Style</label>
+              <input type="hidden" id="cert-style-border" name="cert_style_border" value="classic">
+              <div id="cert-border-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
 
             <!-- Classic: three square-corner rules + bold gold corner medallions (square plate + diamond + dot) -->
             <label class="bsp-opt active" data-val="classic" title="Classic — triple square border with gold corner medallions">
@@ -376,93 +377,103 @@
               <span>None</span>
             </label>
 
-          </div>
-          <div class="form-group" style="margin-top:.75rem;max-width:180px">
-            <label class="form-label" style="font-size:.8rem">Border Width</label>
-            <input type="number" id="cert-style-border-width" name="cert_style_border_width" class="form-input" value="1" min="0.25" max="10" step="0.25" style="font-size:.85rem">
-          </div>
-        </div>
-
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem">
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label" style="font-size:.8rem">Background Size</label>
-            <select id="cert-style-bg-size" name="cert_style_bg_size" class="form-input" data-no-tomselect style="font-size:.85rem">
-              <option value="cover">Cover (fill)</option>
-              <option value="contain">Contain (fit)</option>
-              <option value="stretch">Stretch</option>
-            </select>
-          </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label" style="font-size:.8rem">BG Offset X (pt)</label>
-            <input type="number" id="cert-style-bg-offset-x" name="cert_style_bg_offset_x" class="form-input" value="0" step="1" style="font-size:.85rem">
-          </div>
-          <div class="form-group" style="margin-bottom:0">
-            <label class="form-label" style="font-size:.8rem">BG Offset Y (pt)</label>
-            <input type="number" id="cert-style-bg-offset-y" name="cert_style_bg_offset_y" class="form-input" value="0" step="1" style="font-size:.85rem">
-          </div>
-        </div>
-
-        <hr style="border-color:var(--color-border,#e2e8f0);margin:.75rem 0">
-        <label class="form-label" style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Text Element Styles</label>
-
-        <div class="cert-elem-two-col">
-          {% for col_items in [
-            [('brand','Brand'),('title','Title'),('subtitle','Subtitle'),('name','Name'),('attending','Attending')],
-            [('session','Session'),('details','Details'),('venue','Venue'),('signer','Signer'),('footer','Footer')]
-          ] %}
-          <div>
-            <div class="cert-elem-header">
-              <span>Element</span><span>Font</span><span>Size</span><span>Color</span><span>B</span><span>I</span><span>U</span><span style="text-align:center">Pad</span>
+              </div>
+              <div class="form-group" style="margin-top:.75rem;max-width:180px">
+                <label class="form-label" style="font-size:.8rem">Border Width</label>
+                <input type="number" id="cert-style-border-width" name="cert_style_border_width" class="form-input" value="1" min="0.25" max="10" step="0.25" style="font-size:.85rem">
+              </div>
             </div>
-            {% for ek, el in col_items %}
-            <div class="cert-elem-row">
-              <span style="font-size:.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ el }}">{{ el }}</span>
-              <select id="cert-style-{{ ek }}-font" name="cert_style_{{ ek }}_font" class="form-input" data-no-tomselect style="font-size:.78rem;padding:4px 6px">
-                {% for fk, fl in [('arial','Arial'),('georgia','Georgia'),('times','Times NR'),('verdana','Verdana'),('trebuchet','Trebuchet'),('courier','Courier'),('comic','Comic Sans'),('calibri','Calibri'),('palatino','Palatino'),('candara','Candara')] %}
-                <option value="{{ fk }}">{{ fl }}</option>
+
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem">
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label" style="font-size:.8rem">Background Size</label>
+                <select id="cert-style-bg-size" name="cert_style_bg_size" class="form-input" data-no-tomselect style="font-size:.85rem">
+                  <option value="cover">Cover (fill)</option>
+                  <option value="contain">Contain (fit)</option>
+                  <option value="stretch">Stretch</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label" style="font-size:.8rem">BG Offset X (pt)</label>
+                <input type="number" id="cert-style-bg-offset-x" name="cert_style_bg_offset_x" class="form-input" value="0" step="1" style="font-size:.85rem">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label" style="font-size:.8rem">BG Offset Y (pt)</label>
+                <input type="number" id="cert-style-bg-offset-y" name="cert_style_bg_offset_y" class="form-input" value="0" step="1" style="font-size:.85rem">
+              </div>
+            </div>
+
+            <hr style="border-color:var(--color-border,#e2e8f0);margin:.75rem 0">
+            <label class="form-label" style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Text Element Styles</label>
+
+            <div class="cert-elem-two-col">
+              {% for col_items in [
+                [('brand','Brand'),('title','Title'),('subtitle','Subtitle'),('name','Name'),('attending','Attending')],
+                [('session','Session'),('details','Details'),('venue','Venue'),('signer','Signer'),('footer','Footer')]
+              ] %}
+              <div>
+                <div class="cert-elem-header">
+                  <span>Element</span><span>Font</span><span>Size</span><span>Color</span><span>B</span><span>I</span><span>U</span><span style="text-align:center">Pad</span>
+                </div>
+                {% for ek, el in col_items %}
+                <div class="cert-elem-row">
+                  <span style="font-size:.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ el }}">{{ el }}</span>
+                  <select id="cert-style-{{ ek }}-font" name="cert_style_{{ ek }}_font" class="form-input" data-no-tomselect style="font-size:.78rem;padding:4px 6px">
+                    {% for fk, fl in [('arial','Arial'),('georgia','Georgia'),('times','Times NR'),('verdana','Verdana'),('trebuchet','Trebuchet'),('courier','Courier'),('comic','Comic Sans'),('calibri','Calibri'),('palatino','Palatino'),('candara','Candara')] %}
+                    <option value="{{ fk }}">{{ fl }}</option>
+                    {% endfor %}
+                  </select>
+                  <input type="number" id="cert-style-{{ ek }}-size" name="cert_style_{{ ek }}_size" class="form-input" min="6" max="80" step="1" style="font-size:.78rem;padding:4px 6px">
+                  <input type="color" id="cert-style-{{ ek }}-color" name="cert_style_{{ ek }}_color" style="width:100%;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
+                  <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1;color:#fff" title="Bold">B</button>
+                  <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1;color:#fff" title="Italic">I</button>
+                  <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1;color:#fff" title="Underline">U</button>
+                  <button type="button" class="cert-pad-toggle" data-elem="{{ ek }}" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-size:.7rem;line-height:1" title="Toggle padding">&#9638;</button>
+                  <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
+                  <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
+                  <input type="hidden" id="cert-style-{{ ek }}-underline" name="cert_style_{{ ek }}_underline" value="false">
+                </div>
+                <div class="cert-elem-pad-row" id="cert-pad-row-{{ ek }}" style="display:none">
+                  {% for dir, dlbl in [('top','T'),('right','R'),('bottom','B'),('left','L')] %}
+                  <div style="display:flex;align-items:center;gap:2px">
+                    <label style="font-size:.65rem;color:var(--color-muted,#94a3b8);min-width:10px">{{ dlbl }}</label>
+                    <input type="number" id="cert-style-{{ ek }}-pad-{{ dir }}" name="cert_style_{{ ek }}_pad_{{ dir }}" class="form-input" value="0" step="1" style="font-size:.75rem;padding:2px 4px;width:52px">
+                  </div>
+                  {% endfor %}
+                </div>
                 {% endfor %}
-              </select>
-              <input type="number" id="cert-style-{{ ek }}-size" name="cert_style_{{ ek }}_size" class="form-input" min="6" max="80" step="1" style="font-size:.78rem;padding:4px 6px">
-              <input type="color" id="cert-style-{{ ek }}-color" name="cert_style_{{ ek }}_color" style="width:100%;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
-              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1;color:#fff" title="Bold">B</button>
-              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1;color:#fff" title="Italic">I</button>
-              <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1;color:#fff" title="Underline">U</button>
-              <button type="button" class="cert-pad-toggle" data-elem="{{ ek }}" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-size:.7rem;line-height:1" title="Toggle padding">&#9638;</button>
-              <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
-              <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
-              <input type="hidden" id="cert-style-{{ ek }}-underline" name="cert_style_{{ ek }}_underline" value="false">
-            </div>
-            <div class="cert-elem-pad-row" id="cert-pad-row-{{ ek }}" style="display:none">
-              {% for dir, dlbl in [('top','T'),('right','R'),('bottom','B'),('left','L')] %}
-              <div style="display:flex;align-items:center;gap:2px">
-                <label style="font-size:.65rem;color:var(--color-muted,#94a3b8);min-width:10px">{{ dlbl }}</label>
-                <input type="number" id="cert-style-{{ ek }}-pad-{{ dir }}" name="cert_style_{{ ek }}_pad_{{ dir }}" class="form-input" value="0" step="1" style="font-size:.75rem;padding:2px 4px;width:52px">
               </div>
               {% endfor %}
             </div>
-            {% endfor %}
+
           </div>
-          {% endfor %}
+        </details>
+
+      </div><!-- /cert-split-left -->
+
+      <!-- RIGHT: live preview (always visible) -->
+      <div class="cert-split-right">
+        <div style="font-weight:600;font-size:.9rem">Live Preview</div>
+        <div style="flex:1;min-height:0;background:#f1f5f9;border-radius:8px;overflow:hidden;position:relative">
+          <img id="cert-preview-image" style="width:100%;height:100%;object-fit:contain;display:block" alt="Certificate preview">
+          <div id="cert-preview-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.85rem">Loading preview&hellip;</div>
         </div>
+        {% if lecture %}
+        <a href="/admin/sessions/{{ lecture.id }}/certificate/preview"
+           target="_blank" class="btn btn-outline btn-sm" style="align-self:flex-start;font-size:.8rem">
+          Open Full PDF &#8599;
+        </a>
+        {% endif %}
+      </div><!-- /cert-split-right -->
 
-      </div>
-    </details>
+    </div><!-- /cert-split-wrap -->
 
-    <!-- Live Certificate Preview -->
-    <div id="cert-preview-wrapper" style="margin:1.5rem 0">
-      <div style="margin-bottom:.5rem">
-        <span style="font-weight:600;font-size:.9rem">Live Preview</span>
-      </div>
-      <div style="width:100%;max-width:760px;aspect-ratio:841/595;background:#f1f5f9;border-radius:8px;overflow:hidden;position:relative">
-        <img id="cert-preview-image" style="width:100%;height:100%;object-fit:contain;display:block" alt="Certificate preview">
-        <div id="cert-preview-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.85rem">Loading preview&hellip;</div>
-      </div>
-    </div>
-
-    <div class="wizard-nav">
+    <!-- Wizard nav sits below the two-column area -->
+    <div class="wizard-nav" style="margin-top:1rem">
       <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
       <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
     </div>
+
   </div>
 
   <!-- Step 6: Review -->
@@ -538,6 +549,27 @@
   padding: 4px 2px 6px 80px;
   background: color-mix(in srgb, var(--color-border, #e2e8f0) 30%, transparent);
   border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+/* Certificate Step 5 — split layout */
+.cert-split-wrap {
+  display: flex;
+  gap: 1.5rem;
+  height: calc(100vh - 220px);
+  min-height: 480px;
+}
+.cert-split-left {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  padding-right: 0.5rem;
+  scrollbar-width: thin;
+}
+.cert-split-right {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
 }
 </style>
 <script>
