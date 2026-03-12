@@ -205,9 +205,9 @@ def _border_classic(c, page_w, page_h, clr, bw=1.0):
     c.setLineWidth(0.5 * b)
     c.rect(m3, m3, page_w - 2 * m3, page_h - 2 * m3)
 
-    # Corner medallions — size scales with bw
-    cap = (5.5 + 3.5 * b) * mm   # half-size of the square plate
-    ds  = cap * 0.62              # diamond radius within plate
+    # Corner medallions — purely multiplicative: cap scales directly with bw
+    cap = max(3 * mm, 9 * mm * b)   # half-size of the square plate
+    ds  = cap * 0.62                 # diamond radius within plate
     for cx, cy in [
         (m1, page_h - m1), (page_w - m1, page_h - m1),
         (m1, m1),           (page_w - m1, m1),
@@ -258,10 +258,10 @@ def _border_elegant(c, page_w, page_h, clr, bw=1.0):
     c.setLineWidth(0.5 * b)
     c.roundRect(m2, m2, page_w - 2 * m2, page_h - 2 * m2, 2 * mm)
 
-    # Corner crosshair ornaments — all sizes scale with bw
-    arm = (4.5 + 2.5 * b) * mm   # arm half-length
-    cr  = arm * 0.16              # tip dot radius
-    dr  = arm * 0.28              # center diamond radius
+    # Corner crosshair ornaments — purely multiplicative: all sizes scale directly with bw
+    arm = max(2 * mm, 7 * mm * b)   # arm half-length
+    cr  = arm * 0.16                 # tip dot radius
+    dr  = arm * 0.28                 # center diamond radius
     for cx, cy in [
         (m1, page_h - m1), (page_w - m1, page_h - m1),
         (m1, m1),           (page_w - m1, m1),
@@ -278,11 +278,11 @@ def _border_elegant(c, page_w, page_h, clr, bw=1.0):
         # Small gold diamond at center
         c.drawPath(_diamond_path(c, cx, cy, dr), fill=1, stroke=0)
 
-    # Mid-side elongated diamonds + flanking dots — sizes scale with bw
-    r_long  = (5.5 + 3.0 * b) * mm  # long radius (oriented along the edge)
-    r_short = r_long * 0.35          # short radius (perpendicular to edge)
-    dot_r   = r_long * 0.13          # flanking dot radius
-    dot_d   = r_long * 1.45          # flanking dot distance from center
+    # Mid-side elongated diamonds + flanking dots — purely multiplicative
+    r_long  = max(2.5 * mm, 8.5 * mm * b)   # long radius (oriented along the edge)
+    r_short = r_long * 0.35                   # short radius (perpendicular to edge)
+    dot_r   = r_long * 0.13                   # flanking dot radius
+    dot_d   = r_long * 1.45                   # flanking dot distance from center
     for cx, cy, horiz in [
         (page_w / 2, page_h - m1, True),
         (page_w / 2, m1,          True),
