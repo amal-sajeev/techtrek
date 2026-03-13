@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
@@ -11,7 +12,39 @@ from app.dependencies import AuthRedirect, template_ctx, templates
 
 BASE_DIR = Path(__file__).resolve().parent
 
+
+# ---------------------------------------------------------------------------
+# Security-headers middleware
+# ---------------------------------------------------------------------------
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    """Attach defensive HTTP response headers to every response."""
+
+    async def dispatch(self, request: Request, call_next):
+        response = await call_next(request)
+        response.headers.setdefault("X-Content-Type-Options", "nosniff")
+        response.headers.setdefault("X-Frame-Options", "DENY")
+        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
+        response.headers.setdefault(
+            "Referrer-Policy", "strict-origin-when-cross-origin"
+        )
+        response.headers.setdefault(
+            "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+        )
+        # Only send HSTS over HTTPS (i.e., when not in debug/dev mode).
+        if not settings.debug:
+            response.headers.setdefault(
+                "Strict-Transport-Security",
+                "max-age=31536000; includeSubDomains",
+            )
+        return response
+
+
 application = FastAPI(title="TechTrek", docs_url="/api/docs" if settings.debug else None)
+
+# Security headers must be added before session middleware so they apply to
+# every response including error pages.
+application.add_middleware(SecurityHeadersMiddleware)
 application.add_middleware(
     SessionMiddleware,
     secret_key=settings.secret_key,

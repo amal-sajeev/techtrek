@@ -196,10 +196,10 @@
 /* ---- LIGHT THEME OVERRIDES ---- */
 [data-theme="light"] .speaker-section {
   border-left-color: #0881a2;
-  background: rgba(255,255,255,.5);
+  background: rgba(255,255,255,.85);
 }
 [data-theme="light"] .speaker-section:hover {
-  box-shadow: 0 4px 20px rgba(0,40,80,.12);
+  box-shadow: 0 4px 20px rgba(0,40,80,.16);
 }
 [data-theme="light"] .speaker-initials-lg {
   background: #0881a2;
@@ -312,27 +312,27 @@
 [data-theme="light"] .hero-session-fade {
   background:
     linear-gradient(90deg,
-      #dcedf5 0%,
-      #dcedf5 34%,
-      rgba(220,237,245,.92) 42%,
-      rgba(220,237,245,.7) 52%,
-      rgba(220,237,245,.28) 64%,
-      rgba(220,237,245,.06) 78%,
+      #c5d8e8 0%,
+      #c5d8e8 34%,
+      rgba(197,216,232,.92) 42%,
+      rgba(197,216,232,.7) 52%,
+      rgba(197,216,232,.28) 64%,
+      rgba(197,216,232,.06) 78%,
       transparent 90%),
     linear-gradient(0deg,
-      rgba(220,237,245,.88) 0%,
-      rgba(220,237,245,.55) 20%,
+      rgba(197,216,232,.88) 0%,
+      rgba(197,216,232,.55) 20%,
       transparent 55%),
     linear-gradient(180deg,
-      rgba(220,237,245,.45) 0%,
+      rgba(197,216,232,.45) 0%,
       transparent 22%);
 }
 
 [data-theme="light"] .hero-session-overlay {
-  background: rgba(255,255,255,.45);
-  border-color: rgba(8,129,162,.22);
+  background: rgba(255,255,255,.75);
+  border-color: rgba(8,129,162,.30);
   box-shadow:
-    0 8px 40px rgba(0,60,110,.18),
+    0 8px 40px rgba(0,60,110,.20),
     inset 0 1px 0 rgba(255,255,255,.7);
 }
 
@@ -365,6 +365,12 @@
     background: linear-gradient(0deg,
       #010409 0%,
       rgba(1,4,9,.6) 30%,
+      transparent 60%) !important;
+  }
+  [data-theme="light"] .hero-session-fade {
+    background: linear-gradient(0deg,
+      #c5d8e8 0%,
+      rgba(197,216,232,.6) 30%,
       transparent 60%) !important;
   }
 }

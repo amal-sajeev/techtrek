@@ -51,7 +51,7 @@
             <div class="ticket-detail-card {% if b.payment_status == 'refunded' %}ticket-detail-cancelled{% endif %}">
               <div class="ticket-detail-main">
                 <div class="ticket-detail-top">
-                  <span class="seat-label-chip">{{ seats[loop.index0].label }}{% if seats[loop.index0].seat_type != 'standard' %} <small>({{ seats[loop.index0].seat_type|upper }})</small>{% endif %}</span>
+                  <span class="seat-label-chip">{{ seats[loop.index0].label }}{% if seats[loop.index0].seat_type not in ('standard', 'aisle') %} <small>({{ custom_types_map.get(seats[loop.index0].seat_type, seats[loop.index0].seat_type)|upper if seats[loop.index0].seat_type.startswith('custom_') else seats[loop.index0].seat_type|upper }})</small>{% endif %}</span>
                   {% if b.payment_status == 'paid' %}
                     {% if b.checked_in %}
                     <span class="badge badge-success">Checked In</span>

@@ -116,7 +116,27 @@
       grid[s.row + "-" + s.col] = s;
     });
 
-    var gridRow = 1;
+    // ── Column-header row (grid row 1) ────────────────────────────────────
+    // Corner cell – sits above the row-label column
+    var hCorner = document.createElement("div");
+    hCorner.className = "seat-col-label seat-col-corner";
+    hCorner.setAttribute("aria-hidden", "true");
+    hCorner.style.gridRow = "1";
+    hCorner.style.gridColumn = "1";
+    container.appendChild(hCorner);
+
+    for (var ch = 1; ch <= maxCol; ch++) {
+      var hLabel = document.createElement("div");
+      hLabel.className = "seat-col-label";
+      hLabel.textContent = ch;
+      hLabel.setAttribute("aria-label", "Column " + ch);
+      hLabel.style.gridRow = "1";
+      hLabel.style.gridColumn = String(gridCol(ch));
+      container.appendChild(hLabel);
+    }
+
+    // Data rows start at grid row 2 (row 1 is the column-header)
+    var gridRow = 2;
 
     for (var r = 1; r <= maxRow; r++) {
       var rowLabel = document.createElement("div");
@@ -193,6 +213,24 @@
 
       gridRow++;
       if (rowGapSet[r]) gridRow++;
+    }
+
+    // ── Column-footer row (grid row after the last data row) ──────────────
+    var fCorner = document.createElement("div");
+    fCorner.className = "seat-col-label seat-col-corner";
+    fCorner.setAttribute("aria-hidden", "true");
+    fCorner.style.gridRow = String(gridRow);
+    fCorner.style.gridColumn = "1";
+    container.appendChild(fCorner);
+
+    for (var cf = 1; cf <= maxCol; cf++) {
+      var fLabel = document.createElement("div");
+      fLabel.className = "seat-col-label";
+      fLabel.textContent = cf;
+      fLabel.setAttribute("aria-label", "Column " + cf);
+      fLabel.style.gridRow = String(gridRow);
+      fLabel.style.gridColumn = String(gridCol(cf));
+      container.appendChild(fLabel);
     }
 
     var stageEl = document.getElementById("seat-stage");

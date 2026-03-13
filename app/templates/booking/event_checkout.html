@@ -29,27 +29,15 @@
         </div>
         {% endif %}
 
-        {% for sid, info in sessions_breakdown.items() %}
-        <div class="checkout-details" style="margin-bottom:.75rem">
-          <h3 style="font-size:1rem">{{ info.lecture.title }}</h3>
-          <p class="text-secondary" style="font-size:.85rem">{{ info.lecture.start_time.strftime('%b %d, %Y — %I:%M %p') }}</p>
-          <div class="checkout-seat-list" style="margin-top:.35rem">
-            {% for s in info.seats %}
-            <span class="seat-label-chip">{{ s.seat.label }}{% if s.seat.seat_type != 'standard' %} <small>({{ s.seat.seat_type|upper }})</small>{% endif %}</span>
-            {% endfor %}
-          </div>
-        </div>
-        {% endfor %}
-
         <div class="checkout-summary">
           {% for sid, info in sessions_breakdown.items() %}
           <div class="checkout-line" style="font-weight:600;margin-top:.5rem">
             <span>{{ info.lecture.title }}</span>
-            <span></span>
+            <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">{{ info.lecture.start_time.strftime('%b %d') }}</span>
           </div>
           {% for s in info.seats %}
           <div class="checkout-line">
-            <span style="padding-left:1rem">{{ s.seat.label }}{% if s.seat.seat_type != 'standard' %} ({{ s.seat.seat_type|upper }}){% endif %}</span>
+            <span style="padding-left:1rem">{{ s.seat.label }}{% if s.seat.seat_type not in ('standard', 'aisle') %} ({{ custom_types_map.get(s.seat.seat_type, s.seat.seat_type)|upper if s.seat.seat_type.startswith('custom_') else s.seat.seat_type|upper }}){% endif %}</span>
             <span>
               {% if discount_pct %}
               <s style="color:var(--text-muted);font-size:.8rem">&#8377;{{ "%.0f"|format(s.price) }}</s>
@@ -85,7 +73,7 @@
         <div class="checkout-tnc">
           <label class="tnc-label">
             <input type="checkbox" id="tnc-check">
-            I agree to the <a href="/terms" target="_blank" rel="noopener">Terms &amp; Conditions</a> and understand that tickets are non-refundable after payment.
+            I agree to the <a href="/terms" target="_blank" rel="noopener">Terms &amp; Conditions</a> and understand that tickets are non-refundable after use.
           </label>
         </div>
 

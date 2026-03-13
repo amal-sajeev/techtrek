@@ -13,3 +13,6 @@ razorpay
 reportlab
 babel
 alembic
+cryptography
+slowapi
+python-dotenv

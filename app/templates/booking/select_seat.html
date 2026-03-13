@@ -95,7 +95,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', path='js/seat-picker.js') }}?v=34"></script>
+<script src="{{ url_for('static', path='js/seat-picker.js') }}?v=35"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
     var seatData = {{ seat_map | tojson }};

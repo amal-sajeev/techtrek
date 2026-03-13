@@ -113,7 +113,7 @@
 {% if result %}
 <div class="checkin-result checkin-{{ result.status }}">
   <div class="checkin-result-icon">
-    {% if result.status == 'success' %}&#10003;{% elif result.status == 'warning' %}&#9888;{% else %}&#10007;{% endif %}
+    {% if result.status in ('success', 'reentry') %}&#10003;{% elif result.status == 'warning' %}&#9888;{% else %}&#10007;{% endif %}
   </div>
   <h3>{{ result.msg }}</h3>
   {% if result.is_group %}
@@ -128,7 +128,7 @@
     <p><strong>Already checked in:</strong> {{ result.already_checked|join(', ') }}</p>
     {% endif %}
   </div>
-  {% elif result.status == 'success' %}
+  {% elif result.status in ('success', 'reentry') %}
   <div class="checkin-details">
     <p><strong>Name:</strong> {{ result.user_name }}</p>
     <p><strong>Email:</strong> {{ result.user_email }}</p>

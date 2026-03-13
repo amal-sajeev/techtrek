@@ -1790,20 +1790,57 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
 
     if is_group:
         group_id = ticket_id[6:]
-        group_query = db.query(Booking).filter(
+        all_group = db.query(Booking).filter(
             Booking.booking_group == group_id,
             Booking.payment_status == "paid",
-        )
-        if session_id_raw:
-            try:
-                group_query = group_query.filter(Booking.session_id == int(session_id_raw))
-            except ValueError:
-                pass
-        group_bookings = group_query.all()
+        ).all()
 
-        if not group_bookings:
+        result = None
+        group_bookings = []
+
+        if not all_group:
             result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets."}
+        elif session_id_raw:
+            try:
+                group_bookings = [b for b in all_group if b.session_id == int(session_id_raw)]
+            except ValueError:
+                group_bookings = all_group
+            if not group_bookings:
+                result = {"status": "error", "msg": f"No tickets in this group match the selected session."}
         else:
+            now = now_ist()
+            session_ids = {b.session_id for b in all_group}
+            active_sessions = []
+            for sid in session_ids:
+                lec = db.query(LectureSession).get(sid)
+                if not lec or not lec.start_time:
+                    continue
+                end = lec.end_time or (lec.start_time + timedelta(hours=2))
+                if (lec.start_time - timedelta(hours=1)) <= now <= (end + timedelta(minutes=30)):
+                    active_sessions.append(lec)
+            if len(active_sessions) >= 1:
+                unchecked = [
+                    lec for lec in active_sessions
+                    if any(not b.checked_in for b in all_group if b.session_id == lec.id)
+                ]
+                target = unchecked if unchecked else active_sessions
+                if len(target) == 1:
+                    group_bookings = [b for b in all_group if b.session_id == target[0].id]
+                else:
+                    titles = ", ".join(f"'{l.title}'" for l in target)
+                    result = {"status": "error", "msg": f"Multiple sessions are active right now ({titles}). Please select a specific session from the dropdown."}
+            else:
+                upcoming = []
+                for sid in session_ids:
+                    lec = db.query(LectureSession).get(sid)
+                    if lec and lec.start_time and lec.start_time > now:
+                        upcoming.append(lec)
+                upcoming.sort(key=lambda l: l.start_time)
+                titles = ", ".join(f"'{l.title}' ({l.start_time.strftime('%b %d %I:%M %p')})" for l in upcoming[:3])
+                hint = f" Upcoming: {titles}" if titles else ""
+                result = {"status": "error", "msg": f"No session in this event is currently active. Please select a session from the dropdown.{hint}"}
+
+        if group_bookings:
             now = now_ist()
             newly_checked = []
             already_checked = []
@@ -1822,7 +1859,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             lecture = db.query(LectureSession).get(group_bookings[0].session_id)
 
             if newly_checked and not already_checked:
-                msg = f"Group check-in successful! {len(newly_checked)} ticket(s) checked in."
+                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{lecture.title if lecture else 'unknown'}'."
                 status = "success"
                 log_activity(db, category="admin", action="checkin", description=f"Group check-in: {len(newly_checked)} ticket(s) for '{lecture.title if lecture else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
             elif newly_checked and already_checked:
@@ -1830,8 +1867,8 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
                 status = "success"
                 log_activity(db, category="admin", action="checkin", description=f"Partial group check-in: {len(newly_checked)} new for '{lecture.title if lecture else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
             else:
-                msg = f"All {len(already_checked)} ticket(s) in this group were already checked in."
-                status = "warning"
+                msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in. Ticket is valid."
+                status = "reentry"
 
             result = {
                 "status": status,
@@ -1855,7 +1892,19 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
         if not booking:
             result = {"status": "error", "msg": f"Ticket '{ticket_id}' not found or not valid."}
         elif booking.checked_in:
-            result = {"status": "warning", "msg": f"Ticket '{ticket_id}' was already checked in at {booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'}."}
+            user = db.query(User).get(booking.user_id)
+            seat = db.query(Seat).get(booking.seat_id)
+            lecture = db.query(LectureSession).get(booking.session_id)
+            time_str = booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'
+            result = {
+                "status": "reentry",
+                "msg": f"Re-entry — ticket valid. Originally checked in at {time_str}.",
+                "user_name": user.full_name or user.username if user else "Unknown",
+                "user_email": user.email if user else "",
+                "seat_label": seat.label if seat else "",
+                "session_title": lecture.title if lecture else "",
+                "ticket_id": ticket_id,
+            }
         else:
             booking.checked_in = True
             booking.checked_in_at = now_ist()

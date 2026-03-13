@@ -625,6 +625,12 @@ def schedule_export_pdf(
 
 @router.get("/ticket/{ticket_id}")
 def public_ticket(request: Request, ticket_id: str, db: Session = Depends(get_db)):
+    # Require authentication to prevent unauthenticated PII exposure.
+    viewer_id = request.session.get("user_id")
+    if not viewer_id:
+        flash(request, "Please log in to view your ticket.", "info")
+        return RedirectResponse(f"/auth/login?next=/ticket/{ticket_id}", status_code=303)
+
     booking = (
         db.query(Booking)
         .filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
@@ -634,6 +640,15 @@ def public_ticket(request: Request, ticket_id: str, db: Session = Depends(get_db
         return templates.TemplateResponse(
             "errors/404.html", template_ctx(request), status_code=404
         )
+
+    # Only the booking owner, an admin, or a supervisor may view the ticket.
+    viewer = db.query(User).filter(User.id == viewer_id).first()
+    is_privileged = viewer and (viewer.is_admin or viewer.is_supervisor)
+    if booking.user_id != viewer_id and not is_privileged:
+        return templates.TemplateResponse(
+            "errors/404.html", template_ctx(request), status_code=404
+        )
+
     lecture = db.query(LectureSession).get(booking.session_id)
     auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
     seat = db.query(Seat).get(booking.seat_id)
@@ -666,6 +681,12 @@ def public_ticket(request: Request, ticket_id: str, db: Session = Depends(get_db
 
 @router.get("/tickets/group/{group_id}")
 def public_ticket_group(request: Request, group_id: str, db: Session = Depends(get_db)):
+    # Require authentication to prevent unauthenticated PII exposure.
+    viewer_id = request.session.get("user_id")
+    if not viewer_id:
+        flash(request, "Please log in to view your tickets.", "info")
+        return RedirectResponse(f"/auth/login?next=/tickets/group/{group_id}", status_code=303)
+
     bookings = (
         db.query(Booking)
         .filter(
@@ -678,6 +699,15 @@ def public_ticket_group(request: Request, group_id: str, db: Session = Depends(g
         return templates.TemplateResponse(
             "errors/404.html", template_ctx(request), status_code=404
         )
+
+    # Only the booking owner, an admin, or a supervisor may view the group ticket.
+    viewer = db.query(User).filter(User.id == viewer_id).first()
+    is_privileged = viewer and (viewer.is_admin or viewer.is_supervisor)
+    if bookings[0].user_id != viewer_id and not is_privileged:
+        return templates.TemplateResponse(
+            "errors/404.html", template_ctx(request), status_code=404
+        )
+
     lecture = db.query(LectureSession).get(bookings[0].session_id)
     auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
     user = db.query(User).get(bookings[0].user_id)

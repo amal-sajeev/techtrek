@@ -176,6 +176,8 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
         seat = db.query(Seat).get(h.seat_id)
         seats.append(seat)
 
+    custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
+
     base_total = sum(_seat_price(lecture, s.seat_type, db=db) for s in seats)
     fee_pct = float(lecture.processing_fee_pct) if lecture.processing_fee_pct else 0
     processing_fee = round(base_total * fee_pct / 100, 2)
@@ -197,6 +199,7 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
             booking_count=len(seats),
             razorpay_key_id=settings.razorpay_key_id,
             user_email=user.email if user else "",
+            custom_types_map=custom_types_map,
         ),
     )
 
@@ -339,6 +342,7 @@ def confirmation_page(request: Request, session_id: int, db: Session = Depends(g
     auditorium = db.query(Auditorium).get(lecture.auditorium_id)
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     total = sum(b.amount_paid or _seat_price(lecture, s.seat_type) for b, s in zip(bookings, seats))
+    custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
 
     return templates.TemplateResponse(
         "booking/confirmation.html",
@@ -349,6 +353,7 @@ def confirmation_page(request: Request, session_id: int, db: Session = Depends(g
             bookings=bookings,
             seats=seats,
             total=total,
+            custom_types_map=custom_types_map,
         ),
     )
 
@@ -447,9 +452,11 @@ def my_bookings(request: Request, db: Session = Depends(get_db)):
         else:
             active_groups.append(g)
 
+    custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
+
     return templates.TemplateResponse(
         "booking/my_bookings.html",
-        template_ctx(request, groups=active_groups, archive_groups=archive_groups),
+        template_ctx(request, groups=active_groups, archive_groups=archive_groups, custom_types_map=custom_types_map),
     )
 
 
@@ -505,6 +512,7 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     total = sum(b.amount_paid or 0 for b in bookings)
     paid_bookings = [b for b in bookings if b.payment_status == "paid"]
+    custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
 
     return templates.TemplateResponse(
         "booking/booking_detail.html",
@@ -519,6 +527,7 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
             group_id=first.booking_group,
             is_group=len(bookings) > 1,
             has_cancellable=len(paid_bookings) > 0,
+            custom_types_map=custom_types_map,
         ),
     )
 
@@ -722,6 +731,7 @@ def event_select_seats(
             "session": {"id": sd["session"].id, "title": sd["session"].title},
             "auditorium": {"id": sd["auditorium"].id, "name": sd["auditorium"].name},
             "seat_map": sd["seat_map"],
+            "custom_types": sd["custom_types"],
             "total_rows": sd["total_rows"],
             "total_cols": sd["total_cols"],
             "row_gaps": sd["row_gaps"],
@@ -765,13 +775,29 @@ async def event_hold_seats(request: Request, event_id: int, db: Session = Depend
     all_bookings = []
     booking_group = str(uuid.uuid4())
 
+    def _parse_seat_ids(raw: str) -> list[int]:
+        ids = []
+        for x in (raw or "").split(","):
+            x = x.strip()
+            if not x:
+                continue
+            try:
+                ids.append(int(x))
+            except ValueError:
+                continue
+        return ids
+
     if mode == "same_seats":
         aud_seat_data = {}
-        for key, val in form.multi_items():
+        for key in form:
             if key.startswith("same_seats_aud_"):
-                aud_id = int(key.replace("same_seats_aud_", ""))
-                seat_ids = [int(x) for x in val.split(",") if x.strip()]
-                aud_seat_data[aud_id] = seat_ids
+                try:
+                    aud_id = int(key.replace("same_seats_aud_", ""))
+                except ValueError:
+                    continue
+                seat_ids = _parse_seat_ids(form.get(key, ""))
+                if seat_ids:
+                    aud_seat_data[aud_id] = seat_ids
 
         for sid in chosen_ids:
             lecture = db.query(LectureSession).get(sid)
@@ -788,7 +814,7 @@ async def event_hold_seats(request: Request, event_id: int, db: Session = Depend
     else:
         for sid in chosen_ids:
             raw = form.get(f"seats_session_{sid}", "")
-            seat_ids = [int(x) for x in raw.split(",") if x.strip()]
+            seat_ids = _parse_seat_ids(raw)
             if seat_ids:
                 bookings = hold_seats(db, user.id, sid, seat_ids)
                 for b in bookings:
@@ -801,7 +827,6 @@ async def event_hold_seats(request: Request, event_id: int, db: Session = Depend
         qs = "&".join(f"session_ids={sid}" for sid in chosen_ids)
         return RedirectResponse(f"/booking/event/{event_id}/select?{qs}", status_code=303)
 
-    db.commit()
     request.session["event_booking_group"] = booking_group
     log_activity(
         db, category="booking", action="event_hold",
@@ -844,6 +869,7 @@ def event_checkout(request: Request, event_id: int, db: Session = Depends(get_db
         return RedirectResponse(f"/events/{event_id}", status_code=303)
 
     discount_pct = float(ev.discount_pct) if ev.discount_pct else 0
+    custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
     sessions_breakdown = {}
     for h in holds:
         lecture = db.query(LectureSession).get(h.session_id)
@@ -899,6 +925,7 @@ def event_checkout(request: Request, event_id: int, db: Session = Depends(get_db
             booking_count=len(holds),
             razorpay_key_id=settings.razorpay_key_id,
             user_email=user.email if user else "",
+            custom_types_map=custom_types_map,
         ),
     )
 
@@ -1087,18 +1114,25 @@ def event_confirmation(request: Request, event_id: int, db: Session = Depends(ge
     for b in bookings:
         if b.session_id not in sessions_info:
             lecture = db.query(LectureSession).get(b.session_id)
+            if not lecture:
+                continue
             sessions_info[b.session_id] = {
                 "lecture": lecture,
-                "auditorium": db.query(Auditorium).get(lecture.auditorium_id) if lecture else None,
+                "auditorium": db.query(Auditorium).get(lecture.auditorium_id),
                 "bookings": [],
                 "seats": [],
             }
+        if b.session_id not in sessions_info:
+            continue
         seat = db.query(Seat).get(b.seat_id)
+        if not seat:
+            continue
         sessions_info[b.session_id]["bookings"].append(b)
         sessions_info[b.session_id]["seats"].append(seat)
 
     group_qr = bookings[0].group_qr_data if bookings else None
     total = sum(b.amount_paid or 0 for b in bookings)
+    custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
 
     return templates.TemplateResponse(
         "booking/event_confirmation.html",
@@ -1109,6 +1143,7 @@ def event_confirmation(request: Request, event_id: int, db: Session = Depends(ge
             bookings=bookings,
             group_qr=group_qr,
             total=total,
+            custom_types_map=custom_types_map,
         ),
     )
 

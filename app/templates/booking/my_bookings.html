@@ -49,7 +49,7 @@
             <div class="booking-card-seats-col">
               <div class="booking-seats-row">
                 {% for seat in g.seats %}
-                <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
+                <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type not in ('standard', 'aisle') %} <small>({{ custom_types_map.get(seat.seat_type, seat.seat_type)|upper if seat.seat_type.startswith('custom_') else seat.seat_type|upper }})</small>{% endif %}</span>
                 {% endfor %}
               </div>
               <span class="booking-seat-count">{{ g.seats|length }} ticket{{ 's' if g.seats|length > 1 else '' }}</span>
@@ -122,7 +122,7 @@
               <div class="booking-card-seats-col">
                 <div class="booking-seats-row">
                   {% for seat in g.seats %}
-                  <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
+                  <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type not in ('standard', 'aisle') %} <small>({{ custom_types_map.get(seat.seat_type, seat.seat_type)|upper if seat.seat_type.startswith('custom_') else seat.seat_type|upper }})</small>{% endif %}</span>
                   {% endfor %}
                 </div>
                 <span class="booking-seat-count">{{ g.seats|length }} ticket{{ 's' if g.seats|length > 1 else '' }}</span>

@@ -32,7 +32,7 @@
           <h4 class="checkout-seats-label">Selected Seats ({{ booking_count }})</h4>
           <div class="checkout-seat-list">
             {% for seat in seats %}
-            <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
+            <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type not in ('standard', 'aisle') %} <small>({{ custom_types_map.get(seat.seat_type, seat.seat_type)|upper if seat.seat_type.startswith('custom_') else seat.seat_type|upper }})</small>{% endif %}</span>
             {% endfor %}
           </div>
         </div>
@@ -41,7 +41,7 @@
         <div class="checkout-summary">
           {% for seat in seats %}
           <div class="checkout-line">
-            <span>{{ seat.label }}{% if seat.seat_type != 'standard' %} ({{ seat.seat_type|upper }}){% endif %}</span>
+            <span>{{ seat.label }}{% if seat.seat_type not in ('standard', 'aisle') %} ({{ custom_types_map.get(seat.seat_type, seat.seat_type)|upper if seat.seat_type.startswith('custom_') else seat.seat_type|upper }}){% endif %}</span>
             <span>₹{% if seat.seat_type == 'vip' and lecture.price_vip is not none %}{{ "%.0f"|format(lecture.price_vip) }}{% elif seat.seat_type == 'accessible' and lecture.price_accessible is not none %}{{ "%.0f"|format(lecture.price_accessible) }}{% else %}{{ "%.0f"|format(lecture.price) }}{% endif %}</span>
           </div>
           {% endfor %}
@@ -60,7 +60,7 @@
         <div class="checkout-tnc">
           <label class="tnc-label">
             <input type="checkbox" id="tnc-check">
-            I agree to the <a href="/terms" target="_blank" rel="noopener">Terms &amp; Conditions</a> and understand that tickets are non-refundable after payment.
+            I agree to the <a href="/terms" target="_blank" rel="noopener">Terms &amp; Conditions</a> and understand that tickets are non-refundable after use.
           </label>
         </div>
 

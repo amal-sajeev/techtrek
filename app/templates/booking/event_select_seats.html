@@ -97,7 +97,7 @@
         </div>
         {% else %}
         {% set sid = group.session_ids[0] %}
-        <div class="event-session-seat-block same-seats-single" data-session-id="{{ sid }}">
+        <div class="event-session-seat-block same-seats-single" data-session-id="{{ sid }}" data-aud-id="{{ aud_id }}">
           <h2 class="event-session-heading">
             {% for sd in sessions_data if sd.session.id == sid %}{{ sd.session.title }}{% endfor %}
             <span class="event-session-aud">{{ group.auditorium.name }}</span>
@@ -119,7 +119,7 @@
               </div>
             </div>
           </div>
-          <input type="hidden" name="seats_session_{{ sid }}" id="seats-input-same-single-{{ sid }}" value="">
+          <input type="hidden" name="same_seats_aud_{{ aud_id }}" id="seats-input-same-single-{{ sid }}" value="">
         </div>
         {% endif %}
         {% endfor %}
@@ -171,67 +171,195 @@
 document.addEventListener('DOMContentLoaded', function() {
   var sessionsData = {{ sessions_json | tojson }};
   var intersectionMaps = {{ intersection_maps | tojson }};
-  var pickers = {};
-  var samePickers = {};
+
+  var customTypesLookup = {};
+  if (sessionsData.length && sessionsData[0].custom_types) {
+    sessionsData[0].custom_types.forEach(function(ct) {
+      customTypesLookup['custom_' + ct.id] = ct;
+    });
+  }
+
+  function contrastColor(hex) {
+    if (!hex || hex.charAt(0) !== '#') return '#fff';
+    var r = parseInt(hex.slice(1, 3), 16) / 255;
+    var g = parseInt(hex.slice(3, 5), 16) / 255;
+    var b = parseInt(hex.slice(5, 7), 16) / 255;
+    var lum = 0.299 * r + 0.587 * g + 0.114 * b;
+    return lum > 0.5 ? '#000' : '#fff';
+  }
+
+  function applyCustomStyle(el, seatType) {
+    var ct = customTypesLookup[seatType];
+    if (!ct) return;
+    el.classList.add('seat-custom');
+    if (ct.colour) {
+      el.style.backgroundColor = ct.colour;
+      el.style.color = contrastColor(ct.colour);
+    }
+    if (ct.icon) {
+      el.textContent = ct.icon;
+      el.style.fontSize = '.75rem';
+    }
+  }
 
   function buildSeatMapHTML(containerId, seatData, totalRows, totalCols, rowGaps, colGaps) {
     var container = document.getElementById(containerId);
     if (!container || !seatData.length) return;
 
-    var rowGapSet = new Set((rowGaps || []).map(Number));
-    var colGapSet = new Set((colGaps || []).map(Number));
+    var rowGapSet = {};
+    (rowGaps || []).forEach(function(g) { rowGapSet[g] = true; });
+    var colGapSet = {};
+    (colGaps || []).forEach(function(g) { colGapSet[g] = true; });
 
-    var byRow = {};
-    seatData.forEach(function(s) {
-      if (!byRow[s.row]) byRow[s.row] = {};
-      byRow[s.row][s.col] = s;
-    });
+    var maxCol = totalCols;
+    var maxRow = totalRows;
 
-    for (var r = 1; r <= totalRows; r++) {
-      if (rowGapSet.has(r)) {
-        var gapRow = document.createElement('div');
-        gapRow.className = 'seat-row seat-row-gap';
-        container.appendChild(gapRow);
+    var colTemplate = '24px';
+    for (var ci = 1; ci <= maxCol; ci++) {
+      colTemplate += ' 36px';
+      if (ci < maxCol && colGapSet[ci]) colTemplate += ' 14px';
+    }
+    container.style.gridTemplateColumns = colTemplate;
+
+    function gridCol(dataCol) {
+      var gc = 1 + dataCol;
+      for (var g = 1; g < dataCol; g++) {
+        if (colGapSet[g]) gc++;
       }
-      var row = document.createElement('div');
-      row.className = 'seat-row';
-      for (var c = 1; c <= totalCols; c++) {
-        if (colGapSet.has(c)) {
-          var gapSeat = document.createElement('div');
-          gapSeat.className = 'seat seat-gap';
-          row.appendChild(gapSeat);
-        }
-        var seat = byRow[r] && byRow[r][c];
-        var el = document.createElement('div');
+      return gc;
+    }
+
+    var grid = {};
+    seatData.forEach(function(s) { grid[s.row + '-' + s.col] = s; });
+
+    var gridRow = 1;
+
+    for (var r = 1; r <= maxRow; r++) {
+      if (rowGapSet[r]) gridRow++;
+
+      var rowLabel = document.createElement('div');
+      rowLabel.className = 'seat-row-label';
+      rowLabel.textContent = String.fromCharCode(64 + r);
+      rowLabel.setAttribute('aria-label', 'Row ' + String.fromCharCode(64 + r));
+      rowLabel.style.gridRow = gridRow;
+      rowLabel.style.gridColumn = '1';
+      container.appendChild(rowLabel);
+
+      for (var c = 1; c <= maxCol; c++) {
+        var seat = grid[r + '-' + c];
+        var el = document.createElement('button');
+        el.type = 'button';
+        el.style.gridRow = gridRow;
+        el.style.gridColumn = String(gridCol(c));
+
         if (!seat || seat.type === 'aisle') {
-          el.className = 'seat seat-aisle';
-        } else {
-          el.className = 'seat seat-' + seat.status;
-          if (seat.type === 'vip') el.classList.add('seat-vip');
-          else if (seat.type === 'accessible') el.classList.add('seat-accessible');
-          else if (seat.type === 'reserved') { el.className = 'seat seat-reserved'; }
-          else if (seat.type && seat.type.startsWith('custom_')) el.classList.add('seat-custom');
+          el.className = 'seat seat-empty-hidden';
+          el.disabled = true;
+          el.setAttribute('aria-hidden', 'true');
+          el.tabIndex = -1;
+          el.style.visibility = 'hidden';
+          el.style.pointerEvents = 'none';
+        } else if (seat.status === 'reserved') {
+          el.className = 'seat seat-reserved';
+          el.disabled = true;
           el.dataset.seatId = seat.id;
           el.dataset.seatType = seat.type || 'standard';
-          el.title = seat.label || (r + '-' + c);
+          el.title = seat.label || '';
           el.textContent = seat.label || '';
-          if (seat.status === 'available') {
+          el.setAttribute('aria-label', 'Seat ' + (seat.label || '') + ', reserved');
+          el.setAttribute('aria-disabled', 'true');
+        } else {
+          var isCustom = seat.type && seat.type.indexOf('custom_') === 0 && customTypesLookup[seat.type];
+          var statusClass = seat.status;
+          if (seat.type === 'vip' && seat.status === 'available') statusClass = 'vip';
+          else if (seat.type === 'accessible' && seat.status === 'available') statusClass = 'accessible';
+
+          if (isCustom && seat.status === 'available') {
+            el.className = 'seat seat-custom';
+            applyCustomStyle(el, seat.type);
+          } else {
+            el.className = 'seat seat-' + statusClass;
+          }
+
+          el.dataset.seatId = seat.id;
+          el.dataset.seatType = seat.type || 'standard';
+          el.title = seat.label || '';
+          if (!isCustom || !customTypesLookup[seat.type] || !customTypesLookup[seat.type].icon) {
+            el.textContent = seat.label || '';
+          }
+          el.setAttribute('role', 'checkbox');
+          el.setAttribute('aria-pressed', 'false');
+          if (seat.status === 'taken') {
+            el.disabled = true;
+            el.setAttribute('aria-disabled', 'true');
+          } else if (seat.status === 'available') {
             el.addEventListener('click', function() {
-              this.classList.toggle('seat-selected');
-              this.classList.toggle('seat-available');
+              var t = this.dataset.seatType || 'standard';
+              if (this.classList.contains('seat-selected')) {
+                this.classList.remove('seat-selected');
+                this.style.backgroundColor = '';
+                this.style.color = '';
+                if (t === 'vip') {
+                  this.classList.add('seat-vip');
+                } else if (t === 'accessible') {
+                  this.classList.add('seat-accessible');
+                } else if (t && t.indexOf('custom_') === 0 && customTypesLookup[t]) {
+                  applyCustomStyle(this, t);
+                } else {
+                  this.classList.add('seat-available');
+                }
+                this.setAttribute('aria-pressed', 'false');
+              } else {
+                this.classList.remove('seat-available', 'seat-vip', 'seat-accessible', 'seat-custom');
+                this.style.backgroundColor = '';
+                this.style.color = '';
+                this.classList.add('seat-selected', 'seat-pulse');
+                this.setAttribute('aria-pressed', 'true');
+                var btn = this;
+                setTimeout(function() { btn.classList.remove('seat-pulse'); }, 400);
+              }
               updateSummary();
             });
           }
         }
-        row.appendChild(el);
+        container.appendChild(el);
       }
-      container.appendChild(row);
+      gridRow++;
     }
   }
 
+  function fitSeatMapWrappers() {
+    document.querySelectorAll('.seat-map-wrapper').forEach(function(wrapper) {
+      if (wrapper.closest('.seat-mode-panel[style*="display: none"]') ||
+          wrapper.closest('.seat-mode-panel[style*="display:none"]')) return;
+      var scalable = wrapper.querySelector('.seat-map-scalable');
+      if (!scalable) return;
+      scalable.style.transform = 'none';
+      scalable.style.marginBottom = '0';
+      var wrapperRect = wrapper.getBoundingClientRect();
+      var cs = getComputedStyle(wrapper);
+      var padLeft = parseFloat(cs.paddingLeft);
+      var padRight = parseFloat(cs.paddingRight);
+      var availW = wrapperRect.width - padLeft - padRight;
+      var naturalW = scalable.scrollWidth;
+      var naturalH = scalable.scrollHeight;
+      var scale = Math.min(availW / naturalW, 1);
+      if (scale < 1) {
+        scalable.style.transformOrigin = 'top center';
+        scalable.style.transform = 'scale(' + scale.toFixed(4) + ')';
+        scalable.style.marginBottom = -(naturalH * (1 - scale)).toFixed(1) + 'px';
+      }
+    });
+  }
+
+  var resizeTimer;
+  window.addEventListener('resize', function() {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(fitSeatMapWrappers, 120);
+  });
+
   sessionsData.forEach(function(sd) {
-    var mapId = 'seat-map-ps-' + sd.session.id;
-    buildSeatMapHTML(mapId, sd.seat_map, sd.total_rows, sd.total_cols, sd.row_gaps, sd.col_gaps);
+    buildSeatMapHTML('seat-map-ps-' + sd.session.id, sd.seat_map, sd.total_rows, sd.total_cols, sd.row_gaps, sd.col_gaps);
   });
 
   {% if same_seats_available %}
@@ -242,9 +370,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var mapData = intersectionMaps[audId];
     if (!mapData) return;
     var aud = null;
-    sessionsData.forEach(function(sd) {
-      if (sd.auditorium.id === audId) aud = sd;
-    });
+    sessionsData.forEach(function(sd) { if (sd.auditorium.id === audId) aud = sd; });
     if (!aud) return;
     buildSeatMapHTML('seat-map-same-' + audId, mapData, aud.total_rows, aud.total_cols, aud.row_gaps, aud.col_gaps);
   })();
@@ -260,6 +386,8 @@ document.addEventListener('DOMContentLoaded', function() {
   {% endfor %}
   {% endif %}
 
+  requestAnimationFrame(fitSeatMapWrappers);
+
   var modeRadios = document.querySelectorAll('input[name="seat_mode"]');
   var perPanel = document.getElementById('per-session-mode');
   var samePanel = document.getElementById('same-seats-mode');
@@ -274,6 +402,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (samePanel) samePanel.style.display = 'none';
       }
       updateSummary();
+      requestAnimationFrame(fitSeatMapWrappers);
     });
   });
 
@@ -295,7 +424,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (mode === 'per_session') {
       var blocks = panel.querySelectorAll('.event-session-seat-block');
       blocks.forEach(function(block) {
-        var sid = block.dataset.sessionId;
+        var sid = String(block.dataset.sessionId);
         var sel = block.querySelectorAll('.seat-selected');
         var input = document.getElementById('seats-input-ps-' + sid);
         var ids = Array.from(sel).map(function(el) { return el.dataset.seatId; });
@@ -304,14 +433,14 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     } else {
       panel.querySelectorAll('.event-aud-group').forEach(function(group) {
-        var audId = group.dataset.audId;
+        var audId = String(group.dataset.audId);
         var sel = group.querySelectorAll('.seat-selected');
         var input = document.getElementById('seats-input-same-' + audId);
         var ids = Array.from(sel).map(function(el) { return el.dataset.seatId; });
         if (input) input.value = ids.join(',');
         if (ids.length > 0) {
           {% for aud_id, group in auditorium_groups.items() %}
-          if (audId == '{{ aud_id }}') {
+          if (audId === '{{ aud_id }}') {
             {% for sid in group.session_ids %}
             sessionsCovered.add('{{ sid }}');
             {% endfor %}
@@ -320,7 +449,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
       panel.querySelectorAll('.same-seats-single').forEach(function(block) {
-        var sid = block.dataset.sessionId;
+        var sid = String(block.dataset.sessionId);
         var sel = block.querySelectorAll('.seat-selected');
         var input = document.getElementById('seats-input-same-single-' + sid);
         var ids = Array.from(sel).map(function(el) { return el.dataset.seatId; });
@@ -337,6 +466,14 @@ document.addEventListener('DOMContentLoaded', function() {
   document.getElementById('event-seat-form').addEventListener('submit', function() {
     var btn = document.getElementById('event-hold-btn');
     if (btn) btn.classList.add('btn-loading');
+
+    var mode = getActiveMode();
+    var inactivePanel = mode === 'same_seats' ? perPanel : samePanel;
+    if (inactivePanel) {
+      inactivePanel.querySelectorAll('input[type="hidden"]').forEach(function(inp) {
+        inp.disabled = true;
+      });
+    }
   });
 });
 </script>

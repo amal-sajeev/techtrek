@@ -38,7 +38,7 @@
             {% for b in bookings %}
             <div class="ticket-card">
               <div class="ticket-card-info">
-                <span class="seat-label-chip">{{ seats[loop.index0].label }}{% if seats[loop.index0].seat_type != 'standard' %} <small>({{ seats[loop.index0].seat_type|upper }})</small>{% endif %}</span>
+                <span class="seat-label-chip">{{ seats[loop.index0].label }}{% if seats[loop.index0].seat_type not in ('standard', 'aisle') %} <small>({{ custom_types_map.get(seats[loop.index0].seat_type, seats[loop.index0].seat_type)|upper if seats[loop.index0].seat_type.startswith('custom_') else seats[loop.index0].seat_type|upper }})</small>{% endif %}</span>
                 <span class="ticket-id">{{ b.ticket_id }}</span>
                 <span class="booking-ref-small">Ref: {{ b.booking_ref }} &middot; &#8377;{{ "%.0f"|format(b.amount_paid) }}</span>
               </div>
