@@ -32,22 +32,26 @@
     </div>
     <h1 class="session-title">{{ lecture.title }}</h1>
     <div class="session-hero-meta">
+      {% if primary_showing %}
       <div class="session-meta-chip">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        {{ lecture.start_time.strftime('%A, %B %d, %Y') }}
+        {{ primary_showing.start_time.strftime('%A, %B %d, %Y') }}
       </div>
       <div class="session-meta-chip">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-        {{ lecture.start_time.strftime('%I:%M %p') }}
+        {{ primary_showing.start_time.strftime('%I:%M %p') }}
         <span class="meta-chip-divider"></span>
-        <span class="meta-chip-sub">{{ lecture.duration_minutes }} min</span>
+        <span class="meta-chip-sub">{{ primary_showing.effective_duration }} min</span>
       </div>
+      {% endif %}
+      {% if auditorium %}
       <div class="session-meta-chip">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
         {{ auditorium.name }}
         <span class="meta-chip-divider"></span>
         <span class="meta-chip-sub">{{ auditorium.location }}</span>
       </div>
+      {% endif %}
     </div>
   </div>
 </section>
@@ -105,13 +109,13 @@
         </div>
       </div>
     </div>
-    {% elif lecture.speaker %}
+    {% elif lecture.speaker_name %}
     <div class="session-speaker-wrap">
       <div class="session-sec-head">
         <span class="session-sec-label">Speaker</span>
         <div class="session-sec-line"></div>
       </div>
-      <p class="session-about-text">{{ lecture.speaker }}</p>
+      <p class="session-about-text">{{ lecture.speaker_name }}</p>
     </div>
     {% endif %}
 
@@ -175,16 +179,16 @@
         <div class="session-price-eyebrow">Starting from</div>
         <div class="session-price-block">
           <span class="session-price-sym">₹</span>
-          <span class="session-price-num">{{ "%.0f"|format(lecture.price) }}</span>
+          <span class="session-price-num">{{ "%.0f"|format(primary_showing.price if primary_showing else 0) }}</span>
           <span class="session-price-suffix">per seat</span>
         </div>
-        {% if lecture.price_vip is not none or lecture.price_accessible is not none or custom_seat_types %}
+        {% if (primary_showing and primary_showing.price_vip is not none) or (primary_showing and primary_showing.price_accessible is not none) or custom_seat_types %}
         <div class="session-alt-tiers">
-          {% if lecture.price_vip is not none %}
-          <span class="session-alt-tier tier-vip-pill">VIP · ₹{{ "%.0f"|format(lecture.price_vip) }}</span>
+          {% if primary_showing and primary_showing.price_vip is not none %}
+          <span class="session-alt-tier tier-vip-pill">VIP · ₹{{ "%.0f"|format(primary_showing.price_vip) }}</span>
           {% endif %}
-          {% if lecture.price_accessible is not none %}
-          <span class="session-alt-tier tier-acc-pill">Accessible · ₹{{ "%.0f"|format(lecture.price_accessible) }}</span>
+          {% if primary_showing and primary_showing.price_accessible is not none %}
+          <span class="session-alt-tier tier-acc-pill">Accessible · ₹{{ "%.0f"|format(primary_showing.price_accessible) }}</span>
           {% endif %}
           {% for ct in custom_seat_types %}
           {% if ct.price is not none %}
@@ -218,8 +222,8 @@
           {% if user %}
             {% if on_waitlist %}
               <p class="session-booking-note">You're on the waitlist. We'll notify you if a spot opens.</p>
-            {% else %}
-              <form method="post" action="/booking/waitlist/{{ lecture.id }}">
+            {% elif primary_showing %}
+              <form method="post" action="/booking/waitlist/{{ primary_showing.id }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="session-book-btn" style="background:transparent;border:1px solid rgba(0,212,255,.24);color:var(--cyan)">Join Waitlist</button>
               </form>
@@ -229,15 +233,15 @@
           {% endif %}
 
         {% elif availability == 'priority-only' %}
-          {% if has_priority %}
-            <a href="/booking/select/{{ lecture.id }}" class="session-book-btn">Book Now (Priority)</a>
+          {% if has_priority and primary_showing %}
+            <a href="/booking/select/{{ primary_showing.id }}" class="session-book-btn">Book Now (Priority)</a>
           {% else %}
             <p class="session-booking-note">Open to waitlisted members only. General booking opens soon.</p>
           {% endif %}
 
         {% else %}
-          {% if user %}
-            <a href="/booking/select/{{ lecture.id }}" class="session-book-btn">Book Now</a>
+          {% if user and primary_showing %}
+            <a href="/booking/select/{{ primary_showing.id }}" class="session-book-btn">Book Now</a>
           {% else %}
             <a href="/auth/register?next=/sessions/{{ lecture.id }}" class="session-book-btn">Create Account to Book</a>
             <a href="/auth/login?next=/sessions/{{ lecture.id }}" class="session-book-btn" style="background:transparent;border:1px solid rgba(0,212,255,.24);color:var(--cyan);box-shadow:none;margin-top:10px">Already have an account? Sign in</a>
@@ -260,6 +264,32 @@
         </div>
       </div>
     </div>
+
+    {% if total_showings > 1 %}
+    <div class="session-venues-card">
+      <div class="session-venues-header">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span>Showing in {{ venues|length }} venue{{ 's' if venues|length != 1 else '' }}</span>
+      </div>
+      <div class="session-venues-list">
+        {% for v in venues %}
+        <div class="session-venue-row">
+          <div class="session-venue-info">
+            <div class="session-venue-name">{{ v.auditorium }}</div>
+            <div class="session-venue-location">
+              {% if v.college %}{{ v.college }} · {% endif %}{{ v.city }}{% if v.state %}, {{ v.state }}{% endif %}
+            </div>
+          </div>
+          <span class="session-venue-count">{{ v.count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <a href="/sessions/{{ lecture.id }}/showings" class="session-venues-browse-btn">
+        Browse {{ total_showings }} Showings
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+      </a>
+    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}

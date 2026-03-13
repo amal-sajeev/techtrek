@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import relationship
 
@@ -12,21 +10,21 @@ class Waitlist(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    session_id = Column(Integer, ForeignKey("lecture_sessions.id"), nullable=False)
-    priority_session_id = Column(
-        Integer, ForeignKey("lecture_sessions.id"), nullable=True
+    showing_id = Column(Integer, ForeignKey("showings.id"), nullable=False)
+    priority_showing_id = Column(
+        Integer, ForeignKey("showings.id"), nullable=True
     )
     joined_at = Column(DateTime, default=now_ist)
     notified = Column(Boolean, default=False)
     priority_expires_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="waitlist_entries")
-    session = relationship(
-        "LectureSession",
+    showing = relationship(
+        "Showing",
         back_populates="waitlist_entries",
-        foreign_keys=[session_id],
+        foreign_keys=[showing_id],
     )
-    priority_session = relationship(
-        "LectureSession",
-        foreign_keys=[priority_session_id],
+    priority_showing = relationship(
+        "Showing",
+        foreign_keys=[priority_showing_id],
     )

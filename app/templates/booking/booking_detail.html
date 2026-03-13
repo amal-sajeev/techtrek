@@ -10,14 +10,14 @@
       <div class="confirmation-card">
 
         <h1 class="confirmation-title">{{ lecture.title }}</h1>
-        <p class="confirmation-subtitle">{{ lecture.speaker }}</p>
+        <p class="confirmation-subtitle">{{ lecture.speaker_name }}</p>
 
         <div class="confirmation-details">
           <div class="detail-group">
             <h4>Event Details</h4>
             <div class="booking-detail-row">
               <span class="booking-detail-icon">&#128197;</span>
-              <span>{{ lecture.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</span>
+              <span>{{ showing.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</span>
             </div>
             {% if auditorium %}
             <div class="booking-detail-row">
@@ -121,7 +121,7 @@
         </div>
 
         <div class="confirmation-actions">
-          <a href="/booking/invoice/{{ lecture.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          <a href="/booking/invoice/{{ showing.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
           {% set cert_bookings = bookings|selectattr('checked_in')|selectattr('payment_status', 'equalto', 'paid')|list %}
           {% for b in cert_bookings %}
           <a href="/booking/certificate/{{ b.id }}" class="btn btn-outline">&#127891; Certificate{% if cert_bookings|length > 1 %} ({{ b.booking_ref }}){% endif %}</a>

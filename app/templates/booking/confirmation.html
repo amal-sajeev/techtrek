@@ -14,8 +14,8 @@
           <div class="detail-group">
             <h4>Event Details</h4>
             <p><strong>{{ lecture.title }}</strong></p>
-            <p>{{ lecture.speaker }}</p>
-            <p>{{ lecture.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</p>
+            <p>{{ lecture.speaker_name }}</p>
+            <p>{{ showing.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</p>
             <p>{{ auditorium.name }}, {{ auditorium.location }}</p>
           </div>
 
@@ -60,7 +60,7 @@
         </div>
 
         <div class="confirmation-actions">
-          <a href="/booking/invoice/{{ lecture.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          <a href="/booking/invoice/{{ showing.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
           <a href="/booking/my" class="btn btn-primary">View My Bookings</a>
           <a href="/sessions" class="btn btn-outline">Browse More Sessions</a>
         </div>

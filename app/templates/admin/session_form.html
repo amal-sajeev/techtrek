@@ -7,48 +7,260 @@
 </div>
 
 <div class="wizard-steps mb-3">
-  <button type="button" class="wizard-step active" data-step="1">1. Venue &amp; Date</button>
-  <button type="button" class="wizard-step" data-step="2">2. Details &amp; Price</button>
+  <button type="button" class="wizard-step active" data-step="1">1. Showings</button>
+  <button type="button" class="wizard-step" data-step="2">2. Details</button>
   <button type="button" class="wizard-step" data-step="3">3. Speakers</button>
   <button type="button" class="wizard-step" data-step="4">4. Agenda</button>
   <button type="button" class="wizard-step" data-step="5">5. Certificate</button>
-  <button type="button" class="wizard-step" data-step="6">6. Review &amp; Publish</button>
+  <button type="button" class="wizard-step" data-step="6">6. Review &amp; Save</button>
 </div>
 
 <form method="post" action="{{ '/admin/sessions/' ~ lecture.id ~ '/edit' if lecture else '/admin/sessions/new' }}" id="session-wizard-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
-  <!-- Step 1: Venue & Date -->
+  <!-- Step 1: Showings -->
   <div class="wizard-panel active" data-panel="1">
-    <h3 class="wizard-panel-title">Venue &amp; Date</h3>
+    <h3 class="wizard-panel-title">Showings</h3>
+    {% if lecture and showings_list is defined %}
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Each showing is a scheduled occurrence of this session at a specific venue, date, and price. Manage them below.</p>
+
+    {% if showings_list %}
+    <div class="table-responsive" style="margin-bottom:1.25rem">
+      <table class="table">
+        <thead>
+          <tr>
+            <th>Venue</th>
+            <th>Date &amp; Time</th>
+            <th>Price</th>
+            <th>Status</th>
+            <th>Bookings</th>
+            <th style="min-width:100px">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for item in showings_list %}
+          {% set sh = item.showing %}
+          {% set sh_aud = item.auditorium %}
+          <tr>
+            <td>{{ sh_aud.name if sh_aud else '—' }}</td>
+            <td>{{ sh.start_time.strftime('%d %b %Y, %I:%M %p') if sh.start_time else 'TBD' }}</td>
+            <td>&#8377;{{ "%.0f"|format(sh.price) }}</td>
+            <td>
+              <span class="badge {% if sh.status == 'published' %}badge-success{% elif sh.status == 'draft' %}badge-draft{% elif sh.status == 'completed' %}badge-available{% elif sh.status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">
+                {{ sh.status|replace('_',' ')|title }}
+              </span>
+            </td>
+            <td>{{ item.bookings }}</td>
+            <td style="white-space:nowrap">
+              <div style="display:inline-flex;gap:6px;align-items:center">
+                <button type="button" class="btn btn-sm btn-outline showing-edit-btn"
+                  data-id="{{ sh.id }}"
+                  data-aud="{{ sh.auditorium_id }}"
+                  data-start="{{ sh.start_time.strftime('%Y-%m-%dT%H:%M') if sh.start_time else '' }}"
+                  data-duration="{{ sh.duration_minutes or '' }}"
+                  data-price="{{ sh.price }}"
+                  data-price-vip="{{ sh.price_vip if sh.price_vip is not none else '' }}"
+                  data-price-acc="{{ sh.price_accessible if sh.price_accessible is not none else '' }}"
+                  data-fee="{{ sh.processing_fee_pct if sh.processing_fee_pct is not none else '' }}"
+                  data-status="{{ sh.status }}"
+                  data-bookings="{{ item.bookings }}">Edit</button>
+                {% if item.bookings == 0 %}
+                <form method="post" action="/admin/sessions/{{ lecture.id }}/showings/{{ sh.id }}/delete" style="margin:0">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this showing?" data-confirm-label="Delete">Delete</button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="margin-bottom:1rem;padding:1.5rem">
+      <p>No showings yet. Add the first one below.</p>
+    </div>
+    {% endif %}
+
+    <!-- Edit Showing Modal (hidden by default, populated by JS) -->
+    <div id="showing-edit-modal" style="display:none;margin-bottom:1.25rem">
+      <div class="card" style="padding:1.25rem;border:2px solid var(--cyan)">
+        <h4 style="margin-top:0;margin-bottom:1rem">Edit Showing</h4>
+        <form method="post" id="showing-edit-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Venue</label>
+              <select name="auditorium_id" class="form-input" data-no-tomselect>
+                {% for aud in auditoriums %}
+                <option value="{{ aud.id }}">{{ aud.name }} — {{ aud.location }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date &amp; Time</label>
+              <input type="datetime-local" name="start_time" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Duration (min)</label>
+              <input type="number" name="duration_minutes" class="form-input" min="10">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Price (&#8377;)</label>
+              <input type="number" name="price" class="form-input" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">VIP Price</label>
+              <input type="number" name="price_vip" class="form-input" min="0" step="0.01" placeholder="Blank = standard">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Accessible Price</label>
+              <input type="number" name="price_accessible" class="form-input" min="0" step="0.01" placeholder="Blank = standard">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fee %</label>
+              <input type="number" name="processing_fee_pct" class="form-input" min="0" max="100" step="0.01" placeholder="e.g. 2.5">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-input" data-no-tomselect>
+                {% for s in ['draft','published','sold_out','completed','cancelled'] %}
+                <option value="{{ s }}">{{ s|replace('_',' ')|title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div style="display:flex;gap:.5rem">
+            <button type="submit" class="btn btn-primary btn-sm">Save Changes</button>
+            <button type="button" class="btn btn-outline btn-sm" id="showing-edit-cancel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Add Showing Form -->
+    <details id="add-showing-details">
+      <summary class="btn btn-outline btn-sm" style="cursor:pointer;margin-bottom:1rem">+ Add Showing</summary>
+      <div class="card" style="padding:1.25rem;margin-top:.5rem">
+        <form method="post" action="/admin/sessions/{{ lecture.id }}/showings/new">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Venue</label>
+              <select name="auditorium_id" class="form-input" required data-no-tomselect>
+                <option value="">Select venue</option>
+                {% for aud in auditoriums %}
+                <option value="{{ aud.id }}">{{ aud.name }} — {{ aud.location }}</option>
+                {% endfor %}
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Date &amp; Time</label>
+              <input type="datetime-local" name="start_time" class="form-input" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Duration (min)</label>
+              <input type="number" name="duration_minutes" class="form-input" value="{{ lecture.duration_minutes or 30 }}" min="10">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Price (&#8377;)</label>
+              <input type="number" name="price" class="form-input" value="500" min="0" step="0.01">
+            </div>
+            <div class="form-group">
+              <label class="form-label">VIP Price</label>
+              <input type="number" name="price_vip" class="form-input" min="0" step="0.01" placeholder="Blank = standard">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Accessible Price</label>
+              <input type="number" name="price_accessible" class="form-input" min="0" step="0.01" placeholder="Blank = standard">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Fee %</label>
+              <input type="number" name="processing_fee_pct" class="form-input" min="0" max="100" step="0.01" placeholder="e.g. 2.5">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-input" data-no-tomselect>
+                {% for s in ['draft','published','sold_out','completed','cancelled'] %}
+                <option value="{{ s }}">{{ s|replace('_',' ')|title }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-sm">Add Showing</button>
+        </form>
+      </div>
+    </details>
+
+    {% else %}
+    {# New session — single inline showing form (fields submitted with the session create form) #}
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Set up the first showing for this session. You can add more after creation.</p>
     <div class="form-group">
       <label class="form-label" for="sess-auditorium">Auditorium / Venue</label>
       <select name="auditorium_id" id="sess-auditorium" class="form-input" required placeholder="Select venue">
         <option value="">Select venue</option>
         {% for aud in auditoriums %}
-        <option value="{{ aud.id }}" {% if lecture and lecture.auditorium_id == aud.id %}selected{% endif %}>{{ aud.name }} — {{ aud.location }}</option>
+        <option value="{{ aud.id }}">{{ aud.name }} — {{ aud.location }}</option>
         {% endfor %}
       </select>
     </div>
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="sess-start">Start Date &amp; Time</label>
-        <input type="datetime-local" name="start_time" id="sess-start" class="form-input" value="{{ lecture.start_time.strftime('%Y-%m-%dT%H:%M') if lecture else '' }}" required>
+        <input type="datetime-local" name="start_time" id="sess-start" class="form-input" value="" required>
       </div>
       <div class="form-group">
         <label class="form-label" for="sess-duration">Duration (minutes)</label>
-        <input type="number" name="duration_minutes" id="sess-duration" class="form-input" value="{{ lecture.duration_minutes if lecture else 30 }}" min="10">
+        <input type="number" name="duration_minutes" id="sess-duration" class="form-input" value="30" min="10">
       </div>
     </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="sess-price">Standard Price (&#8377;)</label>
+        <input type="number" name="price" id="sess-price" class="form-input" value="500" min="0" step="0.01">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sess-price-vip">VIP Price (&#8377;)</label>
+        <input type="number" name="price_vip" id="sess-price-vip" class="form-input" min="0" step="0.01" placeholder="Leave blank to use standard">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sess-price-accessible">Accessible Price (&#8377;)</label>
+        <input type="number" name="price_accessible" id="sess-price-accessible" class="form-input" min="0" step="0.01" placeholder="Leave blank to use standard">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="sess-fee-pct">Processing Fee (%)</label>
+        <input type="number" name="processing_fee_pct" id="sess-fee-pct" class="form-input" min="0" max="100" step="0.01" placeholder="e.g. 2.5">
+      </div>
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="sess-status">Status</label>
+        <select name="status" id="sess-status" class="form-input" placeholder="Select status">
+          {% for s in ['draft','published','sold_out','completed','cancelled'] %}
+          <option value="{{ s }}">{{ s|replace('_',' ')|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    {% endif %}
     <div class="wizard-nav">
       <span></span>
       <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
     </div>
   </div>
 
-  <!-- Step 2: Details & Price -->
+  <!-- Step 2: Details -->
   <div class="wizard-panel" data-panel="2">
-    <h3 class="wizard-panel-title">Event Details &amp; Price</h3>
+    <h3 class="wizard-panel-title">Session Details</h3>
     <div class="form-group">
       <label class="form-label" for="sess-title">Title</label>
       <input type="text" name="title" id="sess-title" class="form-input" value="{{ lecture.title if lecture else '' }}" required>
@@ -63,30 +275,8 @@
     </div>
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label" for="sess-price">Standard Price (&#8377;)</label>
-        <input type="number" name="price" id="sess-price" class="form-input" value="{{ lecture.price if lecture else 500 }}" min="0" step="0.01">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="sess-price-vip">VIP Price (&#8377;)</label>
-        <input type="number" name="price_vip" id="sess-price-vip" class="form-input" value="{{ lecture.price_vip if lecture and lecture.price_vip is not none else '' }}" min="0" step="0.01" placeholder="Leave blank to use standard">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="sess-price-accessible">Accessible Price (&#8377;)</label>
-        <input type="number" name="price_accessible" id="sess-price-accessible" class="form-input" value="{{ lecture.price_accessible if lecture and lecture.price_accessible is not none else '' }}" min="0" step="0.01" placeholder="Leave blank to use standard">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="sess-fee-pct">Processing Fee (%)</label>
-        <input type="number" name="processing_fee_pct" id="sess-fee-pct" class="form-input" value="{{ lecture.processing_fee_pct if lecture and lecture.processing_fee_pct is not none else '' }}" min="0" max="100" step="0.01" placeholder="e.g. 2.5 (leave blank for none)">
-      </div>
-    </div>
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="sess-status">Status</label>
-        <select name="status" id="sess-status" class="form-input" placeholder="Select status">
-          {% for s in ['draft','published','sold_out','completed','cancelled'] %}
-          <option value="{{ s }}" {% if lecture and lecture.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
-          {% endfor %}
-        </select>
+        <label class="form-label" for="sess-duration">Default Duration (minutes)</label>
+        <input type="number" name="duration_minutes" id="sess-duration" class="form-input" value="{{ lecture.duration_minutes if lecture else 30 }}" min="10">
       </div>
     </div>
     <div class="wizard-nav">
@@ -109,7 +299,7 @@
     </div>
     <div class="form-group">
       <label class="form-label" for="sess-speaker">Speaker Name (displayed on session card)</label>
-      <input type="text" name="speaker" id="sess-speaker" class="form-input" value="{{ lecture.speaker if lecture else '' }}" required>
+      <input type="text" name="speaker" id="sess-speaker" class="form-input" value="{{ lecture.speaker_name if lecture else '' }}" required>
     </div>
     <hr style="border-color:var(--color-border);margin:1.5rem 0">
     <h4 style="margin-bottom:.75rem">Session Speakers &amp; Roles</h4>
@@ -488,7 +678,7 @@
     <div id="wizard-review" class="wizard-review"></div>
     <div class="wizard-nav">
       <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
-      <button type="submit" class="btn btn-primary btn-lg">{{ "Update" if lecture else "Create" }} Session</button>
+      <button type="submit" class="btn btn-primary btn-lg">{{ "Save" if lecture else "Create" }} Session</button>
     </div>
   </div>
 </form>
@@ -668,25 +858,8 @@
     var r = document.getElementById('wizard-review');
     var title = document.getElementById('sess-title').value || '(untitled)';
     var speaker = document.getElementById('sess-speaker').value || '(none)';
-    var start = document.getElementById('sess-start').value || '(not set)';
-    var price = document.getElementById('sess-price').value || '0';
-    var priceVip = document.getElementById('sess-price-vip').value;
-    var priceAcc = document.getElementById('sess-price-accessible').value;
-    var feePct = document.getElementById('sess-fee-pct').value;
-    var priceDisplay = '\u20B9' + price;
-    if (priceVip) priceDisplay += ' / VIP: \u20B9' + priceVip;
-    if (priceAcc) priceDisplay += ' / Accessible: \u20B9' + priceAcc;
-    if (feePct) priceDisplay += ' + ' + feePct + '% processing fee';
-    var status = document.getElementById('sess-status').value || 'draft';
-    var aud = document.getElementById('sess-auditorium');
-    var venue = '(none)';
-    if (aud.tomselect) {
-      var val = aud.tomselect.getValue();
-      var opt = aud.tomselect.options[val];
-      if (opt) venue = opt.text || opt.$option && opt.$option.textContent || '(none)';
-    } else if (aud.options[aud.selectedIndex]) {
-      venue = aud.options[aud.selectedIndex].text;
-    }
+    var duration = document.getElementById('sess-duration').value || '30';
+
     var certTitle = document.getElementById('cert-title').value || 'Certificate of Attendance';
     var certColor = document.getElementById('cert-color');
     var certColorLabel = certColor.options[certColor.selectedIndex] ? certColor.options[certColor.selectedIndex].text : 'Teal';
@@ -723,10 +896,7 @@
       '<tr><td><strong>Title</strong></td><td>' + title + '</td></tr>' +
       '<tr><td><strong>Speaker</strong></td><td>' + speaker + '</td></tr>' +
       '<tr><td><strong>Speaker Roles</strong></td><td>' + speakerRolesText + '</td></tr>' +
-      '<tr><td><strong>Venue</strong></td><td>' + venue + '</td></tr>' +
-      '<tr><td><strong>Date/Time</strong></td><td>' + start + '</td></tr>' +
-      '<tr><td><strong>Pricing</strong></td><td>' + priceDisplay + '</td></tr>' +
-      '<tr><td><strong>Status</strong></td><td>' + status + '</td></tr>' +
+      '<tr><td><strong>Duration</strong></td><td>' + duration + ' min</td></tr>' +
       '<tr><td><strong>Certificate</strong></td><td>' + certRow + ' &middot; ' + certColorLabel + '</td></tr>' +
       '</tbody></table>';
   }
@@ -986,6 +1156,7 @@ var _certPreviewSchedule = null;
     if (loader) loader.style.display = 'flex';
 
     var fd = new FormData();
+    fd.append('csrf_token', '{{ csrf_token }}');
     for (var htmlId in map) {
       var el = document.getElementById(htmlId);
       if (el) fd.append(map[htmlId], el.value || '');
@@ -1094,6 +1265,38 @@ function _buildCertStyleJson() {
       hid.value = _buildCertStyleJson();
     }
   });
+})();
+
+// ─── Showing edit modal (for existing sessions) ───
+(function () {
+  var modal = document.getElementById('showing-edit-modal');
+  var editForm = document.getElementById('showing-edit-form');
+  var cancelBtn = document.getElementById('showing-edit-cancel');
+  if (!modal || !editForm) return;
+
+  document.querySelectorAll('.showing-edit-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.dataset.id;
+      var sessId = '{{ lecture.id if lecture else 0 }}';
+      editForm.action = '/admin/sessions/' + sessId + '/showings/' + id + '/edit';
+      editForm.querySelector('[name="auditorium_id"]').value = btn.dataset.aud;
+      editForm.querySelector('[name="start_time"]').value = btn.dataset.start;
+      editForm.querySelector('[name="duration_minutes"]').value = btn.dataset.duration;
+      editForm.querySelector('[name="price"]').value = btn.dataset.price;
+      editForm.querySelector('[name="price_vip"]').value = btn.dataset.priceVip;
+      editForm.querySelector('[name="price_accessible"]').value = btn.dataset.priceAcc;
+      editForm.querySelector('[name="processing_fee_pct"]').value = btn.dataset.fee;
+      editForm.querySelector('[name="status"]').value = btn.dataset.status;
+      modal.style.display = 'block';
+      modal.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', function() {
+      modal.style.display = 'none';
+    });
+  }
 })();
 </script>
 {% endblock %}

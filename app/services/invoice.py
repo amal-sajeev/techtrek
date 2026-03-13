@@ -66,7 +66,7 @@ def _get_logo_image(logo_url: str, max_h_mm: float = 14):
         return None
 
 
-def generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_types_map=None, db=None) -> bytes:
+def generate_invoice_pdf(bookings, user, session_obj, showing, auditorium, seats, custom_types_map=None, db=None) -> bytes:
     _register_fonts()
     font = "Arial" if _FONT_REGISTERED else "Helvetica"
     font_bold = "Arial-Bold" if _FONT_REGISTERED else "Helvetica-Bold"
@@ -154,11 +154,15 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_type
     if user.college:
         bill_to += f"<br/>{user.college}"
 
+    _title = session_obj.title if session_obj else "Session"
+    _speaker = session_obj.speaker_name if session_obj else ""
+    _start = showing.start_time if showing else None
+    _start_str = _start.strftime('%A, %d %b %Y at %I:%M %p') if _start else ""
     event_info = (
         f"<b>Event Details:</b><br/>"
-        f"{lecture.title}<br/>"
-        f"Speaker: {lecture.speaker}<br/>"
-        f"{lecture.start_time.strftime('%A, %d %b %Y at %I:%M %p')}<br/>"
+        f"{_title}<br/>"
+        f"Speaker: {_speaker}<br/>"
+        f"{_start_str}<br/>"
         f"Venue: {auditorium.name}, {auditorium.location}"
     )
 

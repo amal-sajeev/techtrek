@@ -16,6 +16,9 @@
 <section class="section">
   <div class="container">
     <h1 class="page-title reveal">Upcoming Sessions</h1>
+    <p class="page-subtitle reveal" style="color:var(--text-muted);font-family:var(--font-mono);font-size:.85rem;margin-top:-.5rem;margin-bottom:1.5rem">
+      Each card is a scheduled showing — sessions with multiple dates appear more than once. Click a card to see all showings and book.
+    </p>
 
     <form class="filter-bar reveal" id="filter-form" method="get" action="/sessions">
       <div class="filter-search">
@@ -84,28 +87,37 @@
               alt="{{ item.session.title }}"
               loading="lazy">
             <span class="card-badge badge-{{ item.event_status }}">{{ item.event_status | replace('-', ' ') | title }}</span>
+            {% if item.session.showings|length > 1 %}
+            <span class="card-badge-multi">{{ item.session.showings|length }} showings</span>
+            {% endif %}
           </div>
           <div class="card-body">
             <h3 class="card-title">{{ item.session.title }}</h3>
-            <p class="card-meta">{{ item.session.speaker }}</p>
+            <p class="card-meta">{{ item.session.speaker_name }}</p>
             <div class="card-details">
-              <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
-              <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
+              <span class="card-detail">&#128197; {{ item.showing.start_time.strftime('%b %d, %Y') }}</span>
+              <span class="card-detail">&#128336; {{ item.showing.start_time.strftime('%I:%M %p') }}</span>
               {% if item.auditorium %}
-              <span class="card-detail">&#128205; {{ item.auditorium.location }}</span>
+              <span class="card-detail">&#128205; {{ item.auditorium.name }}{% if item.auditorium.location %}, {{ item.auditorium.location }}{% endif %}</span>
               {% endif %}
             </div>
           </div>
           <div class="card-footer">
-            <span class="card-price">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
+            <span class="card-price">&#8377;{{ "%.0f"|format(item.showing.price) }}</span>
             {% if item.availability == 'sold-out' %}
             <span class="card-seats seats-out">Sold out</span>
             {% elif item.availability == 'filling-up' %}
             <span class="card-seats seats-low"><span class="pulse-dot"></span>{{ item.stats.available }} left</span>
             {% else %}
-            <span class="card-cta-hint">Book &rarr;</span>
+            <span class="card-seats" style="color:var(--text-muted);font-size:.78rem">{{ item.stats.available }} seats</span>
             {% endif %}
           </div>
+          {% if item.stats.total > 0 %}
+          <div class="card-avail-bar">
+            {% set pct = ((item.stats.booked / item.stats.total) * 100) if item.stats.total > 0 else 0 %}
+            <div class="card-avail-fill {% if item.availability == 'sold-out' %}fill-out{% elif item.availability == 'filling-up' %}fill-low{% endif %}" style="width:{{ (100 - pct)|round|int }}%"></div>
+          </div>
+          {% endif %}
         </a>
         {% endfor %}
       </div>

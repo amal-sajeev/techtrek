@@ -1,5 +1,4 @@
 import uuid
-from datetime import datetime
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
@@ -21,7 +20,7 @@ class Booking(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    session_id = Column(Integer, ForeignKey("lecture_sessions.id"), nullable=False)
+    showing_id = Column(Integer, ForeignKey("showings.id"), nullable=False)
     seat_id = Column(Integer, ForeignKey("seats.id"), nullable=False)
     payment_status = Column(String(20), default="hold")
     booking_ref = Column(String(20), unique=True, default=_generate_ref)
@@ -46,6 +45,6 @@ class Booking(Base):
     booked_at = Column(DateTime, default=now_ist)
 
     user = relationship("User", back_populates="bookings")
-    session = relationship("LectureSession", back_populates="bookings")
+    showing = relationship("Showing", back_populates="bookings")
     seat = relationship("Seat", back_populates="bookings")
     event = relationship("Event", back_populates="bookings")

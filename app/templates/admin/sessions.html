@@ -16,34 +16,40 @@
       <tr>
         <th>Title</th>
         <th>Speaker</th>
-        <th>Venue</th>
-        <th>Date/Time</th>
-        <th>Price</th>
+        <th>Showings</th>
+        <th>Next Showing</th>
         <th>Bookings</th>
-        <th>Status</th>
         {% if user.is_admin %}<th>Actions</th>{% endif %}
       </tr>
     </thead>
     <tbody>
       {% for item in sessions %}
+      {% set next_showing = item.showings|selectattr('status', 'equalto', 'published')|sort(attribute='start_time')|first if item.showings else None %}
       <tr>
         <td><strong>{{ item.session.title }}</strong></td>
-        <td>{{ item.session.speaker }}</td>
-        <td>{{ item.auditorium.name if item.auditorium else 'N/A' }}</td>
-        <td>{{ item.session.start_time.strftime('%b %d, %Y %I:%M %p') }}</td>
-        <td>&#8377;{{ "%.0f"|format(item.session.price) }}</td>
-        <td>{{ item.bookings }}</td>
+        <td>{{ item.session.speaker_name }}</td>
+        <td>{{ item.showing_count }}</td>
         <td>
-          <span class="badge badge-{% if item.session.status == 'published' %}available{% elif item.session.status == 'draft' %}draft{% elif item.session.status == 'sold_out' %}sold-out{% elif item.session.status == 'cancelled' %}sold-out{% else %}draft{% endif %}">
-            {{ item.session.status }}
-          </span>
+          {% if next_showing %}
+          {{ next_showing.start_time.strftime('%b %d, %Y %I:%M %p') }}
+          <br><small class="text-muted">&#8377;{{ "%.0f"|format(next_showing.price) }}
+          &middot; <span class="badge badge-available">{{ next_showing.status }}</span></small>
+          {% elif item.showings %}
+          {% set latest = item.showings|sort(attribute='start_time')|last %}
+          <small class="text-muted">{{ latest.start_time.strftime('%b %d, %Y') }}
+          &middot; <span class="badge badge-draft">{{ latest.status }}</span></small>
+          {% else %}
+          <span class="text-muted">No showings</span>
+          {% endif %}
         </td>
+        <td>{{ item.bookings }}</td>
         {% if user.is_admin %}
         <td class="actions-cell">
           <a href="/admin/sessions/{{ item.session.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <a href="/admin/sessions/{{ item.session.id }}/edit?step=1" class="btn btn-sm btn-outline">Showings</a>
           <a href="/admin/sessions/{{ item.session.id }}/recordings" class="btn btn-sm btn-outline">Recordings</a>
           <form method="post" action="/admin/sessions/{{ item.session.id }}/delete" style="display:inline">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this session?" data-confirm-label="Delete">Delete</button>
           </form>
         </td>

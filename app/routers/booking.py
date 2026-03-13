@@ -14,9 +14,10 @@ from app.models.auditorium import Auditorium
 from app.models.booking import Booking, _generate_ticket_id
 from app.models.seat import Seat
 from app.models.seat_type import SeatType
-from app.models.session import LectureSession
+from app.models.session import Session
+from app.models.showing import Showing
 from app.models.event import Event
-from app.models.event_session import EventSession
+from app.models.event_showing import EventShowing
 from app.models.user import User
 from app.models.waitlist import Waitlist
 from app.services.booking import (
@@ -35,8 +36,8 @@ from app.services.razorpay import verify_payment as rz_verify_payment
 router = APIRouter(prefix="/booking", tags=["booking"], dependencies=[Depends(csrf_protection)])
 
 
-def _seat_price(lecture, seat_type: str, db=None) -> float:
-    return _price_for_seat(lecture, seat_type, db=db)
+def _seat_price(showing, seat_type: str, db=None) -> float:
+    return _price_for_seat(showing, seat_type, db=db)
 
 
 
@@ -47,26 +48,26 @@ def _require_user(request: Request, db: Session) -> User | None:
     return db.query(User).filter(User.id == user_id).first()
 
 
-@router.get("/select/{session_id}")
-def select_seat_page(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.get("/select/{showing_id}")
+def select_seat_page(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
         flash(request, "Please sign in to book.", "warning")
-        return RedirectResponse(f"/auth/login?next=/booking/select/{session_id}", status_code=303)
+        return RedirectResponse(f"/auth/login?next=/booking/select/{showing_id}", status_code=303)
 
-    lecture = db.query(LectureSession).filter(LectureSession.id == session_id).first()
-    if not lecture or lecture.status != "published":
+    showing = db.query(Showing).filter(Showing.id == showing_id).first()
+    if not showing or showing.status != "published":
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/sessions", status_code=303)
 
-    auditorium = db.query(Auditorium).get(lecture.auditorium_id)
-    seat_map = get_seat_map(db, session_id, lecture.auditorium_id)
+    auditorium = db.query(Auditorium).get(showing.auditorium_id)
+    seat_map = get_seat_map(db, showing_id, showing.auditorium_id)
 
     now = now_ist()
     priority_active = (
         db.query(Waitlist)
         .filter(
-            Waitlist.priority_session_id == session_id,
+            Waitlist.priority_showing_id == showing_id,
             Waitlist.priority_expires_at > now,
         )
         .count()
@@ -75,7 +76,7 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
     user_has_priority = (
         db.query(Waitlist)
         .filter(
-            Waitlist.priority_session_id == session_id,
+            Waitlist.priority_showing_id == showing_id,
             Waitlist.user_id == user.id,
             Waitlist.priority_expires_at > now,
         )
@@ -85,7 +86,7 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
 
     if priority_active and not user_has_priority:
         flash(request, "This session is in priority booking. Only waitlisted users can book right now.", "warning")
-        return RedirectResponse(f"/sessions/{session_id}", status_code=303)
+        return RedirectResponse(f"/sessions/{showing.session_id}", status_code=303)
 
     custom_types = db.query(SeatType).filter(SeatType.is_custom == True).order_by(SeatType.name).all()
     custom_types_data = [
@@ -94,11 +95,13 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
         for st in custom_types
     ]
 
+    session_obj = showing.session
     return templates.TemplateResponse(
         "booking/select_seat.html",
         template_ctx(
             request,
-            lecture=lecture,
+            lecture=session_obj,
+            showing=showing,
             auditorium=auditorium,
             seat_map=seat_map,
             custom_types=custom_types_data,
@@ -110,15 +113,15 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
             entry_exit_config=auditorium.entry_exit_config or [],
             row_gaps=json.loads(auditorium.row_gaps) if auditorium.row_gaps else [],
             col_gaps=json.loads(auditorium.col_gaps) if auditorium.col_gaps else [],
-            price=float(lecture.price),
-            price_vip=float(lecture.price_vip) if lecture.price_vip is not None else float(lecture.price),
-            price_accessible=float(lecture.price_accessible) if lecture.price_accessible is not None else float(lecture.price),
+            price=float(showing.price),
+            price_vip=float(showing.price_vip) if showing.price_vip is not None else float(showing.price),
+            price_accessible=float(showing.price_accessible) if showing.price_accessible is not None else float(showing.price),
         ),
     )
 
 
-@router.post("/hold/{session_id}")
-async def hold_seats_route(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.post("/hold/{showing_id}")
+async def hold_seats_route(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
@@ -129,24 +132,24 @@ async def hold_seats_route(request: Request, session_id: int, db: Session = Depe
         seat_ids = [int(x) for x in seat_ids_raw.split(",") if x.strip()]
     except ValueError:
         flash(request, "Invalid seat selection.", "danger")
-        return RedirectResponse(f"/booking/select/{session_id}", status_code=303)
+        return RedirectResponse(f"/booking/select/{showing_id}", status_code=303)
 
     if not seat_ids:
         flash(request, "Please select at least one seat.", "warning")
-        return RedirectResponse(f"/booking/select/{session_id}", status_code=303)
+        return RedirectResponse(f"/booking/select/{showing_id}", status_code=303)
 
-    bookings = hold_seats(db, user.id, session_id, seat_ids)
+    bookings = hold_seats(db, user.id, showing_id, seat_ids)
     if not bookings:
         flash(request, "Some seats are no longer available. Please try again.", "danger")
-        return RedirectResponse(f"/booking/select/{session_id}", status_code=303)
+        return RedirectResponse(f"/booking/select/{showing_id}", status_code=303)
 
-    log_activity(db, category="booking", action="hold", description=f"Held {len(bookings)} seat(s) for session #{session_id}", request=request, user_id=user.id, target_type="session", target_id=session_id)
+    log_activity(db, category="booking", action="hold", description=f"Held {len(bookings)} seat(s) for showing #{showing_id}", request=request, user_id=user.id, target_type="showing", target_id=showing_id)
     db.commit()
-    return RedirectResponse(f"/booking/checkout/{session_id}", status_code=303)
+    return RedirectResponse(f"/booking/checkout/{showing_id}", status_code=303)
 
 
-@router.get("/checkout/{session_id}")
-def checkout_page(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.get("/checkout/{showing_id}")
+def checkout_page(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
@@ -156,7 +159,7 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
         db.query(Booking)
         .filter(
             Booking.user_id == user.id,
-            Booking.session_id == session_id,
+            Booking.showing_id == showing_id,
             Booking.payment_status == "hold",
             Booking.held_until > now,
         )
@@ -164,10 +167,10 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
     )
     if not holds:
         flash(request, "No seats held. Your hold may have expired.", "warning")
-        return RedirectResponse(f"/booking/select/{session_id}", status_code=303)
+        return RedirectResponse(f"/booking/select/{showing_id}", status_code=303)
 
-    lecture = db.query(LectureSession).get(session_id)
-    if not lecture:
+    showing = db.query(Showing).get(showing_id)
+    if not showing:
         flash(request, "Session no longer available.", "danger")
         return RedirectResponse("/sessions", status_code=303)
 
@@ -178,8 +181,8 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
 
     custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
 
-    base_total = sum(_seat_price(lecture, s.seat_type, db=db) for s in seats)
-    fee_pct = float(lecture.processing_fee_pct) if lecture.processing_fee_pct else 0
+    base_total = sum(_seat_price(showing, s.seat_type, db=db) for s in seats)
+    fee_pct = float(showing.processing_fee_pct) if showing.processing_fee_pct else 0
     processing_fee = round(base_total * fee_pct / 100, 2)
     total = base_total + processing_fee
     held = holds[0].held_until
@@ -189,7 +192,8 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
         "booking/checkout.html",
         template_ctx(
             request,
-            lecture=lecture,
+            lecture=showing.session,
+            showing=showing,
             seats=seats,
             base_total=base_total,
             processing_fee=processing_fee,
@@ -204,8 +208,8 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
     )
 
 
-@router.post("/create-order/{session_id}")
-def create_order(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.post("/create-order/{showing_id}")
+def create_order(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
@@ -215,7 +219,7 @@ def create_order(request: Request, session_id: int, db: Session = Depends(get_db
         db.query(Booking)
         .filter(
             Booking.user_id == user.id,
-            Booking.session_id == session_id,
+            Booking.showing_id == showing_id,
             Booking.payment_status == "hold",
             Booking.held_until > now,
         )
@@ -224,15 +228,15 @@ def create_order(request: Request, session_id: int, db: Session = Depends(get_db
     if not holds:
         return JSONResponse({"error": "No seats held. Your hold may have expired."}, status_code=400)
 
-    lecture = db.query(LectureSession).get(session_id)
-    if not lecture:
+    showing = db.query(Showing).get(showing_id)
+    if not showing:
         return JSONResponse({"error": "Session not found."}, status_code=404)
 
     seats = [db.query(Seat).get(h.seat_id) for h in holds]
-    base = sum(_seat_price(lecture, s.seat_type, db=db) for s in seats)
-    fee_pct = float(lecture.processing_fee_pct) if lecture.processing_fee_pct else 0
+    base = sum(_seat_price(showing, s.seat_type, db=db) for s in seats)
+    fee_pct = float(showing.processing_fee_pct) if showing.processing_fee_pct else 0
     total_paise = int(round(base * (1 + fee_pct / 100), 2) * 100)
-    receipt = f"sess{session_id}_user{user.id}"
+    receipt = f"show{showing_id}_user{user.id}"
 
     try:
         order = rz_create_order(total_paise, receipt)
@@ -251,8 +255,8 @@ def create_order(request: Request, session_id: int, db: Session = Depends(get_db
     })
 
 
-@router.post("/verify-payment/{session_id}")
-async def verify_payment_route(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.post("/verify-payment/{showing_id}")
+async def verify_payment_route(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
         return JSONResponse({"error": "Not authenticated"}, status_code=401)
@@ -271,7 +275,7 @@ async def verify_payment_route(request: Request, session_id: int, db: Session = 
         db.query(Booking)
         .filter(
             Booking.user_id == user.id,
-            Booking.session_id == session_id,
+            Booking.showing_id == showing_id,
             Booking.payment_status == "hold",
             Booking.held_until > now,
         )
@@ -280,43 +284,43 @@ async def verify_payment_route(request: Request, session_id: int, db: Session = 
     if not holds:
         return JSONResponse({"error": "Hold expired before verification."}, status_code=400)
     if any(h.razorpay_order_id != order_id for h in holds):
-        log_activity(db, category="booking", action="payment_tampered", description=f"Order ID mismatch on payment verify for session #{session_id}", request=request, user_id=user.id)
+        log_activity(db, category="booking", action="payment_tampered", description=f"Order ID mismatch on payment verify for showing #{showing_id}", request=request, user_id=user.id)
         db.commit()
         return JSONResponse({"error": "Payment order mismatch."}, status_code=400)
 
-    confirmed = confirm_payment(db, user.id, session_id)
+    confirmed = confirm_payment(db, user.id, showing_id)
     if not confirmed:
         return JSONResponse({"error": "Hold expired before verification."}, status_code=400)
 
     for b in confirmed:
         b.razorpay_payment_id = payment_id
         b.razorpay_signature = signature
-    log_activity(db, category="booking", action="payment", description=f"Payment verified for {len(confirmed)} seat(s), session #{session_id}", request=request, user_id=user.id, target_type="session", target_id=session_id, extra={"payment_id": payment_id})
+    log_activity(db, category="booking", action="payment", description=f"Payment verified for {len(confirmed)} seat(s), showing #{showing_id}", request=request, user_id=user.id, target_type="showing", target_id=showing_id, extra={"payment_id": payment_id})
     db.commit()
 
     flash(request, f"Booking confirmed! {len(confirmed)} seat(s) booked.", "success")
-    return JSONResponse({"redirect": f"/booking/confirmation/{session_id}"})
+    return JSONResponse({"redirect": f"/booking/confirmation/{showing_id}"})
 
 
-@router.post("/pay/{session_id}")
-def pay(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.post("/pay/{showing_id}")
+def pay(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
 
-    confirmed = confirm_payment(db, user.id, session_id)
+    confirmed = confirm_payment(db, user.id, showing_id)
     if not confirmed:
         flash(request, "Payment failed — your hold may have expired.", "danger")
-        return RedirectResponse(f"/booking/select/{session_id}", status_code=303)
+        return RedirectResponse(f"/booking/select/{showing_id}", status_code=303)
 
-    log_activity(db, category="booking", action="payment", description=f"Free booking confirmed for {len(confirmed)} seat(s), session #{session_id}", request=request, user_id=user.id, target_type="session", target_id=session_id)
+    log_activity(db, category="booking", action="payment", description=f"Free booking confirmed for {len(confirmed)} seat(s), showing #{showing_id}", request=request, user_id=user.id, target_type="showing", target_id=showing_id)
     db.commit()
     flash(request, f"Booking confirmed! {len(confirmed)} seat(s) booked.", "success")
-    return RedirectResponse(f"/booking/confirmation/{session_id}", status_code=303)
+    return RedirectResponse(f"/booking/confirmation/{showing_id}", status_code=303)
 
 
-@router.get("/confirmation/{session_id}")
-def confirmation_page(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.get("/confirmation/{showing_id}")
+def confirmation_page(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
@@ -325,7 +329,7 @@ def confirmation_page(request: Request, session_id: int, db: Session = Depends(g
         db.query(Booking)
         .filter(
             Booking.user_id == user.id,
-            Booking.session_id == session_id,
+            Booking.showing_id == showing_id,
             Booking.payment_status == "paid",
         )
         .order_by(Booking.booked_at.desc())
@@ -334,21 +338,22 @@ def confirmation_page(request: Request, session_id: int, db: Session = Depends(g
     if not bookings:
         return RedirectResponse("/sessions", status_code=303)
 
-    lecture = db.query(LectureSession).get(session_id)
-    if not lecture:
+    showing = db.query(Showing).get(showing_id)
+    if not showing:
         flash(request, "Session no longer available.", "danger")
         return RedirectResponse("/sessions", status_code=303)
 
-    auditorium = db.query(Auditorium).get(lecture.auditorium_id)
+    auditorium = db.query(Auditorium).get(showing.auditorium_id)
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
-    total = sum(b.amount_paid or _seat_price(lecture, s.seat_type) for b, s in zip(bookings, seats))
+    total = sum(b.amount_paid or _seat_price(showing, s.seat_type) for b, s in zip(bookings, seats))
     custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
 
     return templates.TemplateResponse(
         "booking/confirmation.html",
         template_ctx(
             request,
-            lecture=lecture,
+            lecture=showing.session,
+            showing=showing,
             auditorium=auditorium,
             bookings=bookings,
             seats=seats,
@@ -358,8 +363,8 @@ def confirmation_page(request: Request, session_id: int, db: Session = Depends(g
     )
 
 
-@router.get("/invoice/{session_id}")
-def download_invoice(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.get("/invoice/{showing_id}")
+def download_invoice(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
@@ -368,7 +373,7 @@ def download_invoice(request: Request, session_id: int, db: Session = Depends(ge
         db.query(Booking)
         .filter(
             Booking.user_id == user.id,
-            Booking.session_id == session_id,
+            Booking.showing_id == showing_id,
             Booking.payment_status.in_(["paid", "refunded"]),
         )
         .order_by(Booking.booked_at.desc())
@@ -378,15 +383,16 @@ def download_invoice(request: Request, session_id: int, db: Session = Depends(ge
         flash(request, "No bookings found for this session.", "warning")
         return RedirectResponse("/booking/my", status_code=303)
 
-    lecture = db.query(LectureSession).get(session_id)
-    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
-    if not lecture or not auditorium:
+    showing = db.query(Showing).get(showing_id)
+    session_obj = showing.session if showing else None
+    auditorium = db.query(Auditorium).get(showing.auditorium_id) if showing else None
+    if not showing or not auditorium:
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/booking/my", status_code=303)
 
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     custom_types_map = {f"custom_{st.id}": st for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
-    pdf_bytes = generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_types_map, db=db)
+    pdf_bytes = generate_invoice_pdf(bookings, user, session_obj, showing, auditorium, seats, custom_types_map, db=db)
     ref = bookings[0].booking_ref or "invoice"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
@@ -406,14 +412,15 @@ def my_bookings(request: Request, db: Session = Depends(get_db)):
     from collections import OrderedDict
     groups: OrderedDict[str, list] = OrderedDict()
     for b in bookings:
-        key = f"{b.session_id}:{b.booking_group}" if b.booking_group else f"solo:{b.id}"
+        key = f"{b.showing_id}:{b.booking_group}" if b.booking_group else f"solo:{b.id}"
         groups.setdefault(key, []).append(b)
 
     grouped = []
     for key, group_bookings in groups.items():
         first = group_bookings[0]
-        lecture = db.query(LectureSession).get(first.session_id)
-        auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+        showing = db.query(Showing).get(first.showing_id)
+        session_obj = showing.session if showing else None
+        auditorium = db.query(Auditorium).get(showing.auditorium_id) if showing else None
         seats = [db.query(Seat).get(b.seat_id) for b in group_bookings]
         paid_bookings = [b for b in group_bookings if b.payment_status == "paid"]
         refunded_bookings = [b for b in group_bookings if b.payment_status == "refunded"]
@@ -433,7 +440,8 @@ def my_bookings(request: Request, db: Session = Depends(get_db)):
         grouped.append({
             "bookings": group_bookings,
             "seats": seats,
-            "lecture": lecture,
+            "lecture": session_obj,
+            "showing": showing,
             "auditorium": auditorium,
             "total_paid": sum(b.amount_paid or 0 for b in group_bookings),
             "group_id": first.booking_group,
@@ -507,8 +515,9 @@ def booking_detail_solo(request: Request, booking_id: int, db: Session = Depends
 
 def _render_booking_detail(request: Request, db: Session, bookings: list[Booking]):
     first = bookings[0]
-    lecture = db.query(LectureSession).get(first.session_id)
-    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+    showing = db.query(Showing).get(first.showing_id)
+    session_obj = showing.session if showing else None
+    auditorium = db.query(Auditorium).get(showing.auditorium_id) if showing else None
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     total = sum(b.amount_paid or 0 for b in bookings)
     paid_bookings = [b for b in bookings if b.payment_status == "paid"]
@@ -520,7 +529,8 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
             request,
             bookings=bookings,
             seats=seats,
-            lecture=lecture,
+            lecture=session_obj,
+            showing=showing,
             auditorium=auditorium,
             total=total,
             group_qr_data=first.group_qr_data if len(bookings) > 1 else None,
@@ -560,25 +570,29 @@ def cancel_group(request: Request, group_id: str, db: Session = Depends(get_db))
     return RedirectResponse("/booking/my", status_code=303)
 
 
-@router.post("/waitlist/{session_id}")
-def join_waitlist(request: Request, session_id: int, db: Session = Depends(get_db)):
+@router.post("/waitlist/{showing_id}")
+def join_waitlist(request: Request, showing_id: int, db: Session = Depends(get_db)):
     user = _require_user(request, db)
     if not user:
+        showing = db.query(Showing).get(showing_id)
+        session_id = showing.session_id if showing else 0
         return RedirectResponse(f"/auth/login?next=/sessions/{session_id}", status_code=303)
 
     existing = (
         db.query(Waitlist)
-        .filter(Waitlist.session_id == session_id, Waitlist.user_id == user.id)
+        .filter(Waitlist.showing_id == showing_id, Waitlist.user_id == user.id)
         .first()
     )
     if existing:
         flash(request, "You're already on the waitlist.", "info")
     else:
-        entry = Waitlist(user_id=user.id, session_id=session_id)
+        entry = Waitlist(user_id=user.id, showing_id=showing_id)
         db.add(entry)
         db.commit()
         flash(request, "You've been added to the waitlist!", "success")
 
+    showing = db.query(Showing).get(showing_id)
+    session_id = showing.session_id if showing else 0
     return RedirectResponse(f"/sessions/{session_id}", status_code=303)
 
 
@@ -601,15 +615,16 @@ def download_certificate(request: Request, booking_id: int, db: Session = Depend
         flash(request, "Certificate is only available for paid bookings.", "warning")
         return RedirectResponse("/booking/my", status_code=303)
 
-    lecture = db.query(LectureSession).get(booking.session_id)
-    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
-    if not lecture:
+    showing = db.query(Showing).get(booking.showing_id)
+    session_obj = showing.session if showing else None
+    auditorium = db.query(Auditorium).get(showing.auditorium_id) if showing else None
+    if not showing or not session_obj:
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/booking/my", status_code=303)
 
     from app.services.certificate import generate_certificate_pdf
-    pdf_bytes = generate_certificate_pdf(booking, user, lecture, auditorium)
-    log_activity(db, category="booking", action="certificate", description=f"Downloaded certificate for session '{lecture.title}'", request=request, user_id=user.id, target_type="booking", target_id=booking_id)
+    pdf_bytes = generate_certificate_pdf(booking, user, session_obj, showing, auditorium)
+    log_activity(db, category="booking", action="certificate", description=f"Downloaded certificate for session '{session_obj.title}'", request=request, user_id=user.id, target_type="booking", target_id=booking_id)
     db.commit()
     ref = booking.booking_ref or "certificate"
     return StreamingResponse(
@@ -627,7 +642,7 @@ def download_certificate(request: Request, booking_id: int, db: Session = Depend
 def event_select_seats(
     request: Request,
     event_id: int,
-    session_ids: list[int] = Query(...),
+    showing_ids: list[int] = Query(...),
     db: Session = Depends(get_db),
 ):
     user = _require_user(request, db)
@@ -640,27 +655,27 @@ def event_select_seats(
         flash(request, "Event not found.", "danger")
         return RedirectResponse("/events", status_code=303)
 
-    valid_session_ids = {
-        es.session_id for es in ev.event_sessions
+    valid_showing_ids = {
+        es.showing_id for es in ev.event_showings
     }
-    chosen_ids = [sid for sid in session_ids if sid in valid_session_ids]
+    chosen_ids = [shid for shid in showing_ids if shid in valid_showing_ids]
     if not chosen_ids:
         flash(request, "Please select at least one session.", "warning")
         return RedirectResponse(f"/events/{event_id}", status_code=303)
 
-    request.session["event_session_ids"] = chosen_ids
+    request.session["event_showing_ids"] = chosen_ids
 
     sessions_data = []
     auditorium_groups = {}
 
-    for sid in chosen_ids:
-        lecture = db.query(LectureSession).filter(
-            LectureSession.id == sid, LectureSession.status == "published"
+    for shid in chosen_ids:
+        showing = db.query(Showing).filter(
+            Showing.id == shid, Showing.status == "published"
         ).first()
-        if not lecture:
+        if not showing:
             continue
-        aud = db.query(Auditorium).get(lecture.auditorium_id)
-        seat_map = get_seat_map(db, sid, lecture.auditorium_id)
+        aud = db.query(Auditorium).get(showing.auditorium_id)
+        seat_map = get_seat_map(db, shid, showing.auditorium_id)
         custom_types = db.query(SeatType).filter(SeatType.is_custom == True).order_by(SeatType.name).all()
         custom_types_data = [
             {"id": st.id, "name": st.name, "colour": st.colour, "icon": st.icon,
@@ -669,7 +684,8 @@ def event_select_seats(
         ]
 
         sess_info = {
-            "session": lecture,
+            "session": showing.session,
+            "showing": showing,
             "auditorium": aud,
             "seat_map": seat_map,
             "custom_types": custom_types_data,
@@ -681,9 +697,9 @@ def event_select_seats(
             "entry_exit_config": aud.entry_exit_config or [],
             "row_gaps": json.loads(aud.row_gaps) if aud.row_gaps else [],
             "col_gaps": json.loads(aud.col_gaps) if aud.col_gaps else [],
-            "price": float(lecture.price),
-            "price_vip": float(lecture.price_vip) if lecture.price_vip is not None else float(lecture.price),
-            "price_accessible": float(lecture.price_accessible) if lecture.price_accessible is not None else float(lecture.price),
+            "price": float(showing.price),
+            "price_vip": float(showing.price_vip) if showing.price_vip is not None else float(showing.price),
+            "price_accessible": float(showing.price_accessible) if showing.price_accessible is not None else float(showing.price),
         }
         sessions_data.append(sess_info)
 
@@ -691,23 +707,23 @@ def event_select_seats(
         if aud_id not in auditorium_groups:
             auditorium_groups[aud_id] = {
                 "auditorium": aud,
-                "session_ids": [],
+                "showing_ids": [],
             }
-        auditorium_groups[aud_id]["session_ids"].append(sid)
+        auditorium_groups[aud_id]["showing_ids"].append(shid)
 
     if not sessions_data:
         flash(request, "No valid sessions found.", "danger")
         return RedirectResponse(f"/events/{event_id}", status_code=303)
 
-    same_seats_available = any(len(g["session_ids"]) > 1 for g in auditorium_groups.values())
+    same_seats_available = any(len(g["showing_ids"]) > 1 for g in auditorium_groups.values())
 
     intersection_maps = {}
     for aud_id, group in auditorium_groups.items():
-        if len(group["session_ids"]) < 2:
+        if len(group["showing_ids"]) < 2:
             continue
         maps = []
-        for sid in group["session_ids"]:
-            sm = get_seat_map(db, sid, aud_id)
+        for shid in group["showing_ids"]:
+            sm = get_seat_map(db, shid, aud_id)
             maps.append({s["id"]: s for s in sm})
         all_seat_ids = set(maps[0].keys())
         for m in maps[1:]:
@@ -727,8 +743,11 @@ def event_select_seats(
 
     sessions_json = []
     for sd in sessions_data:
+        sess = sd["session"]
+        sh = sd["showing"]
         sessions_json.append({
-            "session": {"id": sd["session"].id, "title": sd["session"].title},
+            "session": {"id": sess.id if sess else 0, "title": sess.title if sess else ""},
+            "showing": {"id": sh.id if sh else 0},
             "auditorium": {"id": sd["auditorium"].id, "name": sd["auditorium"].name},
             "seat_map": sd["seat_map"],
             "custom_types": sd["custom_types"],
@@ -764,7 +783,7 @@ async def event_hold_seats(request: Request, event_id: int, db: Session = Depend
         flash(request, "Event not found.", "danger")
         return RedirectResponse("/events", status_code=303)
 
-    chosen_ids = request.session.get("event_session_ids", [])
+    chosen_ids = request.session.get("event_showing_ids", [])
     if not chosen_ids:
         flash(request, "No sessions selected.", "warning")
         return RedirectResponse(f"/events/{event_id}", status_code=303)
@@ -799,24 +818,24 @@ async def event_hold_seats(request: Request, event_id: int, db: Session = Depend
                 if seat_ids:
                     aud_seat_data[aud_id] = seat_ids
 
-        for sid in chosen_ids:
-            lecture = db.query(LectureSession).get(sid)
-            if not lecture:
+        for shid in chosen_ids:
+            showing = db.query(Showing).get(shid)
+            if not showing:
                 continue
-            aud_id = lecture.auditorium_id
+            aud_id = showing.auditorium_id
             seat_ids = aud_seat_data.get(aud_id, [])
             if seat_ids:
-                bookings = hold_seats(db, user.id, sid, seat_ids)
+                bookings = hold_seats(db, user.id, shid, seat_ids)
                 for b in bookings:
                     b.booking_group = booking_group
                     b.event_id = event_id
                 all_bookings.extend(bookings)
     else:
-        for sid in chosen_ids:
-            raw = form.get(f"seats_session_{sid}", "")
+        for shid in chosen_ids:
+            raw = form.get(f"seats_showing_{shid}", "")
             seat_ids = _parse_seat_ids(raw)
             if seat_ids:
-                bookings = hold_seats(db, user.id, sid, seat_ids)
+                bookings = hold_seats(db, user.id, shid, seat_ids)
                 for b in bookings:
                     b.booking_group = booking_group
                     b.event_id = event_id
@@ -824,7 +843,7 @@ async def event_hold_seats(request: Request, event_id: int, db: Session = Depend
 
     if not all_bookings:
         flash(request, "Could not hold any seats. They may already be taken.", "danger")
-        qs = "&".join(f"session_ids={sid}" for sid in chosen_ids)
+        qs = "&".join(f"showing_ids={shid}" for shid in chosen_ids)
         return RedirectResponse(f"/booking/event/{event_id}/select?{qs}", status_code=303)
 
     request.session["event_booking_group"] = booking_group
@@ -872,26 +891,27 @@ def event_checkout(request: Request, event_id: int, db: Session = Depends(get_db
     custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
     sessions_breakdown = {}
     for h in holds:
-        lecture = db.query(LectureSession).get(h.session_id)
+        showing = db.query(Showing).get(h.showing_id)
         seat = db.query(Seat).get(h.seat_id)
-        if not lecture or not seat:
+        if not showing or not seat:
             continue
-        price = _seat_price(lecture, seat.seat_type, db=db)
+        price = _seat_price(showing, seat.seat_type, db=db)
         discounted = round(price * (1 - discount_pct / 100), 2) if discount_pct else price
-        if h.session_id not in sessions_breakdown:
-            sessions_breakdown[h.session_id] = {
-                "lecture": lecture,
+        if h.showing_id not in sessions_breakdown:
+            sessions_breakdown[h.showing_id] = {
+                "lecture": showing.session,
+                "showing": showing,
                 "seats": [],
                 "subtotal": 0,
                 "subtotal_discounted": 0,
             }
-        sessions_breakdown[h.session_id]["seats"].append({
+        sessions_breakdown[h.showing_id]["seats"].append({
             "seat": seat,
             "price": price,
             "discounted": discounted,
         })
-        sessions_breakdown[h.session_id]["subtotal"] += price
-        sessions_breakdown[h.session_id]["subtotal_discounted"] += discounted
+        sessions_breakdown[h.showing_id]["subtotal"] += price
+        sessions_breakdown[h.showing_id]["subtotal_discounted"] += discounted
 
     base_total = sum(s["subtotal"] for s in sessions_breakdown.values())
     discounted_total = sum(s["subtotal_discounted"] for s in sessions_breakdown.values())
@@ -900,7 +920,8 @@ def event_checkout(request: Request, event_id: int, db: Session = Depends(get_db
     if sessions_breakdown:
         fee_pcts = []
         for s in sessions_breakdown.values():
-            pct = float(s["lecture"].processing_fee_pct) if s["lecture"].processing_fee_pct else 0
+            sh = s.get("showing")
+            pct = float(sh.processing_fee_pct) if sh and sh.processing_fee_pct else 0
             fee_pcts.append(pct)
         avg_fee_pct = sum(fee_pcts) / len(fee_pcts)
     processing_fee = round(discounted_total * avg_fee_pct / 100, 2)
@@ -960,12 +981,12 @@ def event_create_order(request: Request, event_id: int, db: Session = Depends(ge
     base = 0
     fee_pcts = []
     for h in holds:
-        lecture = db.query(LectureSession).get(h.session_id)
+        showing = db.query(Showing).get(h.showing_id)
         seat = db.query(Seat).get(h.seat_id)
-        price = _seat_price(lecture, seat.seat_type if seat else "standard", db=db)
+        price = _seat_price(showing, seat.seat_type if seat else "standard", db=db)
         discounted = round(price * (1 - discount_pct / 100), 2) if discount_pct else price
         base += discounted
-        fee_pcts.append(float(lecture.processing_fee_pct) if lecture and lecture.processing_fee_pct else 0)
+        fee_pcts.append(float(showing.processing_fee_pct) if showing and showing.processing_fee_pct else 0)
 
     avg_fee = sum(fee_pcts) / len(fee_pcts) if fee_pcts else 0
     total_paise = int(round(base * (1 + avg_fee / 100), 2) * 100)
@@ -1039,7 +1060,7 @@ async def event_verify_payment(request: Request, event_id: int, db: Session = De
     db.commit()
 
     request.session.pop("event_booking_group", None)
-    request.session.pop("event_session_ids", None)
+    request.session.pop("event_showing_ids", None)
     flash(request, f"Event booking confirmed! {len(confirmed)} seat(s) booked.", "success")
     return JSONResponse({"redirect": f"/booking/event/{event_id}/confirmation"})
 
@@ -1082,7 +1103,7 @@ async def event_pay_free(request: Request, event_id: int, db: Session = Depends(
     db.commit()
 
     request.session.pop("event_booking_group", None)
-    request.session.pop("event_session_ids", None)
+    request.session.pop("event_showing_ids", None)
     flash(request, f"Event booking confirmed! {len(confirmed)} seat(s) booked.", "success")
     return RedirectResponse(f"/booking/event/{event_id}/confirmation", status_code=303)
 
@@ -1112,23 +1133,24 @@ def event_confirmation(request: Request, event_id: int, db: Session = Depends(ge
 
     sessions_info = {}
     for b in bookings:
-        if b.session_id not in sessions_info:
-            lecture = db.query(LectureSession).get(b.session_id)
-            if not lecture:
+        if b.showing_id not in sessions_info:
+            showing = db.query(Showing).get(b.showing_id)
+            if not showing:
                 continue
-            sessions_info[b.session_id] = {
-                "lecture": lecture,
-                "auditorium": db.query(Auditorium).get(lecture.auditorium_id),
+            sessions_info[b.showing_id] = {
+                "lecture": showing.session,
+                "showing": showing,
+                "auditorium": db.query(Auditorium).get(showing.auditorium_id),
                 "bookings": [],
                 "seats": [],
             }
-        if b.session_id not in sessions_info:
+        if b.showing_id not in sessions_info:
             continue
         seat = db.query(Seat).get(b.seat_id)
         if not seat:
             continue
-        sessions_info[b.session_id]["bookings"].append(b)
-        sessions_info[b.session_id]["seats"].append(seat)
+        sessions_info[b.showing_id]["bookings"].append(b)
+        sessions_info[b.showing_id]["seats"].append(seat)
 
     group_qr = bookings[0].group_qr_data if bookings else None
     total = sum(b.amount_paid or 0 for b in bookings)
@@ -1159,9 +1181,9 @@ def _confirm_event_holds(db: Session, holds: list[Booking], discount_pct: float,
     invoice_num = _generate_invoice_number()
 
     for b in holds:
-        lecture = db.query(LectureSession).get(b.session_id)
+        showing = db.query(Showing).get(b.showing_id)
         seat = db.query(Seat).get(b.seat_id)
-        price = _price_for_seat(lecture, seat.seat_type if seat else "standard", db=db, discount_pct=discount_pct)
+        price = _price_for_seat(showing, seat.seat_type if seat else "standard", db=db, discount_pct=discount_pct)
         b.payment_status = "paid"
         b.booked_at = now
         b.held_until = None

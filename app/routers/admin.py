@@ -21,13 +21,15 @@ from app.models.city import City
 from app.models.college import College
 from app.models.seat import Seat
 from app.models.seat_type import SeatType
-from app.models.session import LectureSession
+from app.models.session import Session as SessionModel
+from app.models.showing import Showing
 from app.models.session_speaker import SessionSpeaker, SPEAKER_ROLES
 from app.models.speaker import Speaker
 from app.models.agenda import AgendaItem
 from app.models.session_recording import SessionRecording
 from app.models.event import Event
-from app.models.event_session import EventSession
+from app.models.event_showing import EventShowing
+from app.models.feedback import Feedback
 from app.models.testimonial import Testimonial
 from app.models.user import User
 from app.services.razorpay import process_refund as rz_process_refund
@@ -112,8 +114,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     total_revenue = db.query(func.sum(Booking.amount_paid)).filter(Booking.payment_status == "paid").scalar() or 0
 
     now = now_ist()
-    upcoming_count = db.query(func.count(LectureSession.id)).filter(
-        LectureSession.status == "published", LectureSession.start_time > now
+    upcoming_count = db.query(func.count(Showing.id)).filter(
+        Showing.status == "published", Showing.start_time > now
     ).scalar()
 
     total_checked_in = db.query(func.count(Booking.id)).filter(Booking.checked_in == True).scalar()
@@ -121,8 +123,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
     # Event status breakdown
     status_counts = (
-        db.query(LectureSession.status, func.count(LectureSession.id))
-        .group_by(LectureSession.status)
+        db.query(Showing.status, func.count(Showing.id))
+        .group_by(Showing.status)
         .all()
     )
     event_statuses = {s: c for s, c in status_counts}
@@ -132,8 +134,8 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     city_rows = (
         db.query(City.name, func.count(Booking.id))
         .select_from(Booking)
-        .join(LectureSession, Booking.session_id == LectureSession.id)
-        .join(Auditorium, LectureSession.auditorium_id == Auditorium.id)
+        .join(Showing, Booking.showing_id == Showing.id)
+        .join(Auditorium, Showing.auditorium_id == Auditorium.id)
         .join(College, Auditorium.college_id == College.id)
         .join(City, College.city_id == City.id)
         .filter(Booking.payment_status == "paid")
@@ -155,9 +157,10 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     enriched_bookings = []
     for b in recent_bookings:
         u = db.query(User).get(b.user_id)
-        s = db.query(LectureSession).get(b.session_id)
+        showing = db.query(Showing).get(b.showing_id)
+        sess = showing.session if showing else None
         seat = db.query(Seat).get(b.seat_id)
-        enriched_bookings.append({"booking": b, "user": u, "session": s, "seat": seat})
+        enriched_bookings.append({"booking": b, "user": u, "session": sess, "showing": showing, "seat": seat})
 
     return templates.TemplateResponse(
         "admin/dashboard.html",
@@ -817,27 +820,27 @@ def speaker_delete_check(request: Request, speaker_id: int, db: Session = Depend
     if not sp:
         return JSONResponse({"error": "not_found"}, status_code=404)
     now = now_ist()
-    primary_sessions = (
-        db.query(LectureSession)
-        .filter(LectureSession.speaker_id == speaker_id, LectureSession.start_time > now)
-        .all()
-    )
+    primary_sessions = db.query(SessionModel).filter(SessionModel.speaker_id == speaker_id).all()
+    primary_sessions = [s for s in primary_sessions if any(sh.start_time > now for sh in s.showings)]
     agenda_sessions = (
-        db.query(LectureSession)
-        .join(AgendaItem, AgendaItem.session_id == LectureSession.id)
-        .filter(AgendaItem.speaker_id == speaker_id, LectureSession.start_time > now)
+        db.query(SessionModel)
+        .join(AgendaItem, AgendaItem.session_id == SessionModel.id)
+        .filter(AgendaItem.speaker_id == speaker_id)
         .all()
     )
+    agenda_sessions = [s for s in agenda_sessions if any(sh.start_time > now for sh in s.showings)]
     seen = set()
     sessions_list = []
     for s in primary_sessions:
+        first_showing = s.showings[0] if s.showings else None
         if s.id not in seen:
             seen.add(s.id)
-            sessions_list.append({"id": s.id, "title": s.title, "date": s.start_time.strftime("%b %d, %Y %I:%M %p"), "role": "Primary Speaker"})
+            sessions_list.append({"id": s.id, "title": s.title, "date": first_showing.start_time.strftime("%b %d, %Y %I:%M %p") if first_showing else "", "role": "Primary Speaker"})
     for s in agenda_sessions:
+        first_showing = s.showings[0] if s.showings else None
         if s.id not in seen:
             seen.add(s.id)
-            sessions_list.append({"id": s.id, "title": s.title, "date": s.start_time.strftime("%b %d, %Y %I:%M %p"), "role": "Agenda Item"})
+            sessions_list.append({"id": s.id, "title": s.title, "date": first_showing.start_time.strftime("%b %d, %Y %I:%M %p") if first_showing else "", "role": "Agenda Item"})
     return JSONResponse({"speaker_name": sp.name, "has_sessions": len(sessions_list) > 0, "sessions": sessions_list})
 
 
@@ -851,15 +854,16 @@ async def speaker_delete(request: Request, speaker_id: int, db: Session = Depend
         return RedirectResponse("/admin/speakers", status_code=303)
     form = await _form(request)
     session_action = form.get("session_action", "draft")
-    linked_primary = db.query(LectureSession).filter(LectureSession.speaker_id == speaker_id).all()
+    linked_primary = db.query(SessionModel).filter(SessionModel.speaker_id == speaker_id).all()
     linked_agenda = db.query(AgendaItem).filter(AgendaItem.speaker_id == speaker_id).all()
     if session_action == "delete":
         for s in linked_primary:
             db.delete(s)
     elif session_action == "draft":
         for s in linked_primary:
-            s.status = "draft"
             s.speaker_id = None
+            for sh in s.showings:
+                sh.status = "draft"
     else:
         for s in linked_primary:
             s.speaker_id = None
@@ -919,14 +923,17 @@ def sessions_list(request: Request, db: Session = Depends(get_db)):
     admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    sessions = db.query(LectureSession).order_by(LectureSession.start_time.desc()).all()
+    all_sessions = db.query(SessionModel).order_by(SessionModel.created_at.desc()).all()
     enriched = []
-    for s in sessions:
-        aud = db.query(Auditorium).get(s.auditorium_id)
-        booking_count = db.query(func.count(Booking.id)).filter(
-            Booking.session_id == s.id, Booking.payment_status == "paid"
-        ).scalar()
-        enriched.append({"session": s, "auditorium": aud, "bookings": booking_count})
+    for s in all_sessions:
+        showing_count = len(s.showings)
+        total_bookings = sum(
+            db.query(func.count(Booking.id)).filter(
+                Booking.showing_id == sh.id, Booking.payment_status == "paid"
+            ).scalar() or 0
+            for sh in s.showings
+        )
+        enriched.append({"session": s, "showings": s.showings, "showing_count": showing_count, "bookings": total_bookings})
     return templates.TemplateResponse(
         "admin/sessions.html",
         _admin_ctx(request, active_page="sessions", sessions=enriched),
@@ -943,7 +950,7 @@ def session_new(request: Request, db: Session = Depends(get_db)):
     cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
     return templates.TemplateResponse(
         "admin/session_form.html",
-        _admin_ctx(request, active_page="sessions", lecture=None,
+        _admin_ctx(request, active_page="sessions", lecture=None, showing=None,
                    auditoriums=auditoriums, speakers=speakers, cities=cities,
                    agenda_items=[], session_speakers=[], speaker_roles=SPEAKER_ROLES),
     )
@@ -966,20 +973,13 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
     speaker_id_raw = form.get("speaker_id")
     speaker_id = int(speaker_id_raw) if speaker_id_raw and speaker_id_raw != "" else None
 
-    session_obj = LectureSession(
-        auditorium_id=int(form.get("auditorium_id")),
+    session_obj = SessionModel(
         speaker_id=speaker_id,
         title=form.get("title", "").strip(),
-        speaker=form.get("speaker", "").strip(),
+        speaker_name=form.get("speaker_name", "").strip() or form.get("speaker", "").strip(),
         description=form.get("description", "").strip(),
         banner_url=form.get("banner_url", "").strip() or None,
-        start_time=start_time,
         duration_minutes=int(form.get("duration_minutes", 30)),
-        price=float(form.get("price", 0)),
-        price_vip=float(form["price_vip"]) if form.get("price_vip", "").strip() else None,
-        price_accessible=float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None,
-        processing_fee_pct=float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None,
-        status=form.get("status", "draft"),
         cert_title=form.get("cert_title", "").strip() or None,
         cert_subtitle=form.get("cert_subtitle", "").strip() or None,
         cert_footer=form.get("cert_footer", "").strip() or None,
@@ -991,6 +991,7 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
         cert_style=form.get("cert_style", "").strip() or None,
     )
+
     speaker_ids = _collect_speaker_ids_from_form(form)
     conflicts = _check_speaker_overlaps(
         db, speaker_ids, start_time,
@@ -1003,6 +1004,20 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/admin/sessions/new", status_code=303)
 
     db.add(session_obj)
+    db.flush()
+
+    showing_obj = Showing(
+        session_id=session_obj.id,
+        auditorium_id=int(form.get("auditorium_id")),
+        start_time=start_time,
+        duration_minutes=int(form.get("duration_minutes", 30)),
+        price=float(form.get("price", 0)),
+        price_vip=float(form["price_vip"]) if form.get("price_vip", "").strip() else None,
+        price_accessible=float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None,
+        processing_fee_pct=float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None,
+        status=form.get("status", "draft"),
+    )
+    db.add(showing_obj)
     db.commit()
     db.refresh(session_obj)
 
@@ -1020,10 +1035,19 @@ def session_edit(request: Request, sess_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    lecture = db.query(LectureSession).get(sess_id)
+    lecture = db.query(SessionModel).get(sess_id)
     if not lecture:
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/admin/sessions", status_code=303)
+    all_showings = sorted(lecture.showings, key=lambda s: s.start_time or datetime.min)
+    first_showing = all_showings[0] if all_showings else None
+    showings_enriched = []
+    for sh in all_showings:
+        aud = db.query(Auditorium).get(sh.auditorium_id) if sh.auditorium_id else None
+        paid = db.query(func.count(Booking.id)).filter(
+            Booking.showing_id == sh.id, Booking.payment_status == "paid"
+        ).scalar()
+        showings_enriched.append({"showing": sh, "auditorium": aud, "bookings": paid})
     auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
     speakers = db.query(Speaker).order_by(Speaker.name).all()
     cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
@@ -1031,7 +1055,8 @@ def session_edit(request: Request, sess_id: int, db: Session = Depends(get_db)):
     session_speakers = db.query(SessionSpeaker).filter(SessionSpeaker.session_id == sess_id).all()
     return templates.TemplateResponse(
         "admin/session_form.html",
-        _admin_ctx(request, active_page="sessions", lecture=lecture,
+        _admin_ctx(request, active_page="sessions", lecture=lecture, showing=first_showing,
+                   showings_list=showings_enriched,
                    auditoriums=auditoriums, speakers=speakers, cities=cities,
                    agenda_items=agenda_items, session_speakers=session_speakers,
                    speaker_roles=SPEAKER_ROLES),
@@ -1044,32 +1069,19 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    lecture = db.query(LectureSession).get(sess_id)
+    lecture = db.query(SessionModel).get(sess_id)
     if not lecture:
         return RedirectResponse("/admin/sessions", status_code=303)
 
     form = await _form(request)
-    start_str = form.get("start_time", "")
-    try:
-        start_time = datetime.fromisoformat(start_str)
-    except ValueError:
-        flash(request, "Invalid date/time.", "danger")
-        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
 
     speaker_id_raw = form.get("speaker_id")
     lecture.speaker_id = int(speaker_id_raw) if speaker_id_raw and speaker_id_raw != "" else None
-    lecture.auditorium_id = int(form.get("auditorium_id", lecture.auditorium_id))
     lecture.title = form.get("title", lecture.title).strip()
-    lecture.speaker = form.get("speaker", lecture.speaker).strip()
+    lecture.speaker_name = form.get("speaker_name", "").strip() or form.get("speaker", lecture.speaker_name).strip()
     lecture.description = form.get("description", "").strip()
     lecture.banner_url = form.get("banner_url", "").strip() or None
-    lecture.start_time = start_time
     lecture.duration_minutes = int(form.get("duration_minutes", 30))
-    lecture.price = float(form.get("price", 0))
-    lecture.price_vip = float(form["price_vip"]) if form.get("price_vip", "").strip() else None
-    lecture.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
-    lecture.processing_fee_pct = float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None
-    lecture.status = form.get("status", lecture.status)
     lecture.cert_title = form.get("cert_title", "").strip() or None
     lecture.cert_subtitle = form.get("cert_subtitle", "").strip() or None
     lecture.cert_footer = form.get("cert_footer", "").strip() or None
@@ -1081,26 +1093,13 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
     lecture.cert_style = form.get("cert_style", "").strip() or None
 
-    speaker_ids = _collect_speaker_ids_from_form(form)
-    conflicts = _check_speaker_overlaps(
-        db, speaker_ids, start_time,
-        int(form.get("duration_minutes", 30)),
-        int(form.get("auditorium_id", lecture.auditorium_id)),
-        exclude_session_id=sess_id,
-    )
-    conflicts += _check_agenda_speaker_conflicts(db, form, start_time, exclude_session_id=sess_id)
-    if conflicts:
-        db.rollback()
-        flash(request, "Speaker scheduling conflict: " + " | ".join(conflicts), "danger")
-        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
-
     _save_agenda_items(db, form, sess_id)
     _save_session_speakers(db, form, sess_id)
 
     log_activity(db, category="admin", action="update", description=f"Updated session '{lecture.title}'", request=request, user_id=admin.id, target_type="session", target_id=sess_id)
     db.commit()
     flash(request, f"Session '{lecture.title}' updated.", "success")
-    return RedirectResponse("/admin/sessions", status_code=303)
+    return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
 
 
 def _collect_speaker_ids_from_form(form) -> list[int]:
@@ -1134,7 +1133,7 @@ def _check_speaker_overlaps(
     for sp_id in speaker_ids:
         q = (
             db.query(SessionSpeaker)
-            .join(LectureSession, SessionSpeaker.session_id == LectureSession.id)
+            .join(SessionModel, SessionSpeaker.session_id == SessionModel.id)
             .filter(SessionSpeaker.speaker_id == sp_id)
         )
         if exclude_session_id is not None:
@@ -1143,20 +1142,22 @@ def _check_speaker_overlaps(
             key = (sp_id, ss.session_id)
             if key in seen:
                 continue
-            other = db.query(LectureSession).get(ss.session_id)
-            if not other:
+            other_session = db.query(SessionModel).get(ss.session_id)
+            if not other_session:
                 continue
-            other_end = other.start_time + timedelta(minutes=other.duration_minutes)
-            if start_time < other_end and other.start_time < end_time:
-                seen.add(key)
-                sp = db.query(Speaker).get(sp_id)
-                sp_name = sp.name if sp else f"Speaker #{sp_id}"
-                venue_note = "a different venue" if other.auditorium_id != auditorium_id else "the same venue"
-                conflicts.append(
-                    f"{sp_name} is already assigned to '{other.title}' "
-                    f"({other.start_time.strftime('%b %d %I:%M %p')}–"
-                    f"{other_end.strftime('%I:%M %p')}) at {venue_note}."
-                )
+            for sh in other_session.showings:
+                other_end = sh.start_time + timedelta(minutes=sh.effective_duration)
+                if start_time < other_end and sh.start_time < end_time:
+                    seen.add(key)
+                    sp = db.query(Speaker).get(sp_id)
+                    sp_name = sp.name if sp else f"Speaker #{sp_id}"
+                    venue_note = "a different venue" if sh.auditorium_id != auditorium_id else "the same venue"
+                    conflicts.append(
+                        f"{sp_name} is already assigned to '{other_session.title}' "
+                        f"({sh.start_time.strftime('%b %d %I:%M %p')}–"
+                        f"{other_end.strftime('%I:%M %p')}) at {venue_note}."
+                    )
+                    break
     return conflicts
 
 
@@ -1184,7 +1185,7 @@ def _check_agenda_speaker_conflicts(
             # Check against sessions via SessionSpeaker
             q = (
                 db.query(SessionSpeaker)
-                .join(LectureSession, SessionSpeaker.session_id == LectureSession.id)
+                .join(SessionModel, SessionSpeaker.session_id == SessionModel.id)
                 .filter(SessionSpeaker.speaker_id == sp_id)
             )
             if exclude_session_id is not None:
@@ -1193,20 +1194,22 @@ def _check_agenda_speaker_conflicts(
                 key = (sp_id, ss.session_id)
                 if key in seen:
                     continue
-                other = db.query(LectureSession).get(ss.session_id)
-                if not other:
+                other_session = db.query(SessionModel).get(ss.session_id)
+                if not other_session:
                     continue
-                other_end = other.start_time + timedelta(minutes=other.duration_minutes)
-                if item_start < other_end and other.start_time < item_end:
-                    seen.add(key)
-                    sp = db.query(Speaker).get(sp_id)
-                    sp_name = sp.name if sp else f"Speaker #{sp_id}"
-                    conflicts.append(
-                        f"Agenda item conflict: {sp_name} has an agenda slot "
-                        f"({item_start.strftime('%I:%M %p')}–{item_end.strftime('%I:%M %p')}) "
-                        f"that overlaps with session '{other.title}' "
-                        f"({other.start_time.strftime('%b %d %I:%M %p')}–{other_end.strftime('%I:%M %p')})."
-                    )
+                for sh in other_session.showings:
+                    other_end = sh.start_time + timedelta(minutes=sh.effective_duration)
+                    if item_start < other_end and sh.start_time < item_end:
+                        seen.add(key)
+                        sp = db.query(Speaker).get(sp_id)
+                        sp_name = sp.name if sp else f"Speaker #{sp_id}"
+                        conflicts.append(
+                            f"Agenda item conflict: {sp_name} has an agenda slot "
+                            f"({item_start.strftime('%I:%M %p')}–{item_end.strftime('%I:%M %p')}) "
+                            f"that overlaps with session '{other_session.title}' "
+                            f"({sh.start_time.strftime('%b %d %I:%M %p')}–{other_end.strftime('%I:%M %p')})."
+                        )
+                        break
         cumulative_minutes += duration
         idx += 1
     return conflicts
@@ -1269,13 +1272,106 @@ def session_delete(request: Request, sess_id: int, db: Session = Depends(get_db)
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    lecture = db.query(LectureSession).get(sess_id)
+    lecture = db.query(SessionModel).get(sess_id)
     if lecture:
         log_activity(db, category="admin", action="delete", description=f"Deleted session '{lecture.title}'", request=request, user_id=admin.id, target_type="session", target_id=sess_id)
         db.delete(lecture)
         db.commit()
         flash(request, f"Session '{lecture.title}' deleted.", "success")
     return RedirectResponse("/admin/sessions", status_code=303)
+
+
+# ─── Showing CRUD ───
+
+@router.post("/sessions/{sess_id}/showings/new")
+async def showing_create(request: Request, sess_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    lecture = db.query(SessionModel).get(sess_id)
+    if not lecture:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/admin/sessions", status_code=303)
+    form = await _form(request)
+    try:
+        start_time = datetime.fromisoformat(form.get("start_time", ""))
+    except ValueError:
+        flash(request, "Invalid date/time.", "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+    aud_id_raw = form.get("auditorium_id", "")
+    if not aud_id_raw or not aud_id_raw.strip().isdigit():
+        flash(request, "Please select a venue.", "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+    new_showing = Showing(
+        session_id=sess_id,
+        auditorium_id=int(aud_id_raw),
+        start_time=start_time,
+        duration_minutes=int(form.get("duration_minutes", lecture.duration_minutes or 30)),
+        price=float(form.get("price", 0)),
+        price_vip=float(form["price_vip"]) if form.get("price_vip", "").strip() else None,
+        price_accessible=float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None,
+        processing_fee_pct=float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None,
+        status=form.get("status", "draft"),
+    )
+    db.add(new_showing)
+    log_activity(db, category="admin", action="create", description=f"Added showing for '{lecture.title}'", request=request, user_id=admin.id, target_type="showing", target_id=sess_id)
+    db.commit()
+    flash(request, "Showing added.", "success")
+    return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+
+
+@router.post("/sessions/{sess_id}/showings/{showing_id}/edit")
+async def showing_update(request: Request, sess_id: int, showing_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    showing = db.query(Showing).filter(Showing.id == showing_id, Showing.session_id == sess_id).first()
+    if not showing:
+        flash(request, "Showing not found.", "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+    form = await _form(request)
+    try:
+        showing.start_time = datetime.fromisoformat(form.get("start_time", ""))
+    except ValueError:
+        flash(request, "Invalid date/time.", "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+    aud_id_raw = form.get("auditorium_id", "")
+    if aud_id_raw and aud_id_raw.strip().isdigit():
+        showing.auditorium_id = int(aud_id_raw)
+    showing.duration_minutes = int(form.get("duration_minutes", showing.duration_minutes or 30))
+    showing.price = float(form.get("price", showing.price or 0))
+    showing.price_vip = float(form["price_vip"]) if form.get("price_vip", "").strip() else None
+    showing.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
+    showing.processing_fee_pct = float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None
+    showing.status = form.get("status", showing.status)
+    lecture = db.query(SessionModel).get(sess_id)
+    log_activity(db, category="admin", action="update", description=f"Updated showing #{showing_id} for '{lecture.title if lecture else sess_id}'", request=request, user_id=admin.id, target_type="showing", target_id=showing_id)
+    db.commit()
+    flash(request, "Showing updated.", "success")
+    return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+
+
+@router.post("/sessions/{sess_id}/showings/{showing_id}/delete")
+def showing_delete(request: Request, sess_id: int, showing_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    showing = db.query(Showing).filter(Showing.id == showing_id, Showing.session_id == sess_id).first()
+    if not showing:
+        flash(request, "Showing not found.", "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+    paid_count = db.query(func.count(Booking.id)).filter(
+        Booking.showing_id == showing_id, Booking.payment_status == "paid"
+    ).scalar()
+    if paid_count > 0:
+        flash(request, f"Cannot delete — this showing has {paid_count} paid booking(s). Cancel or refund them first.", "danger")
+        return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
+    lecture = db.query(SessionModel).get(sess_id)
+    log_activity(db, category="admin", action="delete", description=f"Deleted showing #{showing_id} for '{lecture.title if lecture else sess_id}'", request=request, user_id=admin.id, target_type="showing", target_id=showing_id)
+    db.delete(showing)
+    db.commit()
+    flash(request, "Showing deleted.", "success")
+    return RedirectResponse(f"/admin/sessions/{sess_id}/edit", status_code=303)
 
 
 # ─── Certificate Preview ───
@@ -1292,12 +1388,13 @@ def session_certificate_preview(
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    lecture = db.query(LectureSession).get(sess_id)
+    lecture = db.query(SessionModel).get(sess_id)
     if not lecture:
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/admin/sessions", status_code=303)
 
-    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture.auditorium_id else None
+    first_showing = lecture.showings[0] if lecture.showings else None
+    auditorium = db.query(Auditorium).get(first_showing.auditorium_id) if first_showing else None
 
     dummy_booking = SimpleNamespace(
         booking_ref="PREVIEW",
@@ -1308,7 +1405,7 @@ def session_certificate_preview(
         username="sample_attendee",
     )
 
-    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, lecture, auditorium)
+    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, lecture, first_showing, auditorium)
 
     return StreamingResponse(
         _io.BytesIO(pdf_bytes),
@@ -1329,7 +1426,7 @@ async def session_certificate_save(
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    lecture = db.query(LectureSession).get(sess_id)
+    lecture = db.query(SessionModel).get(sess_id)
     if not lecture:
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/admin/sessions", status_code=303)
@@ -1381,9 +1478,7 @@ async def session_certificate_preview_image(
 
     draft_lecture = SimpleNamespace(
         title=form.get("title", "").strip() or "Session Title",
-        speaker=form.get("speaker", "").strip() or "Speaker Name",
-        start_time=start_time,
-        duration_minutes=int(form.get("duration_minutes", 30) or 30),
+        speaker_name=form.get("speaker", "").strip() or "Speaker Name",
         cert_title=form.get("cert_title", "").strip() or None,
         cert_subtitle=form.get("cert_subtitle", "").strip() or None,
         cert_footer=form.get("cert_footer", "").strip() or None,
@@ -1395,6 +1490,7 @@ async def session_certificate_preview_image(
         cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
         cert_style=form.get("cert_style", "").strip() or None,
     )
+    draft_showing = SimpleNamespace(start_time=start_time)
     dummy_booking = SimpleNamespace(
         booking_ref="PREVIEW",
         qr_code_data="CERT-PREVIEW-SAMPLE",
@@ -1404,7 +1500,7 @@ async def session_certificate_preview_image(
         username="sample_attendee",
     )
 
-    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, draft_lecture, auditorium)
+    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, draft_lecture, draft_showing, auditorium)
 
     pdf_doc = pypdfium2.PdfDocument(pdf_bytes)
     page = pdf_doc[0]
@@ -1431,7 +1527,7 @@ def session_recordings(request: Request, sess_id: int, db: Session = Depends(get
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    lecture = db.query(LectureSession).get(sess_id)
+    lecture = db.query(SessionModel).get(sess_id)
     if not lecture:
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/admin/sessions", status_code=303)
@@ -1453,7 +1549,7 @@ async def session_recording_add(request: Request, sess_id: int, db: Session = De
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    lecture = db.query(LectureSession).get(sess_id)
+    lecture = db.query(SessionModel).get(sess_id)
     if not lecture:
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/admin/sessions", status_code=303)
@@ -1550,7 +1646,10 @@ def bookings_list(
 
     if session_filter:
         try:
-            query = query.filter(Booking.session_id == int(session_filter))
+            sid = int(session_filter)
+            showing_ids = [sh.id for sh in db.query(Showing).filter(Showing.session_id == sid).all()]
+            if showing_ids:
+                query = query.filter(Booking.showing_id.in_(showing_ids))
         except ValueError:
             pass
 
@@ -1559,21 +1658,22 @@ def bookings_list(
     enriched = []
     for b in bookings:
         u = db.query(User).get(b.user_id)
-        s = db.query(LectureSession).get(b.session_id)
+        showing = db.query(Showing).get(b.showing_id)
+        sess = showing.session if showing else None
         seat = db.query(Seat).get(b.seat_id)
         if q:
             search = q.lower()
             match = (
                 (u and (search in u.username.lower() or search in u.email.lower() or (u.full_name and search in u.full_name.lower())))
-                or (s and search in s.title.lower())
+                or (sess and search in sess.title.lower())
                 or (b.booking_ref and search in b.booking_ref.lower())
                 or (b.ticket_id and search in b.ticket_id.lower())
             )
             if not match:
                 continue
-        enriched.append({"booking": b, "user": u, "session": s, "seat": seat})
+        enriched.append({"booking": b, "user": u, "session": sess, "showing": showing, "seat": seat})
 
-    all_sessions = db.query(LectureSession).order_by(LectureSession.title).all()
+    all_sessions = db.query(SessionModel).order_by(SessionModel.title).all()
 
     return templates.TemplateResponse(
         "admin/bookings.html",
@@ -1603,7 +1703,10 @@ def bookings_csv(
 
     if session_filter:
         try:
-            query = query.filter(Booking.session_id == int(session_filter))
+            sid = int(session_filter)
+            showing_ids = [sh.id for sh in db.query(Showing).filter(Showing.session_id == sid).all()]
+            if showing_ids:
+                query = query.filter(Booking.showing_id.in_(showing_ids))
         except ValueError:
             pass
 
@@ -1614,13 +1717,14 @@ def bookings_csv(
     writer.writerow(["Booking Ref", "Ticket ID", "User", "Email", "Session", "Seat", "Status", "Amount Paid", "Refund", "Booked At", "Checked In"])
     for b in bookings:
         u = db.query(User).get(b.user_id)
-        s = db.query(LectureSession).get(b.session_id)
+        showing = db.query(Showing).get(b.showing_id)
+        sess = showing.session if showing else None
         seat = db.query(Seat).get(b.seat_id)
         if q:
             search = q.lower()
             match = (
                 (u and (search in u.username.lower() or search in u.email.lower() or (u.full_name and search in u.full_name.lower())))
-                or (s and search in s.title.lower())
+                or (sess and search in sess.title.lower())
                 or (b.booking_ref and search in b.booking_ref.lower())
                 or (b.ticket_id and search in b.ticket_id.lower())
             )
@@ -1631,7 +1735,7 @@ def bookings_csv(
             b.ticket_id or "",
             u.username if u else "",
             u.email if u else "",
-            s.title if s else "",
+            sess.title if sess else "",
             seat.label if seat else "",
             b.payment_status,
             b.amount_paid or "",
@@ -1685,15 +1789,16 @@ def admin_booking_invoice(request: Request, booking_id: int, db: Session = Depen
         group_bookings = [booking]
 
     user = db.query(User).get(booking.user_id)
-    lecture = db.query(LectureSession).get(booking.session_id)
-    auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
-    if not user or not lecture or not auditorium:
+    showing = db.query(Showing).get(booking.showing_id)
+    session_obj = showing.session if showing else None
+    auditorium = db.query(Auditorium).get(showing.auditorium_id) if showing else None
+    if not user or not showing or not session_obj or not auditorium:
         flash(request, "Related data not found.", "danger")
         return RedirectResponse("/admin/bookings", status_code=303)
 
     seats = [db.query(Seat).get(b.seat_id) for b in group_bookings]
     custom_types_map = {f"custom_{st.id}": st for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
-    pdf_bytes = generate_invoice_pdf(group_bookings, user, lecture, auditorium, seats, custom_types_map, db=db)
+    pdf_bytes = generate_invoice_pdf(group_bookings, user, session_obj, showing, auditorium, seats, custom_types_map, db=db)
     ref = booking.booking_ref or "invoice"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
@@ -1752,9 +1857,9 @@ def checkin_page(request: Request, db: Session = Depends(get_db)):
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     sessions = (
-        db.query(LectureSession)
-        .filter(LectureSession.status.in_(["published", "completed"]))
-        .order_by(LectureSession.start_time.desc())
+        db.query(Showing)
+        .filter(Showing.status.in_(["published", "completed"]))
+        .order_by(Showing.start_time.desc())
         .all()
     )
     return templates.TemplateResponse(
@@ -1774,9 +1879,9 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
     session_id_raw = form.get("session_id", "")
 
     sessions = (
-        db.query(LectureSession)
-        .filter(LectureSession.status.in_(["published", "completed"]))
-        .order_by(LectureSession.start_time.desc())
+        db.query(Showing)
+        .filter(Showing.status.in_(["published", "completed"]))
+        .order_by(Showing.start_time.desc())
         .all()
     )
 
@@ -1802,41 +1907,41 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets."}
         elif session_id_raw:
             try:
-                group_bookings = [b for b in all_group if b.session_id == int(session_id_raw)]
+                group_bookings = [b for b in all_group if b.showing_id == int(session_id_raw)]
             except ValueError:
                 group_bookings = all_group
             if not group_bookings:
                 result = {"status": "error", "msg": f"No tickets in this group match the selected session."}
         else:
             now = now_ist()
-            session_ids = {b.session_id for b in all_group}
+            showing_ids = {b.showing_id for b in all_group}
             active_sessions = []
-            for sid in session_ids:
-                lec = db.query(LectureSession).get(sid)
+            for sid in showing_ids:
+                lec = db.query(Showing).get(sid)
                 if not lec or not lec.start_time:
                     continue
-                end = lec.end_time or (lec.start_time + timedelta(hours=2))
+                end = lec.start_time + timedelta(minutes=lec.effective_duration)
                 if (lec.start_time - timedelta(hours=1)) <= now <= (end + timedelta(minutes=30)):
                     active_sessions.append(lec)
             if len(active_sessions) >= 1:
                 unchecked = [
                     lec for lec in active_sessions
-                    if any(not b.checked_in for b in all_group if b.session_id == lec.id)
+                    if any(not b.checked_in for b in all_group if b.showing_id == lec.id)
                 ]
                 target = unchecked if unchecked else active_sessions
                 if len(target) == 1:
-                    group_bookings = [b for b in all_group if b.session_id == target[0].id]
+                    group_bookings = [b for b in all_group if b.showing_id == target[0].id]
                 else:
-                    titles = ", ".join(f"'{l.title}'" for l in target)
+                    titles = ", ".join(f"'{l.session.title}'" for l in target if l.session)
                     result = {"status": "error", "msg": f"Multiple sessions are active right now ({titles}). Please select a specific session from the dropdown."}
             else:
                 upcoming = []
-                for sid in session_ids:
-                    lec = db.query(LectureSession).get(sid)
+                for sid in showing_ids:
+                    lec = db.query(Showing).get(sid)
                     if lec and lec.start_time and lec.start_time > now:
                         upcoming.append(lec)
                 upcoming.sort(key=lambda l: l.start_time)
-                titles = ", ".join(f"'{l.title}' ({l.start_time.strftime('%b %d %I:%M %p')})" for l in upcoming[:3])
+                titles = ", ".join(f"'{l.session.title}' ({l.start_time.strftime('%b %d %I:%M %p')})" for l in upcoming[:3] if l.session)
                 hint = f" Upcoming: {titles}" if titles else ""
                 result = {"status": "error", "msg": f"No session in this event is currently active. Please select a session from the dropdown.{hint}"}
 
@@ -1856,16 +1961,16 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             db.commit()
 
             user = db.query(User).get(group_bookings[0].user_id)
-            lecture = db.query(LectureSession).get(group_bookings[0].session_id)
+            lecture = db.query(Showing).get(group_bookings[0].showing_id)
 
             if newly_checked and not already_checked:
-                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{lecture.title if lecture else 'unknown'}'."
+                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{lecture.session.title if lecture and lecture.session else 'unknown'}'."
                 status = "success"
                 log_activity(db, category="admin", action="checkin", description=f"Group check-in: {len(newly_checked)} ticket(s) for '{lecture.title if lecture else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
             elif newly_checked and already_checked:
                 msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in."
                 status = "success"
-                log_activity(db, category="admin", action="checkin", description=f"Partial group check-in: {len(newly_checked)} new for '{lecture.title if lecture else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
+                log_activity(db, category="admin", action="checkin", description=f"Partial group check-in: {len(newly_checked)} new for '{lecture.session.title if lecture and lecture.session else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
             else:
                 msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in. Ticket is valid."
                 status = "reentry"
@@ -1876,7 +1981,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
                 "is_group": True,
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
-                "session_title": lecture.title if lecture else "",
+                "session_title": lecture.session.title if lecture and lecture.session else "",
                 "newly_checked": newly_checked,
                 "already_checked": already_checked,
             }
@@ -1884,7 +1989,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
         query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
         if session_id_raw:
             try:
-                query = query.filter(Booking.session_id == int(session_id_raw))
+                query = query.filter(Booking.showing_id == int(session_id_raw))
             except ValueError:
                 pass
         booking = query.first()
@@ -1894,7 +1999,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
         elif booking.checked_in:
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)
-            lecture = db.query(LectureSession).get(booking.session_id)
+            lecture = db.query(Showing).get(booking.showing_id)
             time_str = booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'
             result = {
                 "status": "reentry",
@@ -1902,7 +2007,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
                 "seat_label": seat.label if seat else "",
-                "session_title": lecture.title if lecture else "",
+                "session_title": lecture.session.title if lecture and lecture.session else "",
                 "ticket_id": ticket_id,
             }
         else:
@@ -1910,8 +2015,8 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             booking.checked_in_at = now_ist()
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)
-            lecture = db.query(LectureSession).get(booking.session_id)
-            log_activity(db, category="admin", action="checkin", description=f"Checked in ticket '{ticket_id}' (seat {seat.label if seat else '?'}) for '{lecture.title if lecture else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=booking.id)
+            lecture = db.query(Showing).get(booking.showing_id)
+            log_activity(db, category="admin", action="checkin", description=f"Checked in ticket '{ticket_id}' (seat {seat.label if seat else '?'}) for '{lecture.session.title if lecture and lecture.session else 'unknown'}'", request=request, user_id=admin.id, target_type="booking", target_id=booking.id)
             db.commit()
             result = {
                 "status": "success",
@@ -1919,7 +2024,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
                 "seat_label": seat.label if seat else "",
-                "session_title": lecture.title if lecture else "",
+                "session_title": lecture.session.title if lecture and lecture.session else "",
                 "ticket_id": ticket_id,
             }
 
@@ -1928,8 +2033,8 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
     if session_id_raw:
         try:
             sid = int(session_id_raw)
-            total_booked = db.query(func.count(Booking.id)).filter(Booking.session_id == sid, Booking.payment_status == "paid").scalar()
-            checked_in_count = db.query(func.count(Booking.id)).filter(Booking.session_id == sid, Booking.payment_status == "paid", Booking.checked_in == True).scalar()
+            total_booked = db.query(func.count(Booking.id)).filter(Booking.showing_id == sid, Booking.payment_status == "paid").scalar()
+            checked_in_count = db.query(func.count(Booking.id)).filter(Booking.showing_id == sid, Booking.payment_status == "paid", Booking.checked_in == True).scalar()
             stats = {"total": total_booked, "checked_in": checked_in_count}
         except ValueError:
             pass
@@ -1952,14 +2057,14 @@ def waitlist_list(request: Request, db: Session = Depends(get_db)):
     enriched = []
     for w in entries:
         u = db.query(User).get(w.user_id)
-        s = db.query(LectureSession).get(w.session_id)
-        ps = db.query(LectureSession).get(w.priority_session_id) if w.priority_session_id else None
-        enriched.append({"entry": w, "user": u, "session": s, "priority_session": ps})
+        s = db.query(Showing).get(w.showing_id)
+        ps = db.query(Showing).get(w.priority_showing_id) if w.priority_showing_id else None
+        enriched.append({"entry": w, "user": u, "session": s.session if s else None, "showing": s, "priority_session": ps.session if ps else None, "priority_showing": ps})
 
     sessions_for_priority = (
-        db.query(LectureSession)
-        .filter(LectureSession.status == "published")
-        .order_by(LectureSession.start_time)
+        db.query(Showing)
+        .filter(Showing.status == "published")
+        .order_by(Showing.start_time)
         .all()
     )
 
@@ -1988,12 +2093,12 @@ async def grant_priority(request: Request, db: Session = Depends(get_db)):
         flash(request, "Please select both source and target sessions.", "danger")
         return RedirectResponse("/admin/waitlist", status_code=303)
 
-    entries = db.query(Waitlist).filter(Waitlist.session_id == source_session_id).all()
+    entries = db.query(Waitlist).filter(Waitlist.showing_id == source_session_id).all()
     now = now_ist()
     expires = now + timedelta(hours=settings.priority_window_hours)
 
     for e in entries:
-        e.priority_session_id = target_session_id
+        e.priority_showing_id = target_session_id
         e.priority_expires_at = expires
         e.notified = True
 
@@ -2069,31 +2174,31 @@ def admin_schedule(
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    query = db.query(LectureSession).filter(
-        LectureSession.status.in_(["published", "completed"])
+    query = db.query(Showing).filter(
+        Showing.status.in_(["published", "completed"])
     )
     if auditorium_id:
         try:
-            query = query.filter(LectureSession.auditorium_id == int(auditorium_id))
+            query = query.filter(Showing.auditorium_id == int(auditorium_id))
         except ValueError:
             pass
     elif college_id:
         try:
             aud_ids = [a.id for a in db.query(Auditorium.id).filter(Auditorium.college_id == int(college_id)).all()]
             if aud_ids:
-                query = query.filter(LectureSession.auditorium_id.in_(aud_ids))
+                query = query.filter(Showing.auditorium_id.in_(aud_ids))
             else:
                 query = query.filter(False)
         except ValueError:
             pass
 
-    sessions = query.order_by(LectureSession.start_time).all()
+    sessions = query.order_by(Showing.start_time).all()
 
     grouped = defaultdict(list)
     for s in sessions:
         aud = db.query(Auditorium).get(s.auditorium_id)
         date_key = s.start_time.strftime("%Y-%m-%d")
-        grouped[date_key].append({"session": s, "auditorium": aud})
+        grouped[date_key].append({"showing": s, "auditorium": aud})
 
     colleges = db.query(College).order_by(College.name).all()
     auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
@@ -2256,7 +2361,7 @@ def events_list(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login", status_code=303)
     events = db.query(Event).order_by(Event.created_at.desc()).all()
     for ev in events:
-        ev._session_count = len(ev.event_sessions)
+        ev._showing_count = len(ev.event_showings)
     return templates.TemplateResponse(
         "admin/events.html",
         _admin_ctx(request, active_page="events", events=events),
@@ -2270,9 +2375,9 @@ def event_new_form(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login", status_code=303)
     colleges = db.query(College).order_by(College.name).all()
     sessions = (
-        db.query(LectureSession)
-        .filter(LectureSession.status == "published", LectureSession.start_time > now_ist())
-        .order_by(LectureSession.start_time)
+        db.query(Showing)
+        .filter(Showing.status == "published", Showing.start_time > now_ist())
+        .order_by(Showing.start_time)
         .all()
     )
     return templates.TemplateResponse(
@@ -2299,7 +2404,7 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
     db.flush()
     session_ids = form.getlist("session_ids")
     for sid in session_ids:
-        db.add(EventSession(event_id=ev.id, session_id=int(sid)))
+        db.add(EventShowing(event_id=ev.id, showing_id=int(sid)))
     log_activity(db, category="admin", action="create", description=f"Created event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
     db.commit()
     flash(request, f"Event '{ev.name}' created.", "success")
@@ -2317,12 +2422,12 @@ def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_d
         return RedirectResponse("/admin/events", status_code=303)
     colleges = db.query(College).order_by(College.name).all()
     sessions = (
-        db.query(LectureSession)
-        .filter(LectureSession.status == "published", LectureSession.start_time > now_ist())
-        .order_by(LectureSession.start_time)
+        db.query(Showing)
+        .filter(Showing.status == "published", Showing.start_time > now_ist())
+        .order_by(Showing.start_time)
         .all()
     )
-    selected_ids = [es.session_id for es in ev.event_sessions]
+    selected_ids = [es.showing_id for es in ev.event_showings]
     return templates.TemplateResponse(
         "admin/event_form.html",
         _admin_ctx(request, active_page="events", event=ev, colleges=colleges, sessions=sessions, selected_ids=selected_ids),
@@ -2345,10 +2450,10 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     ev.college_id = int(form.get("college_id")) if form.get("college_id") else None
     ev.discount_pct = float(form.get("discount_pct")) if form.get("discount_pct") else None
     ev.status = form.get("status", "draft")
-    db.query(EventSession).filter(EventSession.event_id == ev.id).delete()
+    db.query(EventShowing).filter(EventShowing.event_id == ev.id).delete()
     session_ids = form.getlist("session_ids")
     for sid in session_ids:
-        db.add(EventSession(event_id=ev.id, session_id=int(sid)))
+        db.add(EventShowing(event_id=ev.id, showing_id=int(sid)))
     log_activity(db, category="admin", action="update", description=f"Updated event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
     db.commit()
     flash(request, f"Event '{ev.name}' updated.", "success")
@@ -2371,20 +2476,80 @@ def event_delete(request: Request, event_id: int, db: Session = Depends(get_db))
 
 @router.get("/events/sessions-for-college")
 def event_sessions_for_college(request: Request, db: Session = Depends(get_db), college_id: int = Query(None)):
-    """AJAX endpoint: returns published future sessions for a given college."""
+    """AJAX endpoint: returns published future showings for a given college."""
     admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return JSONResponse({"error": "unauthorized"}, status_code=403)
     query = (
-        db.query(LectureSession)
+        db.query(Showing)
         .join(Auditorium)
-        .filter(LectureSession.status == "published", LectureSession.start_time > now_ist())
+        .filter(Showing.status == "published", Showing.start_time > now_ist())
     )
     if college_id:
         query = query.filter(Auditorium.college_id == college_id)
-    sessions = query.order_by(LectureSession.start_time).all()
+    showings = query.order_by(Showing.start_time).all()
     return JSONResponse([
-        {"id": s.id, "title": s.title, "date": s.start_time.strftime("%b %d, %Y %I:%M %p"),
+        {"id": s.id, "title": s.session.title if s.session else "", "date": s.start_time.strftime("%b %d, %Y %I:%M %p"),
          "auditorium": s.auditorium.name if s.auditorium else ""}
-        for s in sessions
+        for s in showings
     ])
+
+
+# ---------------------------------------------------------------------------
+# Feedback Management
+# ---------------------------------------------------------------------------
+
+@router.get("/feedback")
+def feedback_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    rating_filter: str = Query("", alias="rating"),
+    featured_filter: str = Query("", alias="featured"),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    query = db.query(Feedback)
+    if rating_filter:
+        try:
+            query = query.filter(Feedback.rating == int(rating_filter))
+        except ValueError:
+            pass
+    if featured_filter == "yes":
+        query = query.filter(Feedback.is_featured == True)
+    elif featured_filter == "no":
+        query = query.filter(Feedback.is_featured == False)
+
+    feedback_items = query.order_by(Feedback.created_at.desc()).all()
+    enriched = []
+    for fb in feedback_items:
+        user = db.query(User).get(fb.user_id)
+        showing = db.query(Showing).get(fb.showing_id)
+        sess = showing.session if showing else None
+        enriched.append({"feedback": fb, "user": user, "showing": showing, "session": sess})
+
+    return templates.TemplateResponse(
+        "admin/feedback.html",
+        _admin_ctx(
+            request, active_page="feedback",
+            feedback_items=enriched,
+            rating_filter=rating_filter,
+            featured_filter=featured_filter,
+        ),
+    )
+
+
+@router.post("/feedback/{feedback_id}/toggle-featured")
+def feedback_toggle_featured(request: Request, feedback_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    fb = db.query(Feedback).get(feedback_id)
+    if fb:
+        fb.is_featured = not fb.is_featured
+        status = "featured" if fb.is_featured else "unfeatured"
+        log_activity(db, category="admin", action="update", description=f"Toggled feedback #{fb.id} to {status}", request=request, user_id=admin.id, target_type="feedback", target_id=fb.id)
+        db.commit()
+        flash(request, f"Feedback #{fb.id} is now {status}.", "success")
+    return RedirectResponse("/admin/feedback", status_code=303)

@@ -18,7 +18,7 @@
         <select name="source_session_id" class="form-input" required placeholder="Select sold-out session">
           <option value="">Select sold-out session...</option>
           {% for s in sessions_for_priority %}
-          <option value="{{ s.id }}">{{ s.title }} — {{ s.start_time.strftime('%b %d') }}</option>
+          <option value="{{ s.id }}">{{ s.session.title if s.session else '—' }} — {{ s.start_time.strftime('%b %d') }}</option>
           {% endfor %}
         </select>
       </div>
@@ -27,7 +27,7 @@
         <select name="target_session_id" class="form-input" required placeholder="Select new session">
           <option value="">Select new session...</option>
           {% for s in sessions_for_priority %}
-          <option value="{{ s.id }}">{{ s.title }} — {{ s.start_time.strftime('%b %d') }}</option>
+          <option value="{{ s.id }}">{{ s.session.title if s.session else '—' }} — {{ s.start_time.strftime('%b %d') }}</option>
           {% endfor %}
         </select>
       </div>

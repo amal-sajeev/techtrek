@@ -1,0 +1,112 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Feedback — Admin{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-header">
+  <h1>Feedback</h1>
+</div>
+
+<div class="admin-filters" style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:1.5rem;">
+  <form method="get" action="/admin/feedback" style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center;">
+    <select name="rating" class="form-control form-control-sm" style="width:auto;">
+      <option value="">All Ratings</option>
+      {% for r in range(1, 6) %}
+      <option value="{{ r }}" {% if rating_filter == r|string %}selected{% endif %}>{{ r }} Star{{ 's' if r > 1 }}</option>
+      {% endfor %}
+    </select>
+    <select name="featured" class="form-control form-control-sm" style="width:auto;">
+      <option value="">All</option>
+      <option value="yes" {% if featured_filter == 'yes' %}selected{% endif %}>Featured</option>
+      <option value="no" {% if featured_filter == 'no' %}selected{% endif %}>Not Featured</option>
+    </select>
+    <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+    {% if rating_filter or featured_filter %}
+    <a href="/admin/feedback" class="btn btn-outline btn-sm">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+{% if not feedback_items %}
+<div class="empty-state">
+  <p>No feedback found.</p>
+</div>
+{% else %}
+<div class="table-responsive">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Session</th>
+        <th>Rating</th>
+        <th>Comment</th>
+        <th>Public</th>
+        <th>Featured</th>
+        <th>Date</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in feedback_items %}
+      {% set fb = item.feedback %}
+      {% set u = item.user %}
+      {% set sess = item.session %}
+      {% set showing = item.showing %}
+      <tr>
+        <td>
+          <strong>{{ u.full_name or u.username if u else '—' }}</strong>
+          {% if u and u.college %}<br><small class="text-muted">{{ u.college }}</small>{% endif %}
+        </td>
+        <td>
+          {{ sess.title if sess else '—' }}
+          {% if showing %}<br><small class="text-muted">{{ showing.start_time.strftime('%d %b %Y') }}</small>{% endif %}
+        </td>
+        <td>
+          {% if fb.rating %}
+            <span style="color:var(--yellow,#f59e0b);">
+              {% for i in range(fb.rating) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating) %}&#9734;{% endfor %}
+            </span>
+          {% elif fb.dismissed %}
+            <span class="text-muted">Dismissed</span>
+          {% else %}
+            <span class="text-muted">Pending</span>
+          {% endif %}
+        </td>
+        <td style="max-width:300px;">
+          {% if fb.comment %}
+            <span title="{{ fb.comment }}">{{ fb.comment[:120] }}{{ '...' if fb.comment|length > 120 }}</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if fb.allow_public %}
+            <span class="badge badge-success">Yes</span>
+          {% else %}
+            <span class="badge badge-secondary">No</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if fb.is_featured %}
+            <span class="badge badge-primary">Featured</span>
+          {% else %}
+            <span class="text-muted">—</span>
+          {% endif %}
+        </td>
+        <td><small>{{ fb.created_at.strftime('%d %b %Y') if fb.created_at else '—' }}</small></td>
+        <td>
+          {% if fb.allow_public and fb.rating %}
+          <form method="post" action="/admin/feedback/{{ fb.id }}/toggle-featured" style="display:inline;">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm {% if fb.is_featured %}btn-outline{% else %}btn-primary{% endif %}">
+              {{ 'Unfeature' if fb.is_featured else 'Feature' }}
+            </button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+{% endblock %}

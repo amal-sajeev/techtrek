@@ -34,9 +34,9 @@
         </div>
         <div class="card-body">
           <h3 class="card-title">{{ s.title }}</h3>
-          <p class="card-meta">{{ s.speaker }}</p>
+          <p class="card-meta">{{ s.speaker_name }}</p>
           <div class="card-details">
-            <span class="card-detail">&#128197; {{ s.start_time.strftime('%b %d, %Y') }}</span>
+            <span class="card-detail">&#128197; {{ item.showing.start_time.strftime('%b %d, %Y') if item.showing and item.showing.start_time else 'TBD' }}</span>
             {% if aud %}
             <span class="card-detail">&#128205; {{ aud.location }}</span>
             {% endif %}

@@ -33,7 +33,7 @@
           {% for sid, info in sessions_breakdown.items() %}
           <div class="checkout-line" style="font-weight:600;margin-top:.5rem">
             <span>{{ info.lecture.title }}</span>
-            <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">{{ info.lecture.start_time.strftime('%b %d') }}</span>
+            <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">{{ info.showing.start_time.strftime('%b %d') }}</span>
           </div>
           {% for s in info.seats %}
           <div class="checkout-line">

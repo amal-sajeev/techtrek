@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Feedback — {{ session_obj.title }}{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:640px;">
+    <div class="card" style="padding:2rem;">
+      <h1 class="section-title" style="font-size:1.5rem;margin-bottom:.25rem;">How was the session?</h1>
+      <p class="text-muted" style="margin-bottom:1.5rem;">
+        <strong>{{ session_obj.title }}</strong><br>
+        {{ showing.start_time.strftime('%A, %d %b %Y at %I:%M %p') }}
+        {% if auditorium %} &mdash; {{ auditorium.name }}, {{ auditorium.location }}{% endif %}
+      </p>
+
+      <form method="post" action="/feedback/{{ showing.id }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label">Rating</label>
+          <div class="star-rating" id="star-rating">
+            {% for i in range(1, 6) %}
+            <label class="star-label" data-value="{{ i }}">
+              <input type="radio" name="rating" value="{{ i }}" {% if existing and existing.rating == i %}checked{% endif %} style="display:none;">
+              <span class="star" style="font-size:2.2rem;cursor:pointer;transition:color .15s;color:var(--border);">&#9733;</span>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-label" for="comment">Comments <span class="text-muted">(optional)</span></label>
+          <textarea id="comment" name="comment" class="form-control" rows="4"
+                    placeholder="Tell us what you liked or what could be improved...">{{ existing.comment if existing and existing.comment else '' }}</textarea>
+        </div>
+
+        <div class="form-group" style="margin-bottom:1.5rem;">
+          <label class="form-check-label" style="display:flex;align-items:flex-start;gap:.5rem;cursor:pointer;">
+            <input type="checkbox" name="allow_public" value="1" class="form-check-input"
+                   {% if existing and existing.allow_public %}checked{% endif %}
+                   style="margin-top:.2rem;">
+            <span>I consent to my feedback being displayed publicly on the TechTrek website (your name and college will be shown).</span>
+          </label>
+        </div>
+
+        <div style="display:flex;gap:1rem;justify-content:flex-end;">
+          <a href="/booking/my" class="btn btn-outline">Cancel</a>
+          <button type="submit" class="btn btn-primary">Submit Feedback</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  var stars = document.querySelectorAll('#star-rating .star-label');
+  var goldColor = 'var(--yellow, #f59e0b)';
+  var dimColor = 'var(--border)';
+  function highlight(n) {
+    stars.forEach(function(s, i) {
+      s.querySelector('.star').style.color = i < n ? goldColor : dimColor;
+    });
+  }
+  var checked = document.querySelector('#star-rating input:checked');
+  if (checked) highlight(parseInt(checked.value));
+  stars.forEach(function(s) {
+    s.addEventListener('mouseenter', function() { highlight(parseInt(s.dataset.value)); });
+    s.addEventListener('click', function() {
+      s.querySelector('input').checked = true;
+      highlight(parseInt(s.dataset.value));
+    });
+  });
+  document.getElementById('star-rating').addEventListener('mouseleave', function() {
+    var c = document.querySelector('#star-rating input:checked');
+    highlight(c ? parseInt(c.value) : 0);
+  });
+})();
+</script>
+{% endblock %}

@@ -15,7 +15,7 @@
           <div class="booking-card-header">
             <div class="booking-card-header-left">
               <h3 class="booking-card-title">{{ g.lecture.title }}</h3>
-              <p class="booking-card-speaker">{{ g.lecture.speaker }}</p>
+              <p class="booking-card-speaker">{{ g.lecture.speaker_name }}</p>
             </div>
             <div class="booking-card-header-right">
               {% if g.status == 'paid' %}
@@ -32,7 +32,7 @@
             <div class="booking-card-info">
               <div class="booking-detail-row">
                 <span class="booking-detail-icon">&#128197;</span>
-                <span>{{ g.lecture.start_time.strftime('%b %d, %Y at %I:%M %p') }}</span>
+                <span>{{ g.showing.start_time.strftime('%b %d, %Y at %I:%M %p') }}</span>
               </div>
               {% if g.auditorium %}
               <div class="booking-detail-row">
@@ -88,7 +88,7 @@
             <div class="booking-card-header">
               <div class="booking-card-header-left">
                 <h3 class="booking-card-title">{{ g.lecture.title }}</h3>
-                <p class="booking-card-speaker">{{ g.lecture.speaker }}</p>
+                <p class="booking-card-speaker">{{ g.lecture.speaker_name }}</p>
               </div>
               <div class="booking-card-header-right">
                 {% if g.all_checked_in %}
@@ -105,7 +105,7 @@
               <div class="booking-card-info">
                 <div class="booking-detail-row">
                   <span class="booking-detail-icon">&#128197;</span>
-                  <span>{{ g.lecture.start_time.strftime('%b %d, %Y at %I:%M %p') }}</span>
+                  <span>{{ g.showing.start_time.strftime('%b %d, %Y at %I:%M %p') }}</span>
                 </div>
                 {% if g.auditorium %}
                 <div class="booking-detail-row">

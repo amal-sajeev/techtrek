@@ -18,5 +18,5 @@ class Event(Base):
     created_at = Column(DateTime, default=now_ist)
 
     college = relationship("College")
-    event_sessions = relationship("EventSession", back_populates="event", cascade="all, delete-orphan")
+    event_showings = relationship("EventShowing", back_populates="event", cascade="all, delete-orphan")
     bookings = relationship("Booking", back_populates="event")

@@ -4,7 +4,7 @@
 {% block content %}
 <div class="container" style="padding-top:2rem;padding-bottom:3rem;max-width:780px;">
   <div style="margin-bottom:1.5rem;">
-    <a href="/speaker/" style="color:var(--primary);text-decoration:none;font-size:.9rem;">&larr; Back to Dashboard</a>
+    <a href="/speaker/sessions" style="color:var(--primary);text-decoration:none;font-size:.9rem;">&larr; Back to Sessions</a>
     <h1 style="font-size:1.5rem;font-weight:700;margin:.5rem 0 0;">
       {% if is_primary %}Edit Session{% else %}View Session{% endif %}
     </h1>
@@ -40,7 +40,8 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="ss-start">Start Date &amp; Time</label>
-        <input type="datetime-local" name="start_time" id="ss-start" class="form-input" value="{{ lecture.start_time.strftime('%Y-%m-%dT%H:%M') }}" required>
+        {% set first_showing = showings[0] if showings else None %}
+        <input type="datetime-local" name="start_time" id="ss-start" class="form-input" value="{{ first_showing.start_time.strftime('%Y-%m-%dT%H:%M') if first_showing else '' }}" required>
       </div>
       <div class="form-group">
         <label class="form-label" for="ss-duration">Duration (minutes)</label>
@@ -52,7 +53,7 @@
       <label class="form-label" for="ss-status">Status</label>
       <select name="status" id="ss-status" class="form-input" data-no-tomselect>
         {% for s in ['draft','published','completed'] %}
-        <option value="{{ s }}" {% if lecture.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
+        <option value="{{ s }}" {% if first_showing and first_showing.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
         {% endfor %}
       </select>
     </div>
@@ -62,9 +63,10 @@
       <p class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem">Session Details (read-only)</p>
       <table class="table" style="font-size:.875rem">
         <tr><td><strong>Title</strong></td><td>{{ lecture.title }}</td></tr>
-        <tr><td><strong>Start</strong></td><td>{{ lecture.start_time.strftime('%b %d, %Y %I:%M %p') }}</td></tr>
+        {% set first_showing = showings[0] if showings else None %}
+        <tr><td><strong>Start</strong></td><td>{{ first_showing.start_time.strftime('%b %d, %Y %I:%M %p') if first_showing else '—' }}</td></tr>
         <tr><td><strong>Duration</strong></td><td>{{ lecture.duration_minutes }} minutes</td></tr>
-        <tr><td><strong>Status</strong></td><td>{{ lecture.status|title }}</td></tr>
+        <tr><td><strong>Status</strong></td><td>{{ first_showing.status|title if first_showing else '—' }}</td></tr>
       </table>
     </div>
     {% endif %}
@@ -139,7 +141,7 @@
     {% endif %}
 
     <div style="display:flex;gap:1rem;justify-content:flex-end;">
-      <a href="/speaker/" class="btn btn-outline">Cancel</a>
+      <a href="/speaker/sessions" class="btn btn-outline">Cancel</a>
       <button type="submit" class="btn btn-primary">Save Changes</button>
     </div>
   </form>

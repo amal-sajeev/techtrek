@@ -539,27 +539,27 @@ def _parse_cert_style(lecture) -> dict:
     return merged
 
 
-def generate_certificate_pdf(booking, user, lecture, auditorium) -> bytes:
+def generate_certificate_pdf(booking, user, session_obj, showing, auditorium) -> bytes:
     _register_fonts()
 
-    cert_title      = getattr(lecture, "cert_title", None) or "CERTIFICATE OF ATTENDANCE"
-    cert_subtitle   = getattr(lecture, "cert_subtitle", None) or "This certificate is proudly presented to"
-    cert_footer_txt = getattr(lecture, "cert_footer", None) or "\u00a9 2026 TechTrek. All rights reserved."
-    signer_name     = (getattr(lecture, "cert_signer_name", None) or "").strip()
-    signer_desg     = (getattr(lecture, "cert_signer_designation", None) or "").strip()
-    signature_url   = getattr(lecture, "cert_signature_url", None) or ""
-    logo_url        = getattr(lecture, "cert_logo_url", None) or ""
-    bg_url          = getattr(lecture, "cert_bg_url", None) or ""
-    color_scheme    = getattr(lecture, "cert_color_scheme", None)
+    cert_title      = getattr(session_obj, "cert_title", None) or "CERTIFICATE OF ATTENDANCE"
+    cert_subtitle   = getattr(session_obj, "cert_subtitle", None) or "This certificate is proudly presented to"
+    cert_footer_txt = getattr(session_obj, "cert_footer", None) or "\u00a9 2026 TechTrek. All rights reserved."
+    signer_name     = (getattr(session_obj, "cert_signer_name", None) or "").strip()
+    signer_desg     = (getattr(session_obj, "cert_signer_designation", None) or "").strip()
+    signature_url   = getattr(session_obj, "cert_signature_url", None) or ""
+    logo_url        = getattr(session_obj, "cert_logo_url", None) or ""
+    bg_url          = getattr(session_obj, "cert_bg_url", None) or ""
+    color_scheme    = getattr(session_obj, "cert_color_scheme", None)
 
     clr = _get_colors(color_scheme)
-    sty = _parse_cert_style(lecture)
+    sty = _parse_cert_style(session_obj)
     elems = sty["elements"]
 
     attendee_name = user.full_name or user.username
-    session_title = lecture.title
-    speaker_name  = lecture.speaker
-    session_date  = lecture.start_time.strftime("%d %B %Y")
+    session_title = session_obj.title if session_obj else "Session"
+    speaker_name  = session_obj.speaker_name if session_obj else ""
+    session_date  = showing.start_time.strftime("%d %B %Y") if showing else ""
     venue         = (
         f"{auditorium.name}, {auditorium.location}" if auditorium else "TechTrek Venue"
     )

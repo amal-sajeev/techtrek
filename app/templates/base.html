@@ -131,6 +131,24 @@
   <div class="footer-bottom">&copy; 2026 TechTrek. All systems operational.</div>
 </footer>
 
+<!-- Feedback prompt modal -->
+{% if pending_feedback and pending_feedback|length > 0 %}
+{% set pf = pending_feedback[0] %}
+<div class="modal-wrapper" id="feedback-modal" style="display:flex;">
+  <div class="modal-backdrop" onclick="TechTrek.dismissFeedback({{ pf.showing_id }}, false)"></div>
+  <div class="modal-dialog" style="max-width:460px;padding:2rem;text-align:center;">
+    <h3 style="margin:0 0 .5rem;font-size:1.25rem;">How was the session?</h3>
+    <p style="margin:0 0 .25rem;font-weight:600;color:var(--cyan);">{{ pf.session_title }}</p>
+    <p class="text-muted" style="font-size:.85rem;margin:0 0 1.5rem;">{{ pf.showing_date }}{% if pf.venue %} &mdash; {{ pf.venue }}{% endif %}</p>
+    <div style="display:flex;flex-direction:column;gap:.75rem;">
+      <a href="/feedback/{{ pf.showing_id }}" class="btn btn-primary" style="width:100%;">Rate Now</a>
+      <button class="btn btn-outline" style="width:100%;" onclick="TechTrek.dismissFeedback({{ pf.showing_id }}, false)">Not Now</button>
+      <button class="btn btn-ghost" style="width:100%;font-size:.85rem;opacity:.7;" onclick="TechTrek.dismissFeedback({{ pf.showing_id }}, true)">Don't Ask Again</button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- QR zoom modal -->
 <div class="modal-wrapper" id="qr-zoom-modal">
   <div class="modal-backdrop"></div>
@@ -451,7 +469,15 @@ document.addEventListener('click', function(e) {
 })();
 
 // ---- GLOBAL API ----
-window.TechTrek = { showToast: showToast, confirmAction: openConfirm };
+function dismissFeedback(showingId, dontAsk) {
+  var modal = document.getElementById('feedback-modal');
+  if (modal) modal.style.display = 'none';
+  var fd = new FormData();
+  fd.append('csrf_token', '{{ csrf_token }}');
+  if (dontAsk) fd.append('dont_ask', '1');
+  fetch('/feedback/' + showingId + '/dismiss', { method: 'POST', body: fd });
+}
+window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFeedback: dismissFeedback };
 
 </script>
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>

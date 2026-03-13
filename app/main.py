@@ -1,3 +1,5 @@
+import asyncio
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -40,7 +42,23 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
-application = FastAPI(title="TechTrek", docs_url="/api/docs" if settings.debug else None)
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    from app.services.feedback import feedback_task_loop
+    task = asyncio.create_task(feedback_task_loop())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+
+application = FastAPI(
+    title="TechTrek",
+    docs_url="/api/docs" if settings.debug else None,
+    lifespan=lifespan,
+)
 
 # Security headers must be added before session middleware so they apply to
 # every response including error pages.

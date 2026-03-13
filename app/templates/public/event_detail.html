@@ -46,12 +46,12 @@
       <div class="event-session-list">
         {% for item in sessions %}
         {% set img_id = img_pool[item.session.id % 8] %}
-        <label class="event-session-card{% if item.availability == 'sold-out' %} sold-out{% endif %}" for="sess-{{ item.session.id }}">
+        <label class="event-session-card{% if item.availability == 'sold-out' %} sold-out{% endif %}" for="show-{{ item.showing.id }}">
           <div class="event-session-card-check">
             {% if item.availability != 'sold-out' %}
-            <input type="checkbox" name="session_ids" value="{{ item.session.id }}" id="sess-{{ item.session.id }}">
+            <input type="checkbox" name="showing_ids" value="{{ item.showing.id }}" id="show-{{ item.showing.id }}">
             {% else %}
-            <input type="checkbox" disabled id="sess-{{ item.session.id }}">
+            <input type="checkbox" disabled id="show-{{ item.showing.id }}">
             {% endif %}
           </div>
           <div class="event-session-card-img">
@@ -66,12 +66,12 @@
           </div>
           <div class="event-session-card-body">
             <h3 class="event-session-card-title">{{ item.session.title }}</h3>
-            {% if item.session.speaker %}
-            <p class="event-session-card-meta">{{ item.session.speaker }}</p>
+            {% if item.session.speaker_name %}
+            <p class="event-session-card-meta">{{ item.session.speaker_name }}</p>
             {% endif %}
             <div class="event-session-card-details">
-              <span>&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
-              <span>&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
+              <span>&#128197; {{ item.showing.start_time.strftime('%b %d, %Y') }}</span>
+              <span>&#128336; {{ item.showing.start_time.strftime('%I:%M %p') }}</span>
               {% if item.auditorium %}
               <span>&#128205; {{ item.auditorium.name }}</span>
               {% endif %}
@@ -79,10 +79,10 @@
           </div>
           <div class="event-session-card-price">
             {% if event.discount_pct and item.availability != 'sold-out' %}
-            <span class="price-original">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
-            <span class="price-discounted">&#8377;{{ "%.0f"|format(item.session.price|float * (1 - event.discount_pct|float / 100)) }}</span>
+            <span class="price-original">&#8377;{{ "%.0f"|format(item.showing.price) }}</span>
+            <span class="price-discounted">&#8377;{{ "%.0f"|format(item.showing.price|float * (1 - event.discount_pct|float / 100)) }}</span>
             {% else %}
-            <span class="price-regular">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
+            <span class="price-regular">&#8377;{{ "%.0f"|format(item.showing.price) }}</span>
             {% endif %}
             <span class="price-suffix">per seat</span>
           </div>
@@ -122,13 +122,13 @@
 
 <script>
 (function() {
-  var checkboxes = document.querySelectorAll('#event-booking-form input[name="session_ids"]');
+  var checkboxes = document.querySelectorAll('#event-booking-form input[name="showing_ids"]');
   var countEl = document.getElementById('selected-count');
   var btn = document.getElementById('book-event-btn');
   if (!checkboxes.length || !btn) return;
 
   function update() {
-    var checked = document.querySelectorAll('#event-booking-form input[name="session_ids"]:checked');
+    var checked = document.querySelectorAll('#event-booking-form input[name="showing_ids"]:checked');
     countEl.textContent = checked.length;
     btn.disabled = checked.length === 0;
   }

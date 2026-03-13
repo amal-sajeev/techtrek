@@ -26,46 +26,27 @@
     </div>
   </div>
 
-  {% if sessions %}
-  <h2 style="font-size:1.25rem;font-weight:600;margin-bottom:1rem;">Your Sessions</h2>
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Date & Time</th>
-          <th>Duration</th>
-          <th>Status</th>
-          <th>Bookings</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in sessions %}
-        {% set s = item.session %}
-        <tr>
-          <td><strong>{{ s.title }}</strong></td>
-          <td>{{ s.start_time.strftime('%d %b %Y, %I:%M %p') }}</td>
-          <td>{{ s.duration_minutes }} min</td>
-          <td>
-            <span class="badge {% if s.status == 'published' %}badge-success{% elif s.status == 'draft' %}badge-draft{% elif s.status == 'completed' %}badge-available{% elif s.status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">
-              {{ s.status|replace('_',' ')|title }}
-            </span>
-          </td>
-          <td>{{ item.bookings }}</td>
-          <td>
-            <a href="/speaker/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  <div class="speaker-nav-cards">
+    <a href="/speaker/sessions" class="speaker-nav-card">
+      <div class="speaker-nav-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5v-15A2.5 2.5 0 016.5 2H20v20H6.5a2.5 2.5 0 010-5H20"/></svg>
+      </div>
+      <div>
+        <div class="speaker-nav-title">My Sessions</div>
+        <div class="speaker-nav-sub">Edit content, agenda, and view bookings for your sessions</div>
+      </div>
+      <svg class="speaker-nav-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
+    <a href="/speaker/schedule" class="speaker-nav-card">
+      <div class="speaker-nav-icon">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      </div>
+      <div>
+        <div class="speaker-nav-title">My Schedule</div>
+        <div class="speaker-nav-sub">Calendar view of all your upcoming and past showings</div>
+      </div>
+      <svg class="speaker-nav-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+    </a>
   </div>
-  {% else %}
-  <div class="empty-state">
-    <h3>No sessions assigned yet</h3>
-    <p>Sessions assigned to you by the admin will appear here.</p>
-  </div>
-  {% endif %}
 </div>
 {% endblock %}

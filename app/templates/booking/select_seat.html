@@ -75,7 +75,7 @@
           <span id="selected-total">&#8377;0</span>
         </div>
 
-        <form method="post" action="/booking/hold/{{ lecture.id }}" id="seat-form">
+        <form method="post" action="/booking/hold/{{ showing.id }}" id="seat-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="seat_ids" id="seat-ids-input" value="">
           <button
@@ -116,7 +116,7 @@
       accessible: {{ price_accessible }}
     };
     var customTypes = {{ custom_types | tojson }};
-    SeatPicker.init(seatData, pricing, {{ lecture.id }}, gapData, stageOpts, entryExitConfig, customTypes);
+    SeatPicker.init(seatData, pricing, {{ showing.id }}, gapData, stageOpts, entryExitConfig, customTypes);
 
     var legendContainer = document.getElementById('custom-legend-items');
     if (legendContainer && customTypes.length) {

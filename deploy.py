@@ -39,9 +39,16 @@ Optional .env keys (server tuning)
 
 from __future__ import annotations
 
+import io
 import os
 import subprocess
 import sys
+
+# Force UTF-8 output so Unicode symbols (✓ ✗) work on Windows terminals
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+else:
+    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding="utf-8", errors="replace")
 
 
 # ---------------------------------------------------------------------------

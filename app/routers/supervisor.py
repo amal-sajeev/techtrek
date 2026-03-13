@@ -11,7 +11,7 @@ from app.csrf import csrf_protection
 from app.dependencies import get_db, now_ist, template_ctx, templates
 from app.models.booking import Booking
 from app.models.seat import Seat
-from app.models.session import LectureSession
+from app.models.showing import Showing
 from app.models.user import User
 
 router = APIRouter(prefix="/supervisor", tags=["supervisor"], dependencies=[Depends(csrf_protection)])
@@ -38,15 +38,15 @@ def supervisor_checkin_page(request: Request, db: Session = Depends(get_db)):
     sv = _require_supervisor_or_admin(request, db)
     if not sv:
         return RedirectResponse("/auth/login", status_code=303)
-    sessions = (
-        db.query(LectureSession)
-        .filter(LectureSession.status.in_(["published", "completed"]))
-        .order_by(LectureSession.start_time.desc())
+    showings = (
+        db.query(Showing)
+        .filter(Showing.status.in_(["published", "completed"]))
+        .order_by(Showing.start_time.desc())
         .all()
     )
     return templates.TemplateResponse(
         "supervisor/checkin.html",
-        _sv_ctx(request, sessions=sessions, result=None),
+        _sv_ctx(request, sessions=showings, result=None),
     )
 
 
@@ -60,17 +60,17 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
     ticket_id = form.get("ticket_id", "").strip()
     session_id_raw = form.get("session_id", "")
 
-    sessions = (
-        db.query(LectureSession)
-        .filter(LectureSession.status.in_(["published", "completed"]))
-        .order_by(LectureSession.start_time.desc())
+    showings = (
+        db.query(Showing)
+        .filter(Showing.status.in_(["published", "completed"]))
+        .order_by(Showing.start_time.desc())
         .all()
     )
 
     if not ticket_id:
         return templates.TemplateResponse(
             "supervisor/checkin.html",
-            _sv_ctx(request, sessions=sessions, result={"status": "error", "msg": "Please enter a ticket ID."}),
+            _sv_ctx(request, sessions=showings, result={"status": "error", "msg": "Please enter a ticket ID."}),
         )
 
     is_group = ticket_id.startswith("GROUP-")
@@ -89,41 +89,43 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
             result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets."}
         elif session_id_raw:
             try:
-                group_bookings = [b for b in all_group if b.session_id == int(session_id_raw)]
+                group_bookings = [b for b in all_group if b.showing_id == int(session_id_raw)]
             except ValueError:
                 group_bookings = all_group
             if not group_bookings:
                 result = {"status": "error", "msg": f"No tickets in this group match the selected session."}
         else:
             now = now_ist()
-            session_ids = {b.session_id for b in all_group}
-            active_sessions = []
-            for sid in session_ids:
-                lec = db.query(LectureSession).get(sid)
-                if not lec or not lec.start_time:
+            showing_ids = {b.showing_id for b in all_group}
+            active_showings = []
+            for shid in showing_ids:
+                sh = db.query(Showing).get(shid)
+                if not sh or not sh.start_time:
                     continue
-                end = lec.end_time or (lec.start_time + timedelta(hours=2))
-                if (lec.start_time - timedelta(hours=1)) <= now <= (end + timedelta(minutes=30)):
-                    active_sessions.append(lec)
-            if len(active_sessions) >= 1:
+                sess = sh.session
+                duration = sh.effective_duration or 30
+                end = sh.start_time + timedelta(minutes=duration)
+                if (sh.start_time - timedelta(hours=1)) <= now <= (end + timedelta(minutes=30)):
+                    active_showings.append(sh)
+            if len(active_showings) >= 1:
                 unchecked = [
-                    lec for lec in active_sessions
-                    if any(not b.checked_in for b in all_group if b.session_id == lec.id)
+                    sh for sh in active_showings
+                    if any(not b.checked_in for b in all_group if b.showing_id == sh.id)
                 ]
-                target = unchecked if unchecked else active_sessions
+                target = unchecked if unchecked else active_showings
                 if len(target) == 1:
-                    group_bookings = [b for b in all_group if b.session_id == target[0].id]
+                    group_bookings = [b for b in all_group if b.showing_id == target[0].id]
                 else:
-                    titles = ", ".join(f"'{l.title}'" for l in target)
+                    titles = ", ".join(f"'{sh.session.title if sh.session else 'Session'}'" for sh in target)
                     result = {"status": "error", "msg": f"Multiple sessions are active right now ({titles}). Please select a specific session from the dropdown."}
             else:
                 upcoming = []
-                for sid in session_ids:
-                    lec = db.query(LectureSession).get(sid)
-                    if lec and lec.start_time and lec.start_time > now:
-                        upcoming.append(lec)
-                upcoming.sort(key=lambda l: l.start_time)
-                titles = ", ".join(f"'{l.title}' ({l.start_time.strftime('%b %d %I:%M %p')})" for l in upcoming[:3])
+                for shid in showing_ids:
+                    sh = db.query(Showing).get(shid)
+                    if sh and sh.start_time and sh.start_time > now:
+                        upcoming.append(sh)
+                upcoming.sort(key=lambda sh: sh.start_time)
+                titles = ", ".join(f"'{sh.session.title if sh.session else 'Session'}' ({sh.start_time.strftime('%b %d %I:%M %p')})" for sh in upcoming[:3])
                 hint = f" Upcoming: {titles}" if titles else ""
                 result = {"status": "error", "msg": f"No session in this event is currently active. Please select a session from the dropdown.{hint}"}
 
@@ -143,10 +145,11 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
             db.commit()
 
             user = db.query(User).get(group_bookings[0].user_id)
-            lecture = db.query(LectureSession).get(group_bookings[0].session_id)
+            showing = db.query(Showing).get(group_bookings[0].showing_id)
+            session_title = showing.session.title if showing and showing.session else "unknown"
 
             if newly_checked and not already_checked:
-                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{lecture.title if lecture else 'unknown'}'."
+                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{session_title}'."
                 status = "success"
             elif newly_checked and already_checked:
                 msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in."
@@ -161,7 +164,7 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
                 "is_group": True,
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
-                "session_title": lecture.title if lecture else "",
+                "session_title": session_title,
                 "newly_checked": newly_checked,
                 "already_checked": already_checked,
             }
@@ -169,7 +172,7 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
         query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
         if session_id_raw:
             try:
-                query = query.filter(Booking.session_id == int(session_id_raw))
+                query = query.filter(Booking.showing_id == int(session_id_raw))
             except ValueError:
                 pass
         booking = query.first()
@@ -179,7 +182,8 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
         elif booking.checked_in:
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)
-            lecture = db.query(LectureSession).get(booking.session_id)
+            showing = db.query(Showing).get(booking.showing_id)
+            session_title = showing.session.title if showing and showing.session else ""
             time_str = booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'
             result = {
                 "status": "reentry",
@@ -187,7 +191,7 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
                 "seat_label": seat.label if seat else "",
-                "session_title": lecture.title if lecture else "",
+                "session_title": session_title,
                 "ticket_id": ticket_id,
             }
         else:
@@ -196,14 +200,15 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
             db.commit()
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)
-            lecture = db.query(LectureSession).get(booking.session_id)
+            showing = db.query(Showing).get(booking.showing_id)
+            session_title = showing.session.title if showing and showing.session else ""
             result = {
                 "status": "success",
                 "msg": "Check-in successful!",
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
                 "seat_label": seat.label if seat else "",
-                "session_title": lecture.title if lecture else "",
+                "session_title": session_title,
                 "ticket_id": ticket_id,
             }
 
@@ -211,13 +216,13 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
     if session_id_raw:
         try:
             sid = int(session_id_raw)
-            total_booked = db.query(func.count(Booking.id)).filter(Booking.session_id == sid, Booking.payment_status == "paid").scalar()
-            checked_in_count = db.query(func.count(Booking.id)).filter(Booking.session_id == sid, Booking.payment_status == "paid", Booking.checked_in == True).scalar()
+            total_booked = db.query(func.count(Booking.id)).filter(Booking.showing_id == sid, Booking.payment_status == "paid").scalar()
+            checked_in_count = db.query(func.count(Booking.id)).filter(Booking.showing_id == sid, Booking.payment_status == "paid", Booking.checked_in == True).scalar()
             stats = {"total": total_booked, "checked_in": checked_in_count}
         except ValueError:
             pass
 
     return templates.TemplateResponse(
         "supervisor/checkin.html",
-        _sv_ctx(request, sessions=sessions, result=result, stats=stats, selected_session=session_id_raw),
+        _sv_ctx(request, sessions=showings, result=result, stats=stats, selected_session=session_id_raw),
     )

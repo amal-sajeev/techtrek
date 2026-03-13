@@ -22,5 +22,5 @@ class Speaker(Base):
     created_at = Column(DateTime, default=now_ist)
 
     user = relationship("User", backref="speaker_profile")
-    sessions = relationship("LectureSession", back_populates="speaker_rel")
+    sessions = relationship("Session", back_populates="speaker_rel")
     session_assignments = relationship("SessionSpeaker", back_populates="speaker", cascade="all, delete-orphan")

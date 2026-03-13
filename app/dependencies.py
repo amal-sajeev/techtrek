@@ -75,18 +75,43 @@ def template_ctx(request: Request, **kwargs) -> dict:
     user_id = request.session.get("user_id")
     user = None
     is_speaker = False
+    pending_feedback = []
     if user_id:
         db = SessionLocal()
         try:
             user = db.query(User).filter(User.id == user_id).first()
             if user:
                 is_speaker = db.query(Speaker).filter(Speaker.user_id == user.id).first() is not None
+
+                from app.models.feedback import Feedback
+                from app.models.showing import Showing
+                pending = (
+                    db.query(Feedback)
+                    .filter(
+                        Feedback.user_id == user_id,
+                        Feedback.rating == None,  # noqa: E711
+                        Feedback.dismissed == False,
+                    )
+                    .all()
+                )
+                for fb in pending:
+                    showing = db.query(Showing).get(fb.showing_id)
+                    if showing and showing.session:
+                        from app.models.auditorium import Auditorium
+                        aud = db.query(Auditorium).get(showing.auditorium_id)
+                        pending_feedback.append({
+                            "showing_id": showing.id,
+                            "session_title": showing.session.title,
+                            "showing_date": showing.start_time.strftime("%d %b %Y, %I:%M %p"),
+                            "venue": f"{aud.name}, {aud.location}" if aud else "",
+                        })
         finally:
             db.close()
     ctx = {
         "request": request,
         "user": user,
         "is_speaker": is_speaker,
+        "pending_feedback": pending_feedback,
         "flashes": get_flashes(request),
         "csrf_token": get_csrf_token(request),
     }

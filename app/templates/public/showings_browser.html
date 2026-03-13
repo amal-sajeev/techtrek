@@ -1,0 +1,219 @@
+{% extends "base.html" %}
+{% block title %}Showings — {{ session.title }} — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="showings-browser-header">
+      <a href="/sessions/{{ session.id }}" class="showings-back-link">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        Back to session
+      </a>
+      <h1 class="page-title" style="margin-bottom:.25rem">{{ session.title }}</h1>
+      <p class="showings-browser-sub">{{ session.speaker_name }}</p>
+    </div>
+
+    <form class="filter-bar reveal" id="filter-form" method="get" action="/sessions/{{ session.id }}/showings">
+      <div class="filter-search">
+        <input type="text" name="q" id="filter-q" class="form-input" placeholder="Search venue, college, city..." value="{{ q }}" autocomplete="off">
+      </div>
+      <div class="filter-date">
+        <label for="filter-date" class="sr-only">Date</label>
+        <input type="date" name="date" id="filter-date" class="form-input" value="{{ date_filter }}" aria-label="Filter by date">
+      </div>
+      <div class="filter-city">
+        <label for="filter-city" class="sr-only">City</label>
+        <select name="city_id" id="filter-city" class="form-input" aria-label="Filter by city">
+          <option value="">All cities</option>
+          {% for city in cities %}
+          <option value="{{ city.id }}" {% if city_id == city.id %}selected{% endif %}>{{ city.name }}{% if city.state %}, {{ city.state }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-college">
+        <label for="filter-college" class="sr-only">College</label>
+        <select name="college_id" id="filter-college" class="form-input" aria-label="Filter by college">
+          <option value="">All colleges</option>
+          {% for college in colleges %}
+          <option value="{{ college.id }}" {% if college_id == college.id %}selected{% endif %}>{{ college.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="filter-sort">
+        <label for="filter-sort" class="sr-only">Sort</label>
+        <select name="sort" id="filter-sort" class="form-input">
+          <option value="date" {% if sort == 'date' %}selected{% endif %}>Sort by Date</option>
+          <option value="price" {% if sort == 'price' %}selected{% endif %}>Sort by Price</option>
+          <option value="availability" {% if sort == 'availability' %}selected{% endif %}>Sort by Availability</option>
+        </select>
+      </div>
+    </form>
+
+    <div class="showings-browser-toolbar">
+      <div class="showings-avail-pills" id="avail-pills">
+        {% for val, label in [('all','All'), ('available','Available'), ('filling-up','Filling Up')] %}
+        <a href="javascript:void(0)" class="avail-pill{% if avail_filter == val %} avail-pill-active{% endif %}" data-avail="{{ val }}">{{ label }}</a>
+        {% endfor %}
+      </div>
+      <p class="showings-result-count" id="result-count">
+        {% if filtered_count == total_count %}
+        {{ total_count }} showing{{ 's' if total_count != 1 else '' }}
+        {% else %}
+        {{ filtered_count }} of {{ total_count }} showings
+        {% endif %}
+      </p>
+    </div>
+
+    <div id="showings-grid-wrap">
+      {% if showings %}
+      <div class="showings-grid" id="showings-grid">
+        {% for item in showings %}
+        <div class="showing-browser-card {% if item.availability == 'sold-out' %}showing-sold-out{% endif %}">
+          <div class="showing-browser-date">
+            <div class="showing-browser-day">{{ item.showing.start_time.strftime('%d') }}</div>
+            <div class="showing-browser-month">{{ item.showing.start_time.strftime('%b') }}</div>
+            <div class="showing-browser-year">{{ item.showing.start_time.strftime('%Y') }}</div>
+          </div>
+          <div class="showing-browser-body">
+            <div class="showing-browser-time">
+              {{ item.showing.start_time.strftime('%I:%M %p') }}
+              <span class="showing-browser-dur">&middot; {{ item.showing.effective_duration }} min</span>
+            </div>
+            <div class="showing-browser-venue">
+              {% if item.auditorium %}{{ item.auditorium.name }}{% endif %}
+              {% if item.auditorium and item.auditorium.location %}
+              <span class="showing-browser-loc">&middot; {{ item.auditorium.location }}</span>
+              {% endif %}
+            </div>
+            <div class="showing-browser-geo">
+              {% if item.college %}{{ item.college.name }}{% endif %}
+              {% if item.city %} · {{ item.city.name }}{% if item.city.state %}, {{ item.city.state }}{% endif %}{% endif %}
+            </div>
+            <div class="showing-browser-meta">
+              <span class="showing-browser-price">&#8377;{{ "%.0f"|format(item.showing.price) }}</span>
+              {% if item.showing.price_vip is not none %}
+              <span class="showing-browser-tier">VIP &#8377;{{ "%.0f"|format(item.showing.price_vip) }}</span>
+              {% endif %}
+              <span class="showing-browser-seats {% if item.availability == 'sold-out' %}seats-soldout{% elif item.availability == 'filling-up' %}seats-filling{% endif %}">
+                {% if item.availability == 'sold-out' %}Sold Out{% elif item.availability == 'filling-up' %}{{ item.stats.available }} left{% else %}{{ item.stats.available }} seats{% endif %}
+              </span>
+            </div>
+            {% if item.stats.total > 0 %}
+            <div class="card-avail-bar" style="margin-top:6px">
+              {% set pct = ((item.stats.booked / item.stats.total) * 100) if item.stats.total > 0 else 0 %}
+              <div class="card-avail-fill {% if item.availability == 'sold-out' %}fill-out{% elif item.availability == 'filling-up' %}fill-low{% endif %}" style="width:{{ (100 - pct)|round|int }}%"></div>
+            </div>
+            {% endif %}
+          </div>
+          <div class="showing-browser-action">
+            {% if item.availability == 'sold-out' %}
+            <span class="btn btn-sm btn-outline" style="opacity:.5;cursor:not-allowed">Sold Out</span>
+            {% elif user %}
+            <a href="/booking/select/{{ item.showing.id }}" class="btn btn-sm btn-primary">Book</a>
+            {% else %}
+            <a href="/auth/register?next=/sessions/{{ session.id }}/showings" class="btn btn-sm btn-primary">Book</a>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state reveal" id="showings-grid">
+        <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
+          <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
+          <path d="M32 20v14M32 40v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <h3>No showings found</h3>
+        <p>{% if q or date_filter or city_id or college_id or avail_filter != 'all' %}No results for the selected filters. Try different search or filters.{% else %}No showings are currently scheduled for this session.{% endif %}</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var form = document.getElementById('filter-form');
+  var qInput = document.getElementById('filter-q');
+  var dateInput = document.getElementById('filter-date');
+  var citySel = document.getElementById('filter-city');
+  var collegeSel = document.getElementById('filter-college');
+  var sortSel = document.getElementById('filter-sort');
+  var gridWrap = document.getElementById('showings-grid-wrap');
+  var debounceTimer;
+
+  function buildUrl() {
+    var params = new URLSearchParams(window.location.search);
+    if (qInput) { if (qInput.value.trim()) params.set('q', qInput.value.trim()); else params.delete('q'); }
+    if (dateInput) { if (dateInput.value) params.set('date', dateInput.value); else params.delete('date'); }
+    if (citySel) { var cv = citySel.tomselect ? citySel.tomselect.getValue() : citySel.value; if (cv) params.set('city_id', cv); else params.delete('city_id'); }
+    if (collegeSel) { var ccv = collegeSel.tomselect ? collegeSel.tomselect.getValue() : collegeSel.value; if (ccv) params.set('college_id', ccv); else params.delete('college_id'); }
+    if (sortSel) { if (sortSel.value !== 'date') params.set('sort', sortSel.value); else params.delete('sort'); }
+    return window.location.pathname + '?' + params.toString();
+  }
+
+  function syncDropdown(localSel, remoteSel) {
+    if (!localSel || !remoteSel) return;
+    var currentVal = localSel.tomselect ? localSel.tomselect.getValue() : localSel.value;
+    if (localSel.tomselect) localSel.tomselect.destroy();
+    localSel.innerHTML = remoteSel.innerHTML;
+    var hasOption = false;
+    for (var i = 0; i < localSel.options.length; i++) {
+      if (localSel.options[i].value === currentVal) { hasOption = true; break; }
+    }
+    localSel.value = hasOption ? currentVal : '';
+    if (typeof TomSelect !== 'undefined') {
+      new TomSelect(localSel, { create: false, allowEmptyOption: true, controlInput: '<input>', plugins: ['clear_button'] });
+    }
+  }
+
+  function fetchShowings() {
+    form.classList.add('loading');
+    var url = buildUrl();
+    fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var parser = new DOMParser();
+        var doc = parser.parseFromString(html, 'text/html');
+        var newGrid = doc.getElementById('showings-grid-wrap');
+        if (newGrid && gridWrap) gridWrap.innerHTML = newGrid.innerHTML;
+        var newCount = doc.getElementById('result-count');
+        var localCount = document.getElementById('result-count');
+        if (newCount && localCount) localCount.innerHTML = newCount.innerHTML;
+        var newPills = doc.querySelector('.showings-avail-pills');
+        var localPills = document.querySelector('.showings-avail-pills');
+        if (newPills && localPills) localPills.innerHTML = newPills.innerHTML;
+        syncDropdown(citySel, doc.getElementById('filter-city'));
+        syncDropdown(collegeSel, doc.getElementById('filter-college'));
+        history.replaceState({}, '', url);
+        form.classList.remove('loading');
+      })
+      .catch(function() { form.classList.remove('loading'); form.submit(); });
+  }
+
+  if (qInput) qInput.addEventListener('input', function() { clearTimeout(debounceTimer); debounceTimer = setTimeout(fetchShowings, 380); });
+  if (sortSel) sortSel.addEventListener('change', fetchShowings);
+  if (dateInput) dateInput.addEventListener('change', fetchShowings);
+  if (citySel) citySel.addEventListener('change', function() {
+    if (collegeSel) { if (collegeSel.tomselect) collegeSel.tomselect.setValue('', true); else collegeSel.value = ''; }
+    fetchShowings();
+  });
+  if (collegeSel) collegeSel.addEventListener('change', fetchShowings);
+  if (form) form.addEventListener('submit', function(e) { e.preventDefault(); fetchShowings(); });
+
+  var pillsWrap = document.getElementById('avail-pills');
+  if (pillsWrap) {
+    pillsWrap.addEventListener('click', function(e) {
+      var pill = e.target.closest('.avail-pill');
+      if (!pill) return;
+      var val = pill.getAttribute('data-avail');
+      var params = new URLSearchParams(window.location.search);
+      if (val === 'all') params.delete('availability'); else params.set('availability', val);
+      window.location.search = params.toString();
+    });
+  }
+})();
+</script>
+{% endblock %}

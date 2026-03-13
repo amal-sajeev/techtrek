@@ -24,4 +24,4 @@ class Auditorium(Base):
 
     college = relationship("College", back_populates="auditoriums")
     seats = relationship("Seat", back_populates="auditorium", cascade="all, delete-orphan")
-    sessions = relationship("LectureSession", back_populates="auditorium")
+    showings = relationship("Showing", back_populates="auditorium")

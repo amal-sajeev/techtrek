@@ -24,7 +24,7 @@
 
 {% if grouped %}
   {% for date_key, items in grouped.items() %}
-  {% set dt = items[0].session.start_time %}
+  {% set dt = items[0].showing.start_time %}
   <div style="margin-bottom:2rem">
     <h3 style="margin-bottom:1rem;opacity:.7">{{ dt.strftime('%A, %B %d, %Y') }}</h3>
     <div class="table-responsive">
@@ -41,16 +41,17 @@
         </thead>
         <tbody>
           {% for item in items %}
-          {% set s = item.session %}
+          {% set sh = item.showing %}
           {% set aud = item.auditorium %}
+          {% set sess = sh.session if sh else None %}
           <tr>
-            <td>{{ s.start_time.strftime('%I:%M %p') }}</td>
-            <td><strong>{{ s.title }}</strong></td>
-            <td>{{ s.speaker }}</td>
+            <td>{{ sh.start_time.strftime('%I:%M %p') }}</td>
+            <td><strong>{{ sess.title if sess else '—' }}</strong></td>
+            <td>{{ sess.speaker_name if sess else '—' }}</td>
             <td>{{ aud.name if aud else '—' }}</td>
-            <td><span class="badge badge-{{ s.status }}">{{ s.status | title }}</span></td>
+            <td><span class="badge badge-{{ sh.status }}">{{ sh.status | title }}</span></td>
             <td class="actions-cell">
-              <a href="/admin/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+              <a href="/admin/sessions/{{ sess.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
             </td>
           </tr>
           {% endfor %}

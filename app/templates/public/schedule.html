@@ -33,21 +33,22 @@
     <div id="schedule-content">
     {% if grouped %}
       {% for date_key, items in grouped.items() %}
-      {% set dt = items[0].session.start_time %}
+      {% set dt = items[0].showing.start_time %}
       <div class="schedule-date-group reveal">
         <h2 class="schedule-date-heading">{{ dt.strftime('%A, %B %d, %Y') }}</h2>
         <div class="schedule-timeline">
           {% for item in items %}
           {% set s = item.session %}
+          {% set sh = item.showing %}
           {% set aud = item.auditorium %}
           <div class="schedule-card">
             <div class="schedule-time">
-              <span class="schedule-time-text">{{ s.start_time.strftime('%I:%M %p') }}</span>
-              <span class="schedule-duration">{{ s.duration_minutes }} min</span>
+              <span class="schedule-time-text">{{ sh.start_time.strftime('%I:%M %p') }}</span>
+              <span class="schedule-duration">{{ sh.effective_duration }} min</span>
             </div>
             <div class="schedule-info">
               <a href="/sessions/{{ s.id }}" class="schedule-title">{{ s.title }}</a>
-              <p class="schedule-speaker">{{ s.speaker }}</p>
+              <p class="schedule-speaker">{{ s.speaker_name }}</p>
               {% if aud %}
               <p class="schedule-venue">&#128205; {{ aud.name }}, {{ aud.location }}</p>
               {% endif %}

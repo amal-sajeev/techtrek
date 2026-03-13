@@ -36,7 +36,7 @@
       <!-- PER-SESSION MODE -->
       <div id="per-session-mode" class="seat-mode-panel">
         {% for sd in sessions_data %}
-        <div class="event-session-seat-block" data-session-id="{{ sd.session.id }}">
+        <div class="event-session-seat-block" data-showing-id="{{ sd.showing.id }}">
           <h2 class="event-session-heading">
             {{ sd.session.title }}
             <span class="event-session-aud">{{ sd.auditorium.name }}</span>
@@ -49,14 +49,14 @@
                   <span class="stage-label">{{ sd.stage_label }}</span>
                 </div>
                 <div class="seat-map-container">
-                  <div class="seat-map" id="seat-map-ps-{{ sd.session.id }}" role="group"
+                  <div class="seat-map" id="seat-map-ps-{{ sd.showing.id }}" role="group"
                     aria-label="Seat map for {{ sd.session.title }}">
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <input type="hidden" name="seats_session_{{ sd.session.id }}" id="seats-input-ps-{{ sd.session.id }}" value="">
+          <input type="hidden" name="seats_showing_{{ sd.showing.id }}" id="seats-input-ps-{{ sd.showing.id }}" value="">
         </div>
         {% endfor %}
       </div>
@@ -65,13 +65,13 @@
       {% if same_seats_available %}
       <div id="same-seats-mode" class="seat-mode-panel" style="display:none">
         {% for aud_id, group in auditorium_groups.items() %}
-        {% if group.session_ids|length > 1 %}
+        {% if group.showing_ids|length > 1 %}
         <div class="event-aud-group" data-aud-id="{{ aud_id }}">
           <h2 class="event-session-heading">
             {{ group.auditorium.name }}
             <span class="event-session-aud">
-              {% for sid in group.session_ids %}
-              {% for sd in sessions_data if sd.session.id == sid %}{{ sd.session.title }}{% endfor %}{% if not loop.last %}, {% endif %}
+              {% for shid in group.showing_ids %}
+              {% for sd in sessions_data if sd.showing.id == shid %}{{ sd.session.title }}{% endfor %}{% if not loop.last %}, {% endif %}
               {% endfor %}
             </span>
           </h2>
@@ -96,10 +96,10 @@
           <input type="hidden" name="same_seats_aud_{{ aud_id }}" id="seats-input-same-{{ aud_id }}" value="">
         </div>
         {% else %}
-        {% set sid = group.session_ids[0] %}
-        <div class="event-session-seat-block same-seats-single" data-session-id="{{ sid }}" data-aud-id="{{ aud_id }}">
+        {% set shid = group.showing_ids[0] %}
+        <div class="event-session-seat-block same-seats-single" data-showing-id="{{ shid }}" data-aud-id="{{ aud_id }}">
           <h2 class="event-session-heading">
-            {% for sd in sessions_data if sd.session.id == sid %}{{ sd.session.title }}{% endfor %}
+            {% for sd in sessions_data if sd.showing.id == shid %}{{ sd.session.title }}{% endfor %}
             <span class="event-session-aud">{{ group.auditorium.name }}</span>
           </h2>
           <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.75rem">
@@ -112,14 +112,14 @@
                   <span class="stage-label">{{ group.auditorium.stage_label or 'Stage' }}</span>
                 </div>
                 <div class="seat-map-container">
-                  <div class="seat-map" id="seat-map-same-single-{{ sid }}" role="group"
+                  <div class="seat-map" id="seat-map-same-single-{{ shid }}" role="group"
                     aria-label="Seat map for {{ group.auditorium.name }}">
                   </div>
                 </div>
               </div>
             </div>
           </div>
-          <input type="hidden" name="same_seats_aud_{{ aud_id }}" id="seats-input-same-single-{{ sid }}" value="">
+          <input type="hidden" name="same_seats_aud_{{ aud_id }}" id="seats-input-same-single-{{ shid }}" value="">
         </div>
         {% endif %}
         {% endfor %}
@@ -359,12 +359,13 @@ document.addEventListener('DOMContentLoaded', function() {
   });
 
   sessionsData.forEach(function(sd) {
-    buildSeatMapHTML('seat-map-ps-' + sd.session.id, sd.seat_map, sd.total_rows, sd.total_cols, sd.row_gaps, sd.col_gaps);
+    var mapId = sd.showing ? ('seat-map-ps-' + sd.showing.id) : ('seat-map-ps-' + sd.session.id);
+    buildSeatMapHTML(mapId, sd.seat_map, sd.total_rows, sd.total_cols, sd.row_gaps, sd.col_gaps);
   });
 
   {% if same_seats_available %}
   {% for aud_id, group in auditorium_groups.items() %}
-  {% if group.session_ids|length > 1 %}
+  {% if group.showing_ids|length > 1 %}
   (function() {
     var audId = {{ aud_id }};
     var mapData = intersectionMaps[audId];
@@ -376,11 +377,11 @@ document.addEventListener('DOMContentLoaded', function() {
   })();
   {% else %}
   (function() {
-    var sid = {{ group.session_ids[0] }};
+    var shid = {{ group.showing_ids[0] }};
     var sd = null;
-    sessionsData.forEach(function(s) { if (s.session.id === sid) sd = s; });
+    sessionsData.forEach(function(s) { if (s.showing && s.showing.id === shid) sd = s; });
     if (!sd) return;
-    buildSeatMapHTML('seat-map-same-single-' + sid, sd.seat_map, sd.total_rows, sd.total_cols, sd.row_gaps, sd.col_gaps);
+    buildSeatMapHTML('seat-map-same-single-' + shid, sd.seat_map, sd.total_rows, sd.total_cols, sd.row_gaps, sd.col_gaps);
   })();
   {% endif %}
   {% endfor %}
@@ -424,12 +425,12 @@ document.addEventListener('DOMContentLoaded', function() {
     if (mode === 'per_session') {
       var blocks = panel.querySelectorAll('.event-session-seat-block');
       blocks.forEach(function(block) {
-        var sid = String(block.dataset.sessionId);
+        var shid = String(block.dataset.showingId || block.dataset.sessionId);
         var sel = block.querySelectorAll('.seat-selected');
-        var input = document.getElementById('seats-input-ps-' + sid);
+        var input = document.getElementById('seats-input-ps-' + shid);
         var ids = Array.from(sel).map(function(el) { return el.dataset.seatId; });
         if (input) input.value = ids.join(',');
-        if (ids.length > 0) sessionsCovered.add(sid);
+        if (ids.length > 0) sessionsCovered.add(shid);
       });
     } else {
       panel.querySelectorAll('.event-aud-group').forEach(function(group) {
@@ -441,20 +442,20 @@ document.addEventListener('DOMContentLoaded', function() {
         if (ids.length > 0) {
           {% for aud_id, group in auditorium_groups.items() %}
           if (audId === '{{ aud_id }}') {
-            {% for sid in group.session_ids %}
-            sessionsCovered.add('{{ sid }}');
+            {% for shid in group.showing_ids %}
+            sessionsCovered.add('{{ shid }}');
             {% endfor %}
           }
           {% endfor %}
         }
       });
       panel.querySelectorAll('.same-seats-single').forEach(function(block) {
-        var sid = String(block.dataset.sessionId);
+        var shid = String(block.dataset.showingId || block.dataset.sessionId);
         var sel = block.querySelectorAll('.seat-selected');
-        var input = document.getElementById('seats-input-same-single-' + sid);
+        var input = document.getElementById('seats-input-same-single-' + shid);
         var ids = Array.from(sel).map(function(el) { return el.dataset.seatId; });
         if (input) input.value = ids.join(',');
-        if (ids.length > 0) sessionsCovered.add(sid);
+        if (ids.length > 0) sessionsCovered.add(shid);
       });
     }
 

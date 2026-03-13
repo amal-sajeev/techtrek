@@ -34,7 +34,7 @@
               {% endif %}
             </h4>
             <p style="font-size:.85rem;color:var(--text-secondary)">
-              {{ info.lecture.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}
+              {{ info.showing.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}
             </p>
             {% for i in range(info.bookings|length) %}
             <div class="ticket-card">

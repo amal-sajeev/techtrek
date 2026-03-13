@@ -16,3 +16,5 @@ alembic
 cryptography
 slowapi
 python-dotenv
+pytest
+httpx

@@ -58,7 +58,7 @@
         <label class="event-session-option" data-college="{{ s.auditorium.college_id if s.auditorium and s.auditorium.college_id else '' }}">
           <input type="checkbox" name="session_ids" value="{{ s.id }}" {% if s.id in selected_ids %}checked{% endif %}>
           <div class="event-session-info">
-            <span class="event-session-title">{{ s.title }}</span>
+            <span class="event-session-title">{{ s.session.title if s.session else '—' }}</span>
             <span class="event-session-meta">{{ s.start_time.strftime('%b %d, %Y %I:%M %p') }} &middot; {{ s.auditorium.name if s.auditorium else '' }}</span>
           </div>
         </label>

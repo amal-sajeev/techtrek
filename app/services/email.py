@@ -273,6 +273,36 @@ def send_group_cancellation_confirmation(email: str, username: str, session_titl
     _send(email, f"{count} Tickets Cancelled — {session_title}", html, invoice_pdf=invoice_pdf, invoice_filename="credit-note.pdf")
 
 
+def send_feedback_request(email: str, user_name: str, session_title: str, showing_date: str, feedback_url: str):
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="background:#0e7490;padding:28px 32px;">
+          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">How was {session_title}?</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#cffafe;">We'd love your feedback!</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
+          <p style="margin:0 0 16px;">Hi <strong>{user_name}</strong>,</p>
+          <p style="margin:0 0 16px;">Thank you for attending <strong>{session_title}</strong> on {showing_date}. Your feedback helps us improve future sessions and recognise our speakers.</p>
+          <p style="margin:0 0 16px;">It only takes a minute:</p>
+          <p style="margin:0 0 24px;">
+            <a href="{feedback_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">Rate This Session &rarr;</a>
+          </p>
+          <p style="margin:0;font-size:13px;color:#64748b;">If you'd rather not receive these reminders, simply ignore this email.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because you attended a TechTrek session.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return _send(email, f"How was {session_title}? — Share your feedback", html)
+
+
 def send_speaker_invite(email: str, speaker_name: str, invite_url: str):
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>

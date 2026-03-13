@@ -61,9 +61,10 @@
     </div>
   </div>
 
-  {% if featured %}
-  {% set fs = featured.session %}
-  {% set fa = featured.auditorium %}
+  {% if featured_session and featured_showing %}
+  {% set fs = featured_session %}
+  {% set fsh = featured_showing %}
+  {% set fa = featured_auditorium %}
   {% set hero_img_pool = [
     'photo-1540575467063-178a50c2df87',
     'photo-1475721027785-f74eccf877e2',
@@ -87,10 +88,10 @@
         </div>
         <div class="hsess-countdown">
           <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-          {% if featured.days_until > 0 %}
-          {{ featured.days_until }}d {{ featured.hours_until }}h
-          {% elif featured.hours_until > 0 %}
-          {{ featured.hours_until }}h
+          {% if featured_days_until > 0 %}
+          {{ featured_days_until }}d {{ featured_hours_until }}h
+          {% elif featured_hours_until > 0 %}
+          {{ featured_hours_until }}h
           {% else %}
           Live now
           {% endif %}
@@ -102,16 +103,16 @@
 
         <div class="hsess-speaker-row">
           <div class="hsess-avatar">
-            {% if featured.speaker_obj and featured.speaker_obj.photo %}
-            <img src="{{ featured.speaker_obj.photo }}" alt="{{ fs.speaker }}">
+            {% if featured_speaker_obj and featured_speaker_obj.photo %}
+            <img src="{{ featured_speaker_obj.photo }}" alt="{{ fs.speaker_name }}">
             {% else %}
-            <span class="hsess-avatar-init">{{ fs.speaker[0] }}</span>
+            <span class="hsess-avatar-init">{{ fs.speaker_name[0] if fs.speaker_name else '?' }}</span>
             {% endif %}
           </div>
           <div class="hsess-speaker-info">
-            <span class="hsess-speaker-name">{{ fs.speaker }}</span>
-            {% if featured.speaker_obj and featured.speaker_obj.title %}
-            <span class="hsess-speaker-title">{{ featured.speaker_obj.title }}</span>
+            <span class="hsess-speaker-name">{{ fs.speaker_name }}</span>
+            {% if featured_speaker_obj and featured_speaker_obj.title %}
+            <span class="hsess-speaker-title">{{ featured_speaker_obj.title }}</span>
             {% endif %}
           </div>
         </div>
@@ -119,11 +120,11 @@
         <div class="hsess-meta">
           <span class="hsess-meta-chip">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-            {{ fs.start_time.strftime('%b %d, %Y') }}
+            {{ fsh.start_time.strftime('%b %d, %Y') }}
           </span>
           <span class="hsess-meta-chip">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-            {{ fs.start_time.strftime('%I:%M %p') }}
+            {{ fsh.start_time.strftime('%I:%M %p') }}
           </span>
           {% if fa %}
           <span class="hsess-meta-chip">
@@ -136,7 +137,7 @@
 
       <div class="hsess-cta-row">
         {% if user %}
-        <a href="/booking/select/{{ fs.id }}" class="hsess-cta">
+        <a href="/booking/select/{{ fsh.id }}" class="hsess-cta">
           Book Now
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
@@ -158,7 +159,14 @@
   <div class="container">
     <div class="proof-inner">
       <span class="proof-badge">&#9733; Trusted by students</span>
-      {% if testimonials %}
+      {% if featured_feedback %}
+        {% for fb in featured_feedback[:3] %}
+        <div class="proof-quote">
+          <span>"{{ fb.comment[:140] if fb.comment else '' }}{% if fb.comment and fb.comment|length > 140 %}...{% endif %}"</span>
+          <strong>— {{ fb.user_name }}</strong>
+        </div>
+        {% endfor %}
+      {% elif testimonials %}
         {% for t in testimonials[:3] %}
         <div class="proof-quote">
           <span>"{{ t.quote[:140] }}{% if t.quote|length > 140 %}...{% endif %}"</span>
@@ -215,20 +223,20 @@
           <h3 class="card-title">{{ item.session.title }}</h3>
           <div class="card-speaker-row">
             {% if item.speaker_obj and item.speaker_obj.photo_url %}
-            <img class="card-speaker-avatar" src="{{ item.speaker_obj.photo_url }}" alt="{{ item.session.speaker }}">
+            <img class="card-speaker-avatar" src="{{ item.speaker_obj.photo_url }}" alt="{{ item.session.speaker_name }}">
             {% else %}
-            <span class="card-speaker-initials">{{ item.session.speaker[0] }}</span>
+            <span class="card-speaker-initials">{{ item.session.speaker_name[0] if item.session.speaker_name else '?' }}</span>
             {% endif %}
             <div class="card-speaker-info">
-              <span class="card-speaker-name">{{ item.session.speaker }}</span>
+              <span class="card-speaker-name">{{ item.session.speaker_name }}</span>
               {% if item.speaker_obj and item.speaker_obj.title %}
               <span class="card-speaker-title">{{ item.speaker_obj.title }}</span>
               {% endif %}
             </div>
           </div>
           <div class="card-details">
-            <span class="card-detail">&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
-            <span class="card-detail">&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
+            <span class="card-detail">&#128197; {{ item.showing.start_time.strftime('%b %d, %Y') }}</span>
+            <span class="card-detail">&#128336; {{ item.showing.start_time.strftime('%I:%M %p') }}</span>
             <span class="card-detail card-urgency {% if item.days_until <= 3 %}urgency-hot{% elif item.days_until <= 7 %}urgency-warm{% endif %}">
               {% if item.days_until > 0 %}
               &#9200; in {{ item.days_until }}d {{ item.hours_until }}h
@@ -239,7 +247,7 @@
           </div>
         </div>
           <div class="card-footer">
-            <span class="card-price">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
+            <span class="card-price">&#8377;{{ "%.0f"|format(item.showing.price) }}</span>
             {% if item.availability == 'sold-out' %}
             <span class="card-seats seats-out">Sold out</span>
             {% elif item.availability == 'filling-up' %}
@@ -310,8 +318,24 @@
   <div class="container">
     <h2 class="section-title"><span class="dark-only">Student Testimonials</span><span class="light-only-inline">What Students Say</span></h2>
 
-    {% if testimonials %}
+    {% set has_content = testimonials or featured_feedback %}
+    {% if has_content %}
     <div class="testimonials-grid">
+      {% for fb in featured_feedback %}
+      <div class="testimonial-card reveal">
+        <div style="margin-bottom:.5rem;color:var(--yellow,#f59e0b);">
+          {% for i in range(fb.rating) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating) %}&#9734;{% endfor %}
+        </div>
+        {% if fb.comment %}
+        <blockquote class="testimonial-quote">"{{ fb.comment }}"</blockquote>
+        {% endif %}
+        <div class="testimonial-author">
+          <strong>{{ fb.user_name }}</strong>
+          {% if fb.college %}<br><span class="text-muted">{{ fb.college }}</span>{% endif %}
+          <br><small class="text-muted" style="opacity:.7;">on {{ fb.session_title }}</small>
+        </div>
+      </div>
+      {% endfor %}
       {% for t in testimonials %}
       <div class="testimonial-card reveal">
         <blockquote class="testimonial-quote">"{{ t.quote }}"</blockquote>

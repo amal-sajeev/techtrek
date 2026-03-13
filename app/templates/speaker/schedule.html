@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+{% block title %}My Schedule — Speaker — TechTrek{% endblock %}
+
+{% block content %}
+<div class="container" style="padding-top:2rem;padding-bottom:3rem;">
+  <a href="/speaker/" class="showings-back-link">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+    Dashboard
+  </a>
+
+  <div class="spk-cal-header">
+    <h1 class="spk-cal-title">
+      {% if view == 'month' %}{{ month_label }}{% else %}{{ week_label }}{% endif %}
+    </h1>
+    <div class="spk-cal-controls">
+      <div class="spk-cal-view-toggle">
+        <a href="?view=month{% if view == 'month' %}&year={{ year }}&month={{ month_num }}{% endif %}"
+           class="spk-cal-toggle-btn{% if view == 'month' %} spk-cal-toggle-active{% endif %}">Month</a>
+        <a href="?view=week{% if view == 'week' %}&year={{ year }}&week={{ week_num }}{% endif %}"
+           class="spk-cal-toggle-btn{% if view == 'week' %} spk-cal-toggle-active{% endif %}">Week</a>
+      </div>
+      <div class="spk-cal-nav">
+        {% if view == 'month' %}
+        <a href="?view=month&year={{ prev_year }}&month={{ prev_month }}" class="spk-cal-nav-btn" title="Previous month">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        <a href="?view=month" class="spk-cal-today-btn">Today</a>
+        <a href="?view=month&year={{ next_year }}&month={{ next_month }}" class="spk-cal-nav-btn" title="Next month">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        {% else %}
+        <a href="?view=week&year={{ prev_week_year }}&week={{ prev_week }}" class="spk-cal-nav-btn" title="Previous week">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        <a href="?view=week" class="spk-cal-today-btn">Today</a>
+        <a href="?view=week&year={{ next_week_year }}&week={{ next_week }}" class="spk-cal-nav-btn" title="Next week">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+        </a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  {% if view == 'month' %}
+  {# ---- MONTH VIEW ---- #}
+  <div class="spk-cal-wrap">
+    <div class="spk-cal-grid-month">
+      <div class="spk-cal-dow">Mon</div>
+      <div class="spk-cal-dow">Tue</div>
+      <div class="spk-cal-dow">Wed</div>
+      <div class="spk-cal-dow">Thu</div>
+      <div class="spk-cal-dow">Fri</div>
+      <div class="spk-cal-dow">Sat</div>
+      <div class="spk-cal-dow">Sun</div>
+
+      {% for week_row in weeks %}
+      {% for d in week_row %}
+      <div class="spk-cal-day{% if d.is_today %} spk-cal-day--today{% endif %}{% if d.is_other_month %} spk-cal-day--other{% endif %}">
+        <div class="spk-cal-day-num">{{ d.day }}</div>
+        {% for ev in d.events[:3] %}
+        <button type="button"
+                class="spk-cal-chip spk-cal-chip--{{ ev.status }}"
+                data-id="{{ ev.id }}"
+                data-title="{{ ev.session_title }}"
+                data-time="{{ ev.start_time.strftime('%I:%M %p') }}"
+                data-date="{{ ev.start_time.strftime('%b %d, %Y') }}"
+                data-dur="{{ ev.duration }}"
+                data-venue="{{ ev.auditorium }}"
+                data-location="{{ ev.location }}"
+                data-college="{{ ev.college }}"
+                data-city="{{ ev.city }}"
+                data-price="{{ ev.price }}"
+                data-bookings="{{ ev.bookings }}"
+                data-status="{{ ev.status }}"
+                data-session-id="{{ ev.session_id }}"
+                title="{{ ev.session_title }}">
+          <span class="spk-cal-chip-dot"></span>
+          <span class="spk-cal-chip-time">{{ ev.start_time.strftime('%H:%M') }}</span>
+          <span class="spk-cal-chip-title">{{ ev.session_title }}</span>
+        </button>
+        {% endfor %}
+        {% if d.events|length > 3 %}
+        <div class="spk-cal-chip-more">+{{ d.events|length - 3 }} more</div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      {% endfor %}
+    </div>
+  </div>
+
+  {% else %}
+  {# ---- WEEK VIEW ---- #}
+  <div class="spk-cal-wrap">
+    <div class="spk-cal-grid-week">
+      {% for d in days %}
+      <div class="spk-cal-week-col">
+        <div class="spk-cal-week-header{% if d.is_today %} spk-cal-week-header--today{% endif %}">
+          <span class="spk-cal-week-dayname">{{ d.weekday }}</span>
+          <span class="spk-cal-week-daynum">{{ d.day }}</span>
+        </div>
+        <div class="spk-cal-week-body">
+          {% if d.events %}
+          {% for ev in d.events %}
+          <button type="button"
+                  class="spk-cal-week-event spk-cal-week-event--{{ ev.status }}"
+                  data-id="{{ ev.id }}"
+                  data-title="{{ ev.session_title }}"
+                  data-time="{{ ev.start_time.strftime('%I:%M %p') }}"
+                  data-date="{{ ev.start_time.strftime('%b %d, %Y') }}"
+                  data-dur="{{ ev.duration }}"
+                  data-venue="{{ ev.auditorium }}"
+                  data-location="{{ ev.location }}"
+                  data-college="{{ ev.college }}"
+                  data-city="{{ ev.city }}"
+                  data-price="{{ ev.price }}"
+                  data-bookings="{{ ev.bookings }}"
+                  data-status="{{ ev.status }}"
+                  data-session-id="{{ ev.session_id }}">
+            <div class="spk-cal-event-time">{{ ev.start_time.strftime('%I:%M %p') }}</div>
+            <div class="spk-cal-event-title">{{ ev.session_title }}</div>
+            <div class="spk-cal-event-venue">{{ ev.auditorium }}</div>
+            <div class="spk-cal-event-meta">{{ ev.duration }} min &middot; {{ ev.bookings }} booked</div>
+          </button>
+          {% endfor %}
+          {% else %}
+          <div class="spk-cal-week-empty"></div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ---- POPOVER (hidden, filled by JS) ---- #}
+  <div class="spk-cal-popover" id="cal-popover" style="display:none">
+    <div class="spk-cal-popover-header">
+      <strong id="pop-title"></strong>
+      <button type="button" class="spk-cal-popover-close" id="pop-close">&times;</button>
+    </div>
+    <div class="spk-cal-popover-body">
+      <div class="spk-cal-pop-row"><span class="spk-cal-pop-label">Date</span><span id="pop-date"></span></div>
+      <div class="spk-cal-pop-row"><span class="spk-cal-pop-label">Time</span><span id="pop-time"></span></div>
+      <div class="spk-cal-pop-row"><span class="spk-cal-pop-label">Duration</span><span id="pop-dur"></span></div>
+      <div class="spk-cal-pop-row"><span class="spk-cal-pop-label">Venue</span><span id="pop-venue"></span></div>
+      <div class="spk-cal-pop-row" id="pop-loc-row"><span class="spk-cal-pop-label">Location</span><span id="pop-loc"></span></div>
+      <div class="spk-cal-pop-row"><span class="spk-cal-pop-label">Price</span><span id="pop-price"></span></div>
+      <div class="spk-cal-pop-row"><span class="spk-cal-pop-label">Bookings</span><span id="pop-bookings"></span></div>
+      <div class="spk-cal-pop-row"><span class="spk-cal-pop-label">Status</span><span id="pop-status"></span></div>
+    </div>
+    <div class="spk-cal-popover-footer">
+      <a id="pop-edit-link" href="#" class="btn btn-sm btn-outline">Edit Session</a>
+      <a id="pop-view-link" href="#" class="btn btn-sm btn-primary" target="_blank">View Public Page</a>
+    </div>
+  </div>
+  <div class="spk-cal-overlay" id="cal-overlay" style="display:none"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var popover = document.getElementById('cal-popover');
+  var overlay = document.getElementById('cal-overlay');
+  if (!popover) return;
+
+  function showPopover(btn) {
+    document.getElementById('pop-title').textContent = btn.dataset.title;
+    document.getElementById('pop-date').textContent = btn.dataset.date;
+    document.getElementById('pop-time').textContent = btn.dataset.time;
+    document.getElementById('pop-dur').textContent = btn.dataset.dur + ' min';
+    document.getElementById('pop-venue').textContent = btn.dataset.venue;
+    var locRow = document.getElementById('pop-loc-row');
+    var locParts = [];
+    if (btn.dataset.college) locParts.push(btn.dataset.college);
+    if (btn.dataset.city) locParts.push(btn.dataset.city);
+    if (locParts.length) {
+      document.getElementById('pop-loc').textContent = locParts.join(' · ');
+      locRow.style.display = '';
+    } else {
+      locRow.style.display = 'none';
+    }
+    document.getElementById('pop-price').textContent = '\u20B9' + parseFloat(btn.dataset.price).toFixed(0);
+    document.getElementById('pop-bookings').textContent = btn.dataset.bookings;
+    var status = btn.dataset.status;
+    var statusEl = document.getElementById('pop-status');
+    statusEl.textContent = status.replace(/_/g, ' ').replace(/\b\w/g, function(c){ return c.toUpperCase(); });
+    statusEl.className = 'badge badge-' + (status === 'published' ? 'success' : status === 'completed' ? 'available' : status === 'cancelled' ? 'danger' : 'draft');
+    document.getElementById('pop-edit-link').href = '/speaker/sessions/' + btn.dataset.sessionId + '/edit';
+    document.getElementById('pop-view-link').href = '/sessions/' + btn.dataset.sessionId;
+    popover.style.display = '';
+    overlay.style.display = '';
+  }
+
+  function hidePopover() {
+    popover.style.display = 'none';
+    overlay.style.display = 'none';
+  }
+
+  document.addEventListener('click', function(e) {
+    var chip = e.target.closest('.spk-cal-chip, .spk-cal-week-event');
+    if (chip) {
+      e.stopPropagation();
+      showPopover(chip);
+      return;
+    }
+    if (e.target.id === 'pop-close' || e.target.id === 'cal-overlay') {
+      hidePopover();
+    }
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') hidePopover();
+  });
+})();
+</script>
+{% endblock %}

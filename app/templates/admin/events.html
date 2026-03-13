@@ -27,7 +27,7 @@
       <tr>
         <td data-label="Name"><strong>{{ ev.name }}</strong></td>
         <td data-label="College">{{ ev.college.name if ev.college else "—" }}</td>
-        <td data-label="Sessions">{{ ev._session_count }}</td>
+        <td data-label="Sessions">{{ ev._showing_count }}</td>
         <td data-label="Discount">{{ (ev.discount_pct|string ~ '%') if ev.discount_pct else "—" }}</td>
         <td data-label="Status">
           {% if ev.status == 'published' %}

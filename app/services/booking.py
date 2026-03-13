@@ -1,18 +1,18 @@
 import io
 import base64
 import uuid
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import qrcode
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session as DBSession
 
 from app.config import settings
 from app.utils import now_ist
 from app.models.booking import Booking, _generate_ticket_id
 from app.services.invoice import _generate_invoice_number
 from app.models.seat import Seat
-from app.models.session import LectureSession
+from app.models.showing import Showing
 from app.models.user import User
 from app.models.auditorium import Auditorium
 from app.services.email import send_booking_confirmation, send_group_booking_confirmation, send_cancellation_confirmation, send_group_cancellation_confirmation
@@ -22,7 +22,7 @@ CANCELLATION_FEE = 100.0
 TICKET_PRICE = 500.0
 
 
-def get_seat_map(db: Session, session_id: int, auditorium_id: int):
+def get_seat_map(db: DBSession, showing_id: int, auditorium_id: int):
     seats = (
         db.query(Seat)
         .filter(Seat.auditorium_id == auditorium_id, Seat.is_active == True)
@@ -34,7 +34,7 @@ def get_seat_map(db: Session, session_id: int, auditorium_id: int):
         sid
         for (sid,) in db.query(Booking.seat_id)
         .filter(
-            Booking.session_id == session_id,
+            Booking.showing_id == showing_id,
             (Booking.payment_status == "paid")
             | (
                 (Booking.payment_status == "hold")
@@ -67,25 +67,25 @@ def get_seat_map(db: Session, session_id: int, auditorium_id: int):
 
 
 def hold_seats(
-    db: Session, user_id: int, session_id: int, seat_ids: list[int]
+    db: DBSession, user_id: int, showing_id: int, seat_ids: list[int]
 ) -> list[Booking]:
     now = now_ist()
     held_until = now + timedelta(minutes=settings.hold_timeout_minutes)
 
-    lecture = db.query(LectureSession).get(session_id)
-    if not lecture:
+    showing = db.query(Showing).get(showing_id)
+    if not showing:
         return []
 
     valid_seat_ids = set(
         sid for (sid,) in db.query(Seat.id)
-        .filter(Seat.auditorium_id == lecture.auditorium_id, Seat.is_active == True, Seat.seat_type.notin_(["aisle", "reserved"]))
+        .filter(Seat.auditorium_id == showing.auditorium_id, Seat.is_active == True, Seat.seat_type.notin_(["aisle", "reserved"]))
         .all()
     )
     seat_ids = [sid for sid in seat_ids if sid in valid_seat_ids]
     if not seat_ids:
         return []
 
-    cancel_existing_holds(db, user_id, session_id)
+    cancel_existing_holds(db, user_id, showing_id)
 
     bookings = []
     for seat_id in seat_ids:
@@ -93,7 +93,7 @@ def hold_seats(
             db.query(Booking)
             .filter(
                 Booking.seat_id == seat_id,
-                Booking.session_id == session_id,
+                Booking.showing_id == showing_id,
                 (Booking.payment_status == "paid")
                 | (
                     (Booking.payment_status == "hold")
@@ -107,7 +107,7 @@ def hold_seats(
 
         booking = Booking(
             user_id=user_id,
-            session_id=session_id,
+            showing_id=showing_id,
             seat_id=seat_id,
             payment_status="hold",
             booking_ref=uuid.uuid4().hex[:10].upper(),
@@ -115,10 +115,10 @@ def hold_seats(
         )
         db.add(booking)
         try:
-            db.flush()  # catch DB-level constraint violations immediately
+            db.flush()
         except IntegrityError:
             db.rollback()
-            continue  # seat was snatched by a concurrent request
+            continue
         bookings.append(booking)
 
     if bookings:
@@ -138,14 +138,14 @@ def _generate_qr_base64(data: str) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def _price_for_seat(lecture, seat_type: str, db=None, discount_pct=None) -> float:
-    if not lecture:
+def _price_for_seat(showing, seat_type: str, db=None, discount_pct=None) -> float:
+    if not showing:
         return TICKET_PRICE
-    base = float(lecture.price)
-    if seat_type == "vip" and lecture.price_vip is not None:
-        price = float(lecture.price_vip)
-    elif seat_type == "accessible" and lecture.price_accessible is not None:
-        price = float(lecture.price_accessible)
+    base = float(showing.price)
+    if seat_type == "vip" and showing.price_vip is not None:
+        price = float(showing.price_vip)
+    elif seat_type == "accessible" and showing.price_accessible is not None:
+        price = float(showing.price_accessible)
     elif seat_type and seat_type.startswith("custom_") and db is not None:
         price = base
         try:
@@ -163,19 +163,19 @@ def _price_for_seat(lecture, seat_type: str, db=None, discount_pct=None) -> floa
     return price
 
 
-def _price_for_seat_discounted(lecture, seat_type: str, discount_pct: float, db=None) -> float:
-    return _price_for_seat(lecture, seat_type, db=db, discount_pct=discount_pct)
+def _price_for_seat_discounted(showing, seat_type: str, discount_pct: float, db=None) -> float:
+    return _price_for_seat(showing, seat_type, db=db, discount_pct=discount_pct)
 
 
-def confirm_payment(db: Session, user_id: int, session_id: int, discount_pct=None, event_id=None) -> list[Booking]:
+def confirm_payment(db: DBSession, user_id: int, showing_id: int, discount_pct=None, event_id=None) -> list[Booking]:
     now = now_ist()
-    lecture = db.query(LectureSession).get(session_id)
+    showing = db.query(Showing).get(showing_id)
 
     holds = (
         db.query(Booking)
         .filter(
             Booking.user_id == user_id,
-            Booking.session_id == session_id,
+            Booking.showing_id == showing_id,
             Booking.payment_status == "hold",
             Booking.held_until > now,
         )
@@ -192,7 +192,7 @@ def confirm_payment(db: Session, user_id: int, session_id: int, discount_pct=Non
         b.payment_status = "paid"
         b.booked_at = now
         b.held_until = None
-        b.amount_paid = _price_for_seat(lecture, seat.seat_type if seat else "standard", discount_pct=discount_pct)
+        b.amount_paid = _price_for_seat(showing, seat.seat_type if seat else "standard", discount_pct=discount_pct)
         if event_id:
             b.event_id = event_id
         b.ticket_id = _generate_ticket_id()
@@ -205,17 +205,18 @@ def confirm_payment(db: Session, user_id: int, session_id: int, discount_pct=Non
 
     if holds:
         user = db.query(User).get(holds[0].user_id)
-        auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+        auditorium = db.query(Auditorium).get(showing.auditorium_id) if showing else None
         invoice_pdf = None
         all_seats = [db.query(Seat).get(b.seat_id) for b in holds]
-        if user and lecture and auditorium:
+        session_obj = showing.session if showing else None
+        if user and showing and auditorium:
             try:
                 from app.services.invoice import generate_invoice_pdf
-                invoice_pdf = generate_invoice_pdf(holds, user, lecture, auditorium, all_seats)
+                invoice_pdf = generate_invoice_pdf(holds, user, session_obj, showing, auditorium, all_seats)
             except Exception:
                 pass
 
-        session_title = lecture.title if lecture else "Session"
+        session_title = session_obj.title if session_obj else "Session"
         if user and len(holds) > 1:
             tickets = []
             for b, seat in zip(holds, all_seats):
@@ -241,13 +242,13 @@ def confirm_payment(db: Session, user_id: int, session_id: int, discount_pct=Non
     return holds
 
 
-def cancel_booking_user(db: Session, booking_id: int, user_id: int, *, send_email: bool = True) -> dict:
+def cancel_booking_user(db: DBSession, booking_id: int, user_id: int, *, send_email: bool = True) -> dict:
     b = db.query(Booking).filter(Booking.id == booking_id, Booking.user_id == user_id).first()
     if not b or b.payment_status != "paid":
         return {"ok": False, "msg": "Booking not found or already cancelled."}
 
-    lecture = db.query(LectureSession).get(b.session_id)
-    price = b.amount_paid or float(lecture.price) if lecture else TICKET_PRICE
+    showing = db.query(Showing).get(b.showing_id)
+    price = b.amount_paid or float(showing.price) if showing else TICKET_PRICE
     fee = CANCELLATION_FEE
     refund = max(0, price - fee)
 
@@ -269,18 +270,19 @@ def cancel_booking_user(db: Session, booking_id: int, user_id: int, *, send_emai
     if send_email:
         user = db.query(User).get(user_id)
         seat = db.query(Seat).get(b.seat_id)
+        session_obj = showing.session if showing else None
         if user and seat:
             invoice_pdf = None
-            auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+            auditorium = db.query(Auditorium).get(showing.auditorium_id) if showing else None
             if auditorium:
                 try:
                     from app.services.invoice import generate_invoice_pdf
-                    invoice_pdf = generate_invoice_pdf([b], user, lecture, auditorium, [seat])
+                    invoice_pdf = generate_invoice_pdf([b], user, session_obj, showing, auditorium, [seat])
                 except Exception:
                     pass
             send_cancellation_confirmation(
                 user.email, user.username,
-                lecture.title if lecture else "Session",
+                session_obj.title if session_obj else "Session",
                 seat.label, b.booking_ref,
                 float(price), float(fee), float(refund),
                 invoice_pdf=invoice_pdf,
@@ -289,7 +291,7 @@ def cancel_booking_user(db: Session, booking_id: int, user_id: int, *, send_emai
     return {"ok": True, "msg": f"Booking cancelled. Refund of ₹{refund:.0f} will be processed (₹{fee:.0f} cancellation fee).{rz_warning}", "refund": refund, "fee": fee}
 
 
-def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
+def cancel_group_bookings(db: DBSession, group_id: str, user_id: int) -> dict:
     bookings = (
         db.query(Booking)
         .filter(
@@ -302,14 +304,15 @@ def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
     if not bookings:
         return {"ok": False, "msg": "No active bookings found in this group.", "cancelled": 0}
 
-    lecture = db.query(LectureSession).get(bookings[0].session_id)
+    showing = db.query(Showing).get(bookings[0].showing_id)
+    session_obj = showing.session if showing else None
     cancelled_items = []
     total_refund = 0.0
     total_fees = 0.0
     rz_failures = 0
 
     for b in bookings:
-        price = b.amount_paid or float(lecture.price) if lecture else TICKET_PRICE
+        price = b.amount_paid or float(showing.price) if showing else TICKET_PRICE
         fee = CANCELLATION_FEE
         refund = max(0, price - fee)
 
@@ -341,17 +344,17 @@ def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
     user = db.query(User).get(user_id)
     if user:
         invoice_pdf = None
-        auditorium = db.query(Auditorium).get(lecture.auditorium_id) if lecture else None
+        auditorium = db.query(Auditorium).get(showing.auditorium_id) if showing else None
         if auditorium:
             try:
                 from app.services.invoice import generate_invoice_pdf
                 all_seats = [db.query(Seat).get(b.seat_id) for b in bookings]
-                invoice_pdf = generate_invoice_pdf(bookings, user, lecture, auditorium, all_seats)
+                invoice_pdf = generate_invoice_pdf(bookings, user, session_obj, showing, auditorium, all_seats)
             except Exception:
                 pass
         send_group_cancellation_confirmation(
             user.email, user.username,
-            lecture.title if lecture else "Session",
+            session_obj.title if session_obj else "Session",
             cancelled_items, total_fees, total_refund,
             invoice_pdf=invoice_pdf,
         )
@@ -361,12 +364,12 @@ def cancel_group_bookings(db: Session, group_id: str, user_id: int) -> dict:
     return {"ok": True, "msg": f"Cancelled {count} ticket(s). Total refund: ₹{total_refund:.0f}.{rz_warning}", "cancelled": count, "refund": total_refund}
 
 
-def cancel_existing_holds(db: Session, user_id: int, session_id: int):
+def cancel_existing_holds(db: DBSession, user_id: int, showing_id: int):
     holds = (
         db.query(Booking)
         .filter(
             Booking.user_id == user_id,
-            Booking.session_id == session_id,
+            Booking.showing_id == showing_id,
             Booking.payment_status == "hold",
         )
         .all()
@@ -376,7 +379,7 @@ def cancel_existing_holds(db: Session, user_id: int, session_id: int):
     db.commit()
 
 
-def get_user_bookings(db: Session, user_id: int):
+def get_user_bookings(db: DBSession, user_id: int):
     return (
         db.query(Booking)
         .filter(Booking.user_id == user_id, Booking.payment_status.in_(["paid", "refunded"]))
