@@ -43,7 +43,8 @@ def _try_link_speaker_token(request: Request, db: Session, user: User):
 
 @router.get("/login")
 def login_page(request: Request):
-    return templates.TemplateResponse("auth/login.html", template_ctx(request))
+    next_url = request.query_params.get("next", "")
+    return templates.TemplateResponse("auth/login.html", template_ctx(request, next=next_url))
 
 
 @router.post("/login")
@@ -72,7 +73,8 @@ async def login(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/register")
 def register_page(request: Request):
-    return templates.TemplateResponse("auth/register.html", template_ctx(request))
+    next_url = request.query_params.get("next", "")
+    return templates.TemplateResponse("auth/register.html", template_ctx(request, next=next_url))
 
 
 @router.post("/register")
@@ -114,7 +116,9 @@ async def register(request: Request, db: Session = Depends(get_db)):
     if errors:
         for e in errors:
             flash(request, e, "danger")
-        return RedirectResponse("/auth/register", status_code=303)
+        next_q = form.get("next", "").strip() or request.query_params.get("next", "")
+        qs = f"?next={next_q}" if next_q else ""
+        return RedirectResponse(f"/auth/register{qs}", status_code=303)
 
     is_first_user = db.query(User).count() == 0
     user = User(
@@ -139,7 +143,12 @@ async def register(request: Request, db: Session = Depends(get_db)):
     msg = "Account created! You are the admin." if is_first_user else "Account created!"
     flash(request, msg, "success")
     send_signup_confirmation(user.email, user.username)
-    next_url = request.session.pop("speaker_invite_next", "/")
+    next_url = (
+        form.get("next", "").strip()
+        or request.query_params.get("next", "")
+        or request.session.pop("speaker_invite_next", "")
+        or "/"
+    )
     return RedirectResponse(next_url, status_code=303)
 
 

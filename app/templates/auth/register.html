@@ -11,6 +11,9 @@
     </div>
 
     <form method="post" action="/auth/register" id="register-form" novalidate>
+      {% if next %}
+        <input type="hidden" name="next" value="{{ next }}">
+      {% endif %}
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="reg-fullname">Full Name <span class="required">*</span></label>
@@ -50,7 +53,7 @@
     </form>
 
     <div class="auth-footer">
-      Already have an account? <a href="/auth/login">Login</a>
+      Already have an account? <a href="/auth/login{% if next %}?next={{ next }}{% endif %}">Login</a>
     </div>
   </div>
 </div>

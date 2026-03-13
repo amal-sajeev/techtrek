@@ -73,6 +73,10 @@
         <label class="form-label" for="sess-price-accessible">Accessible Price (&#8377;)</label>
         <input type="number" name="price_accessible" id="sess-price-accessible" class="form-input" value="{{ lecture.price_accessible if lecture and lecture.price_accessible is not none else '' }}" min="0" step="0.01" placeholder="Leave blank to use standard">
       </div>
+      <div class="form-group">
+        <label class="form-label" for="sess-fee-pct">Processing Fee (%)</label>
+        <input type="number" name="processing_fee_pct" id="sess-fee-pct" class="form-input" value="{{ lecture.processing_fee_pct if lecture and lecture.processing_fee_pct is not none else '' }}" min="0" max="100" step="0.01" placeholder="e.g. 2.5 (leave blank for none)">
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -667,9 +671,11 @@
     var price = document.getElementById('sess-price').value || '0';
     var priceVip = document.getElementById('sess-price-vip').value;
     var priceAcc = document.getElementById('sess-price-accessible').value;
+    var feePct = document.getElementById('sess-fee-pct').value;
     var priceDisplay = '\u20B9' + price;
     if (priceVip) priceDisplay += ' / VIP: \u20B9' + priceVip;
     if (priceAcc) priceDisplay += ' / Accessible: \u20B9' + priceAcc;
+    if (feePct) priceDisplay += ' + ' + feePct + '% processing fee';
     var status = document.getElementById('sess-status').value || 'draft';
     var aud = document.getElementById('sess-auditorium');
     var venue = '(none)';

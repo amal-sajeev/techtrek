@@ -131,7 +131,7 @@ def _generate_qr_base64(data: str) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def _price_for_seat(lecture, seat_type: str) -> float:
+def _price_for_seat(lecture, seat_type: str, db=None) -> float:
     if not lecture:
         return TICKET_PRICE
     base = float(lecture.price)
@@ -139,6 +139,15 @@ def _price_for_seat(lecture, seat_type: str) -> float:
         return float(lecture.price_vip)
     if seat_type == "accessible" and lecture.price_accessible is not None:
         return float(lecture.price_accessible)
+    if seat_type and seat_type.startswith("custom_") and db is not None:
+        try:
+            ct_id = int(seat_type.split("_", 1)[1])
+            from app.models.seat_type import SeatType
+            ct = db.query(SeatType).get(ct_id)
+            if ct and ct.price is not None:
+                return float(ct.price)
+        except (ValueError, IndexError):
+            pass
     return base
 
 

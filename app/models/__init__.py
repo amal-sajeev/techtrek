@@ -14,10 +14,11 @@ from app.models.seat_type import SeatType
 from app.models.activity_log import ActivityLog
 from app.models.webhook_log import WebhookLog
 from app.models.session_recording import SessionRecording
+from app.models.site_setting import SiteSetting
 
 __all__ = [
     "User", "City", "College", "Auditorium", "Seat", "Speaker", "AgendaItem",
     "LectureSession", "SessionSpeaker", "Booking", "Waitlist", "Testimonial",
     "NewsletterSubscriber", "SeatType", "ActivityLog", "WebhookLog",
-    "SessionRecording",
+    "SessionRecording", "SiteSetting",
 ]

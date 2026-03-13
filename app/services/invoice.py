@@ -4,13 +4,15 @@ from datetime import datetime
 
 import os
 
+import requests
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import (
-    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable,
+    SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer, HRFlowable, Image as RLImage,
 )
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
@@ -48,7 +50,23 @@ def _seat_type_display(seat_type, custom_types_map=None):
     return (seat_type or "standard").replace("_", " ").title()
 
 
-def generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_types_map=None) -> bytes:
+def _get_logo_image(logo_url: str, max_h_mm: float = 14):
+    """Download logo URL and return a ReportLab Image, or None on failure."""
+    try:
+        resp = requests.get(logo_url, timeout=5)
+        resp.raise_for_status()
+        buf = io.BytesIO(resp.content)
+        img = RLImage(buf)
+        # Scale to fixed height
+        aspect = img.imageWidth / img.imageHeight
+        img.drawHeight = max_h_mm * mm
+        img.drawWidth = max_h_mm * mm * aspect
+        return img
+    except Exception:
+        return None
+
+
+def generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_types_map=None, db=None) -> bytes:
     _register_fonts()
     font = "Arial" if _FONT_REGISTERED else "Helvetica"
     font_bold = "Arial-Bold" if _FONT_REGISTERED else "Helvetica-Bold"
@@ -71,21 +89,51 @@ def generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_type
     styles.add(ParagraphStyle("Bold", parent=styles["Normal"], fontName=font_bold))
 
     elements = []
+
+    # Load overrides from DB if available
+    _s_name = settings.company_name
+    _s_addr = settings.company_address
+    _s_gstin = settings.company_gstin
+    _s_pan = settings.company_pan
+    _s_email = settings.company_email
+    _s_phone = settings.company_phone
     gst_rate = settings.gst_rate
+    _logo_url = ""
+    if db is not None:
+        try:
+            from app.models.site_setting import SiteSetting
+            rows = {r.key: r.value for r in db.query(SiteSetting).all()}
+            _s_name = rows.get("company_name") or _s_name
+            _s_addr = rows.get("company_address") or _s_addr
+            _s_gstin = rows.get("company_gstin") or _s_gstin
+            _s_pan = rows.get("company_pan") or _s_pan
+            _s_email = rows.get("company_email") or _s_email
+            _s_phone = rows.get("company_phone") or _s_phone
+            _logo_url = rows.get("platform_logo_url") or ""
+            if rows.get("gst_rate"):
+                try:
+                    gst_rate = float(rows["gst_rate"])
+                except ValueError:
+                    pass
+        except Exception:
+            pass
 
     # --- Header ---
     company_info = (
-        f"<b>{settings.company_name}</b><br/>"
-        f"{settings.company_address}<br/>"
-        f"GSTIN: {settings.company_gstin} &nbsp;|&nbsp; PAN: {settings.company_pan}<br/>"
-        f"Email: {settings.company_email} &nbsp;|&nbsp; Phone: {settings.company_phone}"
+        f"<b>{_s_name}</b><br/>"
+        f"{_s_addr}<br/>"
+        f"GSTIN: {_s_gstin} &nbsp;|&nbsp; PAN: {_s_pan}<br/>"
+        f"Email: {_s_email} &nbsp;|&nbsp; Phone: {_s_phone}"
     )
 
     inv_number = bookings[0].invoice_number or "—"
     inv_date = bookings[0].booked_at.strftime("%d %b %Y, %I:%M %p") if bookings[0].booked_at else now_ist().strftime("%d %b %Y, %I:%M %p")
 
+    logo_img = _get_logo_image(_logo_url) if _logo_url else None
+    left_cell = [logo_img, Paragraph(company_info, styles["SubHeader"])] if logo_img else [Paragraph(company_info, styles["SubHeader"])]
+
     header_data = [
-        [Paragraph(company_info, styles["SubHeader"]),
+        [left_cell,
          Paragraph(f"<b>TAX INVOICE</b><br/>Invoice #: {inv_number}<br/>Date: {inv_date}", ParagraphStyle("RightSub", parent=styles["SubHeader"], alignment=TA_RIGHT))],
     ]
     header_table = Table(header_data, colWidths=[doc.width * 0.6, doc.width * 0.4])

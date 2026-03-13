@@ -178,7 +178,7 @@
           <span class="session-price-num">{{ "%.0f"|format(lecture.price) }}</span>
           <span class="session-price-suffix">per seat</span>
         </div>
-        {% if lecture.price_vip is not none or lecture.price_accessible is not none %}
+        {% if lecture.price_vip is not none or lecture.price_accessible is not none or custom_seat_types %}
         <div class="session-alt-tiers">
           {% if lecture.price_vip is not none %}
           <span class="session-alt-tier tier-vip-pill">VIP · ₹{{ "%.0f"|format(lecture.price_vip) }}</span>
@@ -186,6 +186,13 @@
           {% if lecture.price_accessible is not none %}
           <span class="session-alt-tier tier-acc-pill">Accessible · ₹{{ "%.0f"|format(lecture.price_accessible) }}</span>
           {% endif %}
+          {% for ct in custom_seat_types %}
+          {% if ct.price is not none %}
+          <span class="session-alt-tier" style="background:{{ ct.colour }}20;color:{{ ct.colour }};border:1px solid {{ ct.colour }}60">
+            {% if ct.icon %}{{ ct.icon }} {% endif %}{{ ct.name }} · ₹{{ "%.0f"|format(ct.price) }}
+          </span>
+          {% endif %}
+          {% endfor %}
         </div>
         {% endif %}
       </div>

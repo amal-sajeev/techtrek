@@ -19,6 +19,7 @@ from app.models.session import LectureSession
 from app.models.speaker import Speaker
 from app.models.testimonial import Testimonial, NewsletterSubscriber
 from app.models.session_recording import SessionRecording
+from app.models.seat_type import SeatType
 from app.models.user import User
 
 router = APIRouter(tags=["public"])
@@ -364,6 +365,21 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
     )
     enriched_recordings = [{"rec": r, "embed_url": _build_embed_url(r.url)} for r in public_recordings]
 
+    # Custom seat types used in this auditorium (that have a price set)
+    custom_seat_type_ids = {
+        int(s.seat_type.split("_", 1)[1])
+        for s in db.query(Seat).filter(
+            Seat.auditorium_id == lecture.auditorium_id,
+            Seat.seat_type.like("custom_%"),
+            Seat.is_active == True,
+        ).all()
+        if s.seat_type and s.seat_type.startswith("custom_")
+    }
+    custom_seat_types = (
+        db.query(SeatType).filter(SeatType.id.in_(custom_seat_type_ids)).all()
+        if custom_seat_type_ids else []
+    )
+
     return templates.TemplateResponse(
         "public/session_detail.html",
         template_ctx(
@@ -376,12 +392,18 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
             on_waitlist=on_waitlist,
             has_priority=has_priority,
             recordings=enriched_recordings,
+            custom_seat_types=custom_seat_types,
         ),
     )
 
 
 @router.get("/recordings")
 def recordings_page(request: Request, db: Session = Depends(get_db)):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        flash(request, "Sign in to view recordings for your booked sessions.", "info")
+        return RedirectResponse("/auth/login?next=/recordings", status_code=303)
+
     # Find sessions with at least one public SessionRecording
     session_ids_with_recordings = (
         db.query(SessionRecording.session_id)
@@ -390,12 +412,25 @@ def recordings_page(request: Request, db: Session = Depends(get_db)):
         .all()
     )
     ids = [r[0] for r in session_ids_with_recordings]
+
+    # Filter to sessions where the user has a paid (not refunded) booking
+    paid_session_ids = {
+        r[0] for r in db.query(Booking.session_id).filter(
+            Booking.user_id == user_id,
+            Booking.payment_status == "paid",
+        ).distinct().all()
+    }
+
     sessions = (
         db.query(LectureSession)
-        .filter(LectureSession.id.in_(ids))
+        .filter(
+            LectureSession.id.in_(ids),
+            LectureSession.id.in_(paid_session_ids),
+        )
         .order_by(LectureSession.start_time.desc())
         .all()
     ) if ids else []
+
     enriched = []
     for s in sessions:
         aud = db.query(Auditorium).get(s.auditorium_id)
@@ -610,3 +645,8 @@ def public_ticket_group(request: Request, group_id: str, db: Session = Depends(g
             group_id=group_id,
         ),
     )
+
+
+@router.get("/terms")
+def terms_page(request: Request):
+    return templates.TemplateResponse("public/terms.html", template_ctx(request))

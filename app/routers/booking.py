@@ -33,8 +33,8 @@ from app.services.razorpay import verify_payment as rz_verify_payment
 router = APIRouter(prefix="/booking", tags=["booking"])
 
 
-def _seat_price(lecture, seat_type: str) -> float:
-    return _price_for_seat(lecture, seat_type)
+def _seat_price(lecture, seat_type: str, db=None) -> float:
+    return _price_for_seat(lecture, seat_type, db=db)
 
 
 def _require_user(request: Request, db: Session) -> User | None:
@@ -86,7 +86,8 @@ def select_seat_page(request: Request, session_id: int, db: Session = Depends(ge
 
     custom_types = db.query(SeatType).filter(SeatType.is_custom == True).order_by(SeatType.name).all()
     custom_types_data = [
-        {"id": st.id, "name": st.name, "colour": st.colour, "icon": st.icon}
+        {"id": st.id, "name": st.name, "colour": st.colour, "icon": st.icon,
+         "price": float(st.price) if st.price is not None else None}
         for st in custom_types
     ]
 
@@ -172,7 +173,10 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
         seat = db.query(Seat).get(h.seat_id)
         seats.append(seat)
 
-    total = sum(_seat_price(lecture, s.seat_type) for s in seats)
+    base_total = sum(_seat_price(lecture, s.seat_type, db=db) for s in seats)
+    fee_pct = float(lecture.processing_fee_pct) if lecture.processing_fee_pct else 0
+    processing_fee = round(base_total * fee_pct / 100, 2)
+    total = base_total + processing_fee
     held = holds[0].held_until
     time_left = int((held - now).total_seconds())
 
@@ -182,6 +186,9 @@ def checkout_page(request: Request, session_id: int, db: Session = Depends(get_d
             request,
             lecture=lecture,
             seats=seats,
+            base_total=base_total,
+            processing_fee=processing_fee,
+            fee_pct=fee_pct,
             total=total,
             time_left=time_left,
             booking_count=len(seats),
@@ -216,7 +223,9 @@ def create_order(request: Request, session_id: int, db: Session = Depends(get_db
         return JSONResponse({"error": "Session not found."}, status_code=404)
 
     seats = [db.query(Seat).get(h.seat_id) for h in holds]
-    total_paise = int(sum(_seat_price(lecture, s.seat_type) for s in seats) * 100)
+    base = sum(_seat_price(lecture, s.seat_type, db=db) for s in seats)
+    fee_pct = float(lecture.processing_fee_pct) if lecture.processing_fee_pct else 0
+    total_paise = int(round(base * (1 + fee_pct / 100), 2) * 100)
     receipt = f"sess{session_id}_user{user.id}"
 
     try:
@@ -344,7 +353,7 @@ def download_invoice(request: Request, session_id: int, db: Session = Depends(ge
 
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     custom_types_map = {f"custom_{st.id}": st for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
-    pdf_bytes = generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_types_map)
+    pdf_bytes = generate_invoice_pdf(bookings, user, lecture, auditorium, seats, custom_types_map, db=db)
     ref = bookings[0].booking_ref or "invoice"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),

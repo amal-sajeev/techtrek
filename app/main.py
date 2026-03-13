@@ -116,6 +116,20 @@ with engine.connect() as conn:
             conn.commit()
         except Exception:
             conn.rollback()
+    # Processing fee on sessions
+    for col, col_type in [("processing_fee_pct", "NUMERIC(5,2) DEFAULT 0")]:
+        try:
+            conn.execute(text(f"ALTER TABLE lecture_sessions ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
+    # Custom seat type price
+    for col, col_type in [("price", "NUMERIC(10,2)")]:
+        try:
+            conn.execute(text(f"ALTER TABLE seat_types ADD COLUMN {col} {col_type}"))
+            conn.commit()
+        except Exception:
+            conn.rollback()
 
 from app.routers import auth, public, booking, admin, supervisor, speaker  # noqa: E402
 from app.routers import webhook  # noqa: E402

@@ -26,6 +26,10 @@
   function priceForType(type) {
     if (type === "vip") return prices.vip;
     if (type === "accessible") return prices.accessible;
+    if (type && type.indexOf("custom_") === 0) {
+      var ct = customTypes[type];
+      if (ct && ct.price != null) return ct.price;
+    }
     return prices.standard;
   }
 
@@ -157,6 +161,11 @@
             el.className = "seat seat-custom";
             el.style.backgroundColor = customTypes[seat.type].colour;
             el.style.color = contrastColor(customTypes[seat.type].colour);
+            var ctIcon = customTypes[seat.type].icon;
+            if (ctIcon) {
+              el.textContent = ctIcon;
+              el.style.fontSize = ".75rem";
+            }
           } else {
             el.className = "seat seat-" + statusClass;
           }

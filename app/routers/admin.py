@@ -29,6 +29,7 @@ from app.models.testimonial import Testimonial
 from app.models.user import User
 from app.services.razorpay import process_refund as rz_process_refund
 from app.models.waitlist import Waitlist
+from app.models.site_setting import SiteSetting
 from app.config import settings
 
 
@@ -519,6 +520,7 @@ async def seat_type_create(request: Request, db: Session = Depends(get_db)):
         name=form.get("name", "").strip(),
         colour=form.get("colour", "#6366f1").strip(),
         icon=form.get("icon", "").strip() or None,
+        price=float(form["price"]) if form.get("price", "").strip() else None,
         is_custom=True,
     )
     db.add(st)
@@ -556,6 +558,7 @@ async def seat_type_update(request: Request, st_id: int, db: Session = Depends(g
     st.name = form.get("name", st.name).strip()
     st.colour = form.get("colour", st.colour).strip()
     st.icon = form.get("icon", "").strip() or None
+    st.price = float(form["price"]) if form.get("price", "").strip() else None
     log_activity(db, category="admin", action="update", description=f"Updated seat type '{st.name}'", request=request, user_id=admin.id, target_type="seat_type", target_id=st_id)
     db.commit()
     flash(request, f"Seat type '{st.name}' updated.", "success")
@@ -917,6 +920,7 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         price=float(form.get("price", 0)),
         price_vip=float(form["price_vip"]) if form.get("price_vip", "").strip() else None,
         price_accessible=float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None,
+        processing_fee_pct=float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None,
         status=form.get("status", "draft"),
         cert_title=form.get("cert_title", "").strip() or None,
         cert_subtitle=form.get("cert_subtitle", "").strip() or None,
@@ -1006,6 +1010,7 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
     lecture.price = float(form.get("price", 0))
     lecture.price_vip = float(form["price_vip"]) if form.get("price_vip", "").strip() else None
     lecture.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
+    lecture.processing_fee_pct = float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None
     lecture.status = form.get("status", lecture.status)
     lecture.cert_title = form.get("cert_title", "").strip() or None
     lecture.cert_subtitle = form.get("cert_subtitle", "").strip() or None
@@ -1630,7 +1635,7 @@ def admin_booking_invoice(request: Request, booking_id: int, db: Session = Depen
 
     seats = [db.query(Seat).get(b.seat_id) for b in group_bookings]
     custom_types_map = {f"custom_{st.id}": st for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
-    pdf_bytes = generate_invoice_pdf(group_bookings, user, lecture, auditorium, seats, custom_types_map)
+    pdf_bytes = generate_invoice_pdf(group_bookings, user, lecture, auditorium, seats, custom_types_map, db=db)
     ref = booking.booking_ref or "invoice"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),
@@ -2056,3 +2061,69 @@ def activity_log_page(
             filter_date_to=date_to,
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Platform Settings
+# ---------------------------------------------------------------------------
+
+_SETTING_KEYS = [
+    "platform_logo_url", "company_name", "company_address",
+    "company_email", "company_phone", "company_gstin", "company_pan", "gst_rate",
+]
+
+
+def _load_settings(db: Session) -> dict:
+    from app.config import settings as cfg
+    defaults = {
+        "platform_logo_url": "",
+        "company_name": cfg.company_name,
+        "company_address": cfg.company_address,
+        "company_email": cfg.company_email,
+        "company_phone": cfg.company_phone,
+        "company_gstin": cfg.company_gstin,
+        "company_pan": cfg.company_pan,
+        "gst_rate": str(cfg.gst_rate),
+    }
+    rows = db.query(SiteSetting).all()
+    for row in rows:
+        defaults[row.key] = row.value or ""
+    return defaults
+
+
+class _SettingsProxy:
+    def __init__(self, d: dict):
+        self._d = d
+
+    def __getattr__(self, key):
+        return self._d.get(key, "")
+
+
+@router.get("/settings")
+def settings_page(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login?next=/admin/settings", status_code=303)
+    s = _SettingsProxy(_load_settings(db))
+    return templates.TemplateResponse(
+        "admin/settings.html",
+        _admin_ctx(request, active_page="settings", s=s),
+    )
+
+
+@router.post("/settings")
+async def settings_update(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login?next=/admin/settings", status_code=303)
+    form = await request.form()
+    for key in _SETTING_KEYS:
+        val = form.get(key, "").strip()
+        row = db.query(SiteSetting).filter(SiteSetting.key == key).first()
+        if row:
+            row.value = val
+        else:
+            db.add(SiteSetting(key=key, value=val))
+    db.commit()
+    flash(request, "Settings saved.", "success")
+    return RedirectResponse("/admin/settings", status_code=303)

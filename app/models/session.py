@@ -22,6 +22,7 @@ class LectureSession(Base):
     price = Column(Numeric(10, 2), nullable=False, default=0)
     price_vip = Column(Numeric(10, 2), nullable=True)
     price_accessible = Column(Numeric(10, 2), nullable=True)
+    processing_fee_pct = Column(Numeric(5, 2), nullable=True, default=0)
     status = Column(String(20), default="draft")
     cert_title = Column(String(300), nullable=True)
     cert_subtitle = Column(Text, nullable=True)

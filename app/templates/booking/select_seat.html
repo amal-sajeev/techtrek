@@ -130,6 +130,13 @@
         var label = document.createElement('span');
         label.className = 'legend-label';
         label.textContent = ct.name;
+        if (ct.icon) {
+          var iconSpan = document.createElement('span');
+          iconSpan.textContent = ct.icon;
+          iconSpan.style.marginLeft = '.25rem';
+          iconSpan.setAttribute('aria-hidden', 'true');
+          label.appendChild(iconSpan);
+        }
         item.appendChild(swatch);
         item.appendChild(label);
         legendContainer.appendChild(item);
