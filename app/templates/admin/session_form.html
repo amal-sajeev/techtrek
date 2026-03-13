@@ -16,6 +16,7 @@
 </div>
 
 <form method="post" action="{{ '/admin/sessions/' ~ lecture.id ~ '/edit' if lecture else '/admin/sessions/new' }}" id="session-wizard-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
   <!-- Step 1: Venue & Date -->
   <div class="wizard-panel active" data-panel="1">

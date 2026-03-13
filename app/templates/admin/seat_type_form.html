@@ -8,6 +8,7 @@
 
 <div class="form-card">
   <form method="post" action="{{ '/admin/seat-types/' ~ seat_type.id ~ '/edit' if seat_type else '/admin/seat-types/new' }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="form-group">
       <label class="form-label" for="st-name">Name</label>
       <input type="text" name="name" id="st-name" class="form-input" value="{{ seat_type.name if seat_type else '' }}" required placeholder="e.g. Premium, Balcony">

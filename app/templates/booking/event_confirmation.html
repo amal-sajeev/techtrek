@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Event Booking Confirmed — {{ event.name }} — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="confirmation-layout">
+      <div class="confirmation-card">
+        <div class="confirmation-icon">&#10003;</div>
+        <h1 class="confirmation-title">Event Booking Confirmed!</h1>
+        <p class="confirmation-subtitle">You're all set for {{ event.name }}</p>
+
+        <div class="confirmation-details">
+          {% if group_qr %}
+          <div class="detail-group" style="text-align:center">
+            <h4>Event Pass QR</h4>
+            <p class="booking-ref-small">Scan to check in at any of your booked sessions</p>
+            <img src="data:image/png;base64,{{ group_qr }}" alt="Event Pass QR Code" class="ticket-qr" width="160" height="160" style="margin:.75rem auto">
+            {% if bookings and bookings[0].booking_group %}
+            <div style="margin-top:.75rem; display:flex; gap:1rem; justify-content:center; flex-wrap:wrap">
+              <a href="/tickets/group/{{ bookings[0].booking_group }}" class="btn btn-outline btn-sm" style="font-size:14.75px">View Event Pass</a>
+              <button type="button" class="btn btn-sm btn-outline" style="font-size:14.75px" onclick="copyLink('/tickets/group/{{ bookings[0].booking_group }}', this)">&#128279; Copy Link</button>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {% for sid, info in sessions_info.items() %}
+          <div class="detail-group">
+            <h4 style="display:flex;align-items:center;gap:.5rem">
+              {{ info.lecture.title }}
+              {% if info.auditorium %}
+              <span style="font-size:.75rem;color:var(--text-muted);font-weight:400">{{ info.auditorium.name }}</span>
+              {% endif %}
+            </h4>
+            <p style="font-size:.85rem;color:var(--text-secondary)">
+              {{ info.lecture.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}
+            </p>
+            {% for i in range(info.bookings|length) %}
+            <div class="ticket-card">
+              <div class="ticket-card-info">
+                <span class="seat-label-chip">{{ info.seats[i].label }}{% if info.seats[i].seat_type != 'standard' %} <small>({{ info.seats[i].seat_type|upper }})</small>{% endif %}</span>
+                <span class="ticket-id">{{ info.bookings[i].ticket_id }}</span>
+                <span class="booking-ref-small">Ref: {{ info.bookings[i].booking_ref }} &middot; &#8377;{{ "%.0f"|format(info.bookings[i].amount_paid) }}</span>
+              </div>
+              <div class="ticket-card-actions">
+                {% if info.bookings[i].qr_code_data %}
+                <img src="data:image/png;base64,{{ info.bookings[i].qr_code_data }}" alt="QR Code" class="ticket-qr" width="80" height="80">
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-outline" onclick="copyLink('/ticket/{{ info.bookings[i].ticket_id }}', this)" title="Copy shareable link">&#128279; Share</button>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% endfor %}
+
+          <div class="detail-group">
+            <h4>Total Paid</h4>
+            <p class="confirmation-total">&#8377;{{ "%.2f"|format(total) }}</p>
+            <p class="text-muted" style="font-size:.8rem">Cancellation policy: &#8377;100 fee per ticket, remainder refunded.</p>
+          </div>
+        </div>
+
+        <div class="confirmation-actions">
+          <a href="/booking/my" class="btn btn-primary">View My Bookings</a>
+          <a href="/events" class="btn btn-outline">Browse More Events</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyLink(path, btn) {
+  var url = window.location.origin + path;
+  navigator.clipboard.writeText(url).then(function() {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '&#10003; Copied!';
+    btn.classList.add('btn-success');
+    setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('btn-success'); }, 2000);
+  });
+}
+</script>
+{% endblock %}

@@ -103,6 +103,7 @@
 
 <!-- Save -->
 <form method="post" action="/admin/auditoriums/{{ auditorium.id }}/layout" id="layout-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   <input type="hidden" name="layout_data" id="layout-data-input" value="[]">
   <input type="hidden" name="total_rows" id="layout-total-rows" value="{{ auditorium.total_rows }}">
   <input type="hidden" name="total_cols" id="layout-total-cols" value="{{ auditorium.total_cols }}">
@@ -168,14 +169,14 @@
 <script src="{{ url_for('static', path='js/seat-designer.js') }}"></script>
 <script>
   document.addEventListener('DOMContentLoaded', function() {
-    var existing = {{ seat_data_json | safe }};
+    var existing = {{ seat_data | tojson }};
     var stageCols = {% if auditorium.stage_cols is none %}null{% else %}{{ auditorium.stage_cols }}{% endif %};
-    var rowGaps = {{ (auditorium.row_gaps or '[]') | safe }};
-    var colGaps = {{ (auditorium.col_gaps or '[]') | safe }};
+    var rowGaps = {{ row_gaps | tojson }};
+    var colGaps = {{ col_gaps | tojson }};
     var stageOffset = {{ auditorium.stage_offset or 0 }};
     var stageLabel = {{ (auditorium.stage_label or 'Stage') | tojson }};
-    var entryExitConfig = {{ (auditorium.entry_exit_config | tojson) if auditorium.entry_exit_config else '[]' | safe }};
-    var customTypes = {{ custom_types_json | safe }};
+    var entryExitConfig = {{ entry_exit_config | tojson }};
+    var customTypes = {{ custom_types | tojson }};
     SeatDesigner.init({{ auditorium.total_rows }}, {{ auditorium.total_cols }}, existing, stageCols, rowGaps, colGaps, stageOffset, stageLabel, entryExitConfig, customTypes);
   });
 </script>

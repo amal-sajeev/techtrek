@@ -10,6 +10,7 @@
     </div>
 
     <form method="post" action="/auth/profile" id="profile-form" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="form-group">
         <label class="form-label" for="pf-fullname">Full Name <span class="required">*</span></label>
         <input type="text" name="full_name" id="pf-fullname" class="form-input" value="{{ profile_user.full_name or '' }}" required autocomplete="name">

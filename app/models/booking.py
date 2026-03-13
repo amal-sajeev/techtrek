@@ -13,9 +13,7 @@ def _generate_ref():
 
 
 def _generate_ticket_id():
-    now = now_ist()
-    rand = uuid.uuid4().hex[:8].upper()
-    return f"TT-{now.strftime('%Y%m%d')}-{rand}"
+    return str(uuid.uuid4())
 
 
 class Booking(Base):
@@ -27,9 +25,9 @@ class Booking(Base):
     seat_id = Column(Integer, ForeignKey("seats.id"), nullable=False)
     payment_status = Column(String(20), default="hold")
     booking_ref = Column(String(20), unique=True, default=_generate_ref)
-    ticket_id = Column(String(30), unique=True, nullable=True)
+    ticket_id = Column(String(36), unique=True, nullable=True)
     qr_code_data = Column(Text, nullable=True)
-    booking_group = Column(String(20), nullable=True, index=True)
+    booking_group = Column(String(36), nullable=True, index=True)
     group_qr_data = Column(Text, nullable=True)
     amount_paid = Column(Float, default=0)
     refund_amount = Column(Float, nullable=True)
@@ -43,9 +41,11 @@ class Booking(Base):
     refund_id = Column(String(50), nullable=True)
     refund_status = Column(String(30), nullable=True)
     refund_processed_at = Column(DateTime, nullable=True)
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="SET NULL"), nullable=True)
     held_until = Column(DateTime, nullable=True)
     booked_at = Column(DateTime, default=now_ist)
 
     user = relationship("User", back_populates="bookings")
     session = relationship("LectureSession", back_populates="bookings")
     seat = relationship("Seat", back_populates="bookings")
+    event = relationship("Event", back_populates="bookings")

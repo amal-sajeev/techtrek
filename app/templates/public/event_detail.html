@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}{{ event.name }} — TechTrek{% endblock %}
+
+{% set img_pool = [
+  'photo-1591115765373-5207764f72e7',
+  'photo-1505373877841-8d25f7d46678',
+  'photo-1558494949-ef010cbdcc31',
+  'photo-1517245386807-bb43f82c33c4',
+  'photo-1488229297570-58520851e868',
+  'photo-1550751827-4bd374c3f58b',
+  'photo-1496181133206-80ce9b88a853',
+  'photo-1573164713714-d95e436ab8d1'
+] %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:960px;margin:0 auto">
+    <a href="/events" class="btn btn-outline btn-sm" style="margin-bottom:1rem">&larr; All Events</a>
+
+    {% if event.banner_url %}
+    <div class="event-detail-banner">
+      <img src="{{ event.banner_url }}" alt="{{ event.name }}">
+    </div>
+    {% endif %}
+
+    <h1 class="page-title" style="margin-bottom:.5rem">{{ event.name }}</h1>
+    {% if event.college %}
+    <p class="section-subtitle" style="color:var(--text-muted);margin-bottom:.5rem">{{ event.college.name }}</p>
+    {% endif %}
+    {% if event.discount_pct %}
+    <span class="badge badge-published" style="font-size:.85rem;margin-bottom:1rem;display:inline-block">{{ event.discount_pct }}% bundle discount on event tickets</span>
+    {% endif %}
+    {% if event.description %}
+    <p style="color:var(--text-secondary);margin-bottom:2rem;line-height:1.7">{{ event.description }}</p>
+    {% endif %}
+
+    <h2 style="font-size:1.2rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)">
+      Select Sessions ({{ sessions|length }})
+    </h2>
+    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:1rem">
+      Choose the sessions you'd like to attend, then book a single event ticket covering all of them.
+    </p>
+
+    {% if sessions %}
+    <form id="event-booking-form" action="/booking/event/{{ event.id }}/select" method="GET">
+      <div class="event-session-list">
+        {% for item in sessions %}
+        {% set img_id = img_pool[item.session.id % 8] %}
+        <label class="event-session-card{% if item.availability == 'sold-out' %} sold-out{% endif %}" for="sess-{{ item.session.id }}">
+          <div class="event-session-card-check">
+            {% if item.availability != 'sold-out' %}
+            <input type="checkbox" name="session_ids" value="{{ item.session.id }}" id="sess-{{ item.session.id }}">
+            {% else %}
+            <input type="checkbox" disabled id="sess-{{ item.session.id }}">
+            {% endif %}
+          </div>
+          <div class="event-session-card-img">
+            <img
+              src="{% if item.session.banner_url %}{{ item.session.banner_url }}{% else %}https://images.unsplash.com/{{ img_id }}?w=200&auto=format&fit=crop&q=80{% endif %}"
+              alt="{{ item.session.title }}" loading="lazy">
+            {% if item.availability == 'sold-out' %}
+            <span class="card-badge badge-sold-out">Sold Out</span>
+            {% elif item.availability == 'filling-up' %}
+            <span class="card-badge badge-filling-up">Filling Up</span>
+            {% endif %}
+          </div>
+          <div class="event-session-card-body">
+            <h3 class="event-session-card-title">{{ item.session.title }}</h3>
+            {% if item.session.speaker %}
+            <p class="event-session-card-meta">{{ item.session.speaker }}</p>
+            {% endif %}
+            <div class="event-session-card-details">
+              <span>&#128197; {{ item.session.start_time.strftime('%b %d, %Y') }}</span>
+              <span>&#128336; {{ item.session.start_time.strftime('%I:%M %p') }}</span>
+              {% if item.auditorium %}
+              <span>&#128205; {{ item.auditorium.name }}</span>
+              {% endif %}
+            </div>
+          </div>
+          <div class="event-session-card-price">
+            {% if event.discount_pct and item.availability != 'sold-out' %}
+            <span class="price-original">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
+            <span class="price-discounted">&#8377;{{ "%.0f"|format(item.session.price|float * (1 - event.discount_pct|float / 100)) }}</span>
+            {% else %}
+            <span class="price-regular">&#8377;{{ "%.0f"|format(item.session.price) }}</span>
+            {% endif %}
+            <span class="price-suffix">per seat</span>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+
+      <div class="event-booking-footer">
+        <div class="event-booking-summary" id="booking-summary">
+          <span id="selected-count">0</span> session(s) selected
+          {% if event.discount_pct %}
+          &middot; <span style="color:var(--green)">{{ event.discount_pct }}% discount applied</span>
+          {% endif %}
+        </div>
+        {% if user %}
+        <button type="submit" class="btn btn-primary btn-lg event-book-btn" id="book-event-btn" disabled>
+          Select Seats &amp; Book Event Ticket
+        </button>
+        {% else %}
+        <a href="/auth/register?next=/events/{{ event.id }}" class="btn btn-primary btn-lg event-book-btn">
+          Create Account to Book
+        </a>
+        <a href="/auth/login?next=/events/{{ event.id }}" class="btn btn-outline btn-lg" style="margin-top:.5rem">
+          Already have an account? Sign in
+        </a>
+        {% endif %}
+      </div>
+    </form>
+    {% else %}
+    <div class="empty-state">
+      <h3>No sessions available</h3>
+      <p>Sessions for this event haven't been published yet.</p>
+    </div>
+    {% endif %}
+  </div>
+</section>
+
+<script>
+(function() {
+  var checkboxes = document.querySelectorAll('#event-booking-form input[name="session_ids"]');
+  var countEl = document.getElementById('selected-count');
+  var btn = document.getElementById('book-event-btn');
+  if (!checkboxes.length || !btn) return;
+
+  function update() {
+    var checked = document.querySelectorAll('#event-booking-form input[name="session_ids"]:checked');
+    countEl.textContent = checked.length;
+    btn.disabled = checked.length === 0;
+  }
+
+  checkboxes.forEach(function(cb) { cb.addEventListener('change', update); });
+  update();
+})();
+</script>
+{% endblock %}

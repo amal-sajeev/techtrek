@@ -6,10 +6,11 @@ from datetime import datetime, timedelta
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.csrf import csrf_protection
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.services.activity_log import log_activity
 from app.models.activity_log import ActivityLog
@@ -25,6 +26,8 @@ from app.models.session_speaker import SessionSpeaker, SPEAKER_ROLES
 from app.models.speaker import Speaker
 from app.models.agenda import AgendaItem
 from app.models.session_recording import SessionRecording
+from app.models.event import Event
+from app.models.event_session import EventSession
 from app.models.testimonial import Testimonial
 from app.models.user import User
 from app.services.razorpay import process_refund as rz_process_refund
@@ -63,7 +66,7 @@ def _validate_recording_url(url: str | None) -> str | None:
     return None
 
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+router = APIRouter(prefix="/admin", tags=["admin"], dependencies=[Depends(csrf_protection)])
 
 
 def _require_admin(request: Request, db: Session) -> User | None:
@@ -614,8 +617,11 @@ def seat_layout(request: Request, aud_id: int, db: Session = Depends(get_db)):
             request,
             active_page="auditoriums",
             auditorium=aud,
-            seat_data_json=json.dumps(seat_data),
-            custom_types_json=json.dumps(custom_types_data),
+            seat_data=seat_data,
+            custom_types=custom_types_data,
+            row_gaps=json.loads(aud.row_gaps) if aud.row_gaps else [],
+            col_gaps=json.loads(aud.col_gaps) if aud.col_gaps else [],
+            entry_exit_config=aud.entry_exit_config or [],
         ),
     )
 
@@ -802,17 +808,69 @@ async def speaker_update(request: Request, speaker_id: int, db: Session = Depend
     return RedirectResponse("/admin/speakers", status_code=303)
 
 
+@router.get("/speakers/{speaker_id}/delete-check")
+def speaker_delete_check(request: Request, speaker_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "unauthorized"}, status_code=403)
+    sp = db.query(Speaker).get(speaker_id)
+    if not sp:
+        return JSONResponse({"error": "not_found"}, status_code=404)
+    now = now_ist()
+    primary_sessions = (
+        db.query(LectureSession)
+        .filter(LectureSession.speaker_id == speaker_id, LectureSession.start_time > now)
+        .all()
+    )
+    agenda_sessions = (
+        db.query(LectureSession)
+        .join(AgendaItem, AgendaItem.session_id == LectureSession.id)
+        .filter(AgendaItem.speaker_id == speaker_id, LectureSession.start_time > now)
+        .all()
+    )
+    seen = set()
+    sessions_list = []
+    for s in primary_sessions:
+        if s.id not in seen:
+            seen.add(s.id)
+            sessions_list.append({"id": s.id, "title": s.title, "date": s.start_time.strftime("%b %d, %Y %I:%M %p"), "role": "Primary Speaker"})
+    for s in agenda_sessions:
+        if s.id not in seen:
+            seen.add(s.id)
+            sessions_list.append({"id": s.id, "title": s.title, "date": s.start_time.strftime("%b %d, %Y %I:%M %p"), "role": "Agenda Item"})
+    return JSONResponse({"speaker_name": sp.name, "has_sessions": len(sessions_list) > 0, "sessions": sessions_list})
+
+
 @router.post("/speakers/{speaker_id}/delete")
-def speaker_delete(request: Request, speaker_id: int, db: Session = Depends(get_db)):
+async def speaker_delete(request: Request, speaker_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     sp = db.query(Speaker).get(speaker_id)
-    if sp:
-        log_activity(db, category="admin", action="delete", description=f"Deleted speaker '{sp.name}'", request=request, user_id=admin.id, target_type="speaker", target_id=speaker_id)
-        db.delete(sp)
-        db.commit()
-        flash(request, f"Speaker '{sp.name}' deleted.", "success")
+    if not sp:
+        return RedirectResponse("/admin/speakers", status_code=303)
+    form = await _form(request)
+    session_action = form.get("session_action", "draft")
+    linked_primary = db.query(LectureSession).filter(LectureSession.speaker_id == speaker_id).all()
+    linked_agenda = db.query(AgendaItem).filter(AgendaItem.speaker_id == speaker_id).all()
+    if session_action == "delete":
+        for s in linked_primary:
+            db.delete(s)
+    elif session_action == "draft":
+        for s in linked_primary:
+            s.status = "draft"
+            s.speaker_id = None
+    else:
+        for s in linked_primary:
+            s.speaker_id = None
+    for ai in linked_agenda:
+        ai.speaker_id = None
+        ai.speaker_name = None
+    db.flush()
+    log_activity(db, category="admin", action="delete", description=f"Deleted speaker '{sp.name}' (sessions: {session_action})", request=request, user_id=admin.id, target_type="speaker", target_id=speaker_id)
+    db.delete(sp)
+    db.commit()
+    flash(request, f"Speaker '{sp.name}' deleted.", "success")
     return RedirectResponse("/admin/speakers", status_code=303)
 
 
@@ -1899,14 +1957,23 @@ async def grant_priority(request: Request, db: Session = Depends(get_db)):
 # ─── Users ───
 
 @router.get("/users")
-def users_list(request: Request, db: Session = Depends(get_db)):
+def users_list(request: Request, db: Session = Depends(get_db), q: str = Query("", alias="q")):
     admin = _require_supervisor_or_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    users = db.query(User).order_by(User.created_at.desc()).all()
+    query = db.query(User)
+    if q.strip():
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            User.username.ilike(like)
+            | User.email.ilike(like)
+            | User.full_name.ilike(like)
+            | User.college.ilike(like)
+        )
+    users = query.order_by(User.created_at.desc()).all()
     return templates.TemplateResponse(
         "admin/users.html",
-        _admin_ctx(request, active_page="users", users=users),
+        _admin_ctx(request, active_page="users", users=users, q=q),
     )
 
 
@@ -2127,3 +2194,148 @@ async def settings_update(request: Request, db: Session = Depends(get_db)):
     db.commit()
     flash(request, "Settings saved.", "success")
     return RedirectResponse("/admin/settings", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Events (Session Bundles)
+# ---------------------------------------------------------------------------
+
+@router.get("/events")
+def events_list(request: Request, db: Session = Depends(get_db)):
+    admin = _require_supervisor_or_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    events = db.query(Event).order_by(Event.created_at.desc()).all()
+    for ev in events:
+        ev._session_count = len(ev.event_sessions)
+    return templates.TemplateResponse(
+        "admin/events.html",
+        _admin_ctx(request, active_page="events", events=events),
+    )
+
+
+@router.get("/events/new")
+def event_new_form(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    colleges = db.query(College).order_by(College.name).all()
+    sessions = (
+        db.query(LectureSession)
+        .filter(LectureSession.status == "published", LectureSession.start_time > now_ist())
+        .order_by(LectureSession.start_time)
+        .all()
+    )
+    return templates.TemplateResponse(
+        "admin/event_form.html",
+        _admin_ctx(request, active_page="events", event=None, colleges=colleges, sessions=sessions, selected_ids=[]),
+    )
+
+
+@router.post("/events/new")
+async def event_create(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    form = await _form(request)
+    ev = Event(
+        name=form.get("name", "").strip(),
+        description=form.get("description", "").strip() or None,
+        banner_url=form.get("banner_url", "").strip() or None,
+        college_id=int(form.get("college_id")) if form.get("college_id") else None,
+        discount_pct=float(form.get("discount_pct")) if form.get("discount_pct") else None,
+        status=form.get("status", "draft"),
+    )
+    db.add(ev)
+    db.flush()
+    session_ids = form.getlist("session_ids")
+    for sid in session_ids:
+        db.add(EventSession(event_id=ev.id, session_id=int(sid)))
+    log_activity(db, category="admin", action="create", description=f"Created event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
+    db.commit()
+    flash(request, f"Event '{ev.name}' created.", "success")
+    return RedirectResponse("/admin/events", status_code=303)
+
+
+@router.get("/events/{event_id}/edit")
+def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    ev = db.query(Event).get(event_id)
+    if not ev:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+    colleges = db.query(College).order_by(College.name).all()
+    sessions = (
+        db.query(LectureSession)
+        .filter(LectureSession.status == "published", LectureSession.start_time > now_ist())
+        .order_by(LectureSession.start_time)
+        .all()
+    )
+    selected_ids = [es.session_id for es in ev.event_sessions]
+    return templates.TemplateResponse(
+        "admin/event_form.html",
+        _admin_ctx(request, active_page="events", event=ev, colleges=colleges, sessions=sessions, selected_ids=selected_ids),
+    )
+
+
+@router.post("/events/{event_id}/edit")
+async def event_update(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    ev = db.query(Event).get(event_id)
+    if not ev:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+    form = await _form(request)
+    ev.name = form.get("name", "").strip()
+    ev.description = form.get("description", "").strip() or None
+    ev.banner_url = form.get("banner_url", "").strip() or None
+    ev.college_id = int(form.get("college_id")) if form.get("college_id") else None
+    ev.discount_pct = float(form.get("discount_pct")) if form.get("discount_pct") else None
+    ev.status = form.get("status", "draft")
+    db.query(EventSession).filter(EventSession.event_id == ev.id).delete()
+    session_ids = form.getlist("session_ids")
+    for sid in session_ids:
+        db.add(EventSession(event_id=ev.id, session_id=int(sid)))
+    log_activity(db, category="admin", action="update", description=f"Updated event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
+    db.commit()
+    flash(request, f"Event '{ev.name}' updated.", "success")
+    return RedirectResponse("/admin/events", status_code=303)
+
+
+@router.post("/events/{event_id}/delete")
+def event_delete(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    ev = db.query(Event).get(event_id)
+    if ev:
+        log_activity(db, category="admin", action="delete", description=f"Deleted event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
+        db.delete(ev)
+        db.commit()
+        flash(request, f"Event '{ev.name}' deleted.", "success")
+    return RedirectResponse("/admin/events", status_code=303)
+
+
+@router.get("/events/sessions-for-college")
+def event_sessions_for_college(request: Request, db: Session = Depends(get_db), college_id: int = Query(None)):
+    """AJAX endpoint: returns published future sessions for a given college."""
+    admin = _require_supervisor_or_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "unauthorized"}, status_code=403)
+    query = (
+        db.query(LectureSession)
+        .join(Auditorium)
+        .filter(LectureSession.status == "published", LectureSession.start_time > now_ist())
+    )
+    if college_id:
+        query = query.filter(Auditorium.college_id == college_id)
+    sessions = query.order_by(LectureSession.start_time).all()
+    return JSONResponse([
+        {"id": s.id, "title": s.title, "date": s.start_time.strftime("%b %d, %Y %I:%M %p"),
+         "auditorium": s.auditorium.name if s.auditorium else ""}
+        for s in sessions
+    ])

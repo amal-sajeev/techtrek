@@ -9,6 +9,7 @@ from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.csrf import csrf_protection
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
@@ -20,9 +21,11 @@ from app.models.speaker import Speaker
 from app.models.testimonial import Testimonial, NewsletterSubscriber
 from app.models.session_recording import SessionRecording
 from app.models.seat_type import SeatType
+from app.models.event import Event
+from app.models.event_session import EventSession
 from app.models.user import User
 
-router = APIRouter(tags=["public"])
+router = APIRouter(tags=["public"], dependencies=[Depends(csrf_protection)])
 
 
 def _build_embed_url(recording_url: str | None) -> str | None:
@@ -394,6 +397,53 @@ def session_detail(request: Request, session_id: int, db: Session = Depends(get_
             recordings=enriched_recordings,
             custom_seat_types=custom_seat_types,
         ),
+    )
+
+
+@router.get("/events")
+def events_list(request: Request, db: Session = Depends(get_db)):
+    events = (
+        db.query(Event)
+        .filter(Event.status == "published")
+        .order_by(Event.created_at.desc())
+        .all()
+    )
+    events_info = []
+    for ev in events:
+        session_count = len(ev.event_sessions)
+        events_info.append({
+            "event": ev,
+            "session_count": session_count,
+            "college": ev.college,
+        })
+    return templates.TemplateResponse(
+        "public/events.html",
+        template_ctx(request, events=events_info),
+    )
+
+
+@router.get("/events/{event_id}")
+def event_detail(request: Request, event_id: int, db: Session = Depends(get_db)):
+    ev = db.query(Event).filter(Event.id == event_id, Event.status == "published").first()
+    if not ev:
+        return templates.TemplateResponse(
+            "errors/404.html", template_ctx(request), status_code=404
+        )
+    sessions_info = []
+    for es in ev.event_sessions:
+        s = es.session
+        if not s or s.status != "published":
+            continue
+        stats = _seat_stats(db, s.id, s.auditorium_id)
+        sessions_info.append({
+            "session": s,
+            "auditorium": s.auditorium,
+            "stats": stats,
+            "availability": _availability_label(stats),
+        })
+    return templates.TemplateResponse(
+        "public/event_detail.html",
+        template_ctx(request, event=ev, sessions=sessions_info),
     )
 
 

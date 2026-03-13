@@ -47,14 +47,13 @@
           <a href="/admin/speakers/{{ sp.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           {% if not sp.user_id %}
           <form method="post" action="/admin/speakers/{{ sp.id }}/invite" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="btn btn-sm btn-primary" {% if not sp.email %}disabled title="Add an email first"{% endif %}>
               {{ "Resend Invite" if sp.invite_token else "Send Invite" }}
             </button>
           </form>
           {% endif %}
-          <form method="post" action="/admin/speakers/{{ sp.id }}/delete" style="display:inline">
-            <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this speaker?" data-confirm-label="Delete">Delete</button>
-          </form>
+          <button type="button" class="btn btn-sm btn-danger" onclick="checkSpeakerDelete({{ sp.id }}, '{{ csrf_token }}')">Delete</button>
         </td>
       </tr>
       {% endfor %}
@@ -68,4 +67,76 @@
   <a href="/admin/speakers/new" class="btn btn-primary">Add Speaker</a>
 </div>
 {% endif %}
+
+<!-- Speaker delete modal -->
+<div class="modal-wrapper" id="speaker-delete-modal" style="display:none">
+  <div class="modal-backdrop"></div>
+  <div class="modal-dialog" style="max-width:520px">
+    <div class="modal-icon-ring">
+      <svg class="modal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <h3 class="modal-title" id="sdm-title">Delete Speaker</h3>
+    <div id="sdm-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeSpeakerDeleteModal()">Cancel</button>
+      <button class="btn btn-danger" id="sdm-confirm">Delete</button>
+    </div>
+  </div>
+</div>
+
+<script>
+var _sdmFormEl = null;
+
+function closeSpeakerDeleteModal(){
+  document.getElementById('speaker-delete-modal').style.display = 'none';
+  if(_sdmFormEl && _sdmFormEl.parentNode) _sdmFormEl.parentNode.removeChild(_sdmFormEl);
+}
+
+function checkSpeakerDelete(speakerId, csrf){
+  fetch('/admin/speakers/' + speakerId + '/delete-check')
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      var modal = document.getElementById('speaker-delete-modal');
+      var body = document.getElementById('sdm-body');
+      var confirmBtn = document.getElementById('sdm-confirm');
+      var title = document.getElementById('sdm-title');
+
+      if(_sdmFormEl && _sdmFormEl.parentNode) _sdmFormEl.parentNode.removeChild(_sdmFormEl);
+      _sdmFormEl = document.createElement('form');
+      _sdmFormEl.method = 'post';
+      _sdmFormEl.action = '/admin/speakers/' + speakerId + '/delete';
+      _sdmFormEl.style.display = 'none';
+      _sdmFormEl.innerHTML = '<input type="hidden" name="csrf_token" value="' + csrf + '"><input type="hidden" name="session_action" id="sdm-action-input" value="draft">';
+      document.body.appendChild(_sdmFormEl);
+
+      if(!data.has_sessions){
+        title.textContent = 'Delete Speaker';
+        body.innerHTML = '<p class="confirm-message">Are you sure you want to delete <strong>' + data.speaker_name + '</strong>? This action cannot be undone.</p>';
+        confirmBtn.onclick = function(){ _sdmFormEl.submit(); };
+      } else {
+        title.textContent = 'Speaker Has Upcoming Sessions';
+        var html = '<p class="confirm-message" style="margin-bottom:.75rem"><strong>' + data.speaker_name + '</strong> is assigned to <strong>' + data.sessions.length + '</strong> upcoming session' + (data.sessions.length > 1 ? 's' : '') + ':</p>';
+        html += '<div class="speaker-del-sessions-list">';
+        for(var i = 0; i < data.sessions.length; i++){
+          var s = data.sessions[i];
+          html += '<div class="speaker-del-session-item"><span class="speaker-del-session-title">' + s.title + '</span><span class="speaker-del-session-meta">' + s.date + ' &middot; ' + s.role + '</span></div>';
+        }
+        html += '</div>';
+        html += '<p class="form-label" style="margin-top:1rem;margin-bottom:.5rem">What should happen to these sessions?</p>';
+        html += '<label class="radio-option"><input type="radio" name="sdm_action" value="draft" checked> <span>Set sessions to <strong>draft</strong> and remove this speaker</span></label>';
+        html += '<label class="radio-option"><input type="radio" name="sdm_action" value="reassign"> <span>Remove speaker from sessions (reassign later)</span></label>';
+        html += '<label class="radio-option"><input type="radio" name="sdm_action" value="delete"> <span>Delete the sessions entirely</span></label>';
+        body.innerHTML = html;
+        confirmBtn.onclick = function(){
+          var checked = body.querySelector('input[name="sdm_action"]:checked');
+          if(checked) _sdmFormEl.querySelector('#sdm-action-input').value = checked.value;
+          _sdmFormEl.submit();
+        };
+      }
+      modal.style.display = 'flex';
+    });
+}
+
+document.getElementById('speaker-delete-modal').querySelector('.modal-backdrop').addEventListener('click', closeSpeakerDeleteModal);
+</script>
 {% endblock %}

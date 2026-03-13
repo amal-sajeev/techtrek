@@ -5,13 +5,14 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
+from app.csrf import csrf_protection
 from app.dependencies import get_db, now_ist, template_ctx, templates
 from app.models.booking import Booking
 from app.models.seat import Seat
 from app.models.session import LectureSession
 from app.models.user import User
 
-router = APIRouter(prefix="/supervisor", tags=["supervisor"])
+router = APIRouter(prefix="/supervisor", tags=["supervisor"], dependencies=[Depends(csrf_protection)])
 
 
 def _require_supervisor_or_admin(request: Request, db: Session) -> User | None:

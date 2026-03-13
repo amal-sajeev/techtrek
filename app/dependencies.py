@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.csrf import get_csrf_token
 from app.database import SessionLocal
 from app.models.speaker import Speaker
 from app.models.user import User
@@ -87,6 +88,7 @@ def template_ctx(request: Request, **kwargs) -> dict:
         "user": user,
         "is_speaker": is_speaker,
         "flashes": get_flashes(request),
+        "csrf_token": get_csrf_token(request),
     }
     ctx.update(kwargs)
     return ctx

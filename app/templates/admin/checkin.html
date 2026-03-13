@@ -6,55 +6,88 @@
   <h1 class="admin-page-title">Check-in</h1>
 </div>
 
-<div class="form-card mb-3">
-  <form method="post" action="/admin/checkin" id="checkin-form">
-    <div class="form-row">
-      <div class="form-group" style="flex:2">
-        <label class="form-label" for="ticket-id">Ticket ID or Group QR</label>
-        <div class="scanner-input-row">
-          <input type="text" name="ticket_id" id="ticket-id" class="form-input" placeholder="e.g. TT-20260307-ABC12345" autofocus required>
-          <button type="button" id="scan-toggle" class="btn btn-outline scan-toggle-btn" title="Scan QR Code">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
-          </button>
-        </div>
+<form method="post" action="/admin/checkin" id="checkin-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <div class="checkin-scanner-page">
+    <div class="checkin-session-filter">
+      <label class="form-label" for="checkin-session">Session</label>
+      <select name="session_id" id="checkin-session" class="form-input">
+        <option value="">All sessions</option>
+        {% for s in sessions %}
+        <option value="{{ s.id }}" {% if selected_session and selected_session|string == s.id|string %}selected{% endif %}>{{ s.title }} ({{ s.start_time.strftime('%b %d') }})</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <button type="button" id="scan-launch-btn" class="checkin-big-scan-btn">
+      <div class="scan-btn-icon">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7V5a2 2 0 0 1 2-2h2"/>
+          <path d="M17 3h2a2 2 0 0 1 2 2v2"/>
+          <path d="M21 17v2a2 2 0 0 1-2 2h-2"/>
+          <path d="M7 21H5a2 2 0 0 1-2-2v-2"/>
+          <line x1="7" y1="12" x2="17" y2="12"/>
+        </svg>
       </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label" for="checkin-session">Session (optional)</label>
-        <select name="session_id" id="checkin-session" class="form-input" placeholder="All sessions">
-          <option value="">All sessions</option>
-          {% for s in sessions %}
-          <option value="{{ s.id }}" {% if selected_session and selected_session|string == s.id|string %}selected{% endif %}>{{ s.title }} ({{ s.start_time.strftime('%b %d') }})</option>
-          {% endfor %}
-        </select>
+      <span class="scan-btn-label">Scan QR Code</span>
+      <span class="scan-btn-hint">Tap to open camera</span>
+    </button>
+
+    <div class="checkin-divider"><span>or enter manually</span></div>
+
+    <div class="checkin-manual-section">
+      <div class="scanner-input-row">
+        <input type="text" name="ticket_id" id="ticket-id" class="form-input" placeholder="e.g. TT-20260307-ABC12345">
+        <button type="submit" class="btn btn-primary">Check In</button>
       </div>
     </div>
-    <div id="qr-reader" class="qr-reader-container" style="display:none"></div>
-    <button type="submit" class="btn btn-primary">Verify &amp; Check In</button>
-  </form>
+  </div>
+</form>
+
+<div id="scanner-overlay" class="scanner-overlay" style="display:none">
+  <div class="scanner-overlay-header">
+    <span class="scanner-overlay-title">Scanning...</span>
+    <button type="button" id="scanner-close-btn" class="scanner-close-btn" aria-label="Close scanner">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <div class="scanner-viewfinder-wrap">
+    <div id="qr-reader" class="scanner-viewfinder"></div>
+    <div class="scanner-frame">
+      <div class="scanner-corner scanner-corner-tl"></div>
+      <div class="scanner-corner scanner-corner-tr"></div>
+      <div class="scanner-corner scanner-corner-bl"></div>
+      <div class="scanner-corner scanner-corner-br"></div>
+      <div class="scanner-line"></div>
+    </div>
+  </div>
+  <p class="scanner-hint-text">Point the camera at a ticket QR code</p>
 </div>
 
 <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <script>
 (function(){
-  var toggle = document.getElementById('scan-toggle');
-  var readerEl = document.getElementById('qr-reader');
+  var launchBtn = document.getElementById('scan-launch-btn');
+  var overlay = document.getElementById('scanner-overlay');
+  var closeBtn = document.getElementById('scanner-close-btn');
   var input = document.getElementById('ticket-id');
   var form = document.getElementById('checkin-form');
   var scanner = null;
   var scanning = false;
 
-  toggle.addEventListener('click', function(){
-    if(scanning){ stopScan(); } else { startScan(); }
-  });
+  launchBtn.addEventListener('click', startScan);
+  closeBtn.addEventListener('click', stopScan);
 
   function startScan(){
-    readerEl.style.display = 'block';
-    toggle.classList.add('active');
+    overlay.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
     scanning = true;
     scanner = new Html5Qrcode("qr-reader");
+    var vw = Math.min(window.innerWidth - 60, 300);
     scanner.start(
       { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
+      { fps: 12, qrbox: { width: vw, height: vw } },
       function(decoded){
         input.value = decoded;
         stopScan();
@@ -62,17 +95,17 @@
       },
       function(){}
     ).catch(function(err){
-      readerEl.innerHTML = '<p style="padding:1rem;text-align:center;color:var(--red)">Camera access denied or unavailable.<br><small>' + err + '</small></p>';
+      document.getElementById('qr-reader').innerHTML = '<p style="padding:2rem;text-align:center;color:var(--red);font-size:1rem">Camera access denied or unavailable.<br><small>' + err + '</small></p>';
     });
   }
 
   function stopScan(){
     scanning = false;
-    toggle.classList.remove('active');
+    document.body.style.overflow = '';
     if(scanner){
       scanner.stop().then(function(){ scanner.clear(); }).catch(function(){});
     }
-    readerEl.style.display = 'none';
+    overlay.style.display = 'none';
   }
 })();
 </script>

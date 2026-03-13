@@ -1,0 +1,62 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Events — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Events</h1>
+  {% if user.is_admin %}
+  <a href="/admin/events/new" class="btn btn-primary">+ New Event</a>
+  {% endif %}
+</div>
+
+{% if events %}
+<div class="table-responsive">
+  <table class="table table-cards-mobile">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>College</th>
+        <th>Sessions</th>
+        <th>Discount</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for ev in events %}
+      <tr>
+        <td data-label="Name"><strong>{{ ev.name }}</strong></td>
+        <td data-label="College">{{ ev.college.name if ev.college else "—" }}</td>
+        <td data-label="Sessions">{{ ev._session_count }}</td>
+        <td data-label="Discount">{{ (ev.discount_pct|string ~ '%') if ev.discount_pct else "—" }}</td>
+        <td data-label="Status">
+          {% if ev.status == 'published' %}
+          <span class="badge badge-published">Published</span>
+          {% else %}
+          <span class="badge badge-draft">Draft</span>
+          {% endif %}
+        </td>
+        <td data-label="Actions" class="actions-cell">
+          <a href="/admin/events/{{ ev.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          {% if user.is_admin %}
+          <form method="post" action="/admin/events/{{ ev.id }}/delete" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete event '{{ ev.name }}'?" data-confirm-label="Delete">Delete</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No events yet</h3>
+  <p>Bundle sessions together as events so users can discover and book related talks.</p>
+  {% if user.is_admin %}
+  <a href="/admin/events/new" class="btn btn-primary">Create Event</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

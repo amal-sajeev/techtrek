@@ -8,6 +8,7 @@
 
 <div class="form-card">
   <form method="post" action="{{ '/admin/cities/' ~ city.id ~ '/edit' if city else '/admin/cities/new' }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="form-group">
       <label class="form-label" for="city-name">City Name</label>
       <input type="text" name="name" id="city-name" class="form-input" value="{{ city.name if city else '' }}" required>

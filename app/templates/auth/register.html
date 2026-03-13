@@ -11,6 +11,7 @@
     </div>
 
     <form method="post" action="/auth/register" id="register-form" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       {% if next %}
         <input type="hidden" name="next" value="{{ next }}">
       {% endif %}

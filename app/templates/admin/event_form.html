@@ -1,0 +1,96 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ "Edit" if event else "New" }} Event — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">{{ "Edit" if event else "New" }} Event</h1>
+</div>
+
+<div class="form-card">
+  <form method="post" action="{{ '/admin/events/' ~ event.id ~ '/edit' if event else '/admin/events/new' }}" id="event-form">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label class="form-label" for="ev-name">Event Name</label>
+        <input type="text" name="name" id="ev-name" class="form-input" value="{{ event.name if event else '' }}" required>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label" for="ev-status">Status</label>
+        <select name="status" id="ev-status" class="form-input">
+          <option value="draft" {% if not event or event.status == 'draft' %}selected{% endif %}>Draft</option>
+          <option value="published" {% if event and event.status == 'published' %}selected{% endif %}>Published</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group" style="flex:2">
+        <label class="form-label" for="ev-college">College (optional)</label>
+        <select name="college_id" id="ev-college" class="form-input">
+          <option value="">— No college filter —</option>
+          {% for c in colleges %}
+          <option value="{{ c.id }}" {% if event and event.college_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group" style="flex:1">
+        <label class="form-label" for="ev-discount">Bundle Discount %</label>
+        <input type="number" name="discount_pct" id="ev-discount" class="form-input" step="0.01" min="0" max="100"
+               value="{{ event.discount_pct if event and event.discount_pct else '' }}" placeholder="e.g. 10">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="ev-banner">Banner URL</label>
+      <input type="url" name="banner_url" id="ev-banner" class="form-input" value="{{ event.banner_url if event and event.banner_url else '' }}" placeholder="https://...">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="ev-desc">Description</label>
+      <textarea name="description" id="ev-desc" class="form-input" rows="3">{{ event.description if event and event.description else '' }}</textarea>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label">Sessions in this Event</label>
+      <p class="form-hint" style="margin-bottom:.5rem;font-size:.82rem;color:var(--text-muted)">Select a college above to filter suggestions, or choose from all published sessions below.</p>
+      <div id="session-picker" class="event-session-picker">
+        {% for s in sessions %}
+        <label class="event-session-option" data-college="{{ s.auditorium.college_id if s.auditorium and s.auditorium.college_id else '' }}">
+          <input type="checkbox" name="session_ids" value="{{ s.id }}" {% if s.id in selected_ids %}checked{% endif %}>
+          <div class="event-session-info">
+            <span class="event-session-title">{{ s.title }}</span>
+            <span class="event-session-meta">{{ s.start_time.strftime('%b %d, %Y %I:%M %p') }} &middot; {{ s.auditorium.name if s.auditorium else '' }}</span>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ "Update" if event else "Create" }} Event</button>
+      <a href="/admin/events" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+
+<script>
+(function(){
+  var collegeSelect = document.getElementById('ev-college');
+  var options = document.querySelectorAll('.event-session-option');
+
+  collegeSelect.addEventListener('change', function(){
+    var cid = this.value;
+    options.forEach(function(opt){
+      if(!cid || opt.getAttribute('data-college') === cid){
+        opt.style.display = '';
+      } else {
+        opt.style.display = 'none';
+      }
+    });
+  });
+
+  // Apply filter on load if college is pre-selected
+  if(collegeSelect.value) collegeSelect.dispatchEvent(new Event('change'));
+})();
+</script>
+{% endblock %}

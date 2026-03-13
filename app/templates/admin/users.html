@@ -6,6 +6,21 @@
   <h1 class="admin-page-title">Users</h1>
 </div>
 
+<div class="form-card mb-3">
+  <form method="get" action="/admin/users" class="filter-form">
+    <div class="form-row" style="align-items:flex-end">
+      <div class="form-group" style="flex:1">
+        <label class="form-label" for="user-search">Search users</label>
+        <input type="text" name="q" id="user-search" class="form-input" placeholder="Search by name, email, or college..." value="{{ q or '' }}" autofocus>
+      </div>
+      <div class="form-group" style="flex:none">
+        <button type="submit" class="btn btn-primary">Search</button>
+        {% if q %}<a href="/admin/users" class="btn btn-outline" style="margin-left:.5rem">Clear</a>{% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+
 {% if users %}
 <div class="table-responsive">
   <table class="table table-cards-mobile">
@@ -36,6 +51,7 @@
         {% if user.is_admin %}
         <td data-label="Actions">
           <form method="post" action="/admin/users/{{ u.id }}/toggle-admin" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-outline"
               data-confirm="Toggle admin status for {{ u.username }}?"
               data-confirm-label="{{ 'Remove Admin' if u.is_admin else 'Make Admin' }}"
@@ -44,6 +60,7 @@
             </button>
           </form>
           <form method="post" action="/admin/users/{{ u.id }}/toggle-supervisor" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-outline"
               data-confirm="Toggle supervisor status for {{ u.username }}?"
               data-confirm-label="{{ 'Remove Supervisor' if u.is_supervisor else 'Make Supervisor' }}"

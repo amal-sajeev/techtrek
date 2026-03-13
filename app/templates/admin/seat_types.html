@@ -30,6 +30,7 @@
         <td class="actions-cell">
           <a href="/admin/seat-types/{{ st.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           <form method="post" action="/admin/seat-types/{{ st.id }}/delete" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete seat type '{{ st.name }}'?" data-confirm-label="Delete">Delete</button>
           </form>
         </td>

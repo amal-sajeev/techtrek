@@ -1,7 +1,10 @@
 import io
+import ipaddress
 import json
 import os
+import socket
 import urllib.request
+import urllib.parse
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4, landscape
@@ -423,13 +426,52 @@ def _draw_styled_centered(c, text, y, page_w, elem_style, default_font, default_
         c.line(cx - tw / 2, ay - 2, cx + tw / 2, ay - 2)
 
 
+_PRIVATE_NETWORKS = [
+    ipaddress.ip_network("127.0.0.0/8"),
+    ipaddress.ip_network("10.0.0.0/8"),
+    ipaddress.ip_network("172.16.0.0/12"),
+    ipaddress.ip_network("192.168.0.0/16"),
+    ipaddress.ip_network("169.254.0.0/16"),   # link-local / AWS metadata
+    ipaddress.ip_network("::1/128"),
+    ipaddress.ip_network("fc00::/7"),          # unique local IPv6
+]
+_MAX_IMAGE_BYTES = 5 * 1024 * 1024  # 5 MB
+
+
+def _is_private_ip(host: str) -> bool:
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except OSError:
+        return True  # can't resolve → treat as unsafe
+    for info in infos:
+        addr_str = info[4][0]
+        try:
+            addr = ipaddress.ip_address(addr_str)
+            if any(addr in net for net in _PRIVATE_NETWORKS):
+                return True
+        except ValueError:
+            return True
+    return False
+
+
 def _try_load_image(url: str):
     if not url:
         return None
     try:
+        parsed = urllib.parse.urlparse(url)
+        if parsed.scheme != "https":
+            return None
+        host = parsed.hostname or ""
+        if not host or _is_private_ip(host):
+            return None
         req = urllib.request.Request(url, headers={"User-Agent": "TechTrek/1.0"})
         resp = urllib.request.urlopen(req, timeout=5)
-        data = resp.read()
+        content_type = resp.headers.get("Content-Type", "")
+        if not content_type.startswith("image/"):
+            return None
+        data = resp.read(_MAX_IMAGE_BYTES + 1)
+        if len(data) > _MAX_IMAGE_BYTES:
+            return None
         return ImageReader(io.BytesIO(data))
     except Exception:
         return None

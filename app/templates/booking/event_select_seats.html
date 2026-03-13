@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+{% block title %}Select Seats — {{ event.name }} — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="breadcrumb">
+      <a href="/events">Events</a>
+      <span>/</span>
+      <a href="/events/{{ event.id }}">{{ event.name }}</a>
+      <span>/</span>
+      <span>Select Seats</span>
+    </div>
+
+    <h1 class="page-title">Choose Your Seats</h1>
+    <p class="page-subtitle">{{ event.name }}{% if discount_pct %} &mdash; {{ discount_pct }}% bundle discount{% endif %}</p>
+
+    <form method="post" action="/booking/event/{{ event.id }}/hold" id="event-seat-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      {% if same_seats_available %}
+      <div class="event-seat-mode-toggle">
+        <label class="mode-option">
+          <input type="radio" name="seat_mode" value="per_session" checked>
+          <span class="mode-label">Pick seats for each session</span>
+        </label>
+        <label class="mode-option">
+          <input type="radio" name="seat_mode" value="same_seats">
+          <span class="mode-label">Same seats for all sessions (by auditorium)</span>
+        </label>
+      </div>
+      {% else %}
+      <input type="hidden" name="seat_mode" value="per_session">
+      {% endif %}
+
+      <!-- PER-SESSION MODE -->
+      <div id="per-session-mode" class="seat-mode-panel">
+        {% for sd in sessions_data %}
+        <div class="event-session-seat-block" data-session-id="{{ sd.session.id }}">
+          <h2 class="event-session-heading">
+            {{ sd.session.title }}
+            <span class="event-session-aud">{{ sd.auditorium.name }}</span>
+          </h2>
+
+          <div class="seat-map-wrapper">
+            <div class="seat-map-scalable">
+              <div class="picker-marker-anchor">
+                <div class="seat-stage" role="presentation">
+                  <span class="stage-label">{{ sd.stage_label }}</span>
+                </div>
+                <div class="seat-map-container">
+                  <div class="seat-map" id="seat-map-ps-{{ sd.session.id }}" role="group"
+                    aria-label="Seat map for {{ sd.session.title }}">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <input type="hidden" name="seats_session_{{ sd.session.id }}" id="seats-input-ps-{{ sd.session.id }}" value="">
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- SAME-SEATS MODE -->
+      {% if same_seats_available %}
+      <div id="same-seats-mode" class="seat-mode-panel" style="display:none">
+        {% for aud_id, group in auditorium_groups.items() %}
+        {% if group.session_ids|length > 1 %}
+        <div class="event-aud-group" data-aud-id="{{ aud_id }}">
+          <h2 class="event-session-heading">
+            {{ group.auditorium.name }}
+            <span class="event-session-aud">
+              {% for sid in group.session_ids %}
+              {% for sd in sessions_data if sd.session.id == sid %}{{ sd.session.title }}{% endfor %}{% if not loop.last %}, {% endif %}
+              {% endfor %}
+            </span>
+          </h2>
+          <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.75rem">
+            Seats shown are available across all sessions in this auditorium.
+          </p>
+
+          <div class="seat-map-wrapper">
+            <div class="seat-map-scalable">
+              <div class="picker-marker-anchor">
+                <div class="seat-stage" role="presentation">
+                  <span class="stage-label">{{ group.auditorium.stage_label or 'Stage' }}</span>
+                </div>
+                <div class="seat-map-container">
+                  <div class="seat-map" id="seat-map-same-{{ aud_id }}" role="group"
+                    aria-label="Shared seat map for {{ group.auditorium.name }}">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <input type="hidden" name="same_seats_aud_{{ aud_id }}" id="seats-input-same-{{ aud_id }}" value="">
+        </div>
+        {% else %}
+        {% set sid = group.session_ids[0] %}
+        <div class="event-session-seat-block same-seats-single" data-session-id="{{ sid }}">
+          <h2 class="event-session-heading">
+            {% for sd in sessions_data if sd.session.id == sid %}{{ sd.session.title }}{% endfor %}
+            <span class="event-session-aud">{{ group.auditorium.name }}</span>
+          </h2>
+          <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:.75rem">
+            Only one session at this auditorium &mdash; select seats below.
+          </p>
+          <div class="seat-map-wrapper">
+            <div class="seat-map-scalable">
+              <div class="picker-marker-anchor">
+                <div class="seat-stage" role="presentation">
+                  <span class="stage-label">{{ group.auditorium.stage_label or 'Stage' }}</span>
+                </div>
+                <div class="seat-map-container">
+                  <div class="seat-map" id="seat-map-same-single-{{ sid }}" role="group"
+                    aria-label="Seat map for {{ group.auditorium.name }}">
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <input type="hidden" name="seats_session_{{ sid }}" id="seats-input-same-single-{{ sid }}" value="">
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="seat-legend" role="list" aria-label="Seat type key">
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-available" aria-hidden="true"></span>
+          <span class="legend-label">Available</span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-selected" aria-hidden="true"></span>
+          <span class="legend-label">Selected</span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-taken" aria-hidden="true"></span>
+          <span class="legend-label">Taken</span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-vip" aria-hidden="true"></span>
+          <span class="legend-label">VIP</span>
+        </div>
+        <div class="legend-item" role="listitem">
+          <span class="legend-swatch legend-accessible" aria-hidden="true"></span>
+          <span class="legend-label">Accessible</span>
+        </div>
+      </div>
+
+      <div class="event-booking-footer" style="margin-top:1.5rem">
+        <div class="event-booking-summary" id="event-seat-summary">
+          <span id="total-seats-selected">0</span> seat(s) selected across <span id="total-sessions-covered">0</span> session(s)
+          {% if discount_pct %}
+          &middot; <span style="color:var(--green)">{{ discount_pct }}% discount</span>
+          {% endif %}
+        </div>
+        <button type="submit" class="btn btn-primary btn-lg event-book-btn" id="event-hold-btn" disabled>
+          Proceed to Checkout
+        </button>
+      </div>
+    </form>
+  </div>
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/seat-picker.js') }}?v=34"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var sessionsData = {{ sessions_json | tojson }};
+  var intersectionMaps = {{ intersection_maps | tojson }};
+  var pickers = {};
+  var samePickers = {};
+
+  function buildSeatMapHTML(containerId, seatData, totalRows, totalCols, rowGaps, colGaps) {
+    var container = document.getElementById(containerId);
+    if (!container || !seatData.length) return;
+
+    var rowGapSet = new Set((rowGaps || []).map(Number));
+    var colGapSet = new Set((colGaps || []).map(Number));
+
+    var byRow = {};
+    seatData.forEach(function(s) {
+      if (!byRow[s.row]) byRow[s.row] = {};
+      byRow[s.row][s.col] = s;
+    });
+
+    for (var r = 1; r <= totalRows; r++) {
+      if (rowGapSet.has(r)) {
+        var gapRow = document.createElement('div');
+        gapRow.className = 'seat-row seat-row-gap';
+        container.appendChild(gapRow);
+      }
+      var row = document.createElement('div');
+      row.className = 'seat-row';
+      for (var c = 1; c <= totalCols; c++) {
+        if (colGapSet.has(c)) {
+          var gapSeat = document.createElement('div');
+          gapSeat.className = 'seat seat-gap';
+          row.appendChild(gapSeat);
+        }
+        var seat = byRow[r] && byRow[r][c];
+        var el = document.createElement('div');
+        if (!seat || seat.type === 'aisle') {
+          el.className = 'seat seat-aisle';
+        } else {
+          el.className = 'seat seat-' + seat.status;
+          if (seat.type === 'vip') el.classList.add('seat-vip');
+          else if (seat.type === 'accessible') el.classList.add('seat-accessible');
+          else if (seat.type === 'reserved') { el.className = 'seat seat-reserved'; }
+          else if (seat.type && seat.type.startsWith('custom_')) el.classList.add('seat-custom');
+          el.dataset.seatId = seat.id;
+          el.dataset.seatType = seat.type || 'standard';
+          el.title = seat.label || (r + '-' + c);
+          el.textContent = seat.label || '';
+          if (seat.status === 'available') {
+            el.addEventListener('click', function() {
+              this.classList.toggle('seat-selected');
+              this.classList.toggle('seat-available');
+              updateSummary();
+            });
+          }
+        }
+        row.appendChild(el);
+      }
+      container.appendChild(row);
+    }
+  }
+
+  sessionsData.forEach(function(sd) {
+    var mapId = 'seat-map-ps-' + sd.session.id;
+    buildSeatMapHTML(mapId, sd.seat_map, sd.total_rows, sd.total_cols, sd.row_gaps, sd.col_gaps);
+  });
+
+  {% if same_seats_available %}
+  {% for aud_id, group in auditorium_groups.items() %}
+  {% if group.session_ids|length > 1 %}
+  (function() {
+    var audId = {{ aud_id }};
+    var mapData = intersectionMaps[audId];
+    if (!mapData) return;
+    var aud = null;
+    sessionsData.forEach(function(sd) {
+      if (sd.auditorium.id === audId) aud = sd;
+    });
+    if (!aud) return;
+    buildSeatMapHTML('seat-map-same-' + audId, mapData, aud.total_rows, aud.total_cols, aud.row_gaps, aud.col_gaps);
+  })();
+  {% else %}
+  (function() {
+    var sid = {{ group.session_ids[0] }};
+    var sd = null;
+    sessionsData.forEach(function(s) { if (s.session.id === sid) sd = s; });
+    if (!sd) return;
+    buildSeatMapHTML('seat-map-same-single-' + sid, sd.seat_map, sd.total_rows, sd.total_cols, sd.row_gaps, sd.col_gaps);
+  })();
+  {% endif %}
+  {% endfor %}
+  {% endif %}
+
+  var modeRadios = document.querySelectorAll('input[name="seat_mode"]');
+  var perPanel = document.getElementById('per-session-mode');
+  var samePanel = document.getElementById('same-seats-mode');
+
+  modeRadios.forEach(function(radio) {
+    radio.addEventListener('change', function() {
+      if (this.value === 'same_seats') {
+        perPanel.style.display = 'none';
+        if (samePanel) samePanel.style.display = '';
+      } else {
+        perPanel.style.display = '';
+        if (samePanel) samePanel.style.display = 'none';
+      }
+      updateSummary();
+    });
+  });
+
+  function getActiveMode() {
+    var checked = document.querySelector('input[name="seat_mode"]:checked');
+    return checked ? checked.value : 'per_session';
+  }
+
+  function updateSummary() {
+    var mode = getActiveMode();
+    var totalSeats = 0;
+    var sessionsCovered = new Set();
+    var panel = mode === 'same_seats' ? samePanel : perPanel;
+    if (!panel) panel = perPanel;
+
+    var selected = panel.querySelectorAll('.seat-selected');
+    totalSeats = selected.length;
+
+    if (mode === 'per_session') {
+      var blocks = panel.querySelectorAll('.event-session-seat-block');
+      blocks.forEach(function(block) {
+        var sid = block.dataset.sessionId;
+        var sel = block.querySelectorAll('.seat-selected');
+        var input = document.getElementById('seats-input-ps-' + sid);
+        var ids = Array.from(sel).map(function(el) { return el.dataset.seatId; });
+        if (input) input.value = ids.join(',');
+        if (ids.length > 0) sessionsCovered.add(sid);
+      });
+    } else {
+      panel.querySelectorAll('.event-aud-group').forEach(function(group) {
+        var audId = group.dataset.audId;
+        var sel = group.querySelectorAll('.seat-selected');
+        var input = document.getElementById('seats-input-same-' + audId);
+        var ids = Array.from(sel).map(function(el) { return el.dataset.seatId; });
+        if (input) input.value = ids.join(',');
+        if (ids.length > 0) {
+          {% for aud_id, group in auditorium_groups.items() %}
+          if (audId == '{{ aud_id }}') {
+            {% for sid in group.session_ids %}
+            sessionsCovered.add('{{ sid }}');
+            {% endfor %}
+          }
+          {% endfor %}
+        }
+      });
+      panel.querySelectorAll('.same-seats-single').forEach(function(block) {
+        var sid = block.dataset.sessionId;
+        var sel = block.querySelectorAll('.seat-selected');
+        var input = document.getElementById('seats-input-same-single-' + sid);
+        var ids = Array.from(sel).map(function(el) { return el.dataset.seatId; });
+        if (input) input.value = ids.join(',');
+        if (ids.length > 0) sessionsCovered.add(sid);
+      });
+    }
+
+    document.getElementById('total-seats-selected').textContent = totalSeats;
+    document.getElementById('total-sessions-covered').textContent = sessionsCovered.size;
+    document.getElementById('event-hold-btn').disabled = totalSeats === 0;
+  }
+
+  document.getElementById('event-seat-form').addEventListener('submit', function() {
+    var btn = document.getElementById('event-hold-btn');
+    if (btn) btn.classList.add('btn-loading');
+  });
+});
+</script>
+{% endblock %}

@@ -8,6 +8,7 @@
 
 <div class="form-card">
   <form method="post" action="{{ '/admin/colleges/' ~ college.id ~ '/edit' if college else '/admin/colleges/new' }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="form-group">
       <label class="form-label" for="college-name">College Name</label>
       <input type="text" name="name" id="college-name" class="form-input" value="{{ college.name if college else '' }}" required>

@@ -89,17 +89,21 @@
           {% endif %}
           {% if item.booking.payment_status == 'paid' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-outline" data-confirm="Refund this booking?" data-confirm-label="Refund" data-confirm-class="btn-primary">Refund</button>
           </form>
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Cancel this booking?" data-confirm-label="Cancel">Cancel</button>
           </form>
           {% elif item.booking.refund_status == 'failed' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-outline" data-confirm="Retry refund for this booking?" data-confirm-label="Retry" data-confirm-class="btn-primary">Retry Refund</button>
           </form>
           {% elif item.booking.payment_status == 'hold' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
           </form>
           {% endif %}

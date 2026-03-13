@@ -220,6 +220,7 @@
               <p class="session-booking-note">You're on the waitlist. We'll notify you if a spot opens.</p>
             {% else %}
               <form method="post" action="/booking/waitlist/{{ lecture.id }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                 <button type="submit" class="session-book-btn" style="background:transparent;border:1px solid rgba(0,212,255,.24);color:var(--cyan)">Join Waitlist</button>
               </form>
             {% endif %}

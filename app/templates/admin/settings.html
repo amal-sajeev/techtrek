@@ -8,6 +8,7 @@
 
 <div class="form-card">
   <form method="post" action="/admin/settings">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
     <h3 class="section-title" style="margin-bottom:1rem;font-size:1rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Branding</h3>
 

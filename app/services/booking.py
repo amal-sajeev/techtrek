@@ -4,6 +4,7 @@ import uuid
 from datetime import datetime, timedelta
 
 import qrcode
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -113,11 +114,17 @@ def hold_seats(
             held_until=held_until,
         )
         db.add(booking)
+        try:
+            db.flush()  # catch DB-level constraint violations immediately
+        except IntegrityError:
+            db.rollback()
+            continue  # seat was snatched by a concurrent request
         bookings.append(booking)
 
-    db.commit()
-    for b in bookings:
-        db.refresh(b)
+    if bookings:
+        db.commit()
+        for b in bookings:
+            db.refresh(b)
     return bookings
 
 
@@ -131,27 +138,36 @@ def _generate_qr_base64(data: str) -> str:
     return base64.b64encode(buf.getvalue()).decode()
 
 
-def _price_for_seat(lecture, seat_type: str, db=None) -> float:
+def _price_for_seat(lecture, seat_type: str, db=None, discount_pct=None) -> float:
     if not lecture:
         return TICKET_PRICE
     base = float(lecture.price)
     if seat_type == "vip" and lecture.price_vip is not None:
-        return float(lecture.price_vip)
-    if seat_type == "accessible" and lecture.price_accessible is not None:
-        return float(lecture.price_accessible)
-    if seat_type and seat_type.startswith("custom_") and db is not None:
+        price = float(lecture.price_vip)
+    elif seat_type == "accessible" and lecture.price_accessible is not None:
+        price = float(lecture.price_accessible)
+    elif seat_type and seat_type.startswith("custom_") and db is not None:
+        price = base
         try:
             ct_id = int(seat_type.split("_", 1)[1])
             from app.models.seat_type import SeatType
             ct = db.query(SeatType).get(ct_id)
             if ct and ct.price is not None:
-                return float(ct.price)
+                price = float(ct.price)
         except (ValueError, IndexError):
             pass
-    return base
+    else:
+        price = base
+    if discount_pct:
+        price = round(price * (1 - float(discount_pct) / 100), 2)
+    return price
 
 
-def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]:
+def _price_for_seat_discounted(lecture, seat_type: str, discount_pct: float, db=None) -> float:
+    return _price_for_seat(lecture, seat_type, db=db, discount_pct=discount_pct)
+
+
+def confirm_payment(db: Session, user_id: int, session_id: int, discount_pct=None, event_id=None) -> list[Booking]:
     now = now_ist()
     lecture = db.query(LectureSession).get(session_id)
 
@@ -165,7 +181,7 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
         )
         .all()
     )
-    group_id = uuid.uuid4().hex[:12].upper() if holds else None
+    group_id = str(uuid.uuid4()) if holds else None
     group_qr = None
     if len(holds) > 1 and group_id:
         group_qr = _generate_qr_base64(f"GROUP-{group_id}")
@@ -176,7 +192,9 @@ def confirm_payment(db: Session, user_id: int, session_id: int) -> list[Booking]
         b.payment_status = "paid"
         b.booked_at = now
         b.held_until = None
-        b.amount_paid = _price_for_seat(lecture, seat.seat_type if seat else "standard")
+        b.amount_paid = _price_for_seat(lecture, seat.seat_type if seat else "standard", discount_pct=discount_pct)
+        if event_id:
+            b.event_id = event_id
         b.ticket_id = _generate_ticket_id()
         b.invoice_number = invoice_num
         b.qr_code_data = _generate_qr_base64(b.ticket_id)

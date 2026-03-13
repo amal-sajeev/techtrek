@@ -11,6 +11,7 @@
   <h3>Grant Priority Booking</h3>
   <p class="text-secondary">Give waitlisted users from a sold-out session early access to book a new session.</p>
   <form method="post" action="/admin/waitlist/grant-priority">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <div class="form-row">
       <div class="form-group">
         <label class="form-label">Source Session (sold-out)</label>

@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}Event Checkout — {{ event.name }} — TechTrek{% endblock %}
+
+{% block head_extra %}
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container">
+    <div class="checkout-layout">
+      <div class="checkout-box">
+        <h1 class="page-title" style="margin-bottom:.25rem">Event Checkout</h1>
+        <p class="page-subtitle" style="margin-bottom:1.5rem">{{ event.name }}</p>
+
+        <div class="checkout-timer" id="checkout-timer" role="timer" aria-live="polite">
+          <div class="checkout-timer-row">
+            <span class="timer-icon" aria-hidden="true">&#9200;</span>
+            Seats held for <strong>&nbsp;<span id="countdown">{{ time_left }}</span></strong>
+          </div>
+          <div class="timer-bar-track" aria-hidden="true">
+            <div class="timer-bar-fill" id="timer-bar"></div>
+          </div>
+        </div>
+
+        {% if discount_pct %}
+        <div style="padding:.5rem .75rem;margin-bottom:.75rem;background:rgba(0,200,100,.08);border:1px solid var(--green);border-radius:var(--radius);font-size:.85rem;color:var(--green)">
+          {{ discount_pct|int if discount_pct == discount_pct|int else discount_pct }}% bundle discount applied
+        </div>
+        {% endif %}
+
+        {% for sid, info in sessions_breakdown.items() %}
+        <div class="checkout-details" style="margin-bottom:.75rem">
+          <h3 style="font-size:1rem">{{ info.lecture.title }}</h3>
+          <p class="text-secondary" style="font-size:.85rem">{{ info.lecture.start_time.strftime('%b %d, %Y — %I:%M %p') }}</p>
+          <div class="checkout-seat-list" style="margin-top:.35rem">
+            {% for s in info.seats %}
+            <span class="seat-label-chip">{{ s.seat.label }}{% if s.seat.seat_type != 'standard' %} <small>({{ s.seat.seat_type|upper }})</small>{% endif %}</span>
+            {% endfor %}
+          </div>
+        </div>
+        {% endfor %}
+
+        <div class="checkout-summary">
+          {% for sid, info in sessions_breakdown.items() %}
+          <div class="checkout-line" style="font-weight:600;margin-top:.5rem">
+            <span>{{ info.lecture.title }}</span>
+            <span></span>
+          </div>
+          {% for s in info.seats %}
+          <div class="checkout-line">
+            <span style="padding-left:1rem">{{ s.seat.label }}{% if s.seat.seat_type != 'standard' %} ({{ s.seat.seat_type|upper }}){% endif %}</span>
+            <span>
+              {% if discount_pct %}
+              <s style="color:var(--text-muted);font-size:.8rem">&#8377;{{ "%.0f"|format(s.price) }}</s>
+              &#8377;{{ "%.0f"|format(s.discounted) }}
+              {% else %}
+              &#8377;{{ "%.0f"|format(s.price) }}
+              {% endif %}
+            </span>
+          </div>
+          {% endfor %}
+          {% endfor %}
+
+          {% if discount_pct %}
+          <div class="checkout-line" style="color:var(--green)">
+            <span>Discount ({{ discount_pct|int if discount_pct == discount_pct|int else discount_pct }}%)</span>
+            <span>-&#8377;{{ "%.0f"|format(base_total - discounted_total) }}</span>
+          </div>
+          {% endif %}
+
+          {% if fee_pct %}
+          <div class="checkout-line">
+            <span>Processing Fee ({{ fee_pct|int if fee_pct == fee_pct|int else fee_pct }}%)</span>
+            <span>&#8377;{{ "%.0f"|format(processing_fee) }}</span>
+          </div>
+          {% endif %}
+
+          <div class="checkout-line checkout-total">
+            <span>Total</span>
+            <span>&#8377;{{ "%.0f"|format(total) }}</span>
+          </div>
+        </div>
+
+        <div class="checkout-tnc">
+          <label class="tnc-label">
+            <input type="checkbox" id="tnc-check">
+            I agree to the <a href="/terms" target="_blank" rel="noopener">Terms &amp; Conditions</a> and understand that tickets are non-refundable after payment.
+          </label>
+        </div>
+
+        {% if total > 0 %}
+        <button type="button" class="btn btn-primary btn-lg btn-block" id="pay-btn" disabled>
+          Pay &#8377;{{ "%.0f"|format(total) }}
+        </button>
+        {% else %}
+        <form method="post" action="/booking/event/{{ event.id }}/pay" id="free-form">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="submit" class="btn btn-primary btn-lg btn-block" id="pay-btn" disabled>
+            Confirm Free Booking
+          </button>
+        </form>
+        {% endif %}
+        <div id="pay-error" style="color:var(--danger);margin-top:.75rem;display:none;text-align:center;font-size:.9rem"></div>
+
+        <p class="checkout-note">Your seats are held for the duration above. {{ "Clicking Pay opens the secure Razorpay checkout." if total > 0 else "" }}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="payment-processing-overlay" id="processing-overlay">
+  <div class="processing-card">
+    <div class="processing-spinner">
+      <svg viewBox="0 0 50 50">
+        <circle cx="25" cy="25" r="20" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-dasharray="90 150" stroke-dashoffset="0">
+          <animateTransform attributeName="transform" type="rotate" from="0 25 25" to="360 25 25" dur="1s" repeatCount="indefinite"/>
+        </circle>
+      </svg>
+    </div>
+    <h2 class="processing-title">Processing your payment</h2>
+    <p class="processing-message">
+      Do <strong>not</strong> close, refresh, or navigate away from this page.
+    </p>
+    <p class="processing-sub">Your transaction is being verified. This usually takes a few seconds.</p>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  var totalSeconds = {{ time_left }};
+  var remaining = totalSeconds;
+  var el  = document.getElementById('countdown');
+  var bar = document.getElementById('timer-bar');
+  var box = document.getElementById('checkout-timer');
+  var URGENT_THRESHOLD = 60;
+  var eventId = {{ event.id }};
+  var totalAmount = {{ total }};
+
+  function fmt(s) {
+    var m = Math.floor(s / 60);
+    var sec = s % 60;
+    return (m > 0 ? m + 'm ' : '') + sec + 's';
+  }
+
+  function updateBar() {
+    var pct = Math.max(0, (remaining / totalSeconds) * 100);
+    if (bar) bar.style.width = pct + '%';
+    if (remaining <= URGENT_THRESHOLD) box.classList.add('urgent');
+  }
+
+  if (el) el.textContent = fmt(remaining);
+  updateBar();
+
+  var timer = setInterval(function() {
+    remaining--;
+    if (remaining <= 0) {
+      clearInterval(timer);
+      if (el) el.textContent = '0s';
+      if (bar) bar.style.width = '0%';
+      window.location.href = '/events/' + eventId;
+      return;
+    }
+    if (el) el.textContent = fmt(remaining);
+    updateBar();
+  }, 1000);
+
+  var payBtn = document.getElementById('pay-btn');
+  var errDiv = document.getElementById('pay-error');
+  var overlay = document.getElementById('processing-overlay');
+  var paying = false;
+  var verifying = false;
+
+  var tncCheck = document.getElementById('tnc-check');
+  if (tncCheck) {
+    tncCheck.addEventListener('change', function() {
+      payBtn.disabled = !tncCheck.checked;
+    });
+  }
+
+  function showError(msg) {
+    errDiv.textContent = msg;
+    errDiv.style.display = 'block';
+  }
+
+  function showProcessing() {
+    verifying = true;
+    overlay.classList.add('active');
+  }
+
+  function hideProcessing() {
+    verifying = false;
+    overlay.classList.remove('active');
+  }
+
+  window.addEventListener('beforeunload', function(e) {
+    if (verifying) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  if (totalAmount <= 0) return;
+
+  payBtn.addEventListener('click', function() {
+    if (paying) return;
+    paying = true;
+    payBtn.classList.add('btn-loading');
+    payBtn.disabled = true;
+    errDiv.style.display = 'none';
+
+    fetch('/booking/event/' + eventId + '/create-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    })
+    .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+    .then(function(res) {
+      if (!res.ok) {
+        showError(res.data.error || 'Failed to create order.');
+        paying = false;
+        payBtn.classList.remove('btn-loading');
+        payBtn.disabled = false;
+        return;
+      }
+
+      var options = {
+        key: '{{ razorpay_key_id }}',
+        amount: res.data.amount,
+        currency: res.data.currency,
+        order_id: res.data.order_id,
+        name: 'TechTrek',
+        description: '{{ event.name|e }} — Event Ticket',
+        prefill: { email: '{{ user_email|e }}', contact: '' },
+        theme: { color: '#6c63ff' },
+        handler: function(response) {
+          showProcessing();
+          payBtn.textContent = 'Verifying...';
+          fetch('/booking/event/' + eventId + '/verify-payment', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature
+            })
+          })
+          .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+          .then(function(vRes) {
+            if (vRes.ok && vRes.data.redirect) {
+              clearInterval(timer);
+              verifying = false;
+              window.location.href = vRes.data.redirect;
+            } else {
+              hideProcessing();
+              showError(vRes.data.error || 'Verification failed.');
+              paying = false;
+              payBtn.classList.remove('btn-loading');
+              payBtn.disabled = false;
+            }
+          })
+          .catch(function() {
+            hideProcessing();
+            showError('Network error during verification. Please check My Bookings.');
+            paying = false;
+            payBtn.classList.remove('btn-loading');
+            payBtn.disabled = false;
+          });
+        },
+        modal: {
+          ondismiss: function() {
+            paying = false;
+            payBtn.classList.remove('btn-loading');
+            payBtn.disabled = false;
+          }
+        }
+      };
+
+      var rzp = new Razorpay(options);
+      rzp.on('payment.failed', function(resp) {
+        showError('Payment failed: ' + (resp.error.description || 'Unknown error'));
+        paying = false;
+        payBtn.classList.remove('btn-loading');
+        payBtn.disabled = false;
+      });
+      rzp.open();
+    })
+    .catch(function() {
+      showError('Network error. Please try again.');
+      paying = false;
+      payBtn.classList.remove('btn-loading');
+      payBtn.disabled = false;
+    });
+  });
+})();
+</script>
+{% endblock %}

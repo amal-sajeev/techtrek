@@ -12,7 +12,7 @@ class LectureSession(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     auditorium_id = Column(Integer, ForeignKey("auditoriums.id"), nullable=False)
-    speaker_id = Column(Integer, ForeignKey("speakers.id"), nullable=True)
+    speaker_id = Column(Integer, ForeignKey("speakers.id", ondelete="SET NULL"), nullable=True)
     title = Column(String(300), nullable=False)
     speaker = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)

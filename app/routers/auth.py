@@ -3,11 +3,19 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import RedirectResponse
 from sqlalchemy.orm import Session
 
+from app.csrf import require_csrf_form
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.speaker import Speaker
 from app.models.user import User
 from app.services.activity_log import log_activity
 from app.services.email import send_signup_confirmation
+
+
+def _safe_next(url: str) -> str:
+    """Return url only if it's a safe relative path on this site."""
+    if url and url.startswith("/") and not url.startswith("//"):
+        return url
+    return "/"
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -48,7 +56,7 @@ def login_page(request: Request):
 
 
 @router.post("/login")
-async def login(request: Request, db: Session = Depends(get_db)):
+async def login(request: Request, db: Session = Depends(get_db), _csrf: None = Depends(require_csrf_form)):
     form = await request.form()
     login_id = form.get("username", "").strip()  # can be username or email
     password = form.get("password", "")
@@ -67,7 +75,7 @@ async def login(request: Request, db: Session = Depends(get_db)):
     log_activity(db, category="auth", action="login", description=f"{user.username} logged in", request=request, user_id=user.id, target_type="user", target_id=user.id)
     db.commit()
     flash(request, f"Welcome back, {user.username}!", "success")
-    next_url = request.query_params.get("next", "/")
+    next_url = _safe_next(request.query_params.get("next", ""))
     return RedirectResponse(next_url, status_code=303)
 
 
@@ -78,7 +86,7 @@ def register_page(request: Request):
 
 
 @router.post("/register")
-async def register(request: Request, db: Session = Depends(get_db)):
+async def register(request: Request, db: Session = Depends(get_db), _csrf: None = Depends(require_csrf_form)):
     form = await request.form()
     username = form.get("username", "").strip()
     email = form.get("email", "").strip()
@@ -120,7 +128,13 @@ async def register(request: Request, db: Session = Depends(get_db)):
         qs = f"?next={next_q}" if next_q else ""
         return RedirectResponse(f"/auth/register{qs}", status_code=303)
 
-    is_first_user = db.query(User).count() == 0
+    from app.config import settings as _settings
+    bootstrap_email = _settings.admin_bootstrap_email.strip().lower()
+    if bootstrap_email:
+        is_admin = email.lower() == bootstrap_email
+    else:
+        # Fallback: first registrant becomes admin (dev-only convenience)
+        is_admin = db.query(User).count() == 0
     user = User(
         username=username,
         email=email,
@@ -130,7 +144,7 @@ async def register(request: Request, db: Session = Depends(get_db)):
         domain=domain or None,
         year_of_study=year_of_study,
         password_hash=_hash_pw(password),
-        is_admin=is_first_user,
+        is_admin=is_admin,
     )
     db.add(user)
     db.commit()
@@ -140,14 +154,13 @@ async def register(request: Request, db: Session = Depends(get_db)):
     _try_link_speaker_token(request, db, user)
     log_activity(db, category="auth", action="register", description=f"New user registered: {user.username} ({user.email})", request=request, user_id=user.id, target_type="user", target_id=user.id)
     db.commit()
-    msg = "Account created! You are the admin." if is_first_user else "Account created!"
+    msg = "Account created! You are the admin." if is_admin else "Account created!"
     flash(request, msg, "success")
     send_signup_confirmation(user.email, user.username)
-    next_url = (
+    next_url = _safe_next(
         form.get("next", "").strip()
         or request.query_params.get("next", "")
         or request.session.pop("speaker_invite_next", "")
-        or "/"
     )
     return RedirectResponse(next_url, status_code=303)
 
@@ -165,7 +178,7 @@ def profile_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/profile")
-async def profile_update(request: Request, db: Session = Depends(get_db)):
+async def profile_update(request: Request, db: Session = Depends(get_db), _csrf: None = Depends(require_csrf_form)):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse("/auth/login", status_code=303)

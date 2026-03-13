@@ -108,6 +108,7 @@
                 {% endif %}
                 {% if b.payment_status == 'paid' %}
                 <form method="post" action="/booking/cancel/{{ b.id }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button type="button" class="btn btn-sm btn-danger"
                     data-confirm="Cancel ticket {{ seats[loop.index0].label }}?\n\nCancellation fee: &#8377;100\nRefund amount: &#8377;{{ (b.amount_paid - 100)|round(0)|int if b.amount_paid else 400 }}"
                     data-confirm-label="Cancel Ticket">Cancel</button>
@@ -129,6 +130,7 @@
           <a href="/sessions" class="btn btn-outline">Browse Sessions</a>
           {% if is_group and group_id and bookings|selectattr('payment_status', 'equalto', 'paid')|list|length > 1 %}
           <form method="post" action="/booking/cancel-group/{{ group_id }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-danger"
               data-confirm="Cancel ALL {{ bookings|selectattr('payment_status', 'equalto', 'paid')|list|length }} tickets in this group?\n\nCancellation fee: &#8377;100 per ticket."
               data-confirm-label="Cancel All Tickets">Cancel All Tickets</button>

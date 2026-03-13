@@ -345,6 +345,7 @@
       <h3>Stay in the Loop</h3>
       <p>Get notified about upcoming TechTrek sessions, new cities, and exclusive early-bird access.</p>
       <form method="post" action="/newsletter" class="newsletter-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <input type="email" name="email" class="form-input newsletter-input" placeholder="your@email.com" required>
         <button type="submit" class="btn btn-primary">Subscribe</button>
       </form>

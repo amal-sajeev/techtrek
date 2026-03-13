@@ -14,6 +14,7 @@
   </div>
 
   <form method="post" action="/speaker/sessions/{{ lecture.id }}/edit" id="speaker-session-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {% if is_primary %}
     <div class="form-group">
       <label class="form-label" for="ss-title">Title</label>

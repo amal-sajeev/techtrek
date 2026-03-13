@@ -5,6 +5,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
+from app.csrf import csrf_protection
 from app.dependencies import AuthRedirect, flash, get_db, now_ist, template_ctx, templates
 from app.services.activity_log import log_activity
 from app.models.agenda import AgendaItem
@@ -14,7 +15,7 @@ from app.models.session_speaker import SessionSpeaker
 from app.models.speaker import Speaker
 from app.models.user import User
 
-router = APIRouter(prefix="/speaker", tags=["speaker"])
+router = APIRouter(prefix="/speaker", tags=["speaker"], dependencies=[Depends(csrf_protection)])
 
 
 def _require_speaker(request: Request, db: Session):

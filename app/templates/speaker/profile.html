@@ -16,6 +16,7 @@
     {% endif %}
 
     <form method="post" action="/speaker/profile">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="form-group">
         <label class="form-label" for="sp-name">Display Name <span class="required">*</span></label>
         <input type="text" name="name" id="sp-name" class="form-input" value="{{ speaker.name }}" required>

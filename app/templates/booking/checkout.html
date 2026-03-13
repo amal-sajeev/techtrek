@@ -37,6 +37,7 @@
           </div>
         </div>
 
+
         <div class="checkout-summary">
           {% for seat in seats %}
           <div class="checkout-line">
@@ -178,7 +179,7 @@
     payBtn.disabled = true;
     errDiv.style.display = 'none';
 
-    fetch('/booking/create-order/' + sessionId, { method: 'POST' })
+    fetch('/booking/create-order/' + sessionId, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
       .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
       .then(function(res) {
         if (!res.ok) {
