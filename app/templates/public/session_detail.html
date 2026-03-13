@@ -234,14 +234,22 @@
 
         {% elif availability == 'priority-only' %}
           {% if has_priority and primary_showing %}
+            {% if total_showings > 1 %}
+            <a href="/sessions/{{ lecture.id }}/showings" class="session-book-btn">Book Now (Priority)</a>
+            {% else %}
             <a href="/booking/select/{{ primary_showing.id }}" class="session-book-btn">Book Now (Priority)</a>
+            {% endif %}
           {% else %}
             <p class="session-booking-note">Open to waitlisted members only. General booking opens soon.</p>
           {% endif %}
 
         {% else %}
           {% if user and primary_showing %}
+            {% if total_showings > 1 %}
+            <a href="/sessions/{{ lecture.id }}/showings" class="session-book-btn">Choose a Showing</a>
+            {% else %}
             <a href="/booking/select/{{ primary_showing.id }}" class="session-book-btn">Book Now</a>
+            {% endif %}
           {% else %}
             <a href="/auth/register?next=/sessions/{{ lecture.id }}" class="session-book-btn">Create Account to Book</a>
             <a href="/auth/login?next=/sessions/{{ lecture.id }}" class="session-book-btn" style="background:transparent;border:1px solid rgba(0,212,255,.24);color:var(--cyan);box-shadow:none;margin-top:10px">Already have an account? Sign in</a>
