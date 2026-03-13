@@ -1,0 +1,58 @@
+{% extends "supervisor/base_supervisor.html" %}
+{% block title %}Schedule — Supervisor — TechTrek{% endblock %}
+
+{% block sv_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Schedule</h1>
+  <p style="color:var(--text-muted);margin-top:4px">{{ sv_college.name }}</p>
+</div>
+
+{% if grouped %}
+{% for date_key, items in grouped.items() %}
+<div class="form-card" style="margin-bottom:1.5rem">
+  <h3 style="margin-bottom:1rem;font-weight:600">{{ items[0].showing.start_time.strftime('%A, %B %d, %Y') }}</h3>
+  <div class="table-responsive">
+    <table class="table table-cards-mobile">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Session</th>
+          <th>Auditorium</th>
+          <th>Duration</th>
+          <th>Bookings</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in items %}
+        <tr>
+          <td data-label="Time">{{ item.showing.start_time.strftime('%I:%M %p') }}</td>
+          <td data-label="Session"><strong>{{ item.session_title }}</strong></td>
+          <td data-label="Auditorium">{{ item.auditorium.name }}</td>
+          <td data-label="Duration">{{ item.showing.effective_duration }} min</td>
+          <td data-label="Bookings">{{ item.booked }}</td>
+          <td data-label="Status">
+            {% if item.showing.status == 'published' %}
+            <span class="badge badge-published">Published</span>
+            {% elif item.showing.status == 'completed' %}
+            <span class="badge badge-draft">Completed</span>
+            {% elif item.showing.status == 'cancelled' %}
+            <span class="badge badge-cancelled">Cancelled</span>
+            {% else %}
+            <span class="badge badge-draft">{{ item.showing.status|title }}</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <h3>No showings scheduled</h3>
+  <p>There are no published or completed showings at {{ sv_college.name }}.</p>
+</div>
+{% endif %}
+{% endblock %}

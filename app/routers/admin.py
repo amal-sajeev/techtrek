@@ -81,16 +81,6 @@ def _require_admin(request: Request, db: Session) -> User | None:
     return user
 
 
-def _require_supervisor_or_admin(request: Request, db: Session) -> User | None:
-    user_id = request.session.get("user_id")
-    if not user_id:
-        return None
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user or not (user.is_admin or user.is_supervisor):
-        return None
-    return user
-
-
 def _admin_ctx(request: Request, active_page: str = "", **kwargs):
     ctx = template_ctx(request, active_page=active_page)
     ctx.update(kwargs)
@@ -105,7 +95,7 @@ async def _form(request: Request):
 
 @router.get("/")
 def dashboard(request: Request, db: Session = Depends(get_db)):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login?next=/admin/", status_code=303)
 
@@ -920,7 +910,7 @@ def speaker_invite(request: Request, speaker_id: int, db: Session = Depends(get_
 
 @router.get("/sessions")
 def sessions_list(request: Request, db: Session = Depends(get_db)):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     all_sessions = db.query(SessionModel).order_by(SessionModel.created_at.desc()).all()
@@ -1634,7 +1624,7 @@ def bookings_list(
     status_filter: str = Query("", alias="status"),
     session_filter: str = Query("", alias="session_id"),
 ):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
@@ -1691,7 +1681,7 @@ def bookings_csv(
     status_filter: str = Query("", alias="status"),
     session_filter: str = Query("", alias="session_id"),
 ):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
@@ -1853,7 +1843,7 @@ def booking_refund(request: Request, booking_id: int, db: Session = Depends(get_
 
 @router.get("/checkin")
 def checkin_page(request: Request, db: Session = Depends(get_db)):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     sessions = (
@@ -1870,7 +1860,7 @@ def checkin_page(request: Request, db: Session = Depends(get_db)):
 
 @router.post("/checkin")
 async def checkin_verify(request: Request, db: Session = Depends(get_db)):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
@@ -2112,7 +2102,7 @@ async def grant_priority(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/users")
 def users_list(request: Request, db: Session = Depends(get_db), q: str = Query("", alias="q")):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     query = db.query(User)
@@ -2125,9 +2115,10 @@ def users_list(request: Request, db: Session = Depends(get_db), q: str = Query("
             | User.college.ilike(like)
         )
     users = query.order_by(User.created_at.desc()).all()
+    colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
     return templates.TemplateResponse(
         "admin/users.html",
-        _admin_ctx(request, active_page="users", users=users, q=q),
+        _admin_ctx(request, active_page="users", users=users, q=q, colleges=colleges),
     )
 
 
@@ -2147,17 +2138,40 @@ def toggle_admin(request: Request, user_id: int, db: Session = Depends(get_db)):
 
 
 @router.post("/users/{user_id}/toggle-supervisor")
-def toggle_supervisor(request: Request, user_id: int, db: Session = Depends(get_db)):
+async def toggle_supervisor(request: Request, user_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     u = db.query(User).get(user_id)
-    if u and u.id != admin.id:
-        u.is_supervisor = not u.is_supervisor
-        status = "supervisor" if u.is_supervisor else "regular user"
-        log_activity(db, category="admin", action="role_change", description=f"Changed {u.username} role to {status}", request=request, user_id=admin.id, target_type="user", target_id=user_id)
+    if not u or u.id == admin.id:
+        return RedirectResponse("/admin/users", status_code=303)
+
+    if u.is_supervisor:
+        u.is_supervisor = False
+        u.supervisor_college_id = None
+        log_activity(db, category="admin", action="role_change", description=f"Removed supervisor role from {u.username}", request=request, user_id=admin.id, target_type="user", target_id=user_id)
         db.commit()
-        flash(request, f"{u.username} is now a {status}.", "success")
+        flash(request, f"{u.username} is no longer a supervisor.", "success")
+    else:
+        form = await request.form()
+        college_id_raw = form.get("college_id", "")
+        if not college_id_raw:
+            flash(request, "Please select a college to assign the supervisor to.", "danger")
+            return RedirectResponse("/admin/users", status_code=303)
+        try:
+            cid = int(college_id_raw)
+        except ValueError:
+            flash(request, "Invalid college selection.", "danger")
+            return RedirectResponse("/admin/users", status_code=303)
+        college = db.query(College).get(cid)
+        if not college:
+            flash(request, "Selected college not found.", "danger")
+            return RedirectResponse("/admin/users", status_code=303)
+        u.is_supervisor = True
+        u.supervisor_college_id = cid
+        log_activity(db, category="admin", action="role_change", description=f"Made {u.username} supervisor at {college.name}", request=request, user_id=admin.id, target_type="user", target_id=user_id)
+        db.commit()
+        flash(request, f"{u.username} is now a supervisor at {college.name}.", "success")
     return RedirectResponse("/admin/users", status_code=303)
 
 
@@ -2170,7 +2184,7 @@ def admin_schedule(
     college_id: str = Query("", alias="college_id"),
     auditorium_id: str = Query("", alias="auditorium_id"),
 ):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
@@ -2356,7 +2370,7 @@ async def settings_update(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/events")
 def events_list(request: Request, db: Session = Depends(get_db)):
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     events = db.query(Event).order_by(Event.created_at.desc()).all()
@@ -2477,7 +2491,7 @@ def event_delete(request: Request, event_id: int, db: Session = Depends(get_db))
 @router.get("/events/sessions-for-college")
 def event_sessions_for_college(request: Request, db: Session = Depends(get_db), college_id: int = Query(None)):
     """AJAX endpoint: returns published future showings for a given college."""
-    admin = _require_supervisor_or_admin(request, db)
+    admin = _require_admin(request, db)
     if not admin:
         return JSONResponse({"error": "unauthorized"}, status_code=403)
     query = (

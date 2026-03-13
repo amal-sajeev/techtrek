@@ -1,0 +1,82 @@
+{% extends "supervisor/base_supervisor.html" %}
+{% block title %}Bookings — Supervisor — TechTrek{% endblock %}
+
+{% block sv_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Bookings</h1>
+  <p style="color:var(--text-muted);margin-top:4px">{{ sv_college.name }}</p>
+</div>
+
+<div class="form-card mb-3">
+  <form method="get" action="/supervisor/bookings" class="filter-form">
+    <div class="form-row" style="align-items:flex-end;gap:.75rem;flex-wrap:wrap">
+      <div class="form-group" style="flex:1;min-width:180px">
+        <label class="form-label" for="booking-search">Search</label>
+        <input type="text" name="q" id="booking-search" class="form-input" placeholder="Name, email, ticket ID..." value="{{ q or '' }}">
+      </div>
+      <div class="form-group" style="flex:none">
+        <label class="form-label" for="status-filter">Status</label>
+        <select name="status" id="status-filter" class="form-input" style="min-width:120px">
+          <option value="">All</option>
+          <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Paid</option>
+          <option value="refunded" {% if status_filter == 'refunded' %}selected{% endif %}>Refunded</option>
+        </select>
+      </div>
+      <div class="form-group" style="flex:none">
+        <button type="submit" class="btn btn-primary">Filter</button>
+        {% if q or status_filter %}<a href="/supervisor/bookings" class="btn btn-outline" style="margin-left:.5rem">Clear</a>{% endif %}
+      </div>
+    </div>
+  </form>
+</div>
+
+{% if bookings %}
+<div class="table-responsive">
+  <table class="table table-cards-mobile">
+    <thead>
+      <tr>
+        <th>Ref</th>
+        <th>User</th>
+        <th>Session</th>
+        <th>Showing</th>
+        <th>Seat</th>
+        <th>Status</th>
+        <th>Checked In</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in bookings %}
+      <tr>
+        <td data-label="Ref"><code>{{ item.booking.booking_ref or item.booking.ticket_id or '—' }}</code></td>
+        <td data-label="User">{{ item.user.full_name or item.user.username if item.user else '—' }}</td>
+        <td data-label="Session">{{ item.session.title if item.session else '—' }}</td>
+        <td data-label="Showing">{{ item.showing.start_time.strftime('%b %d, %I:%M %p') if item.showing else '—' }}</td>
+        <td data-label="Seat">{{ item.seat.label if item.seat else '—' }}</td>
+        <td data-label="Status">
+          {% if item.booking.payment_status == 'paid' %}
+          <span class="badge badge-published">Paid</span>
+          {% elif item.booking.payment_status == 'refunded' %}
+          <span class="badge badge-cancelled">Refunded</span>
+          {% else %}
+          <span class="badge badge-draft">{{ item.booking.payment_status }}</span>
+          {% endif %}
+        </td>
+        <td data-label="Checked In">
+          {% if item.booking.checked_in %}
+          <span class="badge badge-published">Yes</span>
+          {% else %}
+          <span class="badge badge-draft">No</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No bookings found</h3>
+  <p>{% if q or status_filter %}Try adjusting your filters.{% else %}There are no bookings for showings at {{ sv_college.name }} yet.{% endif %}</p>
+</div>
+{% endif %}
+{% endblock %}

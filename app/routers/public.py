@@ -881,9 +881,14 @@ def public_ticket(request: Request, ticket_id: str, db: DbSession = Depends(get_
             "errors/404.html", template_ctx(request), status_code=404
         )
 
-    # Only the booking owner, an admin, or a supervisor may view the ticket.
     viewer = db.query(User).filter(User.id == viewer_id).first()
-    is_privileged = viewer and (viewer.is_admin or viewer.is_supervisor)
+    is_privileged = viewer and viewer.is_admin
+    if not is_privileged and viewer and viewer.is_supervisor and viewer.supervisor_college_id:
+        showing_check = db.query(Showing).get(booking.showing_id)
+        if showing_check:
+            aud = db.query(Auditorium).get(showing_check.auditorium_id)
+            if aud and aud.college_id == viewer.supervisor_college_id:
+                is_privileged = True
     if booking.user_id != viewer_id and not is_privileged:
         return templates.TemplateResponse(
             "errors/404.html", template_ctx(request), status_code=404
@@ -942,9 +947,14 @@ def public_ticket_group(request: Request, group_id: str, db: DbSession = Depends
             "errors/404.html", template_ctx(request), status_code=404
         )
 
-    # Only the booking owner, an admin, or a supervisor may view the group ticket.
     viewer = db.query(User).filter(User.id == viewer_id).first()
-    is_privileged = viewer and (viewer.is_admin or viewer.is_supervisor)
+    is_privileged = viewer and viewer.is_admin
+    if not is_privileged and viewer and viewer.is_supervisor and viewer.supervisor_college_id:
+        showing_check = db.query(Showing).get(bookings[0].showing_id)
+        if showing_check:
+            aud = db.query(Auditorium).get(showing_check.auditorium_id)
+            if aud and aud.college_id == viewer.supervisor_college_id:
+                is_privileged = True
     if bookings[0].user_id != viewer_id and not is_privileged:
         return templates.TemplateResponse(
             "errors/404.html", template_ctx(request), status_code=404

@@ -43,6 +43,9 @@
           <span class="badge badge-filling-up">Admin</span>
           {% elif u.is_supervisor %}
           <span class="badge badge-published">Supervisor</span>
+          {% if u.supervised_college %}
+          <span class="badge badge-draft" style="margin-left:4px" title="{{ u.supervised_college.name }}">{{ u.supervised_college.name }}</span>
+          {% endif %}
           {% else %}
           <span class="badge badge-draft">User</span>
           {% endif %}
@@ -59,15 +62,33 @@
               {{ 'Remove Admin' if u.is_admin else 'Make Admin' }}
             </button>
           </form>
+          {% if u.is_supervisor %}
           <form method="post" action="/admin/users/{{ u.id }}/toggle-supervisor" style="display:inline">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-outline"
-              data-confirm="Toggle supervisor status for {{ u.username }}?"
-              data-confirm-label="{{ 'Remove Supervisor' if u.is_supervisor else 'Make Supervisor' }}"
+              data-confirm="Remove supervisor role from {{ u.username }}?"
+              data-confirm-label="Remove Supervisor"
               data-confirm-class="btn-primary">
-              {{ 'Remove Supervisor' if u.is_supervisor else 'Make Supervisor' }}
+              Remove Supervisor
             </button>
           </form>
+          {% else %}
+          <form method="post" action="/admin/users/{{ u.id }}/toggle-supervisor" style="display:inline" class="sv-assign-form">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <select name="college_id" class="form-input form-input-sm" required style="width:auto;display:inline-block;min-width:140px;vertical-align:middle;margin-right:4px">
+              <option value="">Select college...</option>
+              {% for c in colleges %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </select>
+            <button type="button" class="btn btn-sm btn-outline"
+              data-confirm="Make {{ u.username }} a supervisor at the selected college?"
+              data-confirm-label="Make Supervisor"
+              data-confirm-class="btn-primary">
+              Make Supervisor
+            </button>
+          </form>
+          {% endif %}
         </td>
         {% endif %}
       </tr>

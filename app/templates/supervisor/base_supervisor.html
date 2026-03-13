@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="admin-wrapper sv-wrapper">
+  <!-- Mobile sidebar toggle -->
+  <button id="admin-sidebar-toggle" class="admin-sidebar-toggle hamburger" aria-label="Supervisor menu">
+    <span></span><span></span><span></span>
+  </button>
+  <div class="admin-overlay" id="admin-overlay"></div>
+
+  <!-- Sidebar -->
+  <aside class="admin-sidebar sv-sidebar" id="admin-sidebar">
+    <div class="admin-sidebar-header sv-sidebar-header">
+      <span class="brand-icon">&#128272;</span> Supervisor
+    </div>
+    {% if sv_college %}
+    <div class="sv-college-label">{{ sv_college.name }}</div>
+    {% endif %}
+    <nav class="admin-nav">
+      <a href="/supervisor/" class="admin-nav-link {% if active_page == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">&#128200;</span> Dashboard
+      </a>
+      <a href="/supervisor/bookings" class="admin-nav-link {% if active_page == 'bookings' %}active{% endif %}">
+        <span class="nav-icon">&#127915;</span> Bookings
+      </a>
+      <a href="/supervisor/schedule" class="admin-nav-link {% if active_page == 'schedule' %}active{% endif %}">
+        <span class="nav-icon">&#128197;</span> Schedule
+      </a>
+      <a href="/supervisor/checkin" class="admin-nav-link {% if active_page == 'checkin' %}active{% endif %}">
+        <span class="nav-icon">&#9989;</span> Check-in
+      </a>
+    </nav>
+    <div class="admin-sidebar-footer">
+      <a href="/" class="admin-nav-link">
+        <span class="nav-icon">&#8592;</span> Back to Site
+      </a>
+    </div>
+  </aside>
+
+  <!-- Main content area -->
+  <div class="admin-main">
+    {% block sv_content %}{% endblock %}
+  </div>
+</div>
+{% endblock %}

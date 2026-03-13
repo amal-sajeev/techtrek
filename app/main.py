@@ -31,7 +31,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "Referrer-Policy", "strict-origin-when-cross-origin"
         )
         response.headers.setdefault(
-            "Permissions-Policy", "camera=(), microphone=(), geolocation=()"
+            "Permissions-Policy", "camera=(self), microphone=(), geolocation=()"
         )
         # Only send HSTS over HTTPS (i.e., when not in debug/dev mode).
         if not settings.debug:

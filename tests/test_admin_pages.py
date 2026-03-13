@@ -7,6 +7,7 @@ from app.models.seat import Seat
 from tests.conftest import (
     admin_session,
     make_auditorium,
+    make_college,
     make_feedback,
     make_recording,
     make_session,
@@ -232,32 +233,134 @@ class TestAdminRecordings:
         assert resp.status_code == 303
 
 
-class TestSupervisorCheckin:
-    """GET /supervisor/ should render with Showing objects (s.session.title)."""
+_sv_counter = 0
 
-    def test_checkin_unauthenticated(self, client, db):
+
+def _login_supervisor(client, db, college=None):
+    """Create a supervisor user assigned to a college and log them in."""
+    global _sv_counter
+    _sv_counter += 1
+    if college is None:
+        college = make_college(db, name=f"SV College {_sv_counter}")
+    user = make_user(
+        db,
+        username=f"sv_{_sv_counter}",
+        email=f"sv_{_sv_counter}@test.com",
+        is_supervisor=True,
+        supervisor_college_id=college.id,
+    )
+    db.flush()
+    admin_session(client, user)
+    return user, college
+
+
+class TestSupervisorPortal:
+    """Supervisor portal is college-scoped and distinct from admin panel."""
+
+    def test_supervisor_unauthenticated_redirects(self, client, db):
         resp = client.get("/supervisor/", follow_redirects=False)
         assert resp.status_code == 303
 
-    def test_checkin_page_empty(self, client, db):
-        user = _login_admin(client, db)
+    def test_supervisor_dashboard_loads(self, client, db):
+        user, college = _login_supervisor(client, db)
         resp = client.get("/supervisor/")
         assert resp.status_code == 200
-        assert b"Supervisor Check-in" in resp.content
+        assert college.name.encode() in resp.content
+        assert b"Dashboard" in resp.content
 
-    def test_checkin_page_with_showings(self, client, db):
-        """Showing dropdown must display session title via s.session.title."""
-        _login_admin(client, db)
+    def test_supervisor_cannot_access_admin(self, client, db):
+        user, college = _login_supervisor(client, db)
+        resp = client.get("/admin/", follow_redirects=False)
+        assert resp.status_code == 303
+
+    def test_supervisor_dashboard_scoped_stats(self, client, db):
+        college = make_college(db, name="Scoped College Stats")
+        other_college = make_college(db, name="Other College Stats")
+        aud = make_auditorium(db, name="Scoped Aud", college=college)
+        aud_other = make_auditorium(db, name="Other Aud", college=other_college)
+        session = make_session(db, title="Scoped Session")
+        showing = make_showing(db, session=session, auditorium=aud, status="published",
+                               start_time=datetime.now() + timedelta(days=3))
+        showing_other = make_showing(db, session=session, auditorium=aud_other, status="published",
+                                     start_time=datetime.now() + timedelta(days=4))
+        db.flush()
+        user, _ = _login_supervisor(client, db, college=college)
+        resp = client.get("/supervisor/")
+        assert resp.status_code == 200
+        assert b"Scoped Session" in resp.content
+
+    def test_supervisor_bookings_page(self, client, db):
+        college = make_college(db, name="Bookings College")
+        aud = make_auditorium(db, name="Bookings Aud", college=college)
+        session = make_session(db, title="Bookings Session")
+        showing = make_showing(db, session=session, auditorium=aud, status="published",
+                               start_time=datetime.now() + timedelta(days=3))
+        db.flush()
+        user, _ = _login_supervisor(client, db, college=college)
+        resp = client.get("/supervisor/bookings")
+        assert resp.status_code == 200
+        assert b"Bookings" in resp.content
+        assert college.name.encode() in resp.content
+
+    def test_supervisor_schedule_page(self, client, db):
+        college = make_college(db, name="Schedule College")
+        aud = make_auditorium(db, name="Schedule Aud", college=college)
+        session = make_session(db, title="Schedule Session")
+        showing = make_showing(db, session=session, auditorium=aud, status="published",
+                               start_time=datetime.now() + timedelta(days=3))
+        db.flush()
+        user, _ = _login_supervisor(client, db, college=college)
+        resp = client.get("/supervisor/schedule")
+        assert resp.status_code == 200
+        assert b"Schedule" in resp.content
+        assert b"Schedule Session" in resp.content
+
+    def test_supervisor_checkin_page(self, client, db):
+        college = make_college(db, name="Checkin College")
+        aud = make_auditorium(db, name="Checkin Aud", college=college)
         session = make_session(db, title="Checkin Talk")
-        make_showing(
-            db, session=session, status="published",
-            start_time=datetime.now() + timedelta(days=1),
-        )
-        db.commit()
-
-        resp = client.get("/supervisor/")
+        showing = make_showing(db, session=session, auditorium=aud, status="published",
+                               start_time=datetime.now() + timedelta(days=1))
+        db.flush()
+        user, _ = _login_supervisor(client, db, college=college)
+        resp = client.get("/supervisor/checkin")
         assert resp.status_code == 200
+        assert b"Check-in" in resp.content
         assert b"Checkin Talk" in resp.content
+
+    def test_supervisor_checkin_scoped_to_college(self, client, db):
+        """Supervisor should only see showings at their college in the dropdown."""
+        college_a = make_college(db, name="College A Checkin")
+        college_b = make_college(db, name="College B Checkin")
+        aud_a = make_auditorium(db, name="Aud A", college=college_a)
+        aud_b = make_auditorium(db, name="Aud B", college=college_b)
+        session = make_session(db, title="Shared Talk Scope")
+        make_showing(db, session=session, auditorium=aud_a, status="published",
+                     start_time=datetime.now() + timedelta(days=1))
+        make_showing(db, session=session, auditorium=aud_b, status="published",
+                     start_time=datetime.now() + timedelta(days=2))
+        db.flush()
+
+        user, _ = _login_supervisor(client, db, college=college_a)
+        resp = client.get("/supervisor/checkin")
+        assert resp.status_code == 200
+        content = resp.content.decode()
+        assert "Shared Talk Scope" in content
+
+    def test_admin_toggle_supervisor_requires_college(self, client, db):
+        """Toggling supervisor without selecting a college should flash an error."""
+        from tests.conftest import CSRF_TEST_TOKEN
+        admin = _login_admin(client, db)
+        target = make_user(db, username="sv_target", email="sv_target@test.com")
+        db.flush()
+        resp = client.post(
+            f"/admin/users/{target.id}/toggle-supervisor",
+            data={"csrf_token": CSRF_TEST_TOKEN},
+            follow_redirects=False,
+        )
+        assert resp.status_code == 303
+        db.refresh(target)
+        assert not target.is_supervisor
 
 
 class TestSpeakerDashboard:

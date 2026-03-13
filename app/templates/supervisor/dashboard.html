@@ -1,0 +1,63 @@
+{% extends "supervisor/base_supervisor.html" %}
+{% block title %}Supervisor Dashboard — TechTrek{% endblock %}
+
+{% block sv_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Dashboard</h1>
+  <p style="color:var(--text-muted);margin-top:4px">{{ sv_college.name }} overview</p>
+</div>
+
+<div class="admin-stats-row">
+  <div class="admin-stat-card">
+    <div class="admin-stat-value">{{ upcoming_count }}</div>
+    <div class="admin-stat-label">Upcoming Showings</div>
+  </div>
+  <div class="admin-stat-card">
+    <div class="admin-stat-value">{{ total_bookings }}</div>
+    <div class="admin-stat-label">Total Bookings</div>
+  </div>
+  <div class="admin-stat-card">
+    <div class="admin-stat-value">{{ total_checked_in }}</div>
+    <div class="admin-stat-label">Checked In</div>
+  </div>
+  <div class="admin-stat-card">
+    <div class="admin-stat-value">{{ total_showings }}</div>
+    <div class="admin-stat-label">Total Showings</div>
+  </div>
+</div>
+
+{% if upcoming_showings %}
+<div class="form-card" style="margin-top:2rem">
+  <h3 style="margin-bottom:1rem;font-weight:600">Upcoming Showings</h3>
+  <div class="table-responsive">
+    <table class="table table-cards-mobile">
+      <thead>
+        <tr>
+          <th>Session</th>
+          <th>Date & Time</th>
+          <th>Auditorium</th>
+          <th>Bookings</th>
+          <th>Checked In</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in upcoming_showings %}
+        <tr>
+          <td data-label="Session"><strong>{{ item.session_title }}</strong></td>
+          <td data-label="Date & Time">{{ item.showing.start_time.strftime('%b %d, %Y') }} at {{ item.showing.start_time.strftime('%I:%M %p') }}</td>
+          <td data-label="Auditorium">{{ item.auditorium_name }}</td>
+          <td data-label="Bookings">{{ item.booked }}</td>
+          <td data-label="Checked In">{{ item.checked_in }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state" style="margin-top:2rem">
+  <h3>No upcoming showings</h3>
+  <p>There are no upcoming showings at {{ sv_college.name }}.</p>
+</div>
+{% endif %}
+{% endblock %}

@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text, TypeDecorator
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, TypeDecorator
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -75,7 +75,9 @@ class User(Base):
     year_of_study = Column(Integer, nullable=True)
     is_admin = Column(Boolean, default=False)
     is_supervisor = Column(Boolean, default=False)
+    supervisor_college_id = Column(Integer, ForeignKey("colleges.id"), nullable=True)
     created_at = Column(DateTime, default=now_ist)
 
     bookings = relationship("Booking", back_populates="user")
     waitlist_entries = relationship("Waitlist", back_populates="user")
+    supervised_college = relationship("College", foreign_keys=[supervisor_college_id])
