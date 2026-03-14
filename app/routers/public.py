@@ -629,33 +629,73 @@ def showings_browser(
 
 
 @router.get("/events")
-def events_list(request: Request, db: DbSession = Depends(get_db)):
-    events = (
+def events_list(
+    request: Request,
+    db: DbSession = Depends(get_db),
+    q: str = Query("", alias="q"),
+    sort: str = Query("date", alias="sort"),
+    city_id: int | None = Query(None, alias="city_id"),
+):
+    from datetime import timedelta
+    now = now_ist()
+
+    query = (
         db.query(Event)
         .filter(Event.status == "published")
-        .order_by(Event.created_at.desc())
-        .all()
+        .outerjoin(College, Event.college_id == College.id)
+        .outerjoin(City, College.city_id == City.id)
     )
+    if q:
+        query = query.filter(
+            Event.name.ilike(f"%{q}%")
+            | College.name.ilike(f"%{q}%")
+            | City.name.ilike(f"%{q}%")
+        )
+    if city_id:
+        query = query.filter(College.city_id == city_id)
+
+    events = query.all()
+    cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
+
     events_info = []
     for ev in events:
         showings = [es.showing for es in ev.event_showings if es.showing]
-        session_count = len(showings)
         dates = sorted([s.start_time for s in showings if s.start_time])
         date_from = dates[0] if dates else None
         date_to   = dates[-1] if len(dates) > 1 else None
         prices    = [float(s.price) for s in showings if s.price is not None]
         min_price = min(prices) if prices else None
+        city      = ev.college.city if ev.college else None
         events_info.append({
             "event":         ev,
-            "session_count": session_count,
+            "session_count": len(showings),
             "college":       ev.college,
+            "city":          city,
             "date_from":     date_from,
             "date_to":       date_to,
             "min_price":     min_price,
         })
+
+    if sort == "name":
+        events_info.sort(key=lambda x: x["event"].name.lower())
+    else:
+        events_info.sort(key=lambda x: (x["date_from"] is None, x["date_from"]))
+
+    week_end       = now + timedelta(days=7)
+    two_weeks_end  = now + timedelta(days=14)
+
     return templates.TemplateResponse(
         "public/events.html",
-        template_ctx(request, events=events_info),
+        template_ctx(request,
+            events=events_info,
+            cities=cities,
+            q=q,
+            sort=sort,
+            city_id=city_id,
+            now=now,
+            week_end=week_end,
+            two_weeks_end=two_weeks_end,
+        ),
     )
 
 
