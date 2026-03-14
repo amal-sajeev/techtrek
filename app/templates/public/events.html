@@ -15,10 +15,16 @@
 {% block content %}
 <section class="section">
   <div class="container">
-    <h1 class="page-title reveal">Events</h1>
-    <p class="section-subtitle reveal" style="margin-bottom:2rem;color:var(--text-muted)">
-      Curated bundles of sessions — explore related talks and book the ones you want.
-    </p>
+    <div class="page-header-block reveal">
+      <h1 class="page-title">Upcoming Events</h1>
+      <p class="section-subtitle" style="color:var(--text-muted)">
+        Secure your seat at a TechTrek industry summit &mdash; one event ticket covers all sessions.
+      </p>
+      <div style="margin-top:.75rem">
+        <span class="badge badge-published" style="font-size:.78rem">&#127470;&#127475; Aligned with Viksit Bharat 2047</span>
+      </div>
+    </div>
+    <div class="section-divider" style="margin-bottom:2rem"></div>
 
     {% if events %}
     <div class="session-grid" id="events-grid">
@@ -46,7 +52,7 @@
         </div>
         <div class="card-footer">
           <span class="card-detail">{{ item.session_count }} session{{ 's' if item.session_count != 1 else '' }}</span>
-          <span class="card-cta-hint">View &rarr;</span>
+          <span class="card-cta-hint">Book Now &rarr;</span>
         </div>
       </a>
       {% endfor %}
