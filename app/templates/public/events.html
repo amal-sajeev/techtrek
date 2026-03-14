@@ -27,35 +27,73 @@
     <div class="section-divider" style="margin-bottom:2rem"></div>
 
     {% if events %}
-    <div class="session-grid" id="events-grid">
-      {% for item in events %}
-      {% set img_id = img_pool[item.event.id % 8] %}
-      <a href="/events/{{ item.event.id }}" class="card card-hover">
-        <div class="card-image">
-          {% if item.event.banner_url %}
-          <img src="{{ item.event.banner_url }}" alt="{{ item.event.name }}" loading="lazy">
-          {% else %}
-          <img src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80" alt="{{ item.event.name }}" loading="lazy">
+    <div class="events-layout">
+
+      {# ── Hero: first event ── #}
+      {% set hero = events[0] %}
+      {% set hero_img = img_pool[hero.event.id % 8] %}
+      <a href="/events/{{ hero.event.id }}" class="event-hero-card card-hover reveal">
+        {% if hero.event.banner_url %}
+        <img class="event-hero-img" src="{{ hero.event.banner_url }}" alt="{{ hero.event.name }}">
+        {% else %}
+        <img class="event-hero-img"
+             src="https://images.unsplash.com/{{ hero_img }}?w=1400&auto=format&fit=crop&q=80"
+             alt="{{ hero.event.name }}">
+        {% endif %}
+
+        <div class="event-hero-overlay">
+          {% if hero.college %}
+          <div class="event-hero-tag">{{ hero.college.name }}</div>
           {% endif %}
-          {% if item.event.discount_pct %}
-          <span class="card-badge badge-open">{{ item.event.discount_pct }}% off bundle</span>
+          <h2 class="event-hero-title">{{ hero.event.name }}</h2>
+          {% if hero.event.description %}
+          <p class="event-hero-desc">{{ hero.event.description[:180] }}{% if hero.event.description|length > 180 %}…{% endif %}</p>
           {% endif %}
-        </div>
-        <div class="card-body">
-          <h3 class="card-title">{{ item.event.name }}</h3>
-          {% if item.college %}
-          <p class="card-meta">{{ item.college.name }}</p>
-          {% endif %}
-          {% if item.event.description %}
-          <p class="card-meta" style="font-size:.85rem;color:var(--text-muted);margin-top:.25rem">{{ item.event.description[:120] }}{% if item.event.description|length > 120 %}...{% endif %}</p>
-          {% endif %}
-        </div>
-        <div class="card-footer">
-          <span class="card-detail">{{ item.session_count }} session{{ 's' if item.session_count != 1 else '' }}</span>
-          <span class="card-cta-hint">Book Now &rarr;</span>
+          <div class="event-hero-footer">
+            <span class="event-hero-pill pill-accent">{{ hero.session_count }} session{{ 's' if hero.session_count != 1 else '' }}</span>
+            {% if hero.event.discount_pct %}
+            <span class="event-hero-pill pill-gold">{{ hero.event.discount_pct }}% off bundle</span>
+            {% endif %}
+            <span class="event-hero-cta">View Event &rarr;</span>
+          </div>
         </div>
       </a>
-      {% endfor %}
+
+      {# ── Sub-grid: remaining events ── #}
+      {% if events|length > 1 %}
+      <div class="events-sub-grid">
+        {% for item in events[1:] %}
+        {% set img_id = img_pool[item.event.id % 8] %}
+        <a href="/events/{{ item.event.id }}" class="card card-hover reveal">
+          <div class="card-image">
+            {% if item.event.banner_url %}
+            <img src="{{ item.event.banner_url }}" alt="{{ item.event.name }}" loading="lazy">
+            {% else %}
+            <img src="https://images.unsplash.com/{{ img_id }}?w=640&auto=format&fit=crop&q=80"
+                 alt="{{ item.event.name }}" loading="lazy">
+            {% endif %}
+            {% if item.event.discount_pct %}
+            <span class="card-badge badge-open">{{ item.event.discount_pct }}% off bundle</span>
+            {% endif %}
+          </div>
+          <div class="card-body">
+            <h3 class="card-title">{{ item.event.name }}</h3>
+            {% if item.college %}
+            <p class="card-meta">{{ item.college.name }}</p>
+            {% endif %}
+            {% if item.event.description %}
+            <p class="events-card-desc">{{ item.event.description[:110] }}{% if item.event.description|length > 110 %}…{% endif %}</p>
+            {% endif %}
+          </div>
+          <div class="card-footer">
+            <span class="card-detail">{{ item.session_count }} session{{ 's' if item.session_count != 1 else '' }}</span>
+            <span class="card-cta-hint">Book Now &rarr;</span>
+          </div>
+        </a>
+        {% endfor %}
+      </div>
+      {% endif %}
+
     </div>
     {% else %}
     <div class="empty-state reveal">
