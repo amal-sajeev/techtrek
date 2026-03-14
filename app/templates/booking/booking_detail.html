@@ -9,8 +9,10 @@
     <div class="confirmation-layout">
       <div class="confirmation-card">
 
-        <h1 class="confirmation-title">{{ lecture.title }}</h1>
-        <p class="confirmation-subtitle">{{ lecture.speaker_name }}</p>
+        <div class="page-header-block" style="padding-bottom:.75rem;margin-bottom:1rem;border-bottom:1px solid var(--border,rgba(255,255,255,.07))">
+          <h1 class="confirmation-title" style="margin:0 0 .25rem">{{ lecture.title }}</h1>
+          <p class="confirmation-subtitle" style="margin:0">{{ lecture.speaker_name }}</p>
+        </div>
 
         <div class="confirmation-details">
           <div class="detail-group">

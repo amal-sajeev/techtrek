@@ -23,37 +23,47 @@
     </div>
     {% endif %}
 
-    <h1 class="page-title" style="margin-bottom:.5rem">{{ event.name }}</h1>
-    {% if event.college %}
-    <p class="section-subtitle" style="color:var(--text-muted);margin-bottom:.5rem">{{ event.college.name }}</p>
-    {% endif %}
-    {% if event.discount_pct %}
-    <span class="badge badge-published" style="font-size:.85rem;margin-bottom:1rem;display:inline-block">{{ event.discount_pct }}% bundle discount on event tickets</span>
-    {% endif %}
+    <div class="page-header-block">
+      <h1 class="page-title" style="margin-bottom:.25rem">{{ event.name }}</h1>
+      {% if event.college %}
+      <p class="section-subtitle" style="color:var(--text-muted);margin-bottom:.5rem">{{ event.college.name }}</p>
+      {% endif %}
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem">
+        {% if event.discount_pct %}
+        <span class="badge badge-published" style="font-size:.82rem">{{ event.discount_pct }}% bundle discount on event tickets</span>
+        {% endif %}
+        <span class="badge" style="font-size:.78rem;background:rgba(255,170,0,.12);color:#ffaa00;border:1px solid rgba(255,170,0,.3)">&#127470;&#127475; Viksit Bharat 2047</span>
+      </div>
+    </div>
     {% if event.description %}
-    <p style="color:var(--text-secondary);margin-bottom:2rem;line-height:1.7">{{ event.description }}</p>
+    <p style="color:var(--text-secondary);margin-bottom:1.5rem;margin-top:1rem;line-height:1.7">{{ event.description }}</p>
     {% endif %}
+    <div class="section-divider" style="margin-bottom:1.5rem"></div>
 
-    <h2 style="font-size:1.2rem;font-weight:600;margin-bottom:.5rem;color:var(--text-primary)">
-      Select Sessions ({{ sessions|length }})
-    </h2>
-    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:1rem">
-      Choose the sessions you'd like to attend, then book a single event ticket covering all of them.
-    </p>
+    <div class="event-included-header">
+      <h2 class="event-included-title">
+        What's Included
+        <span class="event-included-count">{{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}</span>
+      </h2>
+      <p class="event-included-sub">Your event ticket covers all sessions listed below &mdash; book once, attend everything.</p>
+    </div>
 
     {% if sessions %}
+    {# Count available sessions for the submit form #}
+    {% set available_sessions = sessions | selectattr('availability', '!=', 'sold-out') | list %}
+
     <form id="event-booking-form" action="/booking/event/{{ event.id }}/select" method="GET">
+      {# Auto-include all non-sold-out sessions #}
+      {% for item in sessions %}
+      {% if item.availability != 'sold-out' %}
+      <input type="hidden" name="showing_ids" value="{{ item.showing.id }}">
+      {% endif %}
+      {% endfor %}
+
       <div class="event-session-list">
         {% for item in sessions %}
         {% set img_id = img_pool[item.session.id % 8] %}
-        <label class="event-session-card{% if item.availability == 'sold-out' %} sold-out{% endif %}" for="show-{{ item.showing.id }}">
-          <div class="event-session-card-check">
-            {% if item.availability != 'sold-out' %}
-            <input type="checkbox" name="showing_ids" value="{{ item.showing.id }}" id="show-{{ item.showing.id }}">
-            {% else %}
-            <input type="checkbox" disabled id="show-{{ item.showing.id }}">
-            {% endif %}
-          </div>
+        <div class="event-session-card{% if item.availability == 'sold-out' %} sold-out{% endif %}" style="cursor:default">
           <div class="event-session-card-img">
             <img
               src="{% if item.session.banner_url %}{{ item.session.banner_url }}{% else %}https://images.unsplash.com/{{ img_id }}?w=200&auto=format&fit=crop&q=80{% endif %}"
@@ -62,6 +72,8 @@
             <span class="card-badge badge-sold-out">Sold Out</span>
             {% elif item.availability == 'filling-up' %}
             <span class="card-badge badge-filling-up">Filling Up</span>
+            {% else %}
+            <span class="card-badge badge-open">Included</span>
             {% endif %}
           </div>
           <div class="event-session-card-body">
@@ -86,21 +98,25 @@
             {% endif %}
             <span class="price-suffix">per seat</span>
           </div>
-        </label>
+        </div>
         {% endfor %}
       </div>
 
       <div class="event-booking-footer">
-        <div class="event-booking-summary" id="booking-summary">
-          <span id="selected-count">0</span> session(s) selected
+        <div class="event-booking-summary">
+          <strong>{{ available_sessions|length }}</strong> session{{ 's' if available_sessions|length != 1 else '' }} included
           {% if event.discount_pct %}
           &middot; <span style="color:var(--green)">{{ event.discount_pct }}% discount applied</span>
           {% endif %}
         </div>
         {% if user %}
-        <button type="submit" class="btn btn-primary btn-lg event-book-btn" id="book-event-btn" disabled>
-          Select Seats &amp; Book Event Ticket
-        </button>
+          {% if available_sessions|length > 0 %}
+          <button type="submit" class="btn btn-primary btn-lg event-book-btn">
+            Book Event Ticket
+          </button>
+          {% else %}
+          <div class="btn btn-outline btn-lg event-book-btn" style="opacity:.5;cursor:not-allowed">All Sessions Sold Out</div>
+          {% endif %}
         {% else %}
         <a href="/auth/register?next=/events/{{ event.id }}" class="btn btn-primary btn-lg event-book-btn">
           Create Account to Book
@@ -119,22 +135,4 @@
     {% endif %}
   </div>
 </section>
-
-<script>
-(function() {
-  var checkboxes = document.querySelectorAll('#event-booking-form input[name="showing_ids"]');
-  var countEl = document.getElementById('selected-count');
-  var btn = document.getElementById('book-event-btn');
-  if (!checkboxes.length || !btn) return;
-
-  function update() {
-    var checked = document.querySelectorAll('#event-booking-form input[name="showing_ids"]:checked');
-    countEl.textContent = checked.length;
-    btn.disabled = checked.length === 0;
-  }
-
-  checkboxes.forEach(function(cb) { cb.addEventListener('change', update); });
-  update();
-})();
-</script>
 {% endblock %}

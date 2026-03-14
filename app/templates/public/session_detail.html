@@ -56,6 +56,8 @@
   </div>
 </section>
 
+<div class="session-hero-rule"></div>
+
 <!-- Main Body -->
 <div class="session-page-body">
   <div>
@@ -217,44 +219,16 @@
           <div class="session-avail-fill" style="width: {{ 100 - pct }}%"></div>
         </div>
 
-        {% if availability == 'sold-out' %}
-          <div class="session-book-btn" style="opacity:.5;cursor:not-allowed;text-align:center">Sold Out</div>
-          {% if user %}
-            {% if on_waitlist %}
-              <p class="session-booking-note">You're on the waitlist. We'll notify you if a spot opens.</p>
-            {% elif primary_showing %}
-              <form method="post" action="/booking/waitlist/{{ primary_showing.id }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-                <button type="submit" class="session-book-btn" style="background:transparent;border:1px solid rgba(0,212,255,.24);color:var(--cyan)">Join Waitlist</button>
-              </form>
-            {% endif %}
-          {% else %}
-            <p class="session-booking-note"><a href="/auth/login?next=/sessions/{{ lecture.id }}">Sign in</a> to join the waitlist.</p>
-          {% endif %}
-
-        {% elif availability == 'priority-only' %}
-          {% if has_priority and primary_showing %}
-            {% if total_showings > 1 %}
-            <a href="/sessions/{{ lecture.id }}/showings" class="session-book-btn">Book Now (Priority)</a>
-            {% else %}
-            <a href="/booking/select/{{ primary_showing.id }}" class="session-book-btn">Book Now (Priority)</a>
-            {% endif %}
-          {% else %}
-            <p class="session-booking-note">Open to waitlisted members only. General booking opens soon.</p>
-          {% endif %}
-
-        {% else %}
-          {% if user and primary_showing %}
-            {% if total_showings > 1 %}
-            <a href="/sessions/{{ lecture.id }}/showings" class="session-book-btn">Choose a Showing</a>
-            {% else %}
-            <a href="/booking/select/{{ primary_showing.id }}" class="session-book-btn">Book Now</a>
-            {% endif %}
-          {% else %}
-            <a href="/auth/register?next=/sessions/{{ lecture.id }}" class="session-book-btn">Create Account to Book</a>
-            <a href="/auth/login?next=/sessions/{{ lecture.id }}" class="session-book-btn" style="background:transparent;border:1px solid rgba(0,212,255,.24);color:var(--cyan);box-shadow:none;margin-top:10px">Already have an account? Sign in</a>
-          {% endif %}
-        {% endif %}
+        <div class="session-event-guidance">
+          <div class="seg-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5v2M15 11v2M15 17v2M5 5h5M5 11h5M5 17h5M3 3h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3V3z"/><path d="M11 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-8V3z"/></svg>
+          </div>
+          <div>
+            <p class="seg-title">Book via an Event</p>
+            <p class="seg-text">This session is part of a TechTrek event. Browse events to book your seat and get access to all sessions in one ticket.</p>
+          </div>
+        </div>
+        <a href="/events" class="session-book-btn">Browse Events &rarr;</a>
 
         <div class="session-perks">
           <div class="session-perk">

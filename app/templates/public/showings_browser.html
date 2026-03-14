@@ -4,7 +4,7 @@
 {% block content %}
 <section class="section">
   <div class="container">
-    <div class="showings-browser-header">
+    <div class="showings-browser-header page-header-block">
       <a href="/sessions/{{ session.id }}" class="showings-back-link">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
         Back to session
@@ -108,10 +108,8 @@
           <div class="showing-browser-action">
             {% if item.availability == 'sold-out' %}
             <span class="btn btn-sm btn-outline" style="opacity:.5;cursor:not-allowed">Sold Out</span>
-            {% elif user %}
-            <a href="/booking/select/{{ item.showing.id }}" class="btn btn-sm btn-primary">Book</a>
             {% else %}
-            <a href="/auth/register?next=/sessions/{{ session.id }}/showings" class="btn btn-sm btn-primary">Book</a>
+            <a href="/events" class="btn btn-sm btn-outline">Events &rarr;</a>
             {% endif %}
           </div>
         </div>
