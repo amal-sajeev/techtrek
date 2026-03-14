@@ -15,6 +15,7 @@
 {% block content %}
 <section class="section">
   <div class="container">
+
     <div class="page-header-block reveal">
       <h1 class="page-title">Upcoming Events</h1>
       <p class="section-subtitle" style="color:var(--text-muted)">
@@ -27,74 +28,81 @@
     <div class="section-divider" style="margin-bottom:2rem"></div>
 
     {% if events %}
-    <div class="events-layout">
+    <div class="events-grid">
+      {% for item in events %}
+      {% set img_id = img_pool[item.event.id % 8] %}
+      <a href="/events/{{ item.event.id }}" class="card card-hover reveal">
 
-      {# ── Hero: first event ── #}
-      {% set hero = events[0] %}
-      {% set hero_img = img_pool[hero.event.id % 8] %}
-      <a href="/events/{{ hero.event.id }}" class="event-hero-card card-hover reveal">
-        {% if hero.event.banner_url %}
-        <img class="event-hero-img" src="{{ hero.event.banner_url }}" alt="{{ hero.event.name }}">
-        {% else %}
-        <img class="event-hero-img"
-             src="https://images.unsplash.com/{{ hero_img }}?w=1400&auto=format&fit=crop&q=80"
-             alt="{{ hero.event.name }}">
-        {% endif %}
+        {# ── Fixed-height image band ── #}
+        <div class="card-image">
+          {% if item.event.banner_url %}
+          <img src="{{ item.event.banner_url }}" alt="{{ item.event.name }}" loading="lazy">
+          {% else %}
+          <img src="https://images.unsplash.com/{{ img_id }}?w=800&auto=format&fit=crop&q=80"
+               alt="{{ item.event.name }}" loading="lazy">
+          {% endif %}
 
-        <div class="event-hero-overlay">
-          {% if hero.college %}
-          <div class="event-hero-tag">{{ hero.college.name }}</div>
+          {# Date badge overlaid top-left #}
+          {% if item.date_from %}
+          <div class="ev-date-badge">
+            <span class="ev-date-month">{{ item.date_from.strftime('%b') }}</span>
+            <span class="ev-date-day">{{ item.date_from.day }}</span>
+          </div>
           {% endif %}
-          <h2 class="event-hero-title">{{ hero.event.name }}</h2>
-          {% if hero.event.description %}
-          <p class="event-hero-desc">{{ hero.event.description[:180] }}{% if hero.event.description|length > 180 %}…{% endif %}</p>
+
+          {# Discount badge top-right (reuse existing card-badge style) #}
+          {% if item.event.discount_pct %}
+          <span class="card-badge badge-open">{{ item.event.discount_pct }}% off bundle</span>
           {% endif %}
-          <div class="event-hero-footer">
-            <span class="event-hero-pill pill-accent">{{ hero.session_count }} session{{ 's' if hero.session_count != 1 else '' }}</span>
-            {% if hero.event.discount_pct %}
-            <span class="event-hero-pill pill-gold">{{ hero.event.discount_pct }}% off bundle</span>
+        </div>
+
+        {# ── Body ── #}
+        <div class="ev-card-body">
+          <h3 class="ev-card-title">{{ item.event.name }}</h3>
+
+          {% if item.college %}
+          <div class="ev-card-college">{{ item.college.name }}</div>
+          {% endif %}
+
+          {% if item.event.description %}
+          <p class="ev-card-desc">{{ item.event.description }}</p>
+          {% endif %}
+
+          <div class="ev-card-meta-row">
+            <span class="ev-card-pill pill-sessions">
+              {{ item.session_count }} session{{ 's' if item.session_count != 1 else '' }}
+            </span>
+            {% if item.date_from %}
+            <span class="ev-card-pill pill-price">
+              {% if item.date_to and item.date_to.date() != item.date_from.date() %}
+                {{ item.date_from.strftime('%b') }} {{ item.date_from.day }} – {{ item.date_to.day }}
+              {% else %}
+                {{ item.date_from.strftime('%b') }} {{ item.date_from.day }}, {{ item.date_from.year }}
+              {% endif %}
+            </span>
             {% endif %}
-            <span class="event-hero-cta">View Event &rarr;</span>
+            {% if item.min_price is not none %}
+            <span class="ev-card-pill pill-price">
+              {% if item.min_price == 0 %}Free{% else %}from ₹{{ '{:,.0f}'.format(item.min_price) }}{% endif %}
+            </span>
+            {% endif %}
           </div>
         </div>
+
+        {# ── Footer ── #}
+        <div class="ev-card-footer">
+          {% if item.college %}
+          <span class="ev-card-footer-label">{{ item.college.name }}</span>
+          {% else %}
+          <span class="ev-card-footer-label">TechTrek Event</span>
+          {% endif %}
+          <span class="ev-card-cta">Book Now &rarr;</span>
+        </div>
+
       </a>
-
-      {# ── Sub-grid: remaining events ── #}
-      {% if events|length > 1 %}
-      <div class="events-sub-grid">
-        {% for item in events[1:] %}
-        {% set img_id = img_pool[item.event.id % 8] %}
-        <a href="/events/{{ item.event.id }}" class="card card-hover reveal">
-          <div class="card-image">
-            {% if item.event.banner_url %}
-            <img src="{{ item.event.banner_url }}" alt="{{ item.event.name }}" loading="lazy">
-            {% else %}
-            <img src="https://images.unsplash.com/{{ img_id }}?w=640&auto=format&fit=crop&q=80"
-                 alt="{{ item.event.name }}" loading="lazy">
-            {% endif %}
-            {% if item.event.discount_pct %}
-            <span class="card-badge badge-open">{{ item.event.discount_pct }}% off bundle</span>
-            {% endif %}
-          </div>
-          <div class="card-body">
-            <h3 class="card-title">{{ item.event.name }}</h3>
-            {% if item.college %}
-            <p class="card-meta">{{ item.college.name }}</p>
-            {% endif %}
-            {% if item.event.description %}
-            <p class="events-card-desc">{{ item.event.description[:110] }}{% if item.event.description|length > 110 %}…{% endif %}</p>
-            {% endif %}
-          </div>
-          <div class="card-footer">
-            <span class="card-detail">{{ item.session_count }} session{{ 's' if item.session_count != 1 else '' }}</span>
-            <span class="card-cta-hint">Book Now &rarr;</span>
-          </div>
-        </a>
-        {% endfor %}
-      </div>
-      {% endif %}
-
+      {% endfor %}
     </div>
+
     {% else %}
     <div class="empty-state reveal">
       <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -105,6 +113,7 @@
       <p>Check back soon for curated session bundles!</p>
     </div>
     {% endif %}
+
   </div>
 </section>
 {% endblock %}

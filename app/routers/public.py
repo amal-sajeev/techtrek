@@ -638,11 +638,20 @@ def events_list(request: Request, db: DbSession = Depends(get_db)):
     )
     events_info = []
     for ev in events:
-        session_count = len(ev.event_showings)
+        showings = [es.showing for es in ev.event_showings if es.showing]
+        session_count = len(showings)
+        dates = sorted([s.start_time for s in showings if s.start_time])
+        date_from = dates[0] if dates else None
+        date_to   = dates[-1] if len(dates) > 1 else None
+        prices    = [float(s.price) for s in showings if s.price is not None]
+        min_price = min(prices) if prices else None
         events_info.append({
-            "event": ev,
+            "event":         ev,
             "session_count": session_count,
-            "college": ev.college,
+            "college":       ev.college,
+            "date_from":     date_from,
+            "date_to":       date_to,
+            "min_price":     min_price,
         })
     return templates.TemplateResponse(
         "public/events.html",
