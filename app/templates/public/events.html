@@ -19,7 +19,7 @@
     <div class="page-header-block reveal">
       <h1 class="page-title">Upcoming Events</h1>
       <p class="section-subtitle" style="color:var(--text-muted)">
-        Secure your seat at a TechTrek industry summit &mdash; one event ticket covers all sessions.
+        Live industry talks by engineers and founders at campuses across India.
       </p>
       <div style="margin-top:.75rem">
         <span class="badge badge-published" style="font-size:.78rem">&#127470;&#127475; Aligned with Viksit Bharat 2047</span>
@@ -50,10 +50,6 @@
           </div>
           {% endif %}
 
-          {# Discount badge top-right (reuse existing card-badge style) #}
-          {% if item.event.discount_pct %}
-          <span class="card-badge badge-open">{{ item.event.discount_pct }}% off bundle</span>
-          {% endif %}
         </div>
 
         {# ── Body ── #}
