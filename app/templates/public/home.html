@@ -456,7 +456,7 @@
 {% block scripts %}
 <script>
 (function() {
-  function initCarousel(trackId, prevId, nextId) {
+  function initCarousel(trackId, prevId, nextId, autoInterval) {
     var track = document.getElementById(trackId);
     var prev  = document.getElementById(prevId);
     var next  = document.getElementById(nextId);
@@ -467,17 +467,45 @@
 
     var gap = 20;
     var pos = 0;
+    var autoTimer = null;
+    var outer = track.parentElement;
+    var wrap = track.closest('.carousel-wrap');
 
-    function cardWidth() {
-      return cards[0].getBoundingClientRect().width + gap;
+    /* Read card width from CSS flex-basis — layout-independent, always reliable */
+    function rawCardW() {
+      var fb = getComputedStyle(cards[0]).flexBasis;
+      if (fb && fb.endsWith('px')) {
+        var w = parseFloat(fb);
+        if (w > 20) return w;
+      }
+      /* Percentage flex-basis (mobile 100%) — card fills outer */
+      return outer.getBoundingClientRect().width;
     }
 
-    function visibleWidth() {
-      return track.parentElement.getBoundingClientRect().width;
-    }
+    function cardWidth() { return rawCardW() + gap; }
 
-    function maxPos() {
-      return Math.max(0, track.scrollWidth - visibleWidth());
+    function visibleWidth() { return outer.getBoundingClientRect().width; }
+
+    function maxPos() { return Math.max(0, track.scrollWidth - visibleWidth()); }
+
+    /* Shrink the track window to show only whole cards — no partial bleed.
+       Skips when flex-basis is a percentage (mobile): cards already fill perfectly. */
+    function snapOuter() {
+      var fb = getComputedStyle(cards[0]).flexBasis;
+      if (!fb || !fb.endsWith('px')) return; /* mobile — skip */
+      var wrapEl = wrap || outer.parentElement;
+      var wrapW = wrapEl.getBoundingClientRect().width;
+      if (wrapW < 50) return; /* not laid out yet */
+      var rc = parseFloat(fb);
+      if (rc < 20) return;
+      var cw = rc + gap;
+      var btnW = prev.getBoundingClientRect().width + next.getBoundingClientRect().width;
+      var wGap = (parseFloat(getComputedStyle(wrapEl).gap) || 4) * 2;
+      var available = wrapW - btnW - wGap;
+      if (available < rc) return;
+      var n = Math.max(1, Math.floor(available / cw));
+      outer.style.flex = '0 0 auto';
+      outer.style.width = (n * cw - gap) + 'px';
     }
 
     function updateButtons() {
@@ -493,23 +521,63 @@
       updateButtons();
     }
 
-    prev.addEventListener('click', function() { scrollTo(pos - cardWidth()); });
-    next.addEventListener('click', function() { scrollTo(pos + cardWidth()); });
+    function stopAuto() {
+      if (autoTimer) { clearInterval(autoTimer); autoTimer = null; }
+    }
+
+    function startAuto() {
+      stopAuto();
+      if (!autoInterval) return;
+      autoTimer = setInterval(function() {
+        scrollTo(pos >= maxPos() - 1 ? 0 : pos + cardWidth());
+      }, autoInterval);
+    }
+
+    prev.addEventListener('click', function() {
+      scrollTo(pos - cardWidth());
+      stopAuto(); setTimeout(startAuto, autoInterval * 2);
+    });
+    next.addEventListener('click', function() {
+      scrollTo(pos + cardWidth());
+      stopAuto(); setTimeout(startAuto, autoInterval * 2);
+    });
 
     var startX = 0;
-    track.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; }, {passive:true});
+    track.addEventListener('touchstart', function(e) {
+      startX = e.touches[0].clientX;
+      stopAuto();
+    }, {passive:true});
     track.addEventListener('touchend', function(e) {
       var dx = startX - e.changedTouches[0].clientX;
       if (Math.abs(dx) > 40) scrollTo(pos + (dx > 0 ? cardWidth() : -cardWidth()));
+      setTimeout(startAuto, autoInterval * 2);
     }, {passive:true});
 
-    window.addEventListener('resize', function() { scrollTo(Math.min(pos, maxPos())); });
+    if (wrap && autoInterval) {
+      wrap.addEventListener('mouseenter', stopAuto);
+      wrap.addEventListener('mouseleave', startAuto);
+    }
+
+    window.addEventListener('resize', function() {
+      snapOuter();
+      scrollTo(Math.min(pos, maxPos()));
+    });
+
+    snapOuter();
     updateButtons();
+    startAuto();
+    /* Re-snap after first paint in case DOMContentLoaded fired before full layout */
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() {
+        snapOuter();
+        scrollTo(Math.min(pos, maxPos()));
+      });
+    });
   }
 
   document.addEventListener('DOMContentLoaded', function() {
-    initCarousel('talks-track', 'talks-prev', 'talks-next');
-    initCarousel('testi-track', 'testi-prev', 'testi-next');
+    initCarousel('talks-track', 'talks-prev', 'talks-next', 4000);
+    initCarousel('testi-track', 'testi-prev', 'testi-next', 5000);
   });
 })();
 </script>

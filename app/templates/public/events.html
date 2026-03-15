@@ -15,58 +15,184 @@
 {% block content %}
 <section class="section">
   <div class="container">
+
+    {# ── Page header ── #}
     <div class="page-header-block reveal">
       <h1 class="page-title">Upcoming Events</h1>
       <p class="section-subtitle" style="color:var(--text-muted)">
-        Secure your seat at a TechTrek industry summit &mdash; one event ticket covers all sessions.
+        Live industry talks by engineers and founders at campuses across India.
+      </p>
+      <p style="font-family:var(--font-mono);font-size:1.1rem;color:var(--text-muted);margin-top:.4rem">
+        {% if events %}{{ events|length }} event{{ 's' if events|length != 1 else '' }} upcoming{% endif %}
       </p>
       <div style="margin-top:.75rem">
-        <span class="badge badge-published" style="font-size:.78rem">&#127470;&#127475; Aligned with Viksit Bharat 2047</span>
+        <span class="badge badge-published" style="font-size:.85rem">&#127470;&#127475; Aligned with Viksit Bharat 2047</span>
       </div>
     </div>
+    <div class="section-divider" style="margin-bottom:1.5rem"></div>
+
+    {# ── Filter bar ── #}
+    <form class="filter-bar reveal" id="events-filter-form" method="get" action="/events">
+      <div class="filter-search">
+        <input type="text" name="q" id="ev-filter-q" class="form-input"
+               placeholder="Search events, colleges, cities..."
+               value="{{ q }}" autocomplete="off">
+      </div>
+      {% if cities %}
+      <div class="filter-city">
+        <select name="city_id" id="ev-filter-city" class="form-input" aria-label="Filter by city">
+          <option value="">All cities</option>
+          {% for city in cities %}
+          <option value="{{ city.id }}" {% if city_id == city.id %}selected{% endif %}>
+            {{ city.name }}{% if city.state %}, {{ city.state }}{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="filter-sort">
+        <select name="sort" id="ev-filter-sort" class="form-input" aria-label="Sort events">
+          <option value="date" {% if sort == 'date' %}selected{% endif %}>By Date</option>
+          <option value="name" {% if sort == 'name' %}selected{% endif %}>By Name</option>
+        </select>
+      </div>
+    </form>
     <div class="section-divider" style="margin-bottom:2rem"></div>
 
     {% if events %}
-    <div class="session-grid" id="events-grid">
-      {% for item in events %}
-      {% set img_id = img_pool[item.event.id % 8] %}
-      <a href="/events/{{ item.event.id }}" class="card card-hover">
-        <div class="card-image">
-          {% if item.event.banner_url %}
-          <img src="{{ item.event.banner_url }}" alt="{{ item.event.name }}" loading="lazy">
-          {% else %}
-          <img src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80" alt="{{ item.event.name }}" loading="lazy">
-          {% endif %}
-          {% if item.event.discount_pct %}
-          <span class="card-badge badge-open">{{ item.event.discount_pct }}% off bundle</span>
-          {% endif %}
-        </div>
-        <div class="card-body">
-          <h3 class="card-title">{{ item.event.name }}</h3>
-          {% if item.college %}
-          <p class="card-meta">{{ item.college.name }}</p>
-          {% endif %}
-          {% if item.event.description %}
-          <p class="card-meta" style="font-size:.85rem;color:var(--text-muted);margin-top:.25rem">{{ item.event.description[:120] }}{% if item.event.description|length > 120 %}...{% endif %}</p>
-          {% endif %}
-        </div>
-        <div class="card-footer">
-          <span class="card-detail">{{ item.session_count }} session{{ 's' if item.session_count != 1 else '' }}</span>
-          <span class="card-cta-hint">Book Now &rarr;</span>
-        </div>
-      </a>
-      {% endfor %}
+
+    {# ── Split events into date buckets ── #}
+    {% set this_week = [] %}
+    {% set next_week = [] %}
+    {% set later     = [] %}
+    {% for item in events %}
+      {% if item.date_from and item.date_from <= week_end %}
+        {% if this_week.append(item) %}{% endif %}
+      {% elif item.date_from and item.date_from <= two_weeks_end %}
+        {% if next_week.append(item) %}{% endif %}
+      {% else %}
+        {% if later.append(item) %}{% endif %}
+      {% endif %}
+    {% endfor %}
+
+    {# Only show group headings if events actually span multiple buckets #}
+    {% set show_groups = (this_week|length > 0 and (next_week|length > 0 or later|length > 0))
+                      or (next_week|length > 0 and later|length > 0) %}
+
+    {% set groups = [] %}
+    {% if this_week %}{% if groups.append(('This Week', this_week)) %}{% endif %}{% endif %}
+    {% if next_week %}{% if groups.append(('Next Week', next_week)) %}{% endif %}{% endif %}
+    {% if later     %}{% if groups.append(('Coming Up',  later))    %}{% endif %}{% endif %}
+    {# Fallback — all events in one flat list if nothing bucketed #}
+    {% if not groups %}{% if groups.append(('', events)) %}{% endif %}{% endif %}
+
+    {% for group_label, group_items in groups %}
+    <div class="ev-date-group">
+      {% if show_groups and group_label %}
+      <h2 class="ev-group-heading">{{ group_label }}</h2>
+      {% endif %}
+
+      <div class="events-grid-3col">
+        {% for item in group_items %}
+        {% set img_id = img_pool[item.event.id % 8] %}
+        <a href="/events/{{ item.event.id }}" class="ev-card reveal">
+
+          {# Image band #}
+          <div class="ev-card-img-wrap">
+            {% if item.event.banner_url %}
+            <img src="{{ item.event.banner_url }}" alt="{{ item.event.name }}" loading="lazy">
+            {% else %}
+            <img src="https://images.unsplash.com/{{ img_id }}?w=700&auto=format&fit=crop&q=80"
+                 alt="{{ item.event.name }}" loading="lazy">
+            {% endif %}
+            {% if item.date_from %}
+            <div class="ev-date-badge">
+              <span class="ev-date-month">{{ item.date_from.strftime('%b') }}</span>
+              <span class="ev-date-day">{{ item.date_from.day }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+          {# Brand gradient accent line #}
+          <div class="ev-card-accent"></div>
+
+          {# Card body #}
+          <div class="ev-card-body">
+            <h3 class="ev-card-title">{{ item.event.name }}</h3>
+
+            <div class="ev-card-venue">
+              {% if item.college %}<span>{{ item.college.name }}</span>{% endif %}
+              {% if item.city %}
+              <span class="ev-card-dot">·</span>
+              <span class="ev-card-city">{{ item.city.name }}{% if item.city.state %}, {{ item.city.state }}{% endif %}</span>
+              {% endif %}
+            </div>
+
+            {% if item.event.description %}
+            <p class="ev-card-desc">{{ item.event.description }}</p>
+            {% endif %}
+
+            <div class="ev-card-meta-row">
+              <span class="ev-card-pill pill-sessions">
+                {{ item.session_count }} session{{ 's' if item.session_count != 1 else '' }}
+              </span>
+              {% if item.date_from %}
+              <span class="ev-card-pill pill-date">
+                {% if item.date_to and item.date_to.date() != item.date_from.date() %}
+                  {{ item.date_from.strftime('%b') }} {{ item.date_from.day }}–{{ item.date_to.day }}
+                {% else %}
+                  {{ item.date_from.strftime('%b') }} {{ item.date_from.day }}
+                {% endif %}
+              </span>
+              {% endif %}
+              {% if item.min_price is not none %}
+              <span class="ev-card-pill pill-price">
+                {% if item.min_price == 0 %}Free{% else %}from ₹{{ '{:,.0f}'.format(item.min_price) }}{% endif %}
+              </span>
+              {% endif %}
+              <span class="ev-card-cta">Book Now &rarr;</span>
+            </div>
+          </div>
+
+        </a>
+        {% endfor %}
+      </div>
     </div>
+    {% endfor %}
+
     {% else %}
     <div class="empty-state reveal">
       <svg class="empty-icon" width="64" height="64" viewBox="0 0 64 64" fill="none" aria-hidden="true">
         <circle cx="32" cy="32" r="28" stroke="currentColor" stroke-width="1.5" stroke-dasharray="4 3"/>
         <path d="M32 20v14M32 40v2" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-      <h3>No events yet</h3>
-      <p>Check back soon for curated session bundles!</p>
+      <h3>No events found</h3>
+      <p>{% if q or city_id %}Try clearing your filters.{% else %}Check back soon for upcoming events!{% endif %}</p>
+      {% if q or city_id %}
+      <a href="/events" class="btn btn-secondary" style="margin-top:1rem">Clear filters</a>
+      {% endif %}
     </div>
     {% endif %}
+
   </div>
 </section>
+
+<script>
+(function () {
+  var form  = document.getElementById('events-filter-form');
+  var qInput = document.getElementById('ev-filter-q');
+  var selects = form ? form.querySelectorAll('select') : [];
+  var timer;
+
+  if (qInput) {
+    qInput.addEventListener('input', function () {
+      clearTimeout(timer);
+      timer = setTimeout(function () { form.submit(); }, 380);
+    });
+  }
+  selects.forEach(function (sel) {
+    sel.addEventListener('change', function () { form.submit(); });
+  });
+})();
+</script>
 {% endblock %}
