@@ -659,7 +659,7 @@ def events_list(
 
     events_info = []
     for ev in events:
-        showings = [es.showing for es in ev.event_showings if es.showing]
+        showings = [es.showing for es in ev.event_showings if es.showing and es.showing.status == "published"]
         dates = sorted([s.start_time for s in showings if s.start_time])
         date_from = dates[0] if dates else None
         date_to   = dates[-1] if len(dates) > 1 else None

@@ -182,7 +182,7 @@
         <div class="session-price-block">
           <span class="session-price-sym">₹</span>
           <span class="session-price-num">{{ "%.0f"|format(primary_showing.price if primary_showing else 0) }}</span>
-          <span class="session-price-suffix">per seat</span>
+
         </div>
         {% if (primary_showing and primary_showing.price_vip is not none) or (primary_showing and primary_showing.price_accessible is not none) or custom_seat_types %}
         <div class="session-alt-tiers">
