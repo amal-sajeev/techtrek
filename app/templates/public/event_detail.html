@@ -12,127 +12,312 @@
   'photo-1573164713714-d95e436ab8d1'
 ] %}
 
+{# Hero image: prefer event banner, else first session banner, else Unsplash #}
+{% set hero_img = event.banner_url or (sessions[0].session.banner_url if sessions else None) or ('https://images.unsplash.com/' + img_pool[event.id % 8] + '?w=1600&auto=format&fit=crop&q=80') %}
+
+{# Date range + venue across sessions #}
+{% set ns = namespace(min_date=None, max_date=None, venue=None) %}
+{% for item in sessions %}
+  {% if ns.min_date is none or item.showing.start_time < ns.min_date %}{% set ns.min_date = item.showing.start_time %}{% endif %}
+  {% if ns.max_date is none or item.showing.start_time > ns.max_date %}{% set ns.max_date = item.showing.start_time %}{% endif %}
+  {% if ns.venue is none and item.auditorium %}{% set ns.venue = item.auditorium.name %}{% endif %}
+{% endfor %}
+
 {% block content %}
-<section class="section">
-  <div class="container" style="max-width:960px;margin:0 auto">
-    <a href="/events" class="btn btn-outline btn-sm" style="margin-bottom:1rem">&larr; All Events</a>
 
-    {% if event.banner_url %}
-    <div class="event-detail-banner">
-      <img src="{{ event.banner_url }}" alt="{{ event.name }}">
+{# ── SCROLL PROGRESS BAR ─────────────────────────────────────── #}
+<div class="ed-progress-bar" id="ed-progress"></div>
+
+{# ── FULL-BLEED HERO ─────────────────────────────────────────── #}
+<div class="ed-hero-full">
+
+  {# Carousel: event banner + unique session banners #}
+  <div class="ed-hero-carousel">
+    <div class="ed-hero-slide active">
+      <img src="{{ hero_img }}" alt="{{ event.name }}" loading="eager">
     </div>
-    {% endif %}
-
-    <div class="page-header-block">
-      <h1 class="page-title" style="margin-bottom:.25rem">{{ event.name }}</h1>
-      {% if event.college %}
-      <p class="section-subtitle" style="color:var(--text-muted);margin-bottom:.5rem">{{ event.college.name }}</p>
-      {% endif %}
-      <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.5rem">
-        {% if event.discount_pct %}
-        <span class="badge badge-published" style="font-size:.82rem">{{ event.discount_pct }}% bundle discount on event tickets</span>
-        {% endif %}
-        <span class="badge" style="font-size:.78rem;background:rgba(255,170,0,.12);color:#ffaa00;border:1px solid rgba(255,170,0,.3)">&#127470;&#127475; Viksit Bharat 2047</span>
-      </div>
-    </div>
-    {% if event.description %}
-    <p style="color:var(--text-secondary);margin-bottom:1.5rem;margin-top:1rem;line-height:1.7">{{ event.description }}</p>
-    {% endif %}
-    <div class="section-divider" style="margin-bottom:1.5rem"></div>
-
-    <div class="event-included-header">
-      <h2 class="event-included-title">
-        What's Included
-        <span class="event-included-count">{{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}</span>
-      </h2>
-      <p class="event-included-sub">Your event ticket covers all sessions listed below &mdash; book once, attend everything.</p>
-    </div>
-
-    {% if sessions %}
-    {# Count available sessions for the submit form #}
-    {% set available_sessions = sessions | selectattr('availability', '!=', 'sold-out') | list %}
-
-    <form id="event-booking-form" action="/booking/event/{{ event.id }}/select" method="GET">
-      {# Auto-include all non-sold-out sessions #}
-      {% for item in sessions %}
-      {% if item.availability != 'sold-out' %}
-      <input type="hidden" name="showing_ids" value="{{ item.showing.id }}">
-      {% endif %}
-      {% endfor %}
-
-      <div class="event-session-list">
-        {% for item in sessions %}
-        {% set img_id = img_pool[item.session.id % 8] %}
-        <div class="event-session-card{% if item.availability == 'sold-out' %} sold-out{% endif %}" style="cursor:default">
-          <div class="event-session-card-img">
-            <img
-              src="{% if item.session.banner_url %}{{ item.session.banner_url }}{% else %}https://images.unsplash.com/{{ img_id }}?w=200&auto=format&fit=crop&q=80{% endif %}"
-              alt="{{ item.session.title }}" loading="lazy">
-            {% if item.availability == 'sold-out' %}
-            <span class="card-badge badge-sold-out">Sold Out</span>
-            {% elif item.availability == 'filling-up' %}
-            <span class="card-badge badge-filling-up">Filling Up</span>
-            {% else %}
-            <span class="card-badge badge-open">Included</span>
-            {% endif %}
-          </div>
-          <div class="event-session-card-body">
-            <h3 class="event-session-card-title">{{ item.session.title }}</h3>
-            {% if item.session.speaker_name %}
-            <p class="event-session-card-meta">{{ item.session.speaker_name }}</p>
-            {% endif %}
-            <div class="event-session-card-details">
-              <span>&#128197; {{ item.showing.start_time.strftime('%b %d, %Y') }}</span>
-              <span>&#128336; {{ item.showing.start_time.strftime('%I:%M %p') }}</span>
-              {% if item.auditorium %}
-              <span>&#128205; {{ item.auditorium.name }}</span>
-              {% endif %}
-            </div>
-          </div>
-          <div class="event-session-card-price">
-            {% if event.discount_pct and item.availability != 'sold-out' %}
-            <span class="price-original">&#8377;{{ "%.0f"|format(item.showing.price) }}</span>
-            <span class="price-discounted">&#8377;{{ "%.0f"|format(item.showing.price|float * (1 - event.discount_pct|float / 100)) }}</span>
-            {% else %}
-            <span class="price-regular">&#8377;{{ "%.0f"|format(item.showing.price) }}</span>
-            {% endif %}
-
-          </div>
+    {% set ns_h = namespace(seen=[hero_img]) %}
+    {% for item in sessions %}
+      {% set s_img = item.session.banner_url or ('https://images.unsplash.com/' + img_pool[item.session.id % 8] + '?w=1600&auto=format&fit=crop&q=80') %}
+      {% if s_img not in ns_h.seen %}
+        {% set ns_h.seen = ns_h.seen + [s_img] %}
+        <div class="ed-hero-slide">
+          <img src="{{ s_img }}" alt="{{ item.session.title }}" loading="lazy">
         </div>
-        {% endfor %}
-      </div>
-
-      <div class="event-booking-footer">
-        <div class="event-booking-summary">
-          <strong>{{ available_sessions|length }}</strong> session{{ 's' if available_sessions|length != 1 else '' }} included
-          {% if event.discount_pct %}
-          &middot; <span style="color:var(--green)">{{ event.discount_pct }}% discount applied</span>
-          {% endif %}
-        </div>
-        {% if user %}
-          {% if available_sessions|length > 0 %}
-          <button type="submit" class="btn btn-primary btn-lg event-book-btn">
-            Book Event Ticket
-          </button>
-          {% else %}
-          <div class="btn btn-outline btn-lg event-book-btn" style="opacity:.5;cursor:not-allowed">All Sessions Sold Out</div>
-          {% endif %}
-        {% else %}
-        <a href="/auth/register?next=/events/{{ event.id }}" class="btn btn-primary btn-lg event-book-btn">
-          Create Account to Book
-        </a>
-        <a href="/auth/login?next=/events/{{ event.id }}" class="btn btn-outline btn-lg" style="margin-top:.5rem">
-          Already have an account? Sign in
-        </a>
-        {% endif %}
-      </div>
-    </form>
-    {% else %}
-    <div class="empty-state">
-      <h3>No sessions available</h3>
-      <p>Sessions for this event haven't been published yet.</p>
-    </div>
-    {% endif %}
+      {% endif %}
+    {% endfor %}
   </div>
-</section>
+
+  {# Bottom gradient: photo fades seamlessly into page background #}
+  <div class="ed-hero-gradient"></div>
+
+  {# Back link — floats top-left over the image #}
+  <div class="ed-hero-nav">
+    <div class="container">
+      <a href="/events" class="ed-back-link">&#8592; All Events</a>
+    </div>
+  </div>
+
+  {# Event identity — overlays the gradient zone at the bottom #}
+  <div class="ed-hero-caption">
+    <div class="container">
+      <div class="ed-event-identity">
+        {% if event.college %}
+        <p class="ed-eyebrow">{{ event.college.name }}&nbsp;&nbsp;&#127470;&#127475; Viksit Bharat 2047</p>
+        {% endif %}
+        <h1 class="ed-hero-title">{{ event.name }}</h1>
+        {% if event.description %}
+        <p class="ed-hero-desc">{{ event.description }}</p>
+        {% endif %}
+        <div class="ed-hero-pills">
+          <span class="ed-pill">&#128203; {{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}</span>
+          {% if ns.min_date %}
+          <span class="ed-pill">&#128197; {% if ns.min_date.date() == ns.max_date.date() %}{{ ns.min_date.strftime('%b %d, %Y') }}{% else %}{{ ns.min_date.strftime('%b %d') }} &ndash; {{ ns.max_date.strftime('%b %d, %Y') }}{% endif %}</span>
+          {% endif %}
+          {% if ns.venue %}
+          <span class="ed-pill">&#128205; {{ ns.venue }}</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── BODY ────────────────────────────────────────────────────── #}
+<div class="ed-body">
+  <div class="container">
+
+    <div class="ed-grid">
+
+    {# LEFT: session list #}
+    <div class="ed-sessions-col">
+      <div class="ed-section-header reveal">
+        <h2 class="ed-section-heading">What&#8217;s Included</h2>
+        <p class="ed-section-sub">Your event ticket covers all sessions below &mdash; book once, attend everything.</p>
+      </div>
+
+      {% if sessions %}
+      {% set available_sessions = sessions | selectattr('availability', '!=', 'sold-out') | list %}
+
+      <form id="event-booking-form" action="/booking/event/{{ event.id }}/select" method="GET">
+        {% for item in sessions %}{% if item.availability != 'sold-out' %}
+        <input type="hidden" name="showing_ids" value="{{ item.showing.id }}">
+        {% endif %}{% endfor %}
+
+        <div class="ed-session-list">
+          {% for item in sessions %}
+          {% set img_id = img_pool[item.session.id % 8] %}
+          {% set is_sold_out = item.availability == 'sold-out' %}
+          {% set is_filling  = item.availability == 'filling-up' %}
+
+          <div class="ed-session-card{% if is_sold_out %} sold-out{% endif %} reveal-{{ 'left' if loop.index is odd else 'right' }}"
+               data-session-id="{{ item.session.id }}"
+               style="transition-delay:{{ (loop.index0 * 0.12)|round(2) }}s">
+
+            <div class="ed-sc-img">
+              <img src="{% if item.session.banner_url %}{{ item.session.banner_url }}{% else %}https://images.unsplash.com/{{ img_id }}?w=440&auto=format&fit=crop&q=80{% endif %}"
+                   alt="{{ item.session.title }}" loading="lazy">
+              <div class="ed-sc-img-overlay"></div>
+              {% if is_sold_out %}<span class="ed-badge sold-out-badge">Sold Out</span>
+              {% elif is_filling %}<span class="ed-badge filling-badge">Filling Up</span>
+              {% else %}<span class="ed-badge open-badge">Included</span>{% endif %}
+            </div>
+
+            <div class="ed-sc-body">
+              {% if item.session.speaker_name %}
+              <p class="ed-sc-speaker">{{ item.session.speaker_name }}</p>
+              {% endif %}
+              <h3 class="ed-sc-title">{{ item.session.title }}</h3>
+              <div class="ed-sc-meta">
+                <span>&#128197; {{ item.showing.start_time.strftime('%b %d, %Y') }}</span>
+                <span>&#128336; {{ item.showing.start_time.strftime('%I:%M %p') }}</span>
+                {% if item.auditorium %}<span>&#128205; {{ item.auditorium.name }}</span>{% endif %}
+                {% if item.showing.effective_duration %}<span class="meta-duration">&#9200; {{ item.showing.effective_duration }} min</span>{% endif %}
+              </div>
+              <div class="ed-sc-chips">
+                {% if is_sold_out %}<span class="ed-chip chip-sold-out">Sold Out</span>
+                {% elif is_filling %}<span class="ed-chip chip-filling">Filling Up</span>
+                {% else %}<span class="ed-chip chip-open">&#10003; Included</span>{% endif %}
+                {% if item.stats.available is defined and item.stats.available > 0 and not is_sold_out %}
+                <span class="ed-chip chip-seats {% if item.stats.available <= 2 %}chip-seats-critical{% elif item.stats.available <= 5 %}chip-seats-low{% endif %}">{{ item.stats.available }} seats left</span>
+                {% endif %}
+              </div>
+            </div>
+
+          </div>
+          {% endfor %}
+        </div>
+      </form>
+
+      {% else %}
+      <div class="empty-state reveal">
+        <h3>No sessions yet</h3>
+        <p>Sessions for this event haven&#8217;t been published yet.</p>
+      </div>
+      {% endif %}
+    </div>
+
+    {# RIGHT: booking panel #}
+    {% if sessions %}
+    {% set available_sessions = sessions | selectattr('availability', '!=', 'sold-out') | list %}
+    <div class="ed-booking-col">
+      <div class="ed-booking-panel reveal-scale" id="booking-panel">
+
+        <div class="ed-bp-header">
+          <h3 class="ed-bp-title">Event Package</h3>
+          <p class="ed-bp-sub">{{ sessions|length }} session{{ 's' if sessions|length != 1 }} &mdash; one ticket</p>
+        </div>
+
+        <ul class="ed-booking-checklist" id="booking-checklist">
+          {% for item in sessions %}
+          {% set is_sold_out = item.availability == 'sold-out' %}
+          <li class="ed-bcl-item{% if is_sold_out %} sold-out{% endif %}" data-session-id="{{ item.session.id }}">
+            <span class="ed-bcl-icon">{% if is_sold_out %}✗{% else %}✓{% endif %}</span>
+            <span class="ed-bcl-text">
+              {{ item.session.title }}
+              {% if is_sold_out %}<span class="ed-bcl-note">sold out</span>{% endif %}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+
+        {% if ns.min_date or ns.venue %}
+        <div class="ed-bp-meta">
+          {% if ns.min_date %}
+          <span>&#128197; {% if ns.min_date.date() == ns.max_date.date() %}{{ ns.min_date.strftime('%b %d, %Y') }}{% else %}{{ ns.min_date.strftime('%b %d') }} &ndash; {{ ns.max_date.strftime('%b %d, %Y') }}{% endif %}</span>
+          {% endif %}
+          {% if ns.venue %}<span>&#128205; {{ ns.venue }}</span>{% endif %}
+        </div>
+        {% endif %}
+
+
+        <div class="ed-bp-actions">
+          {% if user %}
+            {% if available_sessions|length > 0 %}
+            <button type="submit" form="event-booking-form" class="btn btn-primary btn-lg ed-bp-btn">
+              Book Now
+            </button>
+            {% else %}
+            <div class="btn btn-outline btn-lg ed-bp-btn" style="opacity:.5;cursor:not-allowed">Sold Out</div>
+            {% endif %}
+          {% else %}
+          <a href="/auth/register?next=/events/{{ event.id }}" class="btn btn-primary btn-lg ed-bp-btn">
+            Get Your Ticket
+          </a>
+          <a href="/auth/login?next=/events/{{ event.id }}" class="btn btn-outline btn-lg ed-bp-btn">
+            Sign In
+          </a>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+    {% endif %}
+
+    </div>{# /ed-grid #}
+
+  </div>{# /container #}
+</div>{# /ed-body #}
+
+{# ── PAGE SCRIPTS ────────────────────────────────────────────── #}
+<script>
+(function () {
+  /* 1 — Hero parallax */
+  var heroImg = document.querySelector('.ed-hero-img');
+  var ticking = false;
+  if (heroImg) {
+    window.addEventListener('scroll', function () {
+      if (!ticking) {
+        requestAnimationFrame(function () {
+          heroImg.style.transform = 'translateY(' + (window.scrollY * 0.35) + 'px)';
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }, { passive: true });
+  }
+
+  /* 2 — Directional reveal */
+  var dirReveal = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('visible'); dirReveal.unobserve(e.target); }
+    });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal-left, .reveal-right, .reveal-scale').forEach(function (el) {
+    dirReveal.observe(el);
+  });
+
+  /* 3 — 3-D tilt (pointer devices only) */
+  if (window.matchMedia('(hover: hover) and (min-width: 769px)').matches) {
+    document.querySelectorAll('.ed-session-card').forEach(function (card) {
+      card.addEventListener('mousemove', function (e) {
+        var r = card.getBoundingClientRect();
+        var x = (e.clientX - r.left) / r.width  - 0.5;
+        var y = (e.clientY - r.top)  / r.height - 0.5;
+        card.style.transform =
+          'perspective(900px) rotateX(' + (-y * 6) + 'deg) rotateY(' + (x * 6) + 'deg) translateZ(8px)';
+      });
+      card.addEventListener('mouseleave', function () {
+        card.style.transform =
+          'perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0px)';
+      });
+    });
+  }
+
+  /* 4 — Cross-highlight card ↔ checklist */
+  document.querySelectorAll('.ed-session-card').forEach(function (card) {
+    var id = card.dataset.sessionId;
+    var li = document.querySelector('.ed-bcl-item[data-session-id="' + id + '"]');
+    if (!li) return;
+    card.addEventListener('mouseenter', function () { li.classList.add('highlighted'); });
+    card.addEventListener('mouseleave', function () { li.classList.remove('highlighted'); });
+  });
+
+  /* 5 — Scroll progress bar */
+  var bar = document.getElementById('ed-progress');
+  if (bar) {
+    window.addEventListener('scroll', function () {
+      var pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+      bar.style.width = Math.min(Math.max(pct, 0), 100) + '%';
+    }, { passive: true });
+  }
+
+  /* 6 — Hero carousel auto-scroll + dot indicators */
+  (function () {
+    var slides = document.querySelectorAll('.ed-hero-slide');
+    if (slides.length < 2) return;
+    var current = 0;
+
+    // Build dot indicators and inject into hero
+    var dotsEl = document.createElement('div');
+    dotsEl.className = 'ed-hero-dots';
+    slides.forEach(function (_, i) {
+      var dot = document.createElement('button');
+      dot.className = 'ed-hero-dot' + (i === 0 ? ' active' : '');
+      dot.setAttribute('aria-label', 'Slide ' + (i + 1));
+      dot.addEventListener('click', function () { goTo(i); resetTimer(); });
+      dotsEl.appendChild(dot);
+    });
+    document.querySelector('.ed-hero-full').appendChild(dotsEl);
+
+    function goTo(idx) {
+      slides[current].classList.remove('active');
+      dotsEl.children[current].classList.remove('active');
+      current = idx;
+      slides[current].classList.add('active');
+      dotsEl.children[current].classList.add('active');
+    }
+
+    var timer = setInterval(function () { goTo((current + 1) % slides.length); }, 6000);
+    function resetTimer() { clearInterval(timer); timer = setInterval(function () { goTo((current + 1) % slides.length); }, 6000); }
+
+    // Pause on hover
+    var heroEl = document.querySelector('.ed-hero-full');
+    heroEl.addEventListener('mouseenter', function () { clearInterval(timer); });
+    heroEl.addEventListener('mouseleave', function () { resetTimer(); });
+  }());
+}());
+</script>
+
 {% endblock %}

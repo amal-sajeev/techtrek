@@ -336,7 +336,27 @@
     inset 0 1px 0 rgba(255,255,255,.7);
 }
 
-/* 8. Responsive: stack on smaller screens */
+/* 8a. style.css fires a column-stack at ≤960px but our layout handles it at ≤900px.
+       Patch the 901–960px dead zone: restore desktop (absolute image) layout. */
+@media (min-width: 901px) and (max-width: 960px) {
+  .hero { flex-direction: row !important; align-items: center !important; }
+  .hero-session-bg {
+    position: absolute !important;
+    inset: 0 !important;
+    min-height: unset !important;
+    flex: unset !important;
+    order: unset !important;
+  }
+  .hero-session-img {
+    position: absolute !important;
+    width: 60% !important;
+    height: 100% !important;
+    top: 0 !important;
+    right: 0 !important;
+  }
+}
+
+/* 8b. Responsive: stack on smaller screens */
 @media (max-width: 900px) {
   .hero .container { padding: 0 }
   .hero-split { flex-direction: column; min-height: auto }
@@ -1339,4 +1359,937 @@
   .testimonial-card.carousel-card {
     flex: 0 0 100%;
   }
+}
+
+
+/* ================================================================
+   EVENT DETAIL v2 — Premium redesign
+   Full-bleed hero · Two-column grid · Scroll animations · 3-D tilt
+   ================================================================ */
+
+/* ── Progress bar ── */
+.ed-progress-bar {
+  position: fixed;
+  top: 0; left: 0;
+  height: 3px;
+  width: 0%;
+  background: linear-gradient(90deg, var(--cyan), var(--violet));
+  z-index: 9999;
+  transition: width 0.1s linear;
+  pointer-events: none;
+}
+
+/* ── Hero ── */
+/* ── EVENT PAGE HEADER (Luma-style) ── */
+.ed-page-header {
+  padding: 1.5rem 0 0;
+}
+
+.ed-page-header .container {
+  max-width: 1160px;
+}
+
+.ed-back-link {
+  display: inline-block;
+  margin-bottom: 1.25rem;
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+.ed-back-link:hover { color: var(--cyan); }
+
+/* Banner image — full-width within container, rounded, no text overlay */
+.ed-banner {
+  width: 100%;
+  aspect-ratio: 21 / 8;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--bg-surface);
+}
+
+.ed-banner-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  display: block;
+  animation: fadeInUp 0.6s var(--ease-out) both;
+}
+
+/* Event title / meta — directly below the image */
+.ed-event-identity {
+  padding: 1.75rem 0 0;
+  max-width: 800px;
+  margin-bottom: 2.5rem;
+}
+
+.ed-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--cyan);
+  margin: 0 0 0.75rem;
+}
+
+.ed-hero-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.9rem, 4vw, 3.2rem);
+  font-weight: 700;
+  line-height: 1.1;
+  color: var(--text-primary);
+  margin: 0 0 1rem;
+}
+
+.ed-hero-desc {
+  font-size: 1.05rem;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  margin: 0 0 1.25rem;
+  max-width: 640px;
+}
+
+.ed-hero-pills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.ed-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  color: var(--text-secondary);
+}
+
+.ed-pill-accent {
+  background: rgba(0,212,255,0.1);
+  border-color: rgba(0,212,255,0.35);
+  color: var(--cyan);
+}
+
+@keyframes scrollBounce {
+  0%, 100% { transform: translateX(-50%) translateY(0); }
+  50%       { transform: translateX(-50%) translateY(8px); }
+}
+@keyframes scrollHintFade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* ── Body layout ── */
+.ed-body {
+  padding: 2rem 0 6rem;
+  background: var(--bg-primary);
+}
+
+.ed-grid {
+  display: grid;
+  grid-template-columns: 1fr 380px;
+  gap: 3.5rem;
+  align-items: start;
+}
+
+.ed-sessions-col,
+.ed-booking-col {
+  min-width: 0; /* prevent grid blowout from long text */
+}
+
+/* ── Section header ── */
+.ed-section-header {
+  margin-bottom: 2rem;
+}
+.ed-section-heading {
+  font-family: var(--font-display);
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin: 0 0 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.ed-section-sub {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Session cards ── */
+.ed-session-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.ed-session-card {
+  display: flex;
+  gap: 0;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+  background: var(--bg-surface);
+  overflow: hidden;
+  cursor: default;
+  transition:
+    transform 0.35s var(--ease-out),
+    box-shadow 0.35s var(--ease-out),
+    border-color 0.25s;
+  transform-style: preserve-3d;
+}
+
+.ed-session-card:hover {
+  border-color: var(--cyan);
+  box-shadow: 0 16px 48px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,212,255,0.35);
+}
+
+.ed-session-card.sold-out {
+  opacity: 0.55;
+  filter: grayscale(0.5);
+}
+
+/* Image side */
+.ed-sc-img {
+  flex-shrink: 0;
+  width: 220px;
+  min-height: 160px;
+  position: relative;
+  overflow: hidden;
+}
+
+.ed-sc-img img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.5s var(--ease-out);
+}
+
+.ed-session-card:hover .ed-sc-img img {
+  transform: scale(1.07);
+}
+
+.ed-sc-img-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to right, transparent 60%, var(--bg-surface) 100%);
+  pointer-events: none;
+}
+
+/* Badges */
+.ed-badge {
+  position: absolute;
+  top: 0.6rem;
+  left: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.55rem;
+  border-radius: 4px;
+}
+
+.open-badge     { background: rgba(16,185,129,0.2); color: #10b981; border: 1px solid rgba(16,185,129,0.4); }
+.filling-badge  { background: rgba(245,158,11,0.2); color: var(--amber); border: 1px solid rgba(245,158,11,0.4); }
+.sold-out-badge { background: rgba(244,63,94,0.2);  color: #f43f5e;  border: 1px solid rgba(244,63,94,0.4); }
+
+/* Content side */
+.ed-sc-body {
+  flex: 1;
+  padding: 1.25rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ed-sc-speaker {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--cyan);
+  margin: 0;
+}
+
+[data-theme="light"] .ed-sc-speaker { color: #0881a2; }
+
+.ed-sc-title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+  line-height: 1.35;
+}
+
+.ed-sc-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.ed-sc-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.25rem;
+}
+
+.ed-chip {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+
+.chip-open     { background: rgba(16,185,129,0.12); color: #10b981; border-color: rgba(16,185,129,0.3); }
+.chip-filling  { background: rgba(245,158,11,0.12); color: var(--amber); border-color: rgba(245,158,11,0.3); }
+.chip-sold-out { background: rgba(244,63,94,0.12);  color: #f43f5e;  border-color: rgba(244,63,94,0.3); }
+.chip-seats    { background: rgba(0,212,255,0.08);  color: var(--cyan);  border-color: rgba(0,212,255,0.2); }
+
+/* ── Booking panel ── */
+.ed-booking-col {
+  position: sticky;
+  top: calc(var(--nav-h, 64px) + 1.5rem);
+}
+
+.ed-booking-panel {
+  background: var(--bg-glass, rgba(13,17,23,0.85));
+  backdrop-filter: blur(20px) saturate(1.5);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5);
+  border: 1px solid var(--border-strong, rgba(0,212,255,0.28));
+  border-radius: var(--radius-xl, 20px);
+  padding: 1.75rem;
+  box-shadow:
+    0 8px 40px rgba(0,0,0,0.45),
+    0 0 0 1px rgba(0,212,255,0.05),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+[data-theme="light"] .ed-booking-panel {
+  background: rgba(255,255,255,0.9);
+  border-color: #d0d7de;
+  box-shadow: 0 8px 40px rgba(0,0,0,0.12);
+}
+
+.ed-bp-header {}
+
+.ed-bp-title {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-primary);
+  margin: 0 0 0.25rem;
+}
+
+.ed-bp-sub {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.ed-booking-checklist {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.ed-bcl-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius);
+  border: 1px solid transparent;
+  transition: background 0.2s, border-color 0.2s, transform 0.2s var(--ease-out);
+}
+
+.ed-bcl-item.highlighted {
+  background: rgba(0,212,255,0.08);
+  border-color: rgba(0,212,255,0.25);
+  transform: translateX(4px);
+}
+
+[data-theme="light"] .ed-bcl-item.highlighted {
+  background: rgba(8,129,162,0.07);
+  border-color: rgba(8,129,162,0.25);
+}
+
+.ed-bcl-item.sold-out .ed-bcl-text { opacity: 0.5; text-decoration: line-through; }
+
+.ed-bcl-icon {
+  font-size: 0.85rem;
+  margin-top: 0.05rem;
+  flex-shrink: 0;
+}
+
+.ed-bcl-item:not(.sold-out) .ed-bcl-icon { color: #10b981; }
+.ed-bcl-item.sold-out .ed-bcl-icon       { color: #f43f5e; }
+
+.ed-bcl-text {
+  font-size: 0.88rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.ed-bcl-note {
+  display: inline-block;
+  margin-left: 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #f43f5e;
+  opacity: 0.75;
+}
+
+.ed-bp-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 0.75rem;
+  border-radius: var(--radius);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+}
+
+[data-theme="light"] .ed-bp-meta {
+  background: rgba(0,0,0,0.03);
+}
+
+.ed-bp-discount {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  color: #10b981;
+  text-align: center;
+  padding: 0.5rem;
+  border-radius: var(--radius);
+  background: rgba(16,185,129,0.08);
+  border: 1px solid rgba(16,185,129,0.2);
+}
+
+.ed-bp-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.ed-bp-btn {
+  width: 100%;
+  text-align: center;
+}
+
+/* ── Directional reveal animations ── */
+.reveal-left,
+.reveal-right,
+.reveal-scale {
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+.reveal-left  { transform: translateX(-55px) perspective(600px) rotateY(8deg); }
+.reveal-right { transform: translateX(55px)  perspective(600px) rotateY(-8deg); }
+.reveal-scale { transform: scale(0.93) translateY(16px); }
+
+.reveal-left.visible,
+.reveal-right.visible,
+.reveal-scale.visible {
+  opacity: 1;
+  transform: translateX(0) perspective(600px) rotateY(0deg) scale(1) translateY(0);
+  transition:
+    opacity  0.65s var(--ease-out),
+    transform 0.65s var(--ease-out);
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .reveal-left, .reveal-right, .reveal-scale {
+    transform: none !important;
+    opacity: 1 !important;
+  }
+  .ed-banner-img { animation: none; }
+}
+
+/* ── Mobile ── */
+@media (max-width: 768px) {
+  .ed-banner { aspect-ratio: 16 / 7; border-radius: 10px; }
+  .ed-event-identity { padding: 1.25rem 0 1.5rem; }
+
+  .ed-hero-title { font-size: clamp(1.8rem, 7vw, 2.6rem); }
+
+  .ed-grid {
+    grid-template-columns: 1fr;
+    gap: 2.5rem;
+  }
+
+  .ed-booking-col {
+    position: static;
+    order: -1; /* booking panel first on mobile */
+  }
+
+  .ed-sc-img {
+    width: 110px;
+    min-height: 100px;
+  }
+
+  .ed-session-card {
+    border-radius: var(--radius);
+  }
+
+  /* Simpler reveal on mobile — no X translate or rotateY */
+  .reveal-left  { transform: translateY(28px); }
+  .reveal-right { transform: translateY(28px); }
+  .reveal-left.visible,
+  .reveal-right.visible { transform: translateY(0); }
+}
+
+@media (max-width: 480px) {
+  .ed-sc-img { width: 88px; min-height: 88px; }
+  .ed-sc-body { padding: 0.9rem 1rem; }
+  .ed-booking-panel { padding: 1.25rem; border-radius: var(--radius-lg); }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   v128 — Event Detail: Visual Energy & Identity Overhaul
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 2 ── Banner: brand color connection */
+.ed-banner {
+  position: relative;
+  box-shadow:
+    0 0 0 1px rgba(0,212,255,0.12),
+    0 8px 60px rgba(0,212,255,0.08),
+    0 20px 80px rgba(0,0,0,0.5);
+}
+.ed-banner::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg,
+    rgba(0,212,255,0.12) 0%,
+    rgba(139,92,246,0.06) 100%);
+  pointer-events: none;
+}
+
+/* 3a ── Speaker name promoted */
+.ed-sc-speaker {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* 3b ── Left status border strip */
+.ed-session-card {
+  border-left: 3px solid transparent;
+}
+.ed-session-card:has(.open-badge)     { border-left-color: #10b981; }
+.ed-session-card:has(.filling-badge)  { border-left-color: var(--amber); }
+.ed-session-card:has(.sold-out-badge) { border-left-color: #f43f5e; }
+
+/* 3c ── Duration badge: amber Orbitron chip */
+.ed-sc-meta .meta-duration {
+  font-family: var(--font-display);
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--amber);
+  background: rgba(245,158,11,0.1);
+  border: 1px solid rgba(245,158,11,0.3);
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+}
+
+/* 3d ── Sold-out session card more dramatically muted */
+.ed-session-card.sold-out {
+  opacity: 0.42;
+  filter: grayscale(0.7);
+  pointer-events: none;
+}
+
+/* 4a ── Booking panel: animated rainbow top border */
+.ed-booking-panel {
+  position: relative;
+  overflow: hidden;
+}
+.ed-booking-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    var(--cyan) 0%, var(--violet) 50%, var(--amber) 100%);
+  background-size: 200% 100%;
+  animation: panelRainbow 4s linear infinite;
+  z-index: 1;
+}
+@keyframes panelRainbow {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* 4b ── Booking panel: stronger outer glow */
+.ed-booking-panel {
+  box-shadow:
+    0 0 0 1px rgba(0,212,255,0.15),
+    0 8px 40px rgba(0,0,0,0.5),
+    0 0 80px rgba(0,212,255,0.06);
+}
+
+/* 4c ── CTA button pulse */
+.ed-bp-btn.btn-primary {
+  animation: ctaPulse 2.8s ease-in-out infinite;
+}
+@keyframes ctaPulse {
+  0%   { box-shadow: 0 0 0 0   rgba(0,212,255,0.35); }
+  60%  { box-shadow: 0 0 0 8px rgba(0,212,255,0); }
+  100% { box-shadow: 0 0 0 0   rgba(0,212,255,0); }
+}
+
+/* 4d ── Scarcity chip variants */
+.chip-seats-low {
+  background: rgba(245,158,11,0.15);
+  color: var(--amber);
+  border-color: rgba(245,158,11,0.4);
+}
+.chip-seats-critical {
+  background: rgba(244,63,94,0.15);
+  color: #f43f5e;
+  border-color: rgba(244,63,94,0.4);
+  animation: seatsPulse 1.5s ease-in-out infinite;
+}
+@keyframes seatsPulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.65; }
+}
+
+/* 4e ── Discount badge: amber */
+.ed-bp-discount {
+  color: var(--amber);
+  background: rgba(245,158,11,0.1);
+  border-color: rgba(245,158,11,0.3);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.ed-pill-accent {
+  color: var(--amber);
+  background: rgba(245,158,11,0.1);
+  border-color: rgba(245,158,11,0.3);
+}
+
+/* 5 ── Section heading: cyan underline rule */
+.ed-section-heading {
+  font-size: 1rem;
+  letter-spacing: 0.12em;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  margin-bottom: 1.25rem;
+}
+.ed-section-heading::after {
+  content: '';
+  position: absolute;
+  bottom: -1px; left: 0;
+  width: 2.5rem; height: 2px;
+  background: var(--cyan);
+}
+
+/* 6 ── Light mode overrides */
+[data-theme="light"] .ed-banner::after {
+  background: linear-gradient(135deg,
+    rgba(8,129,162,0.08) 0%,
+    rgba(139,92,246,0.04) 100%);
+}
+[data-theme="light"] .ed-bp-discount {
+  background: rgba(245,158,11,0.08);
+  border-color: rgba(245,158,11,0.3);
+}
+[data-theme="light"] .ed-bp-btn.btn-primary {
+  animation: none;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   v130 — Event Detail: Full-bleed hero + auto-scroll carousel
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Full-bleed hero — edge-to-edge, no container constraint */
+.ed-hero-full {
+  position: relative;
+  min-height: 72vh;
+  max-height: 780px;
+  overflow: hidden;
+  background: var(--bg-void);
+}
+
+/* Carousel track — fills hero */
+.ed-hero-carousel {
+  position: absolute;
+  inset: 0;
+}
+
+/* Individual slides — crossfade transition */
+.ed-hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.2s ease-in-out;
+}
+.ed-hero-slide.active { opacity: 1; }
+
+.ed-hero-slide img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 30%;
+  display: block;
+}
+
+/* Bottom gradient: photo fades into page background */
+.ed-hero-gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(13,17,23,0)    0%,
+    rgba(13,17,23,0)    28%,
+    rgba(13,17,23,0.55) 57%,
+    #0d1117             84%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+[data-theme="light"] .ed-hero-gradient {
+  background: linear-gradient(
+    to bottom,
+    rgba(221,230,239,0)    0%,
+    rgba(221,230,239,0)    48%,
+    rgba(221,230,239,0.28) 68%,
+    #dde6ef                94%
+  );
+}
+
+/* Back link — absolute top of hero */
+.ed-hero-nav {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  padding-top: 1.5rem;
+  z-index: 3;
+}
+.ed-hero-nav .ed-back-link {
+  color: rgba(255,255,255,0.75);
+  text-shadow: 0 1px 6px rgba(0,0,0,0.6);
+}
+.ed-hero-nav .ed-back-link:hover { color: #fff; }
+
+/* Identity caption — overlays gradient at bottom */
+.ed-hero-caption {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  z-index: 2;
+  padding-bottom: 2.75rem;
+}
+.ed-hero-caption .ed-event-identity {
+  padding: 0;
+  margin-bottom: 0;
+}
+
+/* Carousel dot indicators */
+.ed-hero-dots {
+  position: absolute;
+  bottom: 1.5rem; right: 1.75rem;
+  display: flex;
+  gap: 7px;
+  align-items: center;
+  z-index: 4;
+}
+.ed-hero-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.3s, transform 0.3s;
+}
+.ed-hero-dot.active {
+  background: var(--cyan);
+  transform: scale(1.45);
+}
+
+/* Body: seamless continuation below hero */
+.ed-body { padding-top: 3rem; }
+
+/* Mobile */
+@media (max-width: 768px) {
+  .ed-hero-full { min-height: 65vh; max-height: 580px; }
+  .ed-hero-caption { padding-bottom: 1.75rem; }
+  .ed-hero-gradient {
+    background: linear-gradient(
+      to bottom,
+      rgba(13,17,23,0) 0%,
+      rgba(13,17,23,0) 18%,
+      rgba(13,17,23,0.6) 50%,
+      #0d1117 80%
+    );
+  }
+  [data-theme="light"] .ed-hero-gradient {
+    background: linear-gradient(
+      to bottom,
+      rgba(221,230,239,0)    0%,
+      rgba(221,230,239,0)    40%,
+      rgba(221,230,239,0.28) 62%,
+      #dde6ef                92%
+    );
+  }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════
+   v133 — ed-body: subtle animated background pattern
+   dark  → drifting cyan dot grid
+   light → drifting soft-blue graph-paper grid
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Dark: tiny 1px cyan dots on a 28px grid, drifting diagonally */
+.ed-body {
+  background-color: var(--bg-primary);
+  background-image: radial-gradient(circle, rgba(0,212,255,0.09) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .ed-body { animation: edBodyDotDrift 18s linear infinite; }
+}
+@keyframes edBodyDotDrift {
+  0%   { background-position: 0 0; }
+  100% { background-position: 28px 28px; }
+}
+
+/* Light: soft blue graph-paper grid lines, drifting diagonally */
+[data-theme="light"] .ed-body {
+  background-color: var(--bg-primary);
+  background-image:
+    linear-gradient(rgba(8,129,162,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(8,129,162,0.07) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  [data-theme="light"] .ed-body { animation: edBodyGridDrift 24s linear infinite; }
+}
+@keyframes edBodyGridDrift {
+  0%   { background-position: 0 0, 0 0; }
+  100% { background-position: 32px 32px, 32px 32px; }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   v132 — Revert ambient glow; fix light-mode hero; animated body pattern
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Revert v131 radial glow — plain bg + stacking context for ::before */
+.ed-body {
+  background: var(--bg-primary);
+  position: relative;
+  isolation: isolate;
+}
+
+/* ── Animated background pattern ────────────────────────────── */
+
+/* Dark mode: slow-drifting cyan grid */
+.ed-body::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: -1;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+  animation: edBodyPattern 30s linear infinite;
+}
+
+/* Light mode: soft floating dot grid */
+[data-theme="light"] .ed-body::before {
+  background-image: radial-gradient(circle, rgba(8,129,162,0.2) 1.5px, transparent 1.5px);
+  background-size: 28px 28px;
+  animation: edBodyPattern 18s linear infinite;
+}
+
+@keyframes edBodyPattern {
+  from { background-position: 0 0; }
+  to   { background-position: 64px 64px; }
+}
+
+/* ── Light-mode hero: gentler gradient ──────────────────────── */
+[data-theme="light"] .ed-hero-gradient {
+  background: linear-gradient(
+    to bottom,
+    rgba(221,230,239,0)    0%,
+    rgba(221,230,239,0)    42%,
+    rgba(221,230,239,0.38) 66%,
+    #dde6ef                93%
+  );
+}
+@media (max-width: 768px) {
+  [data-theme="light"] .ed-hero-gradient {
+    background: linear-gradient(
+      to bottom,
+      rgba(221,230,239,0)    0%,
+      rgba(221,230,239,0)    30%,
+      rgba(221,230,239,0.42) 58%,
+      #dde6ef                89%
+    );
+  }
+}
+
+/* ── Light-mode hero text: white + shadow for legibility over photo */
+[data-theme="light"] .ed-hero-caption .ed-eyebrow,
+[data-theme="light"] .ed-hero-caption .ed-hero-title,
+[data-theme="light"] .ed-hero-caption .ed-hero-desc {
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0,0,0,0.7), 0 1px 4px rgba(0,0,0,0.5);
+}
+[data-theme="light"] .ed-hero-caption .ed-pill {
+  background: rgba(0,0,0,0.42);
+  border-color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.92);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+[data-theme="light"] .ed-hero-caption .ed-pill-accent {
+  color: var(--amber);
+  background: rgba(0,0,0,0.42);
+  border-color: rgba(245,158,11,0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
 }
