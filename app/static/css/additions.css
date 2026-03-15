@@ -380,6 +380,7 @@
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: .5rem;
 }
 
@@ -899,8 +900,8 @@
   min-width: 0;
   overflow: hidden !important;
   position: relative;
-  -webkit-mask-image: linear-gradient(to right, black 0%, black 76%, transparent 100%);
-          mask-image: linear-gradient(to right, black 0%, black 76%, transparent 100%);
+  -webkit-mask-image: none;
+          mask-image: none;
 }
 
 /* The moving strip — doubled content so scroll loops seamlessly */
@@ -966,20 +967,8 @@
 /* ---- CAROUSEL EDGE FADES ---- */
 /* Apply a bilateral fade to both sides of any horizontal card carousel */
 .carousel-track-outer {
-  -webkit-mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    black 7%,
-    black 93%,
-    transparent 100%
-  );
-          mask-image: linear-gradient(
-    to right,
-    transparent 0%,
-    black 7%,
-    black 93%,
-    transparent 100%
-  );
+  -webkit-mask-image: none;
+          mask-image: none;
 }
 
 /* ---- SESSION HERO RULE ---- */
@@ -1035,22 +1024,17 @@
   position: relative;
   transition: transform .3s var(--ease-out), box-shadow .3s, border-color .3s;
 }
-/* Gradient glow border on hover */
-.ev-card::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: var(--radius-lg);
-  background: linear-gradient(135deg, var(--cyan), var(--violet), var(--amber));
-  opacity: 0;
-  z-index: -1;
-  transition: opacity .3s;
-}
 .ev-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 14px 36px rgba(0,0,0,.28);
+  border-color: var(--cyan);
+  box-shadow: 0 14px 36px rgba(0,0,0,.28), 0 0 0 1px var(--cyan);
 }
-.ev-card:hover::before { opacity: .7; }
+/* Suppress global focus-visible outline ring — use border instead */
+.ev-card:focus-visible {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 1px var(--cyan);
+}
 
 /* ---- Image band (fixed height — never varies) ---- */
 .ev-card-img-wrap {
@@ -1203,7 +1187,13 @@
   box-shadow: 0 2px 8px rgba(0,0,0,.07);
 }
 [data-theme="light"] .ev-card:hover {
-  box-shadow: 0 14px 36px rgba(0,0,0,.14);
+  border-color: #0881a2;
+  box-shadow: 0 10px 28px rgba(0,0,0,.13), 0 0 0 1px #0881a2;
+}
+[data-theme="light"] .ev-card:focus-visible {
+  outline: none;
+  border-color: #0881a2;
+  box-shadow: 0 0 0 1px #0881a2;
 }
 [data-theme="light"] .ev-card-img-wrap img {
   filter: saturate(.85) brightness(.95);
@@ -1215,8 +1205,17 @@
 [data-theme="light"] .ev-date-month { color: #0881a2; }
 [data-theme="light"] .ev-date-day   { color: #0d1117; }
 [data-theme="light"] .ev-card-venue > span:first-child { color: #0881a2; }
+[data-theme="light"] .ev-card-city  { color: #4a5568; }
+[data-theme="light"] .ev-card-desc  { color: #4a5568; }
 [data-theme="light"] .ev-card-cta   { color: #0881a2; }
-[data-theme="light"] .ev-group-heading { border-bottom-color: rgba(0,0,0,.1); }
+[data-theme="light"] .ev-card:hover .ev-card-cta { color: #045f78; }
+[data-theme="light"] .ev-group-heading { border-bottom-color: rgba(0,0,0,.1); color: #6a7a8a; }
+[data-theme="light"] .ev-card-pill.pill-date,
+[data-theme="light"] .ev-card-pill.pill-price {
+  background: rgba(0,0,0,.04);
+  border-color: #d0d7de;
+  color: #4a5568;
+}
 
 /* ---- Responsive ---- */
 @media (max-width: 1024px) {
@@ -1225,4 +1224,119 @@
 @media (max-width: 600px) {
   .events-grid-3col { grid-template-columns: 1fr; }
   .ev-card-img-wrap { height: 170px; }
+}
+
+/* ================================================================
+   MOBILE FIX PASS  (v117)
+   All overrides target public-facing pages at ≤768px / ≤640px / ≤480px
+   ================================================================ */
+
+/* ---- 1. GLOBAL: section vertical padding — was 5rem, no mobile rule ---- */
+@media (max-width: 768px) {
+  .section { padding: 3rem 0; }
+}
+@media (max-width: 480px) {
+  .section    { padding: 2rem 0; }
+  .container  { padding: 0 1rem; }
+}
+
+/* ---- 2. SESSION GRID: 2-col at 640px = 165px-wide cards at 375px — force 1-col ---- */
+@media (max-width: 540px) {
+  .session-grid { grid-template-columns: 1fr; gap: 1rem; }
+}
+
+/* ---- 3. SESSION DETAIL: speaker block hardcoded at 19-20px ---- */
+@media (max-width: 640px) {
+  .session-speaker-name    { font-size: 16px; }
+  .session-speaker-role    { font-size: 13px; }
+  .session-speaker-bio     { font-size: 15px; line-height: 1.6; }
+  .session-avatar          { width: 52px; height: 52px; }
+  .session-avatar-initials { font-size: 20px; }
+}
+
+/* ---- 4. SESSION DETAIL: meta chips — must wrap on narrow screens ---- */
+.session-meta-chips { flex-wrap: wrap; }
+@media (max-width: 640px) {
+  .session-meta-chips { gap: .4rem .6rem; }
+  .session-meta-chip  { font-size: .85rem; }
+}
+
+/* ---- 5. VIDEO EMBEDS: preserve 16:9 regardless of iframe width attr ---- */
+.video-embed-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+}
+.video-embed-wrap iframe,
+.video-embed-wrap embed,
+.video-embed-wrap object {
+  position: absolute;
+  inset: 0;
+  width: 100% !important;
+  height: 100% !important;
+}
+
+/* ---- 6. SCHEDULE: title + time hardcoded at 19px ---- */
+@media (max-width: 640px) {
+  .schedule-title     { font-size: 15px; }
+  .schedule-time-text { font-size: 16px; }
+  .schedule-duration  { font-size: .7rem; }
+}
+
+/* ---- 7. SHOWINGS BROWSER: availability pills — no flex-wrap ---- */
+.showings-avail-pills { flex-wrap: wrap; }
+@media (max-width: 480px) {
+  .showings-avail-pills .btn { flex: 1 1 auto; min-width: 0; text-align: center; }
+}
+
+/* ---- 8. SHOWINGS BROWSER: meta row (price + tier + seats) — no flex-wrap ---- */
+.showing-browser-meta { flex-wrap: wrap; }
+@media (max-width: 480px) {
+  .showing-browser-meta { gap: 4px 10px; }
+}
+
+/* ---- 9. HOME: newsletter form — stack on mobile ---- */
+@media (max-width: 480px) {
+  .newsletter-form { flex-direction: column; gap: .75rem; }
+  .newsletter-form .form-input,
+  .newsletter-form .btn { width: 100%; }
+}
+
+/* ---- 10. LIGHT MODE: re-assert text contrast for newly sized elements ---- */
+@media (max-width: 640px) {
+  [data-theme="light"] .session-speaker-bio { color: #374151; }
+  [data-theme="light"] .schedule-venue      { color: #4a5568; }
+  [data-theme="light"] .schedule-title      { color: #1a202c; }
+}
+
+/* ================================================================
+   MOBILE FIX PASS v118 — 3 bugs confirmed by DOM measurement
+   ================================================================ */
+
+/* Bug 1: Footer nav overflow — .footer-links scrollWidth 354px in 319px available */
+@media (max-width: 768px) {
+  .footer-links { gap: 1.25rem; }
+  .footer-links a { font-size: 14px; letter-spacing: 0; }
+}
+
+/* Bug 2: Filter bar align-items:center leaves .filter-auditorium + .btn at natural width */
+@media (max-width: 480px) {
+  .filter-bar { align-items: stretch; }
+  .filter-bar .btn { width: 100%; }
+}
+
+/* Bug 3: Carousel buttons shrunk to 32px on mobile — below 44px WCAG touch target */
+/* Also: show one full-width card at a time, remove awkward edge fades */
+@media (max-width: 600px) {
+  .carousel-btn { width: 44px; height: 44px; }
+  .carousel-track-outer {
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+  .carousel-card,
+  .testimonial-card.carousel-card {
+    flex: 0 0 100%;
+  }
 }
