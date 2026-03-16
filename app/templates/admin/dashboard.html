@@ -22,7 +22,7 @@
   </div>
   <div class="admin-stat-card">
     <div class="admin-stat-value">{{ upcoming_count }}</div>
-    <div class="admin-stat-label">Upcoming Sessions</div>
+    <div class="admin-stat-label">Upcoming Events</div>
   </div>
   <div class="admin-stat-card">
     <div class="admin-stat-value">{{ total_checked_in }}</div>
@@ -82,7 +82,7 @@
         <tr>
           <th>Ref</th>
           <th>User</th>
-          <th>Session</th>
+          <th>Event</th>
           <th>Seat</th>
           <th>Booked</th>
           <th>Status</th>
@@ -93,7 +93,7 @@
         <tr>
           <td><code>{{ item.booking.booking_ref }}</code></td>
           <td>{{ item.user.username if item.user else "—" }}</td>
-          <td>{{ item.session.title if item.session else "—" }}</td>
+          <td>{{ item.event.name if item.event else "—" }}</td>
           <td>{{ item.seat.label if item.seat else "—" }}</td>
           <td>{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
           <td>

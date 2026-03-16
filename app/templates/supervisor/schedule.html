@@ -10,15 +10,14 @@
 {% if grouped %}
 {% for date_key, items in grouped.items() %}
 <div class="form-card" style="margin-bottom:1.5rem">
-  <h3 style="margin-bottom:1rem;font-weight:600">{{ items[0].showing.start_time.strftime('%A, %B %d, %Y') }}</h3>
+  <h3 style="margin-bottom:1rem;font-weight:600">{{ items[0].event.start_date.strftime('%A, %B %d, %Y') if items[0].event.start_date else 'TBD' }}</h3>
   <div class="table-responsive">
     <table class="table table-cards-mobile">
       <thead>
         <tr>
-          <th>Time</th>
-          <th>Session</th>
+          <th>Event</th>
           <th>Auditorium</th>
-          <th>Duration</th>
+          <th>Sessions</th>
           <th>Bookings</th>
           <th>Status</th>
         </tr>
@@ -26,20 +25,19 @@
       <tbody>
         {% for item in items %}
         <tr>
-          <td data-label="Time">{{ item.showing.start_time.strftime('%I:%M %p') }}</td>
-          <td data-label="Session"><strong>{{ item.session_title }}</strong></td>
-          <td data-label="Auditorium">{{ item.auditorium.name }}</td>
-          <td data-label="Duration">{{ item.showing.effective_duration }} min</td>
+          <td data-label="Event"><strong>{{ item.event.name }}</strong></td>
+          <td data-label="Auditorium">{{ item.auditorium.name if item.auditorium else '—' }}</td>
+          <td data-label="Sessions">{{ item.event.sessions|length if item.event.sessions else 0 }}</td>
           <td data-label="Bookings">{{ item.booked }}</td>
           <td data-label="Status">
-            {% if item.showing.status == 'published' %}
+            {% if item.event.status == 'published' %}
             <span class="badge badge-published">Published</span>
-            {% elif item.showing.status == 'completed' %}
+            {% elif item.event.status == 'completed' %}
             <span class="badge badge-draft">Completed</span>
-            {% elif item.showing.status == 'cancelled' %}
+            {% elif item.event.status == 'cancelled' %}
             <span class="badge badge-cancelled">Cancelled</span>
             {% else %}
-            <span class="badge badge-draft">{{ item.showing.status|title }}</span>
+            <span class="badge badge-draft">{{ item.event.status|title }}</span>
             {% endif %}
           </td>
         </tr>
@@ -51,8 +49,8 @@
 {% endfor %}
 {% else %}
 <div class="empty-state">
-  <h3>No showings scheduled</h3>
-  <p>There are no published or completed showings at {{ sv_college.name }}.</p>
+  <h3>No events scheduled</h3>
+  <p>There are no published or completed events at {{ sv_college.name }}.</p>
 </div>
 {% endif %}
 {% endblock %}

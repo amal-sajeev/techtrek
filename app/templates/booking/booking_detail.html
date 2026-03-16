@@ -10,17 +10,18 @@
       <div class="confirmation-card">
 
         <div class="page-header-block" style="padding-bottom:.75rem;margin-bottom:1rem;border-bottom:1px solid var(--border,rgba(255,255,255,.07))">
-          <h1 class="confirmation-title" style="margin:0 0 .25rem">{{ lecture.title }}</h1>
-          <p class="confirmation-subtitle" style="margin:0">{{ lecture.speaker_name }}</p>
+          <h1 class="confirmation-title" style="margin:0">{{ event.name if event else 'Booking' }}</h1>
         </div>
 
         <div class="confirmation-details">
           <div class="detail-group">
             <h4>Event Details</h4>
+            {% if event and event.start_date %}
             <div class="booking-detail-row">
               <span class="booking-detail-icon">&#128197;</span>
-              <span>{{ showing.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</span>
+              <span>{{ event.start_date.strftime('%A, %B %d, %Y') }}</span>
             </div>
+            {% endif %}
             {% if auditorium %}
             <div class="booking-detail-row">
               <span class="booking-detail-icon">&#128205;</span>
@@ -44,6 +45,26 @@
               <button type="button" class="btn btn-sm btn-outline" style="font-size:14.75px" onclick="copyLink('/tickets/group/{{ group_id }}', this)">&#128279; Copy Group Link</button>
             </div>
             {% endif %}
+          </div>
+          {% endif %}
+
+          {% if event and event.sessions %}
+          <div class="detail-group">
+            <h4>Event Agenda ({{ event.sessions|length }} session{{ 's' if event.sessions|length != 1 else '' }})</h4>
+            <div style="display:flex;flex-direction:column;gap:.5rem;">
+              {% for s in event.sessions|sort(attribute='order') %}
+              <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .75rem;background:var(--bg-surface);border:1px solid var(--border,rgba(255,255,255,.07));border-radius:var(--radius-lg,8px);">
+                <div style="flex:1;min-width:0;">
+                  <div style="font-weight:600;font-size:.9rem;">{{ s.title }}</div>
+                  <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.25rem;font-size:.8rem;color:var(--text-muted);">
+                    {% if s.speaker_name %}<span>{{ s.speaker_name }}</span>{% endif %}
+                    {% if s.start_time %}<span>&#128336; {{ s.start_time.strftime('%I:%M %p') }}</span>{% endif %}
+                    {% if s.duration_minutes %}<span>{{ s.duration_minutes }} min</span>{% endif %}
+                  </div>
+                </div>
+              </div>
+              {% endfor %}
+            </div>
           </div>
           {% endif %}
 
@@ -123,13 +144,18 @@
         </div>
 
         <div class="confirmation-actions">
-          <a href="/booking/invoice/{{ showing.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          {% if event %}
+          <a href="/booking/invoice/{{ event.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          {% if event.start_date %}
+          <a href="https://www.google.com/calendar/render?action=TEMPLATE&text={{ event.name|urlencode }}&dates={{ event.start_date.strftime('%Y%m%d') }}/{{ (event.end_date or event.start_date).strftime('%Y%m%d') }}{% if auditorium %}&location={{ (auditorium.name ~ ', ' ~ (auditorium.location or ''))|urlencode }}{% endif %}" target="_blank" rel="noopener" class="btn btn-outline">&#128197; Add to Calendar</a>
+          {% endif %}
+          {% endif %}
           {% set cert_bookings = bookings|selectattr('checked_in')|selectattr('payment_status', 'equalto', 'paid')|list %}
           {% for b in cert_bookings %}
           <a href="/booking/certificate/{{ b.id }}" class="btn btn-outline">&#127891; Certificate{% if cert_bookings|length > 1 %} ({{ b.booking_ref }}){% endif %}</a>
           {% endfor %}
           <a href="/booking/my" class="btn btn-primary">Back to My Bookings</a>
-          <a href="/sessions" class="btn btn-outline">Browse Sessions</a>
+          <a href="/events" class="btn btn-outline">Browse Events</a>
           {% if is_group and group_id and bookings|selectattr('payment_status', 'equalto', 'paid')|list|length > 1 %}
           <form method="post" action="/booking/cancel-group/{{ group_id }}" style="display:inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

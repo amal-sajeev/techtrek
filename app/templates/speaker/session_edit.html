@@ -40,8 +40,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="ss-start">Start Date &amp; Time</label>
-        {% set first_showing = showings[0] if showings else None %}
-        <input type="datetime-local" name="start_time" id="ss-start" class="form-input" value="{{ first_showing.start_time.strftime('%Y-%m-%dT%H:%M') if first_showing else '' }}" required>
+        <input type="datetime-local" name="start_time" id="ss-start" class="form-input" value="{{ lecture.start_time.strftime('%Y-%m-%dT%H:%M') if lecture.start_time else '' }}" required>
       </div>
       <div class="form-group">
         <label class="form-label" for="ss-duration">Duration (minutes)</label>
@@ -49,24 +48,21 @@
       </div>
     </div>
 
+    {% if event %}
     <div class="form-group">
-      <label class="form-label" for="ss-status">Status</label>
-      <select name="status" id="ss-status" class="form-input" data-no-tomselect>
-        {% for s in ['draft','published','completed'] %}
-        <option value="{{ s }}" {% if first_showing and first_showing.status == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
-        {% endfor %}
-      </select>
+      <label class="form-label">Parent Event</label>
+      <div class="form-input" style="background:var(--bg-surface);cursor:default;opacity:.8;">{{ event.name }} {% if event.status %}({{ event.status|title }}){% endif %}</div>
     </div>
+    {% endif %}
     {% else %}
     {# Non-primary: read-only session details #}
     <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;">
       <p class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem">Session Details (read-only)</p>
       <table class="table" style="font-size:.875rem">
         <tr><td><strong>Title</strong></td><td>{{ lecture.title }}</td></tr>
-        {% set first_showing = showings[0] if showings else None %}
-        <tr><td><strong>Start</strong></td><td>{{ first_showing.start_time.strftime('%b %d, %Y %I:%M %p') if first_showing else '—' }}</td></tr>
+        <tr><td><strong>Start</strong></td><td>{{ lecture.start_time.strftime('%b %d, %Y %I:%M %p') if lecture.start_time else '—' }}</td></tr>
         <tr><td><strong>Duration</strong></td><td>{{ lecture.duration_minutes }} minutes</td></tr>
-        <tr><td><strong>Status</strong></td><td>{{ first_showing.status|title if first_showing else '—' }}</td></tr>
+        <tr><td><strong>Event</strong></td><td>{{ event.name if event else '—' }} {% if event and event.status %}({{ event.status|title }}){% endif %}</td></tr>
       </table>
     </div>
     {% endif %}

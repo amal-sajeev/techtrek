@@ -10,7 +10,7 @@
 <div class="admin-stats-row">
   <div class="admin-stat-card">
     <div class="admin-stat-value">{{ upcoming_count }}</div>
-    <div class="admin-stat-label">Upcoming Showings</div>
+    <div class="admin-stat-label">Upcoming Events</div>
   </div>
   <div class="admin-stat-card">
     <div class="admin-stat-value">{{ total_bookings }}</div>
@@ -21,30 +21,63 @@
     <div class="admin-stat-label">Checked In</div>
   </div>
   <div class="admin-stat-card">
-    <div class="admin-stat-value">{{ total_showings }}</div>
-    <div class="admin-stat-label">Total Showings</div>
+    <div class="admin-stat-value">{{ total_events }}</div>
+    <div class="admin-stat-label">Total Events</div>
   </div>
 </div>
 
-{% if upcoming_showings %}
+<div class="speaker-nav-cards" style="margin-top:1.5rem;margin-bottom:2rem;">
+  <a href="/supervisor/checkin" class="speaker-nav-card">
+    <div class="speaker-nav-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+    </div>
+    <div>
+      <div class="speaker-nav-title">Check-in</div>
+      <div class="speaker-nav-sub">Scan QR codes and verify tickets for events at your campus</div>
+    </div>
+    <svg class="speaker-nav-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+  <a href="/supervisor/bookings" class="speaker-nav-card">
+    <div class="speaker-nav-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 19.5v-15A2.5 2.5 0 016.5 2H20v20H6.5a2.5 2.5 0 010-5H20"/></svg>
+    </div>
+    <div>
+      <div class="speaker-nav-title">Bookings</div>
+      <div class="speaker-nav-sub">View and search all bookings for events at {{ sv_college.name }}</div>
+    </div>
+    <svg class="speaker-nav-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+  <a href="/supervisor/schedule" class="speaker-nav-card">
+    <div class="speaker-nav-icon">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    </div>
+    <div>
+      <div class="speaker-nav-title">Schedule</div>
+      <div class="speaker-nav-sub">View all upcoming and past events at your campus</div>
+    </div>
+    <svg class="speaker-nav-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+  </a>
+</div>
+
+{% if upcoming_events %}
 <div class="form-card" style="margin-top:2rem">
-  <h3 style="margin-bottom:1rem;font-weight:600">Upcoming Showings</h3>
+  <h3 style="margin-bottom:1rem;font-weight:600">Upcoming Events</h3>
   <div class="table-responsive">
     <table class="table table-cards-mobile">
       <thead>
         <tr>
-          <th>Session</th>
-          <th>Date & Time</th>
+          <th>Event</th>
+          <th>Date</th>
           <th>Auditorium</th>
           <th>Bookings</th>
           <th>Checked In</th>
         </tr>
       </thead>
       <tbody>
-        {% for item in upcoming_showings %}
+        {% for item in upcoming_events %}
         <tr>
-          <td data-label="Session"><strong>{{ item.session_title }}</strong></td>
-          <td data-label="Date & Time">{{ item.showing.start_time.strftime('%b %d, %Y') }} at {{ item.showing.start_time.strftime('%I:%M %p') }}</td>
+          <td data-label="Event"><strong>{{ item.event.name }}</strong></td>
+          <td data-label="Date">{{ item.event.start_date.strftime('%b %d, %Y') if item.event.start_date else '—' }}</td>
           <td data-label="Auditorium">{{ item.auditorium_name }}</td>
           <td data-label="Bookings">{{ item.booked }}</td>
           <td data-label="Checked In">{{ item.checked_in }}</td>
@@ -56,8 +89,8 @@
 </div>
 {% else %}
 <div class="empty-state" style="margin-top:2rem">
-  <h3>No upcoming showings</h3>
-  <p>There are no upcoming showings at {{ sv_college.name }}.</p>
+  <h3>No upcoming events</h3>
+  <p>There are no upcoming events at {{ sv_college.name }}.</p>
 </div>
 {% endif %}
 {% endblock %}

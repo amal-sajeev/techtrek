@@ -1,18 +1,18 @@
 {% extends "base.html" %}
-{% block title %}Feedback — {{ session_obj.title }}{% endblock %}
+{% block title %}Feedback — {{ event.name }}{% endblock %}
 
 {% block content %}
 <section class="section">
   <div class="container" style="max-width:640px;">
     <div class="card" style="padding:2rem;">
-      <h1 class="section-title" style="font-size:1.5rem;margin-bottom:.25rem;">How was the session?</h1>
+      <h1 class="section-title" style="font-size:1.5rem;margin-bottom:.25rem;">How was the event?</h1>
       <p class="text-muted" style="margin-bottom:1.5rem;">
-        <strong>{{ session_obj.title }}</strong><br>
-        {{ showing.start_time.strftime('%A, %d %b %Y at %I:%M %p') }}
+        <strong>{{ event.name }}</strong><br>
+        {% if event.start_date %}{{ event.start_date.strftime('%A, %d %b %Y') }}{% endif %}
         {% if auditorium %} &mdash; {{ auditorium.name }}, {{ auditorium.location }}{% endif %}
       </p>
 
-      <form method="post" action="/feedback/{{ showing.id }}">
+      <form method="post" action="/feedback/{{ event.id }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
         <div class="form-group" style="margin-bottom:1.5rem;">

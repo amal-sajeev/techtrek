@@ -22,6 +22,7 @@
     <div class="session-grid">
       {% for item in sessions %}
       {% set s = item.session %}
+      {% set ev = item.event %}
       {% set aud = item.auditorium %}
       {% set img_id = img_pool[s.id % 8] %}
       <a href="/sessions/{{ s.id }}" class="card card-hover reveal">
@@ -36,9 +37,9 @@
           <h3 class="card-title">{{ s.title }}</h3>
           <p class="card-meta">{{ s.speaker_name }}</p>
           <div class="card-details">
-            <span class="card-detail">&#128197; {{ item.showing.start_time.strftime('%b %d, %Y') if item.showing and item.showing.start_time else 'TBD' }}</span>
+            <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') if ev and ev.start_date else (s.start_time.strftime('%b %d, %Y') if s.start_time else 'TBD') }}</span>
             {% if aud %}
-            <span class="card-detail">&#128205; {{ aud.location }}</span>
+            <span class="card-detail">&#128205; {{ aud.name }}{% if aud.location %}, {{ aud.location }}{% endif %}</span>
             {% endif %}
           </div>
         </div>
@@ -52,7 +53,7 @@
     <div class="empty-state reveal">
       <h3>No recordings available yet</h3>
       <p>Recordings will appear here once they are published by the admin team.</p>
-      <a href="/sessions" class="btn btn-primary">Browse Sessions</a>
+      <a href="/events" class="btn btn-primary">Browse Events</a>
     </div>
     {% endif %}
   </div>

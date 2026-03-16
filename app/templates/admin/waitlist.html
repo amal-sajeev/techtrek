@@ -6,36 +6,6 @@
   <h1 class="admin-page-title">Waitlist Management</h1>
 </div>
 
-<!-- Grant Priority Section -->
-<div class="form-card mb-3">
-  <h3>Grant Priority Booking</h3>
-  <p class="text-secondary">Give waitlisted users from a sold-out session early access to book a new session.</p>
-  <form method="post" action="/admin/waitlist/grant-priority">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label">Source Session (sold-out)</label>
-        <select name="source_session_id" class="form-input" required placeholder="Select sold-out session">
-          <option value="">Select sold-out session...</option>
-          {% for s in sessions_for_priority %}
-          <option value="{{ s.id }}">{{ s.session.title if s.session else '—' }} — {{ s.start_time.strftime('%b %d') }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="form-group">
-        <label class="form-label">Target Session (new)</label>
-        <select name="target_session_id" class="form-input" required placeholder="Select new session">
-          <option value="">Select new session...</option>
-          {% for s in sessions_for_priority %}
-          <option value="{{ s.id }}">{{ s.session.title if s.session else '—' }} — {{ s.start_time.strftime('%b %d') }}</option>
-          {% endfor %}
-        </select>
-      </div>
-    </div>
-    <button type="submit" class="btn btn-primary">Grant Priority Access</button>
-  </form>
-</div>
-
 <!-- Waitlist Entries -->
 {% if entries %}
 <div class="table-responsive">
@@ -45,29 +15,26 @@
         <th>User</th>
         <th>Waiting For</th>
         <th>Joined</th>
-        <th>Priority Session</th>
-        <th>Priority Expires</th>
         <th>Notified</th>
+        <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for item in entries %}
       <tr>
         <td data-label="User">{{ item.user.username if item.user else 'N/A' }}</td>
-        <td data-label="Waiting For">{{ item.session.title if item.session else 'N/A' }}</td>
+        <td data-label="Waiting For">{{ item.event.name if item.event else 'N/A' }}</td>
         <td data-label="Joined">{{ item.entry.joined_at.strftime('%b %d, %H:%M') }}</td>
-        <td data-label="Priority">{{ item.priority_session.title if item.priority_session else '—' }}</td>
-        <td data-label="Expires">
-          {% if item.entry.priority_expires_at %}
-            {{ item.entry.priority_expires_at.strftime('%b %d, %H:%M') }}
-          {% else %}
-            —
-          {% endif %}
-        </td>
         <td data-label="Notified">
           <span class="badge badge-{% if item.entry.notified %}available{% else %}draft{% endif %}">
             {{ 'Yes' if item.entry.notified else 'No' }}
           </span>
+        </td>
+        <td data-label="Actions">
+          <form method="post" action="/admin/waitlist/{{ item.entry.id }}/delete" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Remove this waitlist entry?" data-confirm-label="Delete">Delete</button>
+          </form>
         </td>
       </tr>
       {% endfor %}
@@ -77,7 +44,7 @@
 {% else %}
 <div class="empty-state">
   <h3>No waitlist entries</h3>
-  <p>When sessions sell out, users can join the waitlist.</p>
+  <p>When events sell out, users can join the waitlist.</p>
 </div>
 {% endif %}
 {% endblock %}

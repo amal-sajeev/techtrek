@@ -16,22 +16,33 @@
       <tr>
         <th>Name</th>
         <th>College</th>
+        <th>Venue</th>
         <th>Sessions</th>
-        <th>Discount</th>
+        <th>Bookings</th>
+        <th>Price</th>
+        <th>Dates</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
-      {% for ev in events %}
+      {% for item in events %}
+      {% set ev = item.event %}
       <tr>
         <td data-label="Name"><strong>{{ ev.name }}</strong></td>
         <td data-label="College">{{ ev.college.name if ev.college else "—" }}</td>
-        <td data-label="Sessions">{{ ev._showing_count }}</td>
-        <td data-label="Discount">{{ (ev.discount_pct|string ~ '%') if ev.discount_pct else "—" }}</td>
+        <td data-label="Venue">{{ item.auditorium.name if item.auditorium else "—" }}</td>
+        <td data-label="Sessions">{{ item.session_count }}</td>
+        <td data-label="Bookings">{{ item.bookings }}</td>
+        <td data-label="Price">&#8377;{{ "%.0f"|format(ev.price) if ev.price else "—" }}</td>
+        <td data-label="Dates">{{ ev.start_date.strftime('%b %d') if ev.start_date else "—" }}{% if ev.end_date %} – {{ ev.end_date.strftime('%b %d') }}{% endif %}</td>
         <td data-label="Status">
           {% if ev.status == 'published' %}
           <span class="badge badge-published">Published</span>
+          {% elif ev.status == 'completed' %}
+          <span class="badge badge-available">Completed</span>
+          {% elif ev.status == 'cancelled' %}
+          <span class="badge badge-danger">Cancelled</span>
           {% else %}
           <span class="badge badge-draft">Draft</span>
           {% endif %}
@@ -53,7 +64,7 @@
 {% else %}
 <div class="empty-state">
   <h3>No events yet</h3>
-  <p>Bundle sessions together as events so users can discover and book related talks.</p>
+  <p>Create events with pricing, dates, and venue. Add sessions as agenda items within each event.</p>
   {% if user.is_admin %}
   <a href="/admin/events/new" class="btn btn-primary">Create Event</a>
   {% endif %}

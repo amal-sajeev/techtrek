@@ -8,14 +8,15 @@
       <div class="confirmation-card">
         <div class="confirmation-icon">&#127915;</div>
         <h1 class="confirmation-title">TechTrek Ticket</h1>
-        <p class="confirmation-subtitle">{{ lecture.title if lecture else "Event" }}</p>
+        <p class="confirmation-subtitle">{{ event.name if event else "Event" }}</p>
 
         <div class="confirmation-details">
           <div class="detail-group">
             <h4>Event Details</h4>
-            <p><strong>{{ lecture.title }}</strong></p>
-            <p>{{ lecture.speaker_name }}</p>
-            <p>{{ showing.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</p>
+            <p><strong>{{ event.name }}</strong></p>
+            {% if event.start_date %}
+            <p>{{ event.start_date.strftime('%A, %B %d, %Y') }}</p>
+            {% endif %}
             {% if auditorium %}
             <p>{{ auditorium.name }}, {{ auditorium.location }}</p>
             {% endif %}
@@ -63,7 +64,7 @@
           <button type="button" class="btn btn-primary" onclick="copyTicketLink()">
             &#128279; Copy Ticket Link
           </button>
-          <a href="/sessions" class="btn btn-outline">Browse Sessions</a>
+          <a href="/events" class="btn btn-outline">Browse Events</a>
         </div>
       </div>
     </div>

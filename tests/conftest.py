@@ -17,7 +17,7 @@ _test_fernet_key = Fernet.generate_key().decode()
 os.environ.setdefault("FIELD_ENCRYPTION_KEY", _test_fernet_key)
 
 import pytest
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from sqlalchemy import create_engine, event
@@ -84,11 +84,11 @@ def client(db):
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.college import College
+from app.models.event import Event
 from app.models.feedback import Feedback
 from app.models.seat import Seat
 from app.models.session import Session
 from app.models.session_recording import SessionRecording
-from app.models.showing import Showing
 from app.models.speaker import Speaker
 from app.models.testimonial import Testimonial
 from app.models.user import User
@@ -137,31 +137,45 @@ def make_auditorium(db, *, name="Main Hall", college=None):
     return a
 
 
-def make_session(db, *, title="Intro to AI", speaker_name="Dr. Smith"):
-    s = Session(title=title, speaker_name=speaker_name, duration_minutes=30)
+def make_event(db, *, name="Test Event", auditorium=None, start_date=None,
+               end_date=None, price=0, price_vip=None, price_accessible=None,
+               processing_fee_pct=None, status="published", **kw):
+    if auditorium is None:
+        auditorium = make_auditorium(db)
+    if start_date is None:
+        start_date = date.today()
+    ev = Event(
+        name=name,
+        auditorium_id=auditorium.id,
+        start_date=start_date,
+        end_date=end_date,
+        price=Decimal(str(price)),
+        price_vip=Decimal(str(price_vip)) if price_vip is not None else None,
+        price_accessible=Decimal(str(price_accessible)) if price_accessible is not None else None,
+        processing_fee_pct=Decimal(str(processing_fee_pct)) if processing_fee_pct is not None else None,
+        status=status,
+        **kw,
+    )
+    db.add(ev)
+    db.flush()
+    return ev
+
+
+def make_session(db, *, title="Intro to AI", speaker_name="Dr. Smith",
+                 event=None, start_time=None, order=0, **kw):
+    event_id = event.id if event else None
+    s = Session(
+        title=title,
+        speaker_name=speaker_name,
+        duration_minutes=kw.pop("duration_minutes", 30),
+        event_id=event_id,
+        start_time=start_time,
+        order=order,
+        **kw,
+    )
     db.add(s)
     db.flush()
     return s
-
-
-def make_showing(db, *, session=None, auditorium=None, start_time=None,
-                 price=0, status="published"):
-    if session is None:
-        session = make_session(db)
-    if auditorium is None:
-        auditorium = make_auditorium(db)
-    if start_time is None:
-        start_time = datetime.now() + timedelta(days=7)
-    sh = Showing(
-        session_id=session.id,
-        auditorium_id=auditorium.id,
-        start_time=start_time,
-        price=Decimal(str(price)),
-        status=status,
-    )
-    db.add(sh)
-    db.flush()
-    return sh
 
 
 def make_testimonial(db, *, quote="Great event!", student_name="Test Student"):
@@ -171,15 +185,15 @@ def make_testimonial(db, *, quote="Great event!", student_name="Test Student"):
     return t
 
 
-def make_feedback(db, *, user=None, showing=None, rating=5, comment="Excellent",
+def make_feedback(db, *, user=None, event=None, rating=5, comment="Excellent",
                   allow_public=False, is_featured=False):
     if user is None:
         user = make_user(db)
-    if showing is None:
-        showing = make_showing(db)
+    if event is None:
+        event = make_event(db)
     fb = Feedback(
         user_id=user.id,
-        showing_id=showing.id,
+        event_id=event.id,
         rating=rating,
         comment=comment,
         allow_public=allow_public,

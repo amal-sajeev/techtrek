@@ -8,14 +8,15 @@
       <div class="confirmation-card">
         <div class="confirmation-icon">&#127903;</div>
         <h1 class="confirmation-title">Group Tickets</h1>
-        <p class="confirmation-subtitle">{{ lecture.title if lecture else "Event" }} &mdash; {{ bookings|length }} tickets</p>
+        <p class="confirmation-subtitle">{{ event.name if event else "Event" }} &mdash; {{ bookings|length }} tickets</p>
 
         <div class="confirmation-details">
           <div class="detail-group">
             <h4>Event Details</h4>
-            <p><strong>{{ lecture.title }}</strong></p>
-            <p>{{ lecture.speaker_name }}</p>
-            <p>{{ showing.start_time.strftime('%A, %B %d, %Y at %I:%M %p') }}</p>
+            <p><strong>{{ event.name }}</strong></p>
+            {% if event.start_date %}
+            <p>{{ event.start_date.strftime('%A, %B %d, %Y') }}</p>
+            {% endif %}
             {% if auditorium %}
             <p>{{ auditorium.name }}, {{ auditorium.location }}</p>
             {% endif %}
@@ -59,7 +60,7 @@
           <button type="button" class="btn btn-primary" onclick="copyGroupLink()">
             &#128279; Copy Group Link
           </button>
-          <a href="/sessions" class="btn btn-outline">Browse Sessions</a>
+          <a href="/events" class="btn btn-outline">Browse Events</a>
         </div>
       </div>
     </div>

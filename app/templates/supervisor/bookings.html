@@ -37,8 +37,7 @@
       <tr>
         <th>Ref</th>
         <th>User</th>
-        <th>Session</th>
-        <th>Showing</th>
+        <th>Event</th>
         <th>Seat</th>
         <th>Status</th>
         <th>Checked In</th>
@@ -49,8 +48,7 @@
       <tr>
         <td data-label="Ref"><code>{{ item.booking.booking_ref or item.booking.ticket_id or '—' }}</code></td>
         <td data-label="User">{{ item.user.full_name or item.user.username if item.user else '—' }}</td>
-        <td data-label="Session">{{ item.session.title if item.session else '—' }}</td>
-        <td data-label="Showing">{{ item.showing.start_time.strftime('%b %d, %I:%M %p') if item.showing else '—' }}</td>
+        <td data-label="Event">{{ item.event.name if item.event else '—' }}</td>
         <td data-label="Seat">{{ item.seat.label if item.seat else '—' }}</td>
         <td data-label="Status">
           {% if item.booking.payment_status == 'paid' %}
@@ -73,10 +71,11 @@
     </tbody>
   </table>
 </div>
+<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Displaying {{ bookings|length }} booking(s).</p>
 {% else %}
 <div class="empty-state">
   <h3>No bookings found</h3>
-  <p>{% if q or status_filter %}Try adjusting your filters.{% else %}There are no bookings for showings at {{ sv_college.name }} yet.{% endif %}</p>
+  <p>{% if q or status_filter %}Try adjusting your filters.{% else %}There are no bookings for events at {{ sv_college.name }} yet.{% endif %}</p>
 </div>
 {% endif %}
 {% endblock %}

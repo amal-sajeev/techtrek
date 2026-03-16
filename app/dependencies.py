@@ -84,7 +84,7 @@ def template_ctx(request: Request, **kwargs) -> dict:
                 is_speaker = db.query(Speaker).filter(Speaker.user_id == user.id).first() is not None
 
                 from app.models.feedback import Feedback
-                from app.models.showing import Showing
+                from app.models.event import Event
                 pending = (
                     db.query(Feedback)
                     .filter(
@@ -95,14 +95,14 @@ def template_ctx(request: Request, **kwargs) -> dict:
                     .all()
                 )
                 for fb in pending:
-                    showing = db.query(Showing).get(fb.showing_id)
-                    if showing and showing.session:
+                    event = db.query(Event).get(fb.event_id) if fb.event_id else None
+                    if event:
                         from app.models.auditorium import Auditorium
-                        aud = db.query(Auditorium).get(showing.auditorium_id)
+                        aud = db.query(Auditorium).get(event.auditorium_id) if event.auditorium_id else None
                         pending_feedback.append({
-                            "showing_id": showing.id,
-                            "session_title": showing.session.title,
-                            "showing_date": showing.start_time.strftime("%d %b %Y, %I:%M %p"),
+                            "event_id": event.id,
+                            "event_name": event.name,
+                            "event_date": event.start_date.strftime("%d %b %Y") if event.start_date else "",
                             "venue": f"{aud.name}, {aud.location}" if aud else "",
                         })
         finally:

@@ -1,0 +1,56 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ "Edit" if coupon else "New" }} Coupon — {{ event.name }} — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">{{ "Edit" if coupon else "New" }} Coupon</h1>
+  <a href="/admin/events/{{ event.id }}/edit" class="btn btn-outline">Back to Event</a>
+</div>
+
+<p class="text-muted mb-3">Event: <strong>{{ event.name }}</strong></p>
+
+<div class="form-card">
+  <form method="post" action="{{ '/admin/events/' ~ event.id ~ '/coupons/' ~ coupon.id ~ '/edit' if coupon else '/admin/events/' ~ event.id ~ '/coupons/new' }}">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="form-group">
+      <label class="form-label" for="coupon-code">Code</label>
+      <input type="text" name="code" id="coupon-code" class="form-input" value="{{ coupon.code if coupon else '' }}" required placeholder="e.g. EARLYBIRD20" {% if coupon %}readonly{% endif %}>
+      {% if coupon %}<p class="form-hint" style="font-size:.8rem;color:var(--text-muted)">Code cannot be changed after creation.</p>{% endif %}
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="coupon-discount-pct">Discount %</label>
+        <input type="number" name="discount_pct" id="coupon-discount-pct" class="form-input" step="0.01" min="0" max="100" value="{{ coupon.discount_pct if coupon and coupon.discount_pct is not none else '' }}" placeholder="e.g. 10">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="coupon-discount-amount">Discount Amount (&#8377;)</label>
+        <input type="number" name="discount_amount" id="coupon-discount-amount" class="form-input" step="0.01" min="0" value="{{ coupon.discount_amount if coupon and coupon.discount_amount is not none else '' }}" placeholder="e.g. 100">
+      </div>
+    </div>
+    <p class="form-hint" style="font-size:.8rem;color:var(--text-muted);margin-bottom:1rem">Use either discount % or fixed amount, not both.</p>
+    <div class="form-group">
+      <label class="form-label" for="coupon-max-uses">Max Uses</label>
+      <input type="number" name="max_uses" id="coupon-max-uses" class="form-input" min="1" value="{{ coupon.max_uses if coupon and coupon.max_uses is not none else '' }}" placeholder="Leave blank for unlimited">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="coupon-valid-from">Valid From</label>
+        <input type="datetime-local" name="valid_from" id="coupon-valid-from" class="form-input" value="{{ coupon.valid_from.strftime('%Y-%m-%dT%H:%M') if coupon and coupon.valid_from else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="coupon-valid-until">Valid Until</label>
+        <input type="datetime-local" name="valid_until" id="coupon-valid-until" class="form-input" value="{{ coupon.valid_until.strftime('%Y-%m-%dT%H:%M') if coupon and coupon.valid_until else '' }}">
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="form-label">
+        <input type="checkbox" name="is_active" {% if not coupon or coupon.is_active %}checked{% endif %}> Active
+      </label>
+    </div>
+    <div class="form-actions">
+      <button type="submit" class="btn btn-primary">{{ "Update" if coupon else "Create" }} Coupon</button>
+      <a href="/admin/events/{{ event.id }}/edit" class="btn btn-outline">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

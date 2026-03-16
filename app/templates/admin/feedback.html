@@ -36,7 +36,7 @@
     <thead>
       <tr>
         <th>User</th>
-        <th>Session</th>
+        <th>Event</th>
         <th>Rating</th>
         <th>Comment</th>
         <th>Public</th>
@@ -49,16 +49,14 @@
       {% for item in feedback_items %}
       {% set fb = item.feedback %}
       {% set u = item.user %}
-      {% set sess = item.session %}
-      {% set showing = item.showing %}
+      {% set ev = item.event %}
       <tr>
         <td>
           <strong>{{ u.full_name or u.username if u else '—' }}</strong>
           {% if u and u.college %}<br><small class="text-muted">{{ u.college }}</small>{% endif %}
         </td>
         <td>
-          {{ sess.title if sess else '—' }}
-          {% if showing %}<br><small class="text-muted">{{ showing.start_time.strftime('%d %b %Y') }}</small>{% endif %}
+          {{ ev.name if ev else '—' }}
         </td>
         <td>
           {% if fb.rating %}

@@ -4,7 +4,7 @@
   var seatMap = [];
   var selectedSeats = [];
   var prices = { standard: 0, vip: 0, accessible: 0 };
-  var sessionId = 0;
+  var eventId = 0;
   var rowGapSet = {};
   var colGapSet = {};
   var stageCols = null;
@@ -46,14 +46,14 @@
     return lum > 0.5 ? "#000" : "#fff";
   }
 
-  function init(data, pricing, sessId, gaps, stageOpts, entryExit, initialCustomTypes) {
+  function init(data, pricing, evtId, gaps, stageOpts, entryExit, initialCustomTypes) {
     seatMap = data;
     if (typeof pricing === "object" && pricing !== null) {
       prices = { standard: pricing.standard || 0, vip: pricing.vip || 0, accessible: pricing.accessible || 0 };
     } else {
       prices = { standard: pricing || 0, vip: pricing || 0, accessible: pricing || 0 };
     }
-    sessionId = sessId;
+    eventId = evtId;
     selectedSeats = [];
     rowGapSet = {};
     colGapSet = {};

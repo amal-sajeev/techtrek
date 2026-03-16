@@ -28,8 +28,9 @@
       </div>
       <div class="filter-date">
         <label for="filter-date" class="sr-only">Date</label>
-        <input type="date" name="date" id="filter-date" class="form-input" value="{{ date_filter }}" aria-label="Filter by date">
+        <input type="date" name="date" id="filter-date" class="form-input" value="{{ date_filter|default('') }}" aria-label="Filter by date">
       </div>
+      {% if cities is defined and cities %}
       <div class="filter-city">
         <label for="filter-city" class="sr-only">City</label>
         <select name="city_id" id="filter-city" class="form-input" aria-label="Filter by city">
@@ -39,6 +40,8 @@
           {% endfor %}
         </select>
       </div>
+      {% endif %}
+      {% if colleges is defined and colleges %}
       <div class="filter-college">
         <label for="filter-college" class="sr-only">College</label>
         <select name="college_id" id="filter-college" class="form-input" aria-label="Filter by college">
@@ -48,6 +51,7 @@
           {% endfor %}
         </select>
       </div>
+      {% endif %}
       <div class="filter-sort">
         <label for="filter-sort" class="sr-only">Sort</label>
         <select name="sort" id="filter-sort" class="form-input">
@@ -81,46 +85,41 @@
       {% if sessions %}
       <div class="session-grid" id="session-grid">
         {% for item in sessions %}
-        {% set img_id = img_pool[item.session.id % 8] %}
-        <a href="/sessions/{{ item.session.id }}" class="card card-hover">
-          <div class="card-image">
-            <img
-              src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
-              alt="{{ item.session.title }}"
-              loading="lazy">
-            <span class="card-badge badge-{{ item.event_status }}">{{ item.event_status | replace('-', ' ') | title }}</span>
-            {% if item.session.showings|length > 1 %}
-            <span class="card-badge-multi">{{ item.session.showings|length }} showings</span>
-            {% endif %}
-          </div>
-          <div class="card-body">
-            <h3 class="card-title">{{ item.session.title }}</h3>
-            <p class="card-meta">{{ item.session.speaker_name }}</p>
-            <div class="card-details">
-              <span class="card-detail">&#128197; {{ item.showing.start_time.strftime('%b %d, %Y') }}</span>
-              <span class="card-detail">&#128336; {{ item.showing.start_time.strftime('%I:%M %p') }}</span>
-              {% if item.auditorium %}
-              <span class="card-detail">&#128205; {{ item.auditorium.name }}{% if item.auditorium.location %}, {{ item.auditorium.location }}{% endif %}</span>
-              {% endif %}
+        {% set s = item.session %}
+        {% set ev = item.event %}
+        {% set img_id = img_pool[s.id % 8] %}
+        <div class="card card-hover">
+          <a href="/sessions/{{ s.id }}" style="text-decoration:none;color:inherit;display:block">
+            <div class="card-image">
+              <img
+                src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
+                alt="{{ s.title }}"
+                loading="lazy">
+              <span class="card-badge" style="background:var(--color-accent);color:#000">Part of Event</span>
             </div>
-          </div>
+            <div class="card-body">
+              <h3 class="card-title">{{ s.title }}</h3>
+              <p class="card-meta">{{ s.speaker_name }}</p>
+              <div class="card-details">
+                {% if s.start_time %}
+                <span class="card-detail">&#128197; {{ s.start_time.strftime('%b %d, %Y') }}</span>
+                <span class="card-detail">&#128336; {{ s.start_time.strftime('%I:%M %p') }}</span>
+                {% elif ev and ev.start_date %}
+                <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') }}</span>
+                {% endif %}
+                {% if ev %}
+                {% set ev_venue = ev.auditorium.name if ev.auditorium else (ev.college.name if ev.college else '') %}
+                {% if ev_venue %}
+                <span class="card-detail">&#128205; {{ ev_venue }}{% if ev.college and ev.college.city %}, {{ ev.college.city.name }}{% endif %}</span>
+                {% endif %}
+                {% endif %}
+              </div>
+            </div>
+          </a>
           <div class="card-footer">
-            <span class="card-price">&#8377;{{ "%.0f"|format(item.showing.price) }}</span>
-            {% if item.availability == 'sold-out' %}
-            <span class="card-seats seats-out">Sold out</span>
-            {% elif item.availability == 'filling-up' %}
-            <span class="card-seats seats-low"><span class="pulse-dot"></span>{{ item.stats.available }} left</span>
-            {% else %}
-            <span class="card-seats" style="color:var(--text-muted);font-size:.78rem">{{ item.stats.available }} seats</span>
-            {% endif %}
+            <a href="/events/{{ ev.id }}" class="card-cta-hint">View Event &rarr;</a>
           </div>
-          {% if item.stats.total > 0 %}
-          <div class="card-avail-bar">
-            {% set pct = ((item.stats.booked / item.stats.total) * 100) if item.stats.total > 0 else 0 %}
-            <div class="card-avail-fill {% if item.availability == 'sold-out' %}fill-out{% elif item.availability == 'filling-up' %}fill-low{% endif %}" style="width:{{ (100 - pct)|round|int }}%"></div>
-          </div>
-          {% endif %}
-        </a>
+        </div>
         {% endfor %}
       </div>
       {% else %}

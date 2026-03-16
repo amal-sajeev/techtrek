@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ lecture.title }} — TechTrek{% endblock %}
+{% block title %}{{ session.title }} — TechTrek{% endblock %}
 
 {% block content %}
 {% set img_pool = [
@@ -12,36 +12,38 @@
   'photo-1496181133206-80ce9b88a853',
   'photo-1573164713714-d95e436ab8d1'
 ] %}
-{% set img_id = img_pool[lecture.id % 8] %}
+{% set img_id = img_pool[session.id % 8] %}
 
 <!-- Hero -->
 <section class="session-hero">
   <img class="session-hero-img"
     src="https://images.unsplash.com/{{ img_id }}?w=1400&auto=format&fit=crop&q=80"
-    alt="{{ lecture.title }}">
+    alt="{{ session.title }}">
   <div class="session-hero-vignette"></div>
   <div class="session-hero-content">
     <div class="session-breadcrumb">
       <a href="/sessions">Sessions</a>
       <span class="session-breadcrumb-sep">/</span>
-      <span>{{ lecture.title }}</span>
+      <span>{{ session.title }}</span>
     </div>
-    <div class="session-status-badge badge-{{ event_status }}">
+    {% if event %}
+    <div class="session-status-badge badge-{{ event.status }}">
       <span class="session-status-dot"></span>
-      {{ event_status | replace('-', ' ') | title }}
+      {{ event.status | replace('-', ' ') | title }}
     </div>
-    <h1 class="session-title">{{ lecture.title }}</h1>
+    {% endif %}
+    <h1 class="session-title">{{ session.title }}</h1>
     <div class="session-hero-meta">
-      {% if primary_showing %}
+      {% if session.start_time %}
       <div class="session-meta-chip">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        {{ primary_showing.start_time.strftime('%A, %B %d, %Y') }}
+        {{ session.start_time.strftime('%A, %B %d, %Y') }}
       </div>
       <div class="session-meta-chip">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-        {{ primary_showing.start_time.strftime('%I:%M %p') }}
+        {{ session.start_time.strftime('%I:%M %p') }}
         <span class="meta-chip-divider"></span>
-        <span class="meta-chip-sub">{{ primary_showing.effective_duration }} min</span>
+        <span class="meta-chip-sub">{{ session.duration_minutes or 30 }} min</span>
       </div>
       {% endif %}
       {% if auditorium %}
@@ -62,13 +64,13 @@
 <div class="session-page-body">
   <div>
     <!-- Speakers -->
-    {% if lecture.session_speakers %}
+    {% if session.session_speakers %}
     <div class="session-speaker-wrap">
       <div class="session-sec-head">
-        <span class="session-sec-label">Speaker{{ 's' if lecture.session_speakers|length > 1 }}</span>
+        <span class="session-sec-label">Speaker{{ 's' if session.session_speakers|length > 1 }}</span>
         <div class="session-sec-line"></div>
       </div>
-      {% for ss in lecture.session_speakers %}
+      {% for ss in session.session_speakers %}
       <div class="session-speaker-card">
         {% if ss.speaker.photo_url %}
         <img class="session-avatar" src="{{ ss.speaker.photo_url }}" alt="{{ ss.speaker.name }}">
@@ -88,58 +90,58 @@
       </div>
       {% endfor %}
     </div>
-    {% elif lecture.speaker_rel %}
+    {% elif session.speaker_rel %}
     <div class="session-speaker-wrap">
       <div class="session-sec-head">
         <span class="session-sec-label">Speaker</span>
         <div class="session-sec-line"></div>
       </div>
       <div class="session-speaker-card">
-        {% if lecture.speaker_rel.photo_url %}
-        <img class="session-avatar" src="{{ lecture.speaker_rel.photo_url }}" alt="{{ lecture.speaker_rel.name }}">
+        {% if session.speaker_rel.photo_url %}
+        <img class="session-avatar" src="{{ session.speaker_rel.photo_url }}" alt="{{ session.speaker_rel.name }}">
         {% else %}
-        <div class="session-avatar session-avatar-initials">{{ lecture.speaker_rel.name[0] }}</div>
+        <div class="session-avatar session-avatar-initials">{{ session.speaker_rel.name[0] }}</div>
         {% endif %}
         <div>
-          <div class="session-speaker-name">{{ lecture.speaker_rel.name }}</div>
-          {% if lecture.speaker_rel.title %}
-          <div class="session-speaker-role">{{ lecture.speaker_rel.title }}</div>
+          <div class="session-speaker-name">{{ session.speaker_rel.name }}</div>
+          {% if session.speaker_rel.title %}
+          <div class="session-speaker-role">{{ session.speaker_rel.title }}</div>
           {% endif %}
-          {% if lecture.speaker_rel.bio %}
-          <div class="session-speaker-bio">{{ lecture.speaker_rel.bio }}</div>
+          {% if session.speaker_rel.bio %}
+          <div class="session-speaker-bio">{{ session.speaker_rel.bio }}</div>
           {% endif %}
         </div>
       </div>
     </div>
-    {% elif lecture.speaker_name %}
+    {% elif session.speaker_name %}
     <div class="session-speaker-wrap">
       <div class="session-sec-head">
         <span class="session-sec-label">Speaker</span>
         <div class="session-sec-line"></div>
       </div>
-      <p class="session-about-text">{{ lecture.speaker_name }}</p>
+      <p class="session-about-text">{{ session.speaker_name }}</p>
     </div>
     {% endif %}
 
     <!-- About -->
-    {% if lecture.description %}
+    {% if session.description %}
     <div class="session-about-wrap">
       <div class="session-sec-head">
         <span class="session-sec-label">About This Session</span>
         <div class="session-sec-line"></div>
       </div>
-      <p class="session-about-text">{{ lecture.description }}</p>
+      <p class="session-about-text">{{ session.description }}</p>
     </div>
     {% endif %}
 
     <!-- Agenda -->
-    {% if lecture.agenda_items %}
+    {% if session.agenda_items %}
     <div>
       <div class="session-sec-head">
         <span class="session-sec-label">Session Agenda</span>
         <div class="session-sec-line"></div>
       </div>
-      {% for item in lecture.agenda_items %}
+      {% for item in session.agenda_items %}
       <div class="session-agenda-row">
         <span class="session-agenda-num">{{ "%02d"|format(loop.index) }}</span>
         <span class="session-agenda-title">{{ item.title }}</span>
@@ -178,57 +180,39 @@
   <div>
     <div class="session-booking-card">
       <div class="session-card-header">
-        <div class="session-price-eyebrow">Starting from</div>
+        {% if event %}
+        <div class="session-price-eyebrow">Part of event</div>
         <div class="session-price-block">
           <span class="session-price-sym">₹</span>
-          <span class="session-price-num">{{ "%.0f"|format(primary_showing.price if primary_showing else 0) }}</span>
-
+          <span class="session-price-num">{{ "%.0f"|format(event.price if event.price else 0) }}</span>
         </div>
-        {% if (primary_showing and primary_showing.price_vip is not none) or (primary_showing and primary_showing.price_accessible is not none) or custom_seat_types %}
+        {% if event.price_vip is not none or event.price_accessible is not none %}
         <div class="session-alt-tiers">
-          {% if primary_showing and primary_showing.price_vip is not none %}
-          <span class="session-alt-tier tier-vip-pill">VIP · ₹{{ "%.0f"|format(primary_showing.price_vip) }}</span>
+          {% if event.price_vip is not none %}
+          <span class="session-alt-tier tier-vip-pill">VIP · ₹{{ "%.0f"|format(event.price_vip) }}</span>
           {% endif %}
-          {% if primary_showing and primary_showing.price_accessible is not none %}
-          <span class="session-alt-tier tier-acc-pill">Accessible · ₹{{ "%.0f"|format(primary_showing.price_accessible) }}</span>
+          {% if event.price_accessible is not none %}
+          <span class="session-alt-tier tier-acc-pill">Accessible · ₹{{ "%.0f"|format(event.price_accessible) }}</span>
           {% endif %}
-          {% for ct in custom_seat_types %}
-          {% if ct.price is not none %}
-          <span class="session-alt-tier" style="background:{{ ct.colour }}20;color:{{ ct.colour }};border:1px solid {{ ct.colour }}60">
-            {% if ct.icon %}{{ ct.icon }} {% endif %}{{ ct.name }} · ₹{{ "%.0f"|format(ct.price) }}
-          </span>
-          {% endif %}
-          {% endfor %}
         </div>
+        {% endif %}
         {% endif %}
       </div>
       <div class="session-card-body">
-        {% if stats.booked > 0 %}
-        <p class="session-social-proof">{{ stats.booked }} {{ "person has" if stats.booked == 1 else "people have" }} already booked</p>
-        {% endif %}
-
-        <div class="session-seats-info">
-          {% if availability == 'filling-up' %}
-          <span class="session-seats-count">Only {{ stats.available }}</span> seats left
-          {% else %}
-          <span class="session-seats-count">{{ stats.available }}</span> of {{ stats.total }} seats available
-          {% endif %}
-        </div>
-        <div class="session-avail-bar">
-          {% set pct = ((stats.booked / stats.total) * 100) if stats.total > 0 else 0 %}
-          <div class="session-avail-fill" style="width: {{ 100 - pct }}%"></div>
-        </div>
-
         <div class="session-event-guidance">
           <div class="seg-icon">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5v2M15 11v2M15 17v2M5 5h5M5 11h5M5 17h5M3 3h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3V3z"/><path d="M11 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-8V3z"/></svg>
           </div>
           <div>
             <p class="seg-title">Book via an Event</p>
-            <p class="seg-text">This session is part of a TechTrek event. Browse events to book your seat and get access to all sessions in one ticket.</p>
+            <p class="seg-text">This session is part of a TechTrek event. Book the event to get access to all sessions in one ticket.</p>
           </div>
         </div>
+        {% if event %}
+        <a href="/events/{{ event.id }}" class="session-book-btn">Book Event &rarr;</a>
+        {% else %}
         <a href="/events" class="session-book-btn">Browse Events &rarr;</a>
+        {% endif %}
 
         <div class="session-perks">
           <div class="session-perk">
@@ -241,37 +225,11 @@
           </div>
           <div class="session-perk">
             <div class="session-perk-icon">✓</div>
-            <span class="session-perk-text">Cancel for a full refund before the session</span>
+            <span class="session-perk-text">Cancel for a full refund before the event</span>
           </div>
         </div>
       </div>
     </div>
-
-    {% if total_showings > 1 %}
-    <div class="session-venues-card">
-      <div class="session-venues-header">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        <span>Showing in {{ venues|length }} venue{{ 's' if venues|length != 1 else '' }}</span>
-      </div>
-      <div class="session-venues-list">
-        {% for v in venues %}
-        <div class="session-venue-row">
-          <div class="session-venue-info">
-            <div class="session-venue-name">{{ v.auditorium }}</div>
-            <div class="session-venue-location">
-              {% if v.college %}{{ v.college }} · {% endif %}{{ v.city }}{% if v.state %}, {{ v.state }}{% endif %}
-            </div>
-          </div>
-          <span class="session-venue-count">{{ v.count }}</span>
-        </div>
-        {% endfor %}
-      </div>
-      <a href="/sessions/{{ lecture.id }}/showings" class="session-venues-browse-btn">
-        View All {{ total_showings }} Showings
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
-      </a>
-    </div>
-    {% endif %}
   </div>
 </div>
 {% endblock %}

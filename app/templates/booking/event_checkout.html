@@ -23,40 +23,44 @@
           </div>
         </div>
 
-        {% if discount_pct %}
-        <div style="padding:.5rem .75rem;margin-bottom:.75rem;background:rgba(0,200,100,.08);border:1px solid var(--green);border-radius:var(--radius);font-size:.85rem;color:var(--green)">
-          {{ discount_pct|int if discount_pct == discount_pct|int else discount_pct }}% bundle discount applied
+        <div class="checkout-details">
+          <h3>{{ event.name }}</h3>
+          {% if event.start_date %}
+          <p>{{ event.start_date.strftime('%A, %B %d, %Y') }}</p>
+          {% endif %}
         </div>
-        {% endif %}
+
+        <div class="checkout-seats">
+          <h4 class="checkout-seats-label">Selected Seats ({{ booking_count }})</h4>
+          <div class="checkout-seat-list">
+            {% for item in seat_items %}
+            <span class="seat-label-chip">{{ item.seat.label }}{% if item.seat.seat_type not in ('standard', 'aisle') %} <small>({{ custom_types_map.get(item.seat.seat_type, item.seat.seat_type)|upper if item.seat.seat_type.startswith('custom_') else item.seat.seat_type|upper }})</small>{% endif %}</span>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="checkout-coupon" style="margin-bottom:1rem">
+          <label for="coupon-input" class="checkout-coupon-label">Coupon code</label>
+          <div class="checkout-coupon-row" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+            <input type="text" id="coupon-input" placeholder="Enter code" class="form-input" style="max-width:12rem" value="{{ coupon_code or '' }}">
+            <button type="button" id="coupon-apply-btn" class="btn btn-outline btn-sm">Apply</button>
+            <span id="coupon-message" style="font-size:.85rem"></span>
+          </div>
+        </div>
 
         <div class="checkout-summary">
-          {% for sid, info in sessions_breakdown.items() %}
-          <div class="checkout-line" style="font-weight:600;margin-top:.5rem">
-            <span>{{ info.lecture.title }}</span>
-            <span style="font-size:.75rem;font-weight:400;color:var(--text-muted)">{{ info.showing.start_time.strftime('%b %d') }}</span>
-          </div>
-          {% for s in info.seats %}
+          {% for item in seat_items %}
           <div class="checkout-line">
-            <span style="padding-left:1rem">{{ s.seat.label }}{% if s.seat.seat_type not in ('standard', 'aisle') %} ({{ custom_types_map.get(s.seat.seat_type, s.seat.seat_type)|upper if s.seat.seat_type.startswith('custom_') else s.seat.seat_type|upper }}){% endif %}</span>
-            <span>
-              {% if discount_pct %}
-              <s style="color:var(--text-muted);font-size:.8rem">&#8377;{{ "%.0f"|format(s.price) }}</s>
-              &#8377;{{ "%.0f"|format(s.discounted) }}
-              {% else %}
-              &#8377;{{ "%.0f"|format(s.price) }}
-              {% endif %}
-            </span>
+            <span>{{ item.seat.label }}{% if item.seat.seat_type not in ('standard', 'aisle') %} ({{ custom_types_map.get(item.seat.seat_type, item.seat.seat_type)|upper if item.seat.seat_type.startswith('custom_') else item.seat.seat_type|upper }}){% endif %}</span>
+            <span>&#8377;{{ "%.0f"|format(item.price) }}</span>
           </div>
           {% endfor %}
-          {% endfor %}
-
-          {% if discount_pct %}
+          {% if coupon_discount and coupon_discount > 0 %}
           <div class="checkout-line" style="color:var(--green)">
-            <span>Discount ({{ discount_pct|int if discount_pct == discount_pct|int else discount_pct }}%)</span>
-            <span>-&#8377;{{ "%.0f"|format(base_total - discounted_total) }}</span>
+            <span>Coupon discount</span>
+            <span>-&#8377;{{ "%.0f"|format(coupon_discount) }}</span>
           </div>
           {% endif %}
-
           {% if fee_pct %}
           <div class="checkout-line">
             <span>Processing Fee ({{ fee_pct|int if fee_pct == fee_pct|int else fee_pct }}%)</span>
@@ -126,6 +130,7 @@
   var URGENT_THRESHOLD = 60;
   var eventId = {{ event.id }};
   var totalAmount = {{ total }};
+  var PAY_LABEL = 'Pay \u20B9{{ "%.0f"|format(total) }}';
 
   function fmt(s) {
     var m = Math.floor(s / 60);
@@ -148,7 +153,7 @@
       clearInterval(timer);
       if (el) el.textContent = '0s';
       if (bar) bar.style.width = '0%';
-      window.location.href = '/events/' + eventId;
+      window.location.href = '/booking/event/' + eventId + '/select';
       return;
     }
     if (el) el.textContent = fmt(remaining);
@@ -186,6 +191,43 @@
   window.addEventListener('beforeunload', function(e) {
     if (verifying) { e.preventDefault(); e.returnValue = ''; }
   });
+
+  // Coupon apply
+  var couponInput = document.getElementById('coupon-input');
+  var couponApplyBtn = document.getElementById('coupon-apply-btn');
+  var couponMessage = document.getElementById('coupon-message');
+  if (couponApplyBtn && couponInput) {
+    couponApplyBtn.addEventListener('click', function() {
+      var code = couponInput.value.trim();
+      couponMessage.textContent = '';
+      couponMessage.style.color = '';
+      fetch('/booking/event/' + eventId + '/apply-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: code })
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.ok) {
+          if (data.removed) {
+            couponMessage.textContent = 'Coupon removed.';
+            couponMessage.style.color = 'var(--text-muted)';
+          } else {
+            couponMessage.textContent = (data.discount || 'Applied') + ' — ' + (data.code || code);
+            couponMessage.style.color = 'var(--green)';
+          }
+          window.location.reload();
+        } else {
+          couponMessage.textContent = data.error || 'Invalid coupon';
+          couponMessage.style.color = 'var(--danger)';
+        }
+      })
+      .catch(function() {
+        couponMessage.textContent = 'Failed to apply. Try again.';
+        couponMessage.style.color = 'var(--danger)';
+      });
+    });
+  }
 
   if (totalAmount <= 0) return;
 
@@ -243,6 +285,7 @@
               paying = false;
               payBtn.classList.remove('btn-loading');
               payBtn.disabled = false;
+              payBtn.textContent = PAY_LABEL;
             }
           })
           .catch(function() {
@@ -251,6 +294,7 @@
             paying = false;
             payBtn.classList.remove('btn-loading');
             payBtn.disabled = false;
+            payBtn.textContent = PAY_LABEL;
           });
         },
         modal: {

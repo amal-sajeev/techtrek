@@ -6,7 +6,7 @@
   <div class="auth-box">
     <div class="auth-header">
       <div class="auth-logo">&#9889; TECHTREK</div>
-      {% if next and '/sessions/' in next %}
+      {% if next and ('/sessions/' in next or '/booking/' in next) %}
       <p class="auth-title">Sign in to complete your booking</p>
       {% else %}
       <p class="auth-title">Access your account</p>

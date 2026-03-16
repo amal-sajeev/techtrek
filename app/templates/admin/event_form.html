@@ -19,24 +19,60 @@
         <select name="status" id="ev-status" class="form-input">
           <option value="draft" {% if not event or event.status == 'draft' %}selected{% endif %}>Draft</option>
           <option value="published" {% if event and event.status == 'published' %}selected{% endif %}>Published</option>
+          <option value="completed" {% if event and event.status == 'completed' %}selected{% endif %}>Completed</option>
+          <option value="cancelled" {% if event and event.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
         </select>
       </div>
     </div>
 
     <div class="form-row">
-      <div class="form-group" style="flex:2">
+      <div class="form-group" style="flex:1">
         <label class="form-label" for="ev-college">College (optional)</label>
         <select name="college_id" id="ev-college" class="form-input">
-          <option value="">— No college filter —</option>
+          <option value="">— No college —</option>
           {% for c in colleges %}
           <option value="{{ c.id }}" {% if event and event.college_id == c.id %}selected{% endif %}>{{ c.name }}</option>
           {% endfor %}
         </select>
       </div>
       <div class="form-group" style="flex:1">
-        <label class="form-label" for="ev-discount">Bundle Discount %</label>
-        <input type="number" name="discount_pct" id="ev-discount" class="form-input" step="0.01" min="0" max="100"
-               value="{{ event.discount_pct if event and event.discount_pct else '' }}" placeholder="e.g. 10">
+        <label class="form-label" for="ev-auditorium">Venue / Auditorium</label>
+        <select name="auditorium_id" id="ev-auditorium" class="form-input">
+          <option value="">— Select venue —</option>
+          {% for a in auditoriums %}
+          <option value="{{ a.id }}" {% if event and event.auditorium_id == a.id %}selected{% endif %}>{{ a.name }}{% if a.location %} — {{ a.location }}{% endif %}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="ev-start">Start Date</label>
+        <input type="date" name="start_date" id="ev-start" class="form-input" value="{{ event.start_date.isoformat() if event and event.start_date else '' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ev-end">End Date</label>
+        <input type="date" name="end_date" id="ev-end" class="form-input" value="{{ event.end_date.isoformat() if event and event.end_date else '' }}">
+      </div>
+    </div>
+
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label" for="ev-price">Price (&#8377;)</label>
+        <input type="number" name="price" id="ev-price" class="form-input" step="0.01" min="0" value="{{ event.price if event and event.price is not none else '0' }}">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ev-price-vip">VIP Price (&#8377;)</label>
+        <input type="number" name="price_vip" id="ev-price-vip" class="form-input" step="0.01" min="0" value="{{ event.price_vip if event and event.price_vip is not none else '' }}" placeholder="Optional">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ev-price-accessible">Accessible Price (&#8377;)</label>
+        <input type="number" name="price_accessible" id="ev-price-accessible" class="form-input" step="0.01" min="0" value="{{ event.price_accessible if event and event.price_accessible is not none else '' }}" placeholder="Optional">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="ev-fee">Processing Fee %</label>
+        <input type="number" name="processing_fee_pct" id="ev-fee" class="form-input" step="0.01" min="0" max="100" value="{{ event.processing_fee_pct if event and event.processing_fee_pct is not none else '' }}" placeholder="e.g. 2.5">
       </div>
     </div>
 
@@ -50,22 +86,6 @@
       <textarea name="description" id="ev-desc" class="form-input" rows="3">{{ event.description if event and event.description else '' }}</textarea>
     </div>
 
-    <div class="form-group">
-      <label class="form-label">Sessions in this Event</label>
-      <p class="form-hint" style="margin-bottom:.5rem;font-size:.82rem;color:var(--text-muted)">Select a college above to filter suggestions, or choose from all published sessions below.</p>
-      <div id="session-picker" class="event-session-picker">
-        {% for s in sessions %}
-        <label class="event-session-option" data-college="{{ s.auditorium.college_id if s.auditorium and s.auditorium.college_id else '' }}">
-          <input type="checkbox" name="session_ids" value="{{ s.id }}" {% if s.id in selected_ids %}checked{% endif %}>
-          <div class="event-session-info">
-            <span class="event-session-title">{{ s.session.title if s.session else '—' }}</span>
-            <span class="event-session-meta">{{ s.start_time.strftime('%b %d, %Y %I:%M %p') }} &middot; {{ s.auditorium.name if s.auditorium else '' }}</span>
-          </div>
-        </label>
-        {% endfor %}
-      </div>
-    </div>
-
     <div class="form-actions">
       <button type="submit" class="btn btn-primary">{{ "Update" if event else "Create" }} Event</button>
       <a href="/admin/events" class="btn btn-outline">Cancel</a>
@@ -73,24 +93,82 @@
   </form>
 </div>
 
-<script>
-(function(){
-  var collegeSelect = document.getElementById('ev-college');
-  var options = document.querySelectorAll('.event-session-option');
+{% if event %}
+<div class="form-card mt-3">
+  <h3 class="panel-title">Sessions in this Event</h3>
+  {% if event_sessions %}
+  <div class="table-responsive mt-2">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Title</th>
+          <th>Speaker</th>
+          <th>Start Time</th>
+          <th>Order</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in event_sessions %}
+        <tr>
+          <td>{{ s.title }}</td>
+          <td>{{ s.speaker_name or "—" }}</td>
+          <td>{{ s.start_time.strftime('%b %d, %I:%M %p') if s.start_time else "—" }}</td>
+          <td>{{ s.order or 0 }}</td>
+          <td>
+            <a href="/admin/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+            <a href="/admin/sessions/{{ s.id }}/recordings" class="btn btn-sm btn-outline">Recordings</a>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted">No sessions yet. Add sessions from the <a href="/admin/sessions">Sessions</a> page and link them to this event.</p>
+  {% endif %}
+  <a href="/admin/sessions/new" class="btn btn-outline btn-sm mt-2">+ New Session</a>
+</div>
 
-  collegeSelect.addEventListener('change', function(){
-    var cid = this.value;
-    options.forEach(function(opt){
-      if(!cid || opt.getAttribute('data-college') === cid){
-        opt.style.display = '';
-      } else {
-        opt.style.display = 'none';
-      }
-    });
-  });
-
-  // Apply filter on load if college is pre-selected
-  if(collegeSelect.value) collegeSelect.dispatchEvent(new Event('change'));
-})();
-</script>
+<div class="form-card mt-3">
+  <h3 class="panel-title">Coupons</h3>
+  {% if event_coupons %}
+  <div class="table-responsive mt-2">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Code</th>
+          <th>Discount</th>
+          <th>Uses</th>
+          <th>Valid</th>
+          <th>Active</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for c in event_coupons %}
+        <tr>
+          <td><code>{{ c.code }}</code></td>
+          <td>{% if c.discount_pct %}{{ c.discount_pct }}%{% elif c.discount_amount %}&#8377;{{ "%.0f"|format(c.discount_amount) }}{% else %}—{% endif %}</td>
+          <td>{{ c.used_count or 0 }}{% if c.max_uses %}/{{ c.max_uses }}{% endif %}</td>
+          <td>{{ c.valid_from.strftime('%b %d') if c.valid_from else "—" }} – {{ c.valid_until.strftime('%b %d') if c.valid_until else "—" }}</td>
+          <td><span class="badge {% if c.is_active %}badge-success{% else %}badge-draft{% endif %}">{{ "Yes" if c.is_active else "No" }}</span></td>
+          <td>
+            <a href="/admin/events/{{ event.id }}/coupons/{{ c.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+            <form method="post" action="/admin/events/{{ event.id }}/coupons/{{ c.id }}/delete" style="display:inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete coupon '{{ c.code }}'?" data-confirm-label="Delete">Delete</button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <p class="text-muted">No coupons for this event.</p>
+  {% endif %}
+  <a href="/admin/events/{{ event.id }}/coupons/new" class="btn btn-outline btn-sm mt-2">+ New Coupon</a>
+</div>
+{% endif %}
 {% endblock %}

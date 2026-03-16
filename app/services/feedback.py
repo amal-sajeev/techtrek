@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session as DBSession
 from app.database import SessionLocal
 from app.models.booking import Booking
 from app.models.feedback import Feedback
-from app.models.showing import Showing
+from app.models.event import Event
 from app.models.user import User
 from app.services.email import send_feedback_request
 from app.utils import now_ist
@@ -19,30 +19,30 @@ FEEDBACK_CHECK_INTERVAL = 15 * 60  # 15 minutes
 
 
 def process_pending_feedback(base_url: str = "https://techtrek.in"):
-    """Find showings that have ended and create+email feedback requests."""
+    """Find events that have ended and create+email feedback requests."""
     db: DBSession = SessionLocal()
     try:
         now = now_ist()
 
-        ended_showings = (
-            db.query(Showing)
-            .filter(Showing.status.in_(["published", "completed"]))
+        ended_events = (
+            db.query(Event)
+            .filter(Event.status.in_(["published", "completed"]))
             .all()
         )
 
-        for showing in ended_showings:
-            end_time = showing.start_time + timedelta(minutes=showing.effective_duration)
-            if end_time >= now:
+        for event in ended_events:
+            if not event.start_date:
                 continue
-
-            session_obj = showing.session
-            if not session_obj:
+            from datetime import datetime, time
+            end_date = event.end_date or event.start_date
+            end_dt = datetime.combine(end_date, time(23, 59, 59))
+            if end_dt >= now.replace(tzinfo=None):
                 continue
 
             paid_user_ids = set(
                 uid for (uid,) in db.query(Booking.user_id)
                 .filter(
-                    Booking.showing_id == showing.id,
+                    Booking.event_id == event.id,
                     Booking.payment_status == "paid",
                 )
                 .all()
@@ -50,7 +50,7 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
 
             existing_user_ids = set(
                 uid for (uid,) in db.query(Feedback.user_id)
-                .filter(Feedback.showing_id == showing.id)
+                .filter(Feedback.event_id == event.id)
                 .all()
             )
 
@@ -58,8 +58,8 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
             if not new_user_ids:
                 continue
 
-            showing_date = showing.start_time.strftime("%d %b %Y")
-            feedback_url = f"{base_url}/feedback/{showing.id}"
+            event_date = event.start_date.strftime("%d %b %Y")
+            feedback_url = f"{base_url}/feedback/{event.id}"
 
             for user_id in new_user_ids:
                 user = db.query(User).get(user_id)
@@ -68,7 +68,7 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
 
                 fb = Feedback(
                     user_id=user_id,
-                    showing_id=showing.id,
+                    event_id=event.id,
                     email_sent=True,
                     email_sent_at=now,
                 )
@@ -79,8 +79,8 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
                     send_feedback_request(
                         user.email,
                         user.full_name or user.username,
-                        session_obj.title,
-                        showing_date,
+                        event.name,
+                        event_date,
                         feedback_url,
                     )
                 except Exception:
@@ -88,8 +88,8 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
 
             db.commit()
             logger.info(
-                "Created %d feedback requests for showing %d (%s)",
-                len(new_user_ids), showing.id, session_obj.title,
+                "Created %d feedback requests for event %d (%s)",
+                len(new_user_ids), event.id, event.name,
             )
 
     except Exception:

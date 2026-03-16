@@ -21,10 +21,10 @@
     </select>
   </div>
   <div style="min-width:180px">
-    <select name="session_id" class="form-input" placeholder="All Sessions">
-      <option value="">All Sessions</option>
-      {% for s in all_sessions %}
-      <option value="{{ s.id }}" {% if session_filter|string == s.id|string %}selected{% endif %}>{{ s.title }}</option>
+    <select name="event_id" class="form-input" placeholder="All Events">
+      <option value="">All Events</option>
+      {% for ev in all_events %}
+      <option value="{{ ev.id }}" {% if session_filter|string == ev.id|string %}selected{% endif %}>{{ ev.name }}</option>
       {% endfor %}
     </select>
   </div>
@@ -39,7 +39,7 @@
         <th>Ref</th>
         <th>Ticket</th>
         <th>User</th>
-        <th>Session</th>
+        <th>Event</th>
         <th>Seat</th>
         <th>Status</th>
         <th>Refund</th>
@@ -56,7 +56,7 @@
           {{ item.user.username if item.user else "—" }}
           {% if item.user and item.user.full_name %}<br><small class="text-muted">{{ item.user.full_name }}</small>{% endif %}
         </td>
-        <td>{{ item.session.title if item.session else "—" }}</td>
+        <td>{{ item.event.name if item.event else "—" }}</td>
         <td>{{ item.seat.label if item.seat else "—" }}</td>
         <td>
           <span class="badge {% if item.booking.payment_status == 'paid' %}badge-success{% elif item.booking.payment_status == 'refunded' %}badge-muted{% else %}badge-available{% endif %}">
@@ -114,7 +114,7 @@
     </tbody>
   </table>
 </div>
-<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Showing {{ bookings|length }} booking(s).</p>
+<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Displaying {{ bookings|length }} booking(s).</p>
 {% else %}
 <div class="empty-state">
   <h3>No bookings found</h3>

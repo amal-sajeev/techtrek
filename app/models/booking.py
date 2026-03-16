@@ -20,7 +20,7 @@ class Booking(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    showing_id = Column(Integer, ForeignKey("showings.id"), nullable=False)
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="SET NULL"), nullable=True)
     seat_id = Column(Integer, ForeignKey("seats.id"), nullable=False)
     payment_status = Column(String(20), default="hold")
     booking_ref = Column(String(20), unique=True, default=_generate_ref)
@@ -40,11 +40,11 @@ class Booking(Base):
     refund_id = Column(String(50), nullable=True)
     refund_status = Column(String(30), nullable=True)
     refund_processed_at = Column(DateTime, nullable=True)
-    event_id = Column(Integer, ForeignKey("events.id", ondelete="SET NULL"), nullable=True)
+    coupon_id = Column(Integer, ForeignKey("coupons.id", ondelete="SET NULL"), nullable=True)
     held_until = Column(DateTime, nullable=True)
     booked_at = Column(DateTime, default=now_ist)
 
     user = relationship("User", back_populates="bookings")
-    showing = relationship("Showing", back_populates="bookings")
-    seat = relationship("Seat", back_populates="bookings")
     event = relationship("Event", back_populates="bookings")
+    seat = relationship("Seat", back_populates="bookings")
+    coupon = relationship("Coupon", back_populates="bookings")

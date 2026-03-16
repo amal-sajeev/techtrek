@@ -9,12 +9,15 @@ class Session(Base):
     __tablename__ = "sessions"
 
     id = Column(Integer, primary_key=True, index=True)
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=True)
     speaker_id = Column(Integer, ForeignKey("speakers.id", ondelete="SET NULL"), nullable=True)
     title = Column(String(300), nullable=False)
     speaker_name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     banner_url = Column(String(500), nullable=True)
     duration_minutes = Column(Integer, default=30)
+    start_time = Column(DateTime, nullable=True)
+    order = Column(Integer, default=0)
     cert_title = Column(String(300), nullable=True)
     cert_subtitle = Column(Text, nullable=True)
     cert_footer = Column(String(500), nullable=True)
@@ -29,8 +32,8 @@ class Session(Base):
     is_recording_public = Column(Boolean, default=False)
     created_at = Column(DateTime, default=now_ist)
 
+    event = relationship("Event", back_populates="sessions")
     speaker_rel = relationship("Speaker", back_populates="sessions")
     session_speakers = relationship("SessionSpeaker", back_populates="session", cascade="all, delete-orphan")
     agenda_items = relationship("AgendaItem", back_populates="session", cascade="all, delete-orphan", order_by="AgendaItem.order")
     session_recordings = relationship("SessionRecording", back_populates="session", cascade="all, delete-orphan", order_by="SessionRecording.order")
-    showings = relationship("Showing", back_populates="session", cascade="all, delete-orphan")

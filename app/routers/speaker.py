@@ -13,8 +13,8 @@ from app.services.activity_log import log_activity
 from app.models.agenda import AgendaItem
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
-from app.models.session import Session
-from app.models.showing import Showing
+from app.models.event import Event
+from app.models.session import Session as SessionModel
 from app.models.session_speaker import SessionSpeaker
 from app.models.speaker import Speaker
 from app.models.user import User
@@ -50,48 +50,41 @@ def _speaker_sessions(speaker, db):
         AgendaItem.speaker_id == speaker.id
     )
     sessions = (
-        db.query(Session)
+        db.query(SessionModel)
         .filter(
             or_(
-                Session.speaker_id == speaker.id,
-                Session.id.in_(session_ids_via_assignment),
-                Session.id.in_(session_ids_via_agenda),
+                SessionModel.speaker_id == speaker.id,
+                SessionModel.id.in_(session_ids_via_assignment),
+                SessionModel.id.in_(session_ids_via_agenda),
             )
         )
         .all()
     )
     now = now_ist()
+    today = now.date()
     enriched = []
     for s in sessions:
-        showing_ids = [sh.id for sh in s.showings]
+        event = s.event
         booking_count = (
             db.query(func.count(Booking.id)).filter(
-                Booking.showing_id.in_(showing_ids), Booking.payment_status == "paid"
+                Booking.event_id == event.id, Booking.payment_status == "paid"
             ).scalar()
-            if showing_ids else 0
+            if event else 0
         )
-        next_showing = None
-        for sh in sorted(s.showings, key=lambda x: x.start_time or now):
-            if sh.start_time and sh.start_time > now:
-                next_showing = sh
-                break
-        if not next_showing and s.showings:
-            next_showing = max(s.showings, key=lambda x: x.start_time or now)
         enriched.append({
             "session": s,
+            "event": event,
             "bookings": booking_count,
-            "showing": next_showing,
-            "showings_count": len(s.showings),
         })
 
     total = len(sessions)
     upcoming = sum(
         1 for s in sessions
-        if any(sh.start_time and sh.start_time > now and sh.status == "published" for sh in s.showings)
+        if s.event and s.event.start_date and s.event.start_date >= today and s.event.status == "published"
     )
     completed = sum(
         1 for s in sessions
-        if any(sh.status == "completed" for sh in s.showings)
+        if s.event and s.event.status == "completed"
     )
     return sessions, enriched, total, upcoming, completed
 
@@ -149,47 +142,44 @@ def schedule(
     if view not in ("month", "week"):
         view = "month"
 
-    # Collect all showings across speaker's sessions
-    all_showings = []
+    all_events = []
+    seen_event_ids = set()
     for s in raw_sessions:
-        for sh in s.showings:
-            aud = db.query(Auditorium).get(sh.auditorium_id) if sh.auditorium_id else None
-            college = aud.college if aud else None
-            city = college.city if college else None
-            showing_ids_for_count = [sh.id]
-            bcount = (
-                db.query(func.count(Booking.id))
-                .filter(Booking.showing_id.in_(showing_ids_for_count), Booking.payment_status == "paid")
-                .scalar()
-            )
-            duration = sh.duration_minutes or s.duration_minutes or 30
-            end_time = sh.start_time + timedelta(minutes=duration) if sh.start_time else None
-            all_showings.append({
-                "id": sh.id,
-                "session_id": s.id,
-                "session_title": s.title,
-                "start_time": sh.start_time,
-                "end_time": end_time,
-                "duration": duration,
-                "status": sh.status,
-                "auditorium": aud.name if aud else "TBD",
-                "location": aud.location if aud else "",
-                "college": college.name if college else "",
-                "city": city.name if city else "",
-                "price": float(sh.price),
-                "bookings": bcount,
-            })
+        ev = s.event
+        if not ev or ev.id in seen_event_ids:
+            continue
+        seen_event_ids.add(ev.id)
+        aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
+        college_obj = aud.college if aud else None
+        city = college_obj.city if college_obj else None
+        bcount = (
+            db.query(func.count(Booking.id))
+            .filter(Booking.event_id == ev.id, Booking.payment_status == "paid")
+            .scalar()
+        )
+        all_events.append({
+            "id": ev.id,
+            "event_name": ev.name,
+            "start_date": ev.start_date,
+            "end_date": ev.end_date,
+            "status": ev.status,
+            "auditorium": aud.name if aud else "TBD",
+            "location": aud.location if aud else "",
+            "college": college_obj.name if college_obj else "",
+            "city": city.name if city else "",
+            "price": float(ev.price or 0),
+            "bookings": bcount,
+            "sessions": [sess.title for sess in ev.sessions] if ev.sessions else [],
+        })
 
-    # Build calendar grid
     if view == "month":
-        cal = _calendar.Calendar(firstweekday=0)  # Monday first
+        cal = _calendar.Calendar(firstweekday=0)
         month_days = cal.monthdatescalendar(year, month)
 
-        # Map showings by date
-        showings_by_date = defaultdict(list)
-        for ev in all_showings:
-            if ev["start_time"]:
-                showings_by_date[ev["start_time"].date()].append(ev)
+        events_by_date = defaultdict(list)
+        for ev_data in all_events:
+            if ev_data["start_date"]:
+                events_by_date[ev_data["start_date"]].append(ev_data)
 
         weeks = []
         for week_dates in month_days:
@@ -200,11 +190,10 @@ def schedule(
                     "day": d.day,
                     "is_today": d == now.date(),
                     "is_other_month": d.month != month,
-                    "events": showings_by_date.get(d, []),
+                    "events": events_by_date.get(d, []),
                 })
             weeks.append(week_row)
 
-        # Prev / next month
         if month == 1:
             prev_year, prev_month = year - 1, 12
         else:
@@ -234,9 +223,7 @@ def schedule(
             ),
         )
     else:
-        # Week view
         if week is not None:
-            # week = ISO week number
             jan4 = datetime(year, 1, 4).date()
             start_of_year_week1 = jan4 - timedelta(days=jan4.weekday())
             week_start = start_of_year_week1 + timedelta(weeks=week - 1)
@@ -247,13 +234,12 @@ def schedule(
         week_end = week_start + timedelta(days=6)
         week_dates = [week_start + timedelta(days=i) for i in range(7)]
 
-        # Filter showings to this week
-        showings_by_date = defaultdict(list)
-        for ev in all_showings:
-            if ev["start_time"]:
-                d = ev["start_time"].date()
+        events_by_date = defaultdict(list)
+        for ev_data in all_events:
+            if ev_data["start_date"]:
+                d = ev_data["start_date"]
                 if week_start <= d <= week_end:
-                    showings_by_date[d].append(ev)
+                    events_by_date[d].append(ev_data)
 
         days = []
         for d in week_dates:
@@ -262,7 +248,7 @@ def schedule(
                 "day": d.day,
                 "weekday": d.strftime("%a"),
                 "is_today": d == now.date(),
-                "events": showings_by_date.get(d, []),
+                "events": events_by_date.get(d, []),
             })
 
         prev_week_start = week_start - timedelta(weeks=1)
@@ -311,7 +297,7 @@ def _speaker_can_access_session(speaker, session_obj, db) -> bool:
 @router.get("/sessions/{session_id}/edit")
 def session_edit(request: Request, session_id: int, db: Session = Depends(get_db)):
     user, speaker = _require_speaker(request, db)
-    session_obj = db.query(Session).get(session_id)
+    session_obj = db.query(SessionModel).get(session_id)
     if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
         flash(request, "Session not found or access denied.", "danger")
         return RedirectResponse("/speaker/", status_code=303)
@@ -323,17 +309,17 @@ def session_edit(request: Request, session_id: int, db: Session = Depends(get_db
         .all()
     )
     all_speakers = db.query(Speaker).order_by(Speaker.name).all()
-    showings = session_obj.showings
+    event = session_obj.event
     return templates.TemplateResponse(
         "speaker/session_edit.html",
-        _speaker_ctx(request, speaker=speaker, lecture=session_obj, session=session_obj, showings=showings, agenda_items=agenda_items, is_primary=is_primary, all_speakers=all_speakers),
+        _speaker_ctx(request, speaker=speaker, lecture=session_obj, session=session_obj, event=event, agenda_items=agenda_items, is_primary=is_primary, all_speakers=all_speakers),
     )
 
 
 @router.post("/sessions/{session_id}/edit")
 async def session_update(request: Request, session_id: int, db: Session = Depends(get_db)):
     user, speaker = _require_speaker(request, db)
-    session_obj = db.query(Session).get(session_id)
+    session_obj = db.query(SessionModel).get(session_id)
     if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
         flash(request, "Session not found or access denied.", "danger")
         return RedirectResponse("/speaker/", status_code=303)
@@ -347,23 +333,13 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
         session_obj.banner_url = form.get("banner_url", "").strip() or None
         session_obj.duration_minutes = int(form.get("duration_minutes", 30))
 
-        # Update first showing if it exists (schedule fields are on Showing)
-        first_showing = db.query(Showing).filter(Showing.session_id == session_id).first()
-        if first_showing:
-            start_str = form.get("start_time", "")
-            if start_str:
-                try:
-                    first_showing.start_time = datetime.fromisoformat(start_str)
-                except ValueError:
-                    pass
-            dur_override = form.get("duration_minutes", "")
-            if dur_override and dur_override.isdigit():
-                first_showing.duration_minutes = int(dur_override)
-            status_val = form.get("status", "")
-            if status_val:
-                first_showing.status = status_val
+        start_str = form.get("start_time", "")
+        if start_str:
+            try:
+                session_obj.start_time = datetime.fromisoformat(start_str)
+            except ValueError:
+                pass
 
-        # Primary speaker replaces all agenda items
         db.query(AgendaItem).filter(AgendaItem.session_id == session_id).delete()
         idx = 0
         while True:
@@ -387,7 +363,6 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
                 db.add(item)
             idx += 1
     else:
-        # Non-primary: only update their own agenda items by speaker_id
         own_items = db.query(AgendaItem).filter(
             AgendaItem.session_id == session_id,
             AgendaItem.speaker_id == speaker.id,

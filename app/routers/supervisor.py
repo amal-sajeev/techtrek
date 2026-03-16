@@ -10,8 +10,8 @@ from app.csrf import csrf_protection
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
+from app.models.event import Event
 from app.models.seat import Seat
-from app.models.showing import Showing
 from app.models.user import User
 
 router = APIRouter(prefix="/supervisor", tags=["supervisor"], dependencies=[Depends(csrf_protection)])
@@ -39,12 +39,12 @@ def _college_auditorium_ids(user: User, db: Session) -> list[int]:
     ]
 
 
-def _college_showings_query(user: User, db: Session):
-    """Return a base query of Showing objects scoped to the supervisor's college."""
+def _college_events_query(user: User, db: Session):
+    """Return a base query of Event objects scoped to the supervisor's college."""
     aud_ids = _college_auditorium_ids(user, db)
     if not aud_ids:
-        return db.query(Showing).filter(False)
-    return db.query(Showing).filter(Showing.auditorium_id.in_(aud_ids))
+        return db.query(Event).filter(False)
+    return db.query(Event).filter(Event.auditorium_id.in_(aud_ids))
 
 
 def _sv_ctx(request: Request, **kwargs):
@@ -63,52 +63,52 @@ def supervisor_dashboard(request: Request, db: Session = Depends(get_db)):
     college = sv.supervised_college
     aud_ids = _college_auditorium_ids(sv, db)
     now = now_ist()
+    today = now.date()
 
     if aud_ids:
-        base_q = db.query(Showing).filter(Showing.auditorium_id.in_(aud_ids))
-        total_showings = base_q.count()
+        base_q = db.query(Event).filter(Event.auditorium_id.in_(aud_ids))
+        total_events = base_q.count()
         upcoming_count = base_q.filter(
-            Showing.status == "published", Showing.start_time > now
+            Event.status == "published", Event.start_date >= today
         ).count()
 
-        showing_ids = [s.id for s in base_q.all()]
-        if showing_ids:
+        event_ids = [e.id for e in base_q.all()]
+        if event_ids:
             total_bookings = db.query(func.count(Booking.id)).filter(
-                Booking.showing_id.in_(showing_ids), Booking.payment_status == "paid"
+                Booking.event_id.in_(event_ids), Booking.payment_status == "paid"
             ).scalar() or 0
             total_checked_in = db.query(func.count(Booking.id)).filter(
-                Booking.showing_id.in_(showing_ids), Booking.checked_in == True
+                Booking.event_id.in_(event_ids), Booking.checked_in == True
             ).scalar() or 0
         else:
             total_bookings = 0
             total_checked_in = 0
 
-        upcoming_showings_raw = (
+        upcoming_events_raw = (
             base_q
-            .filter(Showing.status == "published", Showing.start_time > now)
-            .order_by(Showing.start_time)
+            .filter(Event.status == "published", Event.start_date >= today)
+            .order_by(Event.start_date)
             .limit(10)
             .all()
         )
     else:
-        total_showings = 0
+        total_events = 0
         upcoming_count = 0
         total_bookings = 0
         total_checked_in = 0
-        upcoming_showings_raw = []
+        upcoming_events_raw = []
 
-    upcoming_showings = []
-    for sh in upcoming_showings_raw:
-        aud = db.query(Auditorium).get(sh.auditorium_id)
+    upcoming_events = []
+    for ev in upcoming_events_raw:
+        aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
         booked = db.query(func.count(Booking.id)).filter(
-            Booking.showing_id == sh.id, Booking.payment_status == "paid"
+            Booking.event_id == ev.id, Booking.payment_status == "paid"
         ).scalar() or 0
         checked = db.query(func.count(Booking.id)).filter(
-            Booking.showing_id == sh.id, Booking.checked_in == True
+            Booking.event_id == ev.id, Booking.checked_in == True
         ).scalar() or 0
-        upcoming_showings.append({
-            "showing": sh,
-            "session_title": sh.session.title if sh.session else "Unknown",
+        upcoming_events.append({
+            "event": ev,
             "auditorium_name": aud.name if aud else "—",
             "booked": booked,
             "checked_in": checked,
@@ -120,11 +120,11 @@ def supervisor_dashboard(request: Request, db: Session = Depends(get_db)):
             request,
             active_page="dashboard",
             sv_college=college,
-            total_showings=total_showings,
+            total_events=total_events,
             upcoming_count=upcoming_count,
             total_bookings=total_bookings,
             total_checked_in=total_checked_in,
-            upcoming_showings=upcoming_showings,
+            upcoming_events=upcoming_events,
         ),
     )
 
@@ -146,17 +146,17 @@ def supervisor_bookings(
     aud_ids = _college_auditorium_ids(sv, db)
 
     if aud_ids:
-        showing_ids = [
-            s.id for s in
-            db.query(Showing.id).filter(Showing.auditorium_id.in_(aud_ids)).all()
+        event_ids = [
+            e.id for e in
+            db.query(Event.id).filter(Event.auditorium_id.in_(aud_ids)).all()
         ]
     else:
-        showing_ids = []
+        event_ids = []
 
-    if not showing_ids:
+    if not event_ids:
         bookings_list = []
     else:
-        bq = db.query(Booking).filter(Booking.showing_id.in_(showing_ids))
+        bq = db.query(Booking).filter(Booking.event_id.in_(event_ids))
         if status_filter:
             bq = bq.filter(Booking.payment_status == status_filter)
         else:
@@ -166,20 +166,19 @@ def supervisor_bookings(
         bookings_list = []
         for b in bookings_raw:
             u = db.query(User).get(b.user_id)
-            showing = db.query(Showing).get(b.showing_id)
-            sess = showing.session if showing else None
+            event = db.query(Event).get(b.event_id) if b.event_id else None
             seat = db.query(Seat).get(b.seat_id)
             if q:
                 search = q.lower()
                 match = (
                     (u and (search in (u.username or "").lower() or search in (u.email or "").lower() or (u.full_name and search in u.full_name.lower())))
-                    or (sess and search in sess.title.lower())
+                    or (event and search in event.name.lower())
                     or (b.booking_ref and search in b.booking_ref.lower())
                     or (b.ticket_id and search in b.ticket_id.lower())
                 )
                 if not match:
                     continue
-            bookings_list.append({"booking": b, "user": u, "session": sess, "showing": showing, "seat": seat})
+            bookings_list.append({"booking": b, "user": u, "event": event, "seat": seat})
 
     return templates.TemplateResponse(
         "supervisor/bookings.html",
@@ -203,24 +202,23 @@ def supervisor_schedule(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login?next=/supervisor/schedule", status_code=303)
 
     college = sv.supervised_college
-    base_q = _college_showings_query(sv, db)
-    showings = (
+    base_q = _college_events_query(sv, db)
+    events = (
         base_q
-        .filter(Showing.status.in_(["published", "completed"]))
-        .order_by(Showing.start_time)
+        .filter(Event.status.in_(["published", "completed"]))
+        .order_by(Event.start_date)
         .all()
     )
 
     grouped = defaultdict(list)
-    for sh in showings:
-        aud = db.query(Auditorium).get(sh.auditorium_id)
+    for ev in events:
+        aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
         booked = db.query(func.count(Booking.id)).filter(
-            Booking.showing_id == sh.id, Booking.payment_status == "paid"
+            Booking.event_id == ev.id, Booking.payment_status == "paid"
         ).scalar() or 0
-        date_key = sh.start_time.strftime("%Y-%m-%d")
+        date_key = ev.start_date.strftime("%Y-%m-%d") if ev.start_date else "TBD"
         grouped[date_key].append({
-            "showing": sh,
-            "session_title": sh.session.title if sh.session else "Unknown",
+            "event": ev,
             "auditorium": aud,
             "booked": booked,
         })
@@ -245,15 +243,15 @@ def supervisor_checkin_page(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login?next=/supervisor/checkin", status_code=303)
 
     college = sv.supervised_college
-    showings = (
-        _college_showings_query(sv, db)
-        .filter(Showing.status.in_(["published", "completed"]))
-        .order_by(Showing.start_time.desc())
+    events_list = (
+        _college_events_query(sv, db)
+        .filter(Event.status.in_(["published", "completed"]))
+        .order_by(Event.start_date.desc())
         .all()
     )
     return templates.TemplateResponse(
         "supervisor/checkin.html",
-        _sv_ctx(request, active_page="checkin", sv_college=college, sessions=showings, result=None),
+        _sv_ctx(request, active_page="checkin", sv_college=college, events_list=events_list, result=None),
     )
 
 
@@ -266,20 +264,20 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
     college = sv.supervised_college
     form = await request.form()
     ticket_id = form.get("ticket_id", "").strip()
-    session_id_raw = form.get("session_id", "")
+    event_id_raw = form.get("event_id", "")
 
-    college_showings = (
-        _college_showings_query(sv, db)
-        .filter(Showing.status.in_(["published", "completed"]))
-        .order_by(Showing.start_time.desc())
+    college_events = (
+        _college_events_query(sv, db)
+        .filter(Event.status.in_(["published", "completed"]))
+        .order_by(Event.start_date.desc())
         .all()
     )
-    college_showing_ids = {sh.id for sh in college_showings}
+    college_event_ids = {ev.id for ev in college_events}
 
     if not ticket_id:
         return templates.TemplateResponse(
             "supervisor/checkin.html",
-            _sv_ctx(request, active_page="checkin", sv_college=college, sessions=college_showings, result={"status": "error", "msg": "Please enter a ticket ID."}),
+            _sv_ctx(request, active_page="checkin", sv_college=college, events_list=college_events, result={"status": "error", "msg": "Please enter a ticket ID."}),
         )
 
     is_group = ticket_id.startswith("GROUP-")
@@ -291,53 +289,22 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
             Booking.payment_status == "paid",
         ).all()
 
-        all_group = [b for b in all_group if b.showing_id in college_showing_ids]
+        all_group = [b for b in all_group if b.event_id in college_event_ids]
 
         result = None
         group_bookings = []
 
         if not all_group:
             result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets at {college.name}."}
-        elif session_id_raw:
+        elif event_id_raw:
             try:
-                group_bookings = [b for b in all_group if b.showing_id == int(session_id_raw)]
+                group_bookings = [b for b in all_group if b.event_id == int(event_id_raw)]
             except ValueError:
                 group_bookings = all_group
             if not group_bookings:
-                result = {"status": "error", "msg": "No tickets in this group match the selected session."}
+                result = {"status": "error", "msg": "No tickets in this group match the selected event."}
         else:
-            now = now_ist()
-            showing_ids = {b.showing_id for b in all_group}
-            active_showings = []
-            for shid in showing_ids:
-                sh = db.query(Showing).get(shid)
-                if not sh or not sh.start_time:
-                    continue
-                duration = sh.effective_duration or 30
-                end = sh.start_time + timedelta(minutes=duration)
-                if (sh.start_time - timedelta(hours=1)) <= now <= (end + timedelta(minutes=30)):
-                    active_showings.append(sh)
-            if len(active_showings) >= 1:
-                unchecked = [
-                    sh for sh in active_showings
-                    if any(not b.checked_in for b in all_group if b.showing_id == sh.id)
-                ]
-                target = unchecked if unchecked else active_showings
-                if len(target) == 1:
-                    group_bookings = [b for b in all_group if b.showing_id == target[0].id]
-                else:
-                    titles = ", ".join(f"'{sh.session.title if sh.session else 'Session'}'" for sh in target)
-                    result = {"status": "error", "msg": f"Multiple sessions are active right now ({titles}). Please select a specific session from the dropdown."}
-            else:
-                upcoming = []
-                for shid in showing_ids:
-                    sh = db.query(Showing).get(shid)
-                    if sh and sh.start_time and sh.start_time > now:
-                        upcoming.append(sh)
-                upcoming.sort(key=lambda sh: sh.start_time)
-                titles = ", ".join(f"'{sh.session.title if sh.session else 'Session'}' ({sh.start_time.strftime('%b %d %I:%M %p')})" for sh in upcoming[:3])
-                hint = f" Upcoming: {titles}" if titles else ""
-                result = {"status": "error", "msg": f"No session is currently active. Please select a session from the dropdown.{hint}"}
+            group_bookings = all_group
 
         if group_bookings:
             now = now_ist()
@@ -355,11 +322,11 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
             db.commit()
 
             user = db.query(User).get(group_bookings[0].user_id)
-            showing = db.query(Showing).get(group_bookings[0].showing_id)
-            session_title = showing.session.title if showing and showing.session else "unknown"
+            event = db.query(Event).get(group_bookings[0].event_id) if group_bookings[0].event_id else None
+            event_name = event.name if event else "unknown"
 
             if newly_checked and not already_checked:
-                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{session_title}'."
+                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{event_name}'."
                 status = "success"
             elif newly_checked and already_checked:
                 msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in."
@@ -374,28 +341,27 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
                 "is_group": True,
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
-                "session_title": session_title,
+                "event_name": event_name,
                 "newly_checked": newly_checked,
                 "already_checked": already_checked,
             }
     else:
         query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
-        if session_id_raw:
+        if event_id_raw:
             try:
-                query = query.filter(Booking.showing_id == int(session_id_raw))
+                query = query.filter(Booking.event_id == int(event_id_raw))
             except ValueError:
                 pass
         booking = query.first()
 
         if not booking:
             result = {"status": "error", "msg": f"Ticket '{ticket_id}' not found or not valid."}
-        elif booking.showing_id not in college_showing_ids:
-            result = {"status": "error", "msg": f"This ticket is not for a showing at {college.name}."}
+        elif booking.event_id not in college_event_ids:
+            result = {"status": "error", "msg": f"This ticket is not for an event at {college.name}."}
         elif booking.checked_in:
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)
-            showing = db.query(Showing).get(booking.showing_id)
-            session_title = showing.session.title if showing and showing.session else ""
+            event = db.query(Event).get(booking.event_id) if booking.event_id else None
             time_str = booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'
             result = {
                 "status": "reentry",
@@ -403,7 +369,7 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
                 "seat_label": seat.label if seat else "",
-                "session_title": session_title,
+                "event_name": event.name if event else "",
                 "ticket_id": ticket_id,
             }
         else:
@@ -412,30 +378,29 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
             db.commit()
             user = db.query(User).get(booking.user_id)
             seat = db.query(Seat).get(booking.seat_id)
-            showing = db.query(Showing).get(booking.showing_id)
-            session_title = showing.session.title if showing and showing.session else ""
+            event = db.query(Event).get(booking.event_id) if booking.event_id else None
             result = {
                 "status": "success",
                 "msg": "Check-in successful!",
                 "user_name": user.full_name or user.username if user else "Unknown",
                 "user_email": user.email if user else "",
                 "seat_label": seat.label if seat else "",
-                "session_title": session_title,
+                "event_name": event.name if event else "",
                 "ticket_id": ticket_id,
             }
 
     stats = None
-    if session_id_raw:
+    if event_id_raw:
         try:
-            sid = int(session_id_raw)
-            if sid in college_showing_ids:
-                total_booked = db.query(func.count(Booking.id)).filter(Booking.showing_id == sid, Booking.payment_status == "paid").scalar()
-                checked_in_count = db.query(func.count(Booking.id)).filter(Booking.showing_id == sid, Booking.payment_status == "paid", Booking.checked_in == True).scalar()
+            eid = int(event_id_raw)
+            if eid in college_event_ids:
+                total_booked = db.query(func.count(Booking.id)).filter(Booking.event_id == eid, Booking.payment_status == "paid").scalar()
+                checked_in_count = db.query(func.count(Booking.id)).filter(Booking.event_id == eid, Booking.payment_status == "paid", Booking.checked_in == True).scalar()
                 stats = {"total": total_booked, "checked_in": checked_in_count}
         except ValueError:
             pass
 
     return templates.TemplateResponse(
         "supervisor/checkin.html",
-        _sv_ctx(request, active_page="checkin", sv_college=college, sessions=college_showings, result=result, stats=stats, selected_session=session_id_raw),
+        _sv_ctx(request, active_page="checkin", sv_college=college, events_list=college_events, result=result, stats=stats, selected_event=event_id_raw),
     )

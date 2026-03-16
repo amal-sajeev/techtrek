@@ -66,9 +66,9 @@
     {% set next_week = [] %}
     {% set later     = [] %}
     {% for item in events %}
-      {% if item.date_from and item.date_from <= week_end %}
+      {% if item.event.start_date and item.event.start_date <= week_end.date() %}
         {% if this_week.append(item) %}{% endif %}
-      {% elif item.date_from and item.date_from <= two_weeks_end %}
+      {% elif item.event.start_date and item.event.start_date <= two_weeks_end.date() %}
         {% if next_week.append(item) %}{% endif %}
       {% else %}
         {% if later.append(item) %}{% endif %}
@@ -105,10 +105,10 @@
             <img src="https://images.unsplash.com/{{ img_id }}?w=700&auto=format&fit=crop&q=80"
                  alt="{{ item.event.name }}" loading="lazy">
             {% endif %}
-            {% if item.date_from %}
+            {% if item.event.start_date %}
             <div class="ev-date-badge">
-              <span class="ev-date-month">{{ item.date_from.strftime('%b') }}</span>
-              <span class="ev-date-day">{{ item.date_from.day }}</span>
+              <span class="ev-date-month">{{ item.event.start_date.strftime('%b') }}</span>
+              <span class="ev-date-day">{{ item.event.start_date.day }}</span>
             </div>
             {% endif %}
           </div>
@@ -121,7 +121,8 @@
             <h3 class="ev-card-title">{{ item.event.name }}</h3>
 
             <div class="ev-card-venue">
-              {% if item.college %}<span>{{ item.college.name }}</span>{% endif %}
+              {% set venue = item.auditorium.name if item.auditorium else (item.college.name if item.college else '') %}
+              {% if venue %}<span>{{ venue }}</span>{% endif %}
               {% if item.city %}
               <span class="ev-card-dot">·</span>
               <span class="ev-card-city">{{ item.city.name }}{% if item.city.state %}, {{ item.city.state }}{% endif %}</span>
@@ -136,19 +137,24 @@
               <span class="ev-card-pill pill-sessions">
                 {{ item.session_count }} session{{ 's' if item.session_count != 1 else '' }}
               </span>
-              {% if item.date_from %}
+              {% if item.event.start_date %}
               <span class="ev-card-pill pill-date">
-                {% if item.date_to and item.date_to.date() != item.date_from.date() %}
-                  {{ item.date_from.strftime('%b') }} {{ item.date_from.day }}–{{ item.date_to.day }}
+                {% if item.event.end_date and item.event.end_date != item.event.start_date %}
+                  {{ item.event.start_date.strftime('%b') }} {{ item.event.start_date.day }}–{{ item.event.end_date.day }}
                 {% else %}
-                  {{ item.date_from.strftime('%b') }} {{ item.date_from.day }}
+                  {{ item.event.start_date.strftime('%b') }} {{ item.event.start_date.day }}
                 {% endif %}
               </span>
               {% endif %}
-              {% if item.min_price is not none %}
+              {% if item.price is not none %}
               <span class="ev-card-pill pill-price">
-                {% if item.min_price == 0 %}Free{% else %}from ₹{{ '{:,.0f}'.format(item.min_price) }}{% endif %}
+                {% if item.price == 0 %}Free{% else %}from ₹{{ '{:,.0f}'.format(item.price) }}{% endif %}
               </span>
+              {% endif %}
+              {% if item.availability == 'sold-out' %}
+              <span class="ev-card-pill pill-soldout">Sold Out</span>
+              {% elif item.availability == 'filling-up' %}
+              <span class="ev-card-pill pill-filling">{{ item.stats.available }} left</span>
               {% endif %}
               <span class="ev-card-cta">Book Now &rarr;</span>
             </div>

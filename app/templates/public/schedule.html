@@ -33,26 +33,33 @@
     <div id="schedule-content">
     {% if grouped %}
       {% for date_key, items in grouped.items() %}
-      {% set dt = items[0].showing.start_time %}
+      {% set dt = items[0].event.start_date if items and items[0].event and items[0].event.start_date else none %}
       <div class="schedule-date-group reveal">
-        <h2 class="schedule-date-heading">{{ dt.strftime('%A, %B %d, %Y') }}</h2>
+        <h2 class="schedule-date-heading">{% if dt %}{{ dt.strftime('%A, %B %d, %Y') }}{% else %}{{ date_key }}{% endif %}</h2>
         <div class="schedule-timeline">
           {% for item in items %}
-          {% set s = item.session %}
-          {% set sh = item.showing %}
+          {% set ev = item.event %}
           {% set aud = item.auditorium %}
-          <div class="schedule-card">
-            <div class="schedule-time">
-              <span class="schedule-time-text">{{ sh.start_time.strftime('%I:%M %p') }}</span>
-              <span class="schedule-duration">{{ sh.effective_duration }} min</span>
-            </div>
-            <div class="schedule-info">
-              <a href="/sessions/{{ s.id }}" class="schedule-title">{{ s.title }}</a>
-              <p class="schedule-speaker">{{ s.speaker_name }}</p>
+          {% set sessions_agenda = item.sessions %}
+          <div class="schedule-card schedule-event-block">
+            <div class="schedule-info" style="margin-bottom:.5rem">
+              <a href="/events/{{ ev.id }}" class="schedule-title">{{ ev.name }}</a>
               {% if aud %}
-              <p class="schedule-venue">&#128205; {{ aud.name }}, {{ aud.location }}</p>
+              <p class="schedule-venue">&#128205; {{ aud.name }}{% if aud.location %}, {{ aud.location }}{% endif %}</p>
               {% endif %}
             </div>
+            {% for s in sessions_agenda %}
+            <div class="schedule-card" style="margin-left:1.5rem;border-left:2px solid var(--border)">
+              <div class="schedule-time">
+                <span class="schedule-time-text">{% if s.start_time %}{{ s.start_time.strftime('%I:%M %p') }}{% else %}—{% endif %}</span>
+                <span class="schedule-duration">{{ s.duration_minutes or 30 }} min</span>
+              </div>
+              <div class="schedule-info">
+                <a href="/sessions/{{ s.id }}" class="schedule-title">{{ s.title }}</a>
+                <p class="schedule-speaker">{{ s.speaker_name }}</p>
+              </div>
+            </div>
+            {% endfor %}
           </div>
           {% endfor %}
         </div>
@@ -60,8 +67,8 @@
       {% endfor %}
     {% else %}
       <div class="empty-state reveal">
-        <h3>No sessions found</h3>
-        <p>{% if college_id or auditorium_id %}No sessions match the selected filters.{% else %}No published sessions available yet.{% endif %}</p>
+        <h3>No events found</h3>
+        <p>{% if college_id or auditorium_id %}No events match the selected filters.{% else %}No published events available yet.{% endif %}</p>
       </div>
     {% endif %}
     </div>

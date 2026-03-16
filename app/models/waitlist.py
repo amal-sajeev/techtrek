@@ -10,21 +10,10 @@ class Waitlist(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    showing_id = Column(Integer, ForeignKey("showings.id"), nullable=False)
-    priority_showing_id = Column(
-        Integer, ForeignKey("showings.id"), nullable=True
-    )
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
     joined_at = Column(DateTime, default=now_ist)
     notified = Column(Boolean, default=False)
     priority_expires_at = Column(DateTime, nullable=True)
 
     user = relationship("User", back_populates="waitlist_entries")
-    showing = relationship(
-        "Showing",
-        back_populates="waitlist_entries",
-        foreign_keys=[showing_id],
-    )
-    priority_showing = relationship(
-        "Showing",
-        foreign_keys=[priority_showing_id],
-    )
+    event = relationship("Event", back_populates="waitlist_entries")

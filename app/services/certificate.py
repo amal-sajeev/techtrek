@@ -539,7 +539,7 @@ def _parse_cert_style(lecture) -> dict:
     return merged
 
 
-def generate_certificate_pdf(booking, user, session_obj, showing, auditorium) -> bytes:
+def generate_certificate_pdf(booking, user, session_obj, event, auditorium) -> bytes:
     _register_fonts()
 
     cert_title      = getattr(session_obj, "cert_title", None) or "CERTIFICATE OF ATTENDANCE"
@@ -559,7 +559,7 @@ def generate_certificate_pdf(booking, user, session_obj, showing, auditorium) ->
     attendee_name = user.full_name or user.username
     session_title = session_obj.title if session_obj else "Session"
     speaker_name  = session_obj.speaker_name if session_obj else ""
-    session_date  = showing.start_time.strftime("%d %B %Y") if showing else ""
+    session_date  = event.start_date.strftime("%d %B %Y") if event and event.start_date else ""
     venue         = (
         f"{auditorium.name}, {auditorium.location}" if auditorium else "TechTrek Venue"
     )

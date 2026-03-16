@@ -110,7 +110,9 @@ async def login(request: Request, db: Session = Depends(get_db), _csrf: None = D
         )
         db.commit()
         flash(request, "Invalid username/email or password.", "danger")
-        return RedirectResponse("/auth/login", status_code=303)
+        next_url = form.get("next", "").strip() or request.query_params.get("next", "")
+        qs = f"?next={next_url}" if next_url else ""
+        return RedirectResponse(f"/auth/login{qs}", status_code=303)
 
     request.session["user_id"] = user.id
     _try_link_speaker_token(request, db, user)
@@ -121,7 +123,10 @@ async def login(request: Request, db: Session = Depends(get_db), _csrf: None = D
     )
     db.commit()
     flash(request, f"Welcome back, {user.username}!", "success")
-    next_url = _safe_next(request.query_params.get("next", ""))
+    next_url = _safe_next(
+        form.get("next", "").strip()
+        or request.query_params.get("next", "")
+    )
     return RedirectResponse(next_url, status_code=303)
 
 

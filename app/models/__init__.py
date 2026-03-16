@@ -6,7 +6,6 @@ from app.models.seat import Seat
 from app.models.speaker import Speaker
 from app.models.agenda import AgendaItem
 from app.models.session import Session
-from app.models.showing import Showing
 from app.models.session_speaker import SessionSpeaker
 from app.models.booking import Booking
 from app.models.waitlist import Waitlist
@@ -17,12 +16,12 @@ from app.models.webhook_log import WebhookLog
 from app.models.session_recording import SessionRecording
 from app.models.site_setting import SiteSetting
 from app.models.event import Event
-from app.models.event_showing import EventShowing
+from app.models.coupon import Coupon
 from app.models.feedback import Feedback
 
 __all__ = [
     "User", "City", "College", "Auditorium", "Seat", "Speaker", "AgendaItem",
-    "Session", "Showing", "SessionSpeaker", "Booking", "Waitlist", "Testimonial",
+    "Session", "SessionSpeaker", "Booking", "Waitlist", "Testimonial",
     "NewsletterSubscriber", "SeatType", "ActivityLog", "WebhookLog",
-    "SessionRecording", "SiteSetting", "Event", "EventShowing", "Feedback",
+    "SessionRecording", "SiteSetting", "Event", "Coupon", "Feedback",
 ]

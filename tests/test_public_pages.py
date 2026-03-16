@@ -1,6 +1,6 @@
 """Tests for public-facing pages (home, sessions, schedule, recordings)."""
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 from app.models.booking import Booking
@@ -9,9 +9,9 @@ from tests.conftest import (
     admin_session,
     make_auditorium,
     make_college,
+    make_event,
     make_recording,
     make_session,
-    make_showing,
     make_testimonial,
     make_feedback,
     make_user,
@@ -26,17 +26,17 @@ class TestHomePage:
         assert resp.status_code == 200
         assert b"TechTrek" in resp.content
 
-    def test_home_with_upcoming_showing(self, client, db):
-        session = make_session(db, title="Quantum 101")
+    def test_home_with_upcoming_event(self, client, db):
         aud = make_auditorium(db, name="Hall A")
-        make_showing(
+        event = make_event(
             db,
-            session=session,
+            name="Quantum 101",
             auditorium=aud,
-            start_time=datetime.now() + timedelta(days=3),
+            start_date=date.today() + timedelta(days=3),
             price=99,
             status="published",
         )
+        make_session(db, title="Quantum 101", event=event)
         db.commit()
 
         resp = client.get("/")
@@ -53,12 +53,11 @@ class TestHomePage:
 
     def test_home_with_featured_feedback(self, client, db):
         user = make_user(db, username="fb_user", email="fb@test.com")
-        session = make_session(db, title="AI Talk")
-        showing = make_showing(db, session=session, price=50)
+        event = make_event(db, name="AI Talk", price=50)
         make_feedback(
             db,
             user=user,
-            showing=showing,
+            event=event,
             rating=5,
             comment="Fantastic session!",
             allow_public=True,
@@ -70,15 +69,14 @@ class TestHomePage:
         assert resp.status_code == 200
         assert b"Fantastic session!" in resp.content
 
-    def test_home_price_from_showing(self, client, db):
-        """Price should come from the Showing, not the Session."""
-        session = make_session(db, title="Price Check")
+    def test_home_price_from_event(self, client, db):
+        """Price should come from the Event."""
         aud = make_auditorium(db, name="Hall B")
-        make_showing(
+        make_event(
             db,
-            session=session,
+            name="Price Check",
             auditorium=aud,
-            start_time=datetime.now() + timedelta(days=5),
+            start_date=date.today() + timedelta(days=5),
             price=299,
             status="published",
         )
@@ -90,16 +88,16 @@ class TestHomePage:
 
 
 class TestSessionsList:
-    """GET /sessions must list published sessions."""
+    """GET /sessions must list published sessions (sessions within published events)."""
 
     def test_sessions_empty(self, client, db):
         resp = client.get("/sessions")
         assert resp.status_code == 200
 
     def test_sessions_with_data(self, client, db):
-        session = make_session(db, title="Cloud Computing")
-        make_showing(db, session=session, status="published",
-                     start_time=datetime.now() + timedelta(days=2))
+        event = make_event(db, name="Cloud Event", status="published",
+                          start_date=date.today() + timedelta(days=2))
+        make_session(db, title="Cloud Computing", event=event)
         db.commit()
 
         resp = client.get("/sessions")
@@ -108,16 +106,16 @@ class TestSessionsList:
 
 
 class TestSessionDetail:
-    """GET /sessions/{id} must show session details with showings."""
+    """GET /sessions/{id} must show session details with event."""
 
     def test_session_detail_not_found(self, client, db):
         resp = client.get("/sessions/99999")
         assert resp.status_code == 404
 
-    def test_session_detail_with_showing(self, client, db):
-        session = make_session(db, title="Detail Test Session")
-        make_showing(db, session=session, status="published",
-                     start_time=datetime.now() + timedelta(days=4), price=199)
+    def test_session_detail_with_event(self, client, db):
+        event = make_event(db, name="Detail Event", status="published",
+                          start_date=date.today() + timedelta(days=4), price=199)
+        session = make_session(db, title="Detail Test Session", event=event)
         db.commit()
 
         resp = client.get(f"/sessions/{session.id}")
@@ -126,16 +124,16 @@ class TestSessionDetail:
 
 
 class TestSchedulePage:
-    """GET /schedule must group showings by date."""
+    """GET /schedule must group events by date."""
 
     def test_schedule_empty(self, client, db):
         resp = client.get("/schedule")
         assert resp.status_code == 200
 
-    def test_schedule_with_showing(self, client, db):
-        session = make_session(db, title="ML Workshop")
-        make_showing(db, session=session, status="published",
-                     start_time=datetime.now() + timedelta(days=1))
+    def test_schedule_with_event(self, client, db):
+        event = make_event(db, name="ML Event", status="published",
+                          start_date=date.today() + timedelta(days=1))
+        make_session(db, title="ML Workshop", event=event)
         db.commit()
 
         resp = client.get("/schedule")
@@ -157,15 +155,17 @@ class TestRecordingsPage:
         resp = client.get("/recordings")
         assert resp.status_code == 200
 
-    def test_recordings_with_booked_session(self, client, db):
-        """Recordings page renders correctly using speaker_name and showing.start_time."""
+    def test_recordings_with_booked_event(self, client, db):
+        """Recordings page renders correctly using speaker_name and event/session dates."""
         user = make_user(db, username="rec_booker", email="rec_booker@test.com")
-        session = make_session(db, title="Recorded Talk", speaker_name="Prof. Rec")
         aud = make_auditorium(db, name="Rec Hall")
-        showing = make_showing(
-            db, session=session, auditorium=aud,
+        event = make_event(
+            db, auditorium=aud, name="Recorded Event",
+            start_date=date(2026, 6, 15), price=100, status="completed",
+        )
+        session = make_session(
+            db, title="Recorded Talk", speaker_name="Prof. Rec", event=event,
             start_time=datetime(2026, 6, 15, 10, 0),
-            price=100, status="completed",
         )
         make_recording(db, session=session, is_public=True)
         seat = Seat(auditorium_id=aud.id, row_num=0, col_num=0, label="R1")
@@ -173,7 +173,7 @@ class TestRecordingsPage:
         db.flush()
         booking = Booking(
             user_id=user.id,
-            showing_id=showing.id,
+            event_id=event.id,
             seat_id=seat.id,
             amount_paid=100,
             payment_status="paid",

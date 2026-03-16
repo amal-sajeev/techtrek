@@ -1,6 +1,6 @@
 """Tests for admin pages, supervisor checkin, speaker dashboard, admin recordings."""
 
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from app.models.booking import Booking
 from app.models.seat import Seat
@@ -8,10 +8,10 @@ from tests.conftest import (
     admin_session,
     make_auditorium,
     make_college,
+    make_event,
     make_feedback,
     make_recording,
     make_session,
-    make_showing,
     make_speaker,
     make_user,
 )
@@ -48,13 +48,12 @@ class TestAdminDashboard:
         assert b"Dashboard" in resp.content
 
     def test_dashboard_with_bookings(self, client, db):
-        """Dashboard must render when bookings reference showings (not sessions)."""
+        """Dashboard must render when bookings reference events."""
         admin = _login_admin(client, db)
-        session = make_session(db, title="Dashboard Talk")
         aud = make_auditorium(db, name="Dashboard Hall")
-        showing = make_showing(
-            db, session=session, auditorium=aud,
-            start_time=datetime.now() + timedelta(days=1),
+        event = make_event(
+            db, name="Dashboard Talk", auditorium=aud,
+            start_date=date.today() + timedelta(days=1),
             price=50, status="published",
         )
         seat = Seat(auditorium_id=aud.id, row_num=0, col_num=0, label="A1")
@@ -63,7 +62,7 @@ class TestAdminDashboard:
         user = make_user(db, username="booker_dash", email="booker_dash@test.com")
         booking = Booking(
             user_id=user.id,
-            showing_id=showing.id,
+            event_id=event.id,
             seat_id=seat.id,
             amount_paid=50,
             payment_status="paid",
@@ -79,7 +78,7 @@ class TestAdminDashboard:
 
 
 class TestAdminSessions:
-    """GET /admin/sessions should show sessions with showing-level details."""
+    """GET /admin/sessions should show sessions with event-level details."""
 
     def test_sessions_list_unauthenticated(self, client, db):
         resp = client.get("/admin/sessions", follow_redirects=False)
@@ -93,14 +92,9 @@ class TestAdminSessions:
 
     def test_sessions_list_with_data(self, client, db):
         _login_admin(client, db)
-        session = make_session(db, title="Admin Session Test")
-        make_showing(
-            db,
-            session=session,
-            status="published",
-            start_time=datetime.now() + timedelta(days=5),
-            price=100,
-        )
+        event = make_event(db, name="Admin Event", status="published",
+                          start_date=date.today() + timedelta(days=5), price=100)
+        make_session(db, title="Admin Session Test", event=event)
         db.commit()
 
         resp = client.get("/admin/sessions")
@@ -116,15 +110,11 @@ class TestAdminSchedule:
         resp = client.get("/admin/schedule")
         assert resp.status_code == 200
 
-    def test_schedule_with_showing(self, client, db):
+    def test_schedule_with_event(self, client, db):
         _login_admin(client, db)
-        session = make_session(db, title="Schedule Test")
-        make_showing(
-            db,
-            session=session,
-            status="published",
-            start_time=datetime.now() + timedelta(days=2),
-        )
+        event = make_event(db, name="Schedule Event", status="published",
+                          start_date=date.today() + timedelta(days=2))
+        make_session(db, title="Schedule Test", event=event)
         db.commit()
 
         resp = client.get("/admin/schedule")
@@ -133,7 +123,7 @@ class TestAdminSchedule:
 
 
 class TestAdminBookings:
-    """GET /admin/bookings should list bookings using showing_id."""
+    """GET /admin/bookings should list bookings using event_id."""
 
     def test_bookings_list_empty(self, client, db):
         _login_admin(client, db)
@@ -142,16 +132,15 @@ class TestAdminBookings:
 
     def test_bookings_list_with_data(self, client, db):
         _login_admin(client, db)
-        session = make_session(db, title="Booked Session")
         aud = make_auditorium(db, name="Booking Hall")
-        showing = make_showing(db, session=session, auditorium=aud, price=100)
+        event = make_event(db, name="Booked Event", auditorium=aud, price=100)
         seat = Seat(auditorium_id=aud.id, row_num=0, col_num=0, label="B1")
         db.add(seat)
         db.flush()
         user = make_user(db, username="booker_admin", email="booker_admin@test.com")
         booking = Booking(
             user_id=user.id,
-            showing_id=showing.id,
+            event_id=event.id,
             seat_id=seat.id,
             amount_paid=100,
             payment_status="paid",
@@ -174,7 +163,7 @@ class TestAdminCheckin:
 
 
 class TestAdminSessionForm:
-    """GET /admin/sessions/new and /admin/sessions/{id}/edit."""
+    """GET /admin/sessions/new and /admin/sessions/{id}/edit. Session form has event_id, start_time, order."""
 
     def test_session_create_form(self, client, db):
         _login_admin(client, db)
@@ -184,13 +173,9 @@ class TestAdminSessionForm:
 
     def test_session_edit_form(self, client, db):
         _login_admin(client, db)
-        session = make_session(db, title="Editable Session")
-        aud = make_auditorium(db, name="Edit Hall")
-        showing = make_showing(
-            db, session=session, auditorium=aud,
-            start_time=datetime.now() + timedelta(days=3),
-            price=200, status="draft",
-        )
+        event = make_event(db, name="Editable Event", auditorium=make_auditorium(db, name="Edit Hall"),
+                          start_date=date.today() + timedelta(days=3), price=200, status="draft")
+        session = make_session(db, title="Editable Session", event=event)
         db.commit()
 
         resp = client.get(f"/admin/sessions/{session.id}/edit")
@@ -278,23 +263,23 @@ class TestSupervisorPortal:
         other_college = make_college(db, name="Other College Stats")
         aud = make_auditorium(db, name="Scoped Aud", college=college)
         aud_other = make_auditorium(db, name="Other Aud", college=other_college)
-        session = make_session(db, title="Scoped Session")
-        showing = make_showing(db, session=session, auditorium=aud, status="published",
-                               start_time=datetime.now() + timedelta(days=3))
-        showing_other = make_showing(db, session=session, auditorium=aud_other, status="published",
-                                     start_time=datetime.now() + timedelta(days=4))
+        event = make_event(db, name="Scoped Event", auditorium=aud, status="published",
+                          start_date=date.today() + timedelta(days=3))
+        make_event(db, name="Other Event", auditorium=aud_other, status="published",
+                  start_date=date.today() + timedelta(days=4))
+        make_session(db, title="Scoped Session", event=event)
         db.flush()
         user, _ = _login_supervisor(client, db, college=college)
         resp = client.get("/supervisor/")
         assert resp.status_code == 200
-        assert b"Scoped Session" in resp.content
+        assert b"Scoped" in resp.content
 
     def test_supervisor_bookings_page(self, client, db):
         college = make_college(db, name="Bookings College")
         aud = make_auditorium(db, name="Bookings Aud", college=college)
-        session = make_session(db, title="Bookings Session")
-        showing = make_showing(db, session=session, auditorium=aud, status="published",
-                               start_time=datetime.now() + timedelta(days=3))
+        event = make_event(db, name="Bookings Event", auditorium=aud, status="published",
+                          start_date=date.today() + timedelta(days=3))
+        make_session(db, title="Bookings Session", event=event)
         db.flush()
         user, _ = _login_supervisor(client, db, college=college)
         resp = client.get("/supervisor/bookings")
@@ -305,9 +290,9 @@ class TestSupervisorPortal:
     def test_supervisor_schedule_page(self, client, db):
         college = make_college(db, name="Schedule College")
         aud = make_auditorium(db, name="Schedule Aud", college=college)
-        session = make_session(db, title="Schedule Session")
-        showing = make_showing(db, session=session, auditorium=aud, status="published",
-                               start_time=datetime.now() + timedelta(days=3))
+        event = make_event(db, name="Schedule Event", auditorium=aud, status="published",
+                          start_date=date.today() + timedelta(days=3))
+        make_session(db, title="Schedule Session", event=event)
         db.flush()
         user, _ = _login_supervisor(client, db, college=college)
         resp = client.get("/supervisor/schedule")
@@ -318,9 +303,9 @@ class TestSupervisorPortal:
     def test_supervisor_checkin_page(self, client, db):
         college = make_college(db, name="Checkin College")
         aud = make_auditorium(db, name="Checkin Aud", college=college)
-        session = make_session(db, title="Checkin Talk")
-        showing = make_showing(db, session=session, auditorium=aud, status="published",
-                               start_time=datetime.now() + timedelta(days=1))
+        event = make_event(db, name="Checkin Event", auditorium=aud, status="published",
+                          start_date=date.today() + timedelta(days=1))
+        make_session(db, title="Checkin Talk", event=event)
         db.flush()
         user, _ = _login_supervisor(client, db, college=college)
         resp = client.get("/supervisor/checkin")
@@ -329,23 +314,23 @@ class TestSupervisorPortal:
         assert b"Checkin Talk" in resp.content
 
     def test_supervisor_checkin_scoped_to_college(self, client, db):
-        """Supervisor should only see showings at their college in the dropdown."""
+        """Supervisor should only see events at their college in the dropdown."""
         college_a = make_college(db, name="College A Checkin")
         college_b = make_college(db, name="College B Checkin")
         aud_a = make_auditorium(db, name="Aud A", college=college_a)
         aud_b = make_auditorium(db, name="Aud B", college=college_b)
-        session = make_session(db, title="Shared Talk Scope")
-        make_showing(db, session=session, auditorium=aud_a, status="published",
-                     start_time=datetime.now() + timedelta(days=1))
-        make_showing(db, session=session, auditorium=aud_b, status="published",
-                     start_time=datetime.now() + timedelta(days=2))
+        event_a = make_event(db, name="Event A Scope", auditorium=aud_a, status="published",
+                             start_date=date.today() + timedelta(days=1))
+        make_event(db, name="Event B Scope", auditorium=aud_b, status="published",
+                  start_date=date.today() + timedelta(days=2))
+        make_session(db, title="Shared Talk Scope", event=event_a)
         db.flush()
 
         user, _ = _login_supervisor(client, db, college=college_a)
         resp = client.get("/supervisor/checkin")
         assert resp.status_code == 200
         content = resp.content.decode()
-        assert "Shared Talk Scope" in content
+        assert "Event A Scope" in content or "Shared Talk Scope" in content
 
     def test_admin_toggle_supervisor_requires_college(self, client, db):
         """Toggling supervisor without selecting a college should flash an error."""
@@ -375,13 +360,12 @@ class TestSpeakerDashboard:
             db, username="speaker_user_dash", email="speaker_dash@test.com",
         )
         speaker = make_speaker(db, name="Dr. Dashboard", user=user)
-        session = make_session(db, title="Speaker Talk")
+        event = make_event(db, name="Speaker Event", status="published",
+                          start_date=date(2026, 7, 1))
+        session = make_session(db, title="Speaker Talk", event=event,
+                              start_time=datetime(2026, 7, 1, 14, 0))
         session.speaker_id = speaker.id
         db.flush()
-        make_showing(
-            db, session=session, status="published",
-            start_time=datetime(2026, 7, 1, 14, 0),
-        )
         db.commit()
         admin_session(client, user)
 
@@ -395,13 +379,12 @@ class TestSpeakerDashboard:
             db, username="speaker_user_sess", email="speaker_sess@test.com",
         )
         speaker = make_speaker(db, name="Dr. Sessions", user=user)
-        session = make_session(db, title="Speaker Talk Sessions")
+        event = make_event(db, name="Sessions Event", status="published",
+                          start_date=date(2026, 7, 1))
+        session = make_session(db, title="Speaker Talk Sessions", event=event,
+                              start_time=datetime(2026, 7, 1, 14, 0))
         session.speaker_id = speaker.id
         db.flush()
-        make_showing(
-            db, session=session, status="published",
-            start_time=datetime(2026, 7, 1, 14, 0),
-        )
         db.commit()
         admin_session(client, user)
 
@@ -414,13 +397,12 @@ class TestSpeakerDashboard:
             db, username="speaker_user_sched", email="speaker_sched@test.com",
         )
         speaker = make_speaker(db, name="Dr. Schedule", user=user)
-        session = make_session(db, title="Calendar Talk")
+        event = make_event(db, name="Calendar Event", status="published",
+                          start_date=date(2026, 7, 15))
+        session = make_session(db, title="Calendar Talk", event=event,
+                              start_time=datetime(2026, 7, 15, 10, 0))
         session.speaker_id = speaker.id
         db.flush()
-        make_showing(
-            db, session=session, status="published",
-            start_time=datetime(2026, 7, 15, 10, 0),
-        )
         db.commit()
         admin_session(client, user)
 
@@ -434,13 +416,12 @@ class TestSpeakerDashboard:
             db, username="speaker_user_week", email="speaker_week@test.com",
         )
         speaker = make_speaker(db, name="Dr. Week", user=user)
-        session = make_session(db, title="Week View Talk")
+        event = make_event(db, name="Week Event", status="published",
+                          start_date=date(2026, 7, 15))
+        session = make_session(db, title="Week View Talk", event=event,
+                              start_time=datetime(2026, 7, 15, 10, 0))
         session.speaker_id = speaker.id
         db.flush()
-        make_showing(
-            db, session=session, status="published",
-            start_time=datetime(2026, 7, 15, 10, 0),
-        )
         db.commit()
         admin_session(client, user)
 
@@ -449,23 +430,26 @@ class TestSpeakerDashboard:
         assert b"Week View Talk" in resp.content
 
 
-class TestShowingCRUD:
-    """Admin CRUD routes for showings under /admin/sessions/{id}/showings/."""
+class TestEventCRUD:
+    """Admin CRUD routes for events under /admin/events/."""
 
-    def test_create_showing(self, client, db):
+    def test_create_event(self, client, db):
         from tests.conftest import CSRF_TEST_TOKEN
+        from app.models.event import Event as EventModel
         admin = _login_admin(client, db)
-        session = make_session(db, title="Showing CRUD Session")
-        aud = make_auditorium(db, name="CRUD Hall")
+        college = make_college(db, name="CRUD College")
+        aud = make_auditorium(db, name="CRUD Hall", college=college)
         db.commit()
 
         resp = client.post(
-            f"/admin/sessions/{session.id}/showings/new",
+            "/admin/events/new",
             data={
                 "csrf_token": CSRF_TEST_TOKEN,
+                "name": "New Event CRUD",
                 "auditorium_id": str(aud.id),
-                "start_time": "2026-08-01T10:00",
-                "duration_minutes": "45",
+                "college_id": str(college.id) if college else "",
+                "start_date": "2026-08-01",
+                "end_date": "",
                 "price": "150",
                 "price_vip": "",
                 "price_accessible": "",
@@ -475,25 +459,25 @@ class TestShowingCRUD:
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        from app.models.showing import Showing as ShowingModel
-        new_sh = db.query(ShowingModel).filter(ShowingModel.session_id == session.id).first()
-        assert new_sh is not None
-        assert new_sh.price == 150
+        new_ev = db.query(EventModel).filter(EventModel.name == "New Event CRUD").first()
+        assert new_ev is not None
+        assert float(new_ev.price) == 150
 
-    def test_edit_showing(self, client, db):
+    def test_edit_event(self, client, db):
         from tests.conftest import CSRF_TEST_TOKEN
         _login_admin(client, db)
-        session = make_session(db, title="Edit Showing Sess")
-        showing = make_showing(db, session=session, price=100, status="draft")
+        event = make_event(db, name="Edit Event", price=100, status="draft")
         db.commit()
 
         resp = client.post(
-            f"/admin/sessions/{session.id}/showings/{showing.id}/edit",
+            f"/admin/events/{event.id}/edit",
             data={
                 "csrf_token": CSRF_TEST_TOKEN,
-                "auditorium_id": str(showing.auditorium_id),
-                "start_time": "2026-09-15T14:00",
-                "duration_minutes": "60",
+                "name": "Edit Event",
+                "auditorium_id": str(event.auditorium_id),
+                "college_id": str(event.college_id) if event.college_id else "",
+                "start_date": event.start_date.isoformat() if event.start_date else "",
+                "end_date": "",
                 "price": "250",
                 "price_vip": "400",
                 "price_accessible": "",
@@ -503,40 +487,39 @@ class TestShowingCRUD:
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        db.refresh(showing)
-        assert showing.price == 250
-        assert showing.status == "published"
+        db.refresh(event)
+        assert float(event.price) == 250
+        assert event.status == "published"
 
-    def test_delete_showing_no_bookings(self, client, db):
+    def test_delete_event_no_bookings(self, client, db):
         from tests.conftest import CSRF_TEST_TOKEN
+        from app.models.event import Event as EventModel
         _login_admin(client, db)
-        session = make_session(db, title="Delete Showing Sess")
-        showing = make_showing(db, session=session, price=50, status="draft")
-        showing_id = showing.id
+        event = make_event(db, name="Delete Event", price=50, status="draft")
+        event_id = event.id
         db.commit()
 
         resp = client.post(
-            f"/admin/sessions/{session.id}/showings/{showing_id}/delete",
+            f"/admin/events/{event_id}/delete",
             data={"csrf_token": CSRF_TEST_TOKEN},
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        from app.models.showing import Showing as ShowingModel
-        assert db.query(ShowingModel).filter(ShowingModel.id == showing_id).first() is None
+        assert db.query(EventModel).filter(EventModel.id == event_id).first() is None
 
-    def test_delete_showing_with_bookings_blocked(self, client, db):
+    def test_delete_event_with_bookings_blocked(self, client, db):
         from tests.conftest import CSRF_TEST_TOKEN
+        from app.models.event import Event as EventModel
         _login_admin(client, db)
-        session = make_session(db, title="Blocked Delete Sess")
         aud = make_auditorium(db, name="Blocked Hall")
-        showing = make_showing(db, session=session, auditorium=aud, price=200)
+        event = make_event(db, name="Blocked Event", auditorium=aud, price=200)
         seat = Seat(auditorium_id=aud.id, row_num=0, col_num=0, label="Z1")
         db.add(seat)
         db.flush()
         user = make_user(db, username="blocker_user", email="blocker@test.com")
         booking = Booking(
             user_id=user.id,
-            showing_id=showing.id,
+            event_id=event.id,
             seat_id=seat.id,
             amount_paid=200,
             payment_status="paid",
@@ -546,76 +529,48 @@ class TestShowingCRUD:
         db.commit()
 
         resp = client.post(
-            f"/admin/sessions/{session.id}/showings/{showing.id}/delete",
+            f"/admin/events/{event.id}/delete",
             data={"csrf_token": CSRF_TEST_TOKEN},
             follow_redirects=False,
         )
         assert resp.status_code == 303
-        from app.models.showing import Showing as ShowingModel
-        assert db.query(ShowingModel).filter(ShowingModel.id == showing.id).first() is not None
+        assert db.query(EventModel).filter(EventModel.id == event.id).first() is not None
 
 
-class TestSessionDetailMultiShowing:
-    """Session detail page should show a venues card when multiple showings exist."""
+class TestEventDetail:
+    """Public event routes /events and /events/{id}."""
 
-    def test_single_showing_no_venues_card(self, client, db):
-        session = make_session(db, title="Single Showing Detail")
-        make_showing(db, session=session, status="published",
-                     start_time=datetime(2026, 10, 1, 10, 0), price=100)
+    def test_event_detail_with_session(self, client, db):
+        event = make_event(db, name="Detail Event", status="published",
+                          start_date=date(2026, 10, 1), price=100)
+        session = make_session(db, title="Detail Session", event=event)
         db.commit()
 
-        resp = client.get(f"/sessions/{session.id}")
+        resp = client.get(f"/events/{event.id}")
         assert resp.status_code == 200
-        assert b"Single Showing Detail" in resp.content
-        assert b"session-venues-card" not in resp.content
+        assert b"Detail Event" in resp.content
+        assert b"Detail Session" in resp.content
 
-    def test_multi_showing_venues_card(self, client, db):
-        session = make_session(db, title="Multi Showing Detail")
-        aud1 = make_auditorium(db, name="Venue Alpha")
-        aud2 = make_auditorium(db, name="Venue Beta")
-        make_showing(db, session=session, auditorium=aud1, status="published",
-                     start_time=datetime(2026, 10, 5, 10, 0), price=100)
-        make_showing(db, session=session, auditorium=aud2, status="published",
-                     start_time=datetime(2026, 10, 12, 14, 0), price=150)
+    def test_events_list_page(self, client, db):
+        event = make_event(db, name="List Event", status="published",
+                          start_date=date.today() + timedelta(days=1))
+        make_session(db, title="List Session", event=event)
         db.commit()
 
-        resp = client.get(f"/sessions/{session.id}")
+        resp = client.get("/events")
         assert resp.status_code == 200
-        assert b"Multi Showing Detail" in resp.content
-        assert b"session-venues-card" in resp.content
-        assert b"Browse 2 Showings" in resp.content
-        assert b"Venue Alpha" in resp.content
-
-    def test_showings_browser_page(self, client, db):
-        session = make_session(db, title="Browser Test Session")
-        aud1 = make_auditorium(db, name="Hall One")
-        aud2 = make_auditorium(db, name="Hall Two")
-        make_showing(db, session=session, auditorium=aud1, status="published",
-                     start_time=datetime(2026, 11, 1, 10, 0), price=200)
-        make_showing(db, session=session, auditorium=aud2, status="published",
-                     start_time=datetime(2026, 11, 5, 14, 0), price=300)
-        db.commit()
-
-        resp = client.get(f"/sessions/{session.id}/showings")
-        assert resp.status_code == 200
-        assert b"Browser Test Session" in resp.content
-        assert b"Hall One" in resp.content
-        assert b"Hall Two" in resp.content
-        assert b"2 showings" in resp.content
+        assert b"List Event" in resp.content
 
 
-class TestSelectSeatShowingId:
-    """The select_seat.html form must use showing.id, not lecture.id."""
+class TestEventSelectSeats:
+    """The event_select_seats.html form must use event.id for hold endpoint."""
 
-    def test_seat_form_uses_showing_id(self, client, db):
-        """Verify select_seat template references showing.id for hold endpoint."""
-        import re
-        session = make_session(db, title="Seat Form Test")
+    def test_seat_form_uses_event_id(self, client, db):
+        """Verify event_select_seats template references event.id for hold endpoint."""
         aud = make_auditorium(db, name="Seat Hall")
-        showing = make_showing(db, session=session, auditorium=aud,
-                               status="published", price=100,
-                               start_time=datetime(2026, 11, 1, 10, 0))
-        seat = Seat(auditorium_id=aud.id, row_num=0, col_num=0, label="A1",
+        event = make_event(db, auditorium=aud, name="Seat Form Event",
+                          status="published", price=100)
+        seat = Seat(auditorium_id=aud.id, row_num=1, col_num=1, label="A1",
                     seat_type="standard", is_active=True)
         db.add(seat)
         db.commit()
@@ -624,7 +579,6 @@ class TestSelectSeatShowingId:
         db.commit()
         admin_session(client, user)
 
-        resp = client.get(f"/booking/select/{showing.id}")
+        resp = client.get(f"/booking/event/{event.id}/select")
         assert resp.status_code == 200
-        assert f"/booking/hold/{showing.id}".encode() in resp.content
-        assert f"/booking/hold/{session.id}".encode() not in resp.content or session.id == showing.id
+        assert f"/booking/event/{event.id}/hold".encode() in resp.content

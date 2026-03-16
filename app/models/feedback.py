@@ -10,7 +10,7 @@ class Feedback(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    showing_id = Column(Integer, ForeignKey("showings.id"), nullable=False)
+    event_id = Column(Integer, ForeignKey("events.id"), nullable=False)
     rating = Column(Integer, nullable=True)
     comment = Column(Text, nullable=True)
     allow_public = Column(Boolean, default=False)
@@ -21,8 +21,8 @@ class Feedback(Base):
     created_at = Column(DateTime, default=now_ist)
 
     __table_args__ = (
-        UniqueConstraint("user_id", "showing_id", name="uq_feedback_user_showing"),
+        UniqueConstraint("user_id", "event_id", name="uq_feedback_user_event"),
     )
 
     user = relationship("User", backref="feedback_entries")
-    showing = relationship("Showing", backref="feedback_entries")
+    event = relationship("Event", backref="feedback_entries")
