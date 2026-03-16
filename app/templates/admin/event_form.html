@@ -10,7 +10,8 @@
   <button type="button" class="wizard-step active" data-step="1">1. Details</button>
   <button type="button" class="wizard-step" data-step="2">2. Pricing</button>
   <button type="button" class="wizard-step" data-step="3">3. Media</button>
-  <button type="button" class="wizard-step" data-step="4">4. Review &amp; Save</button>
+  <button type="button" class="wizard-step" data-step="4">4. Sessions</button>
+  <button type="button" class="wizard-step" data-step="5">5. Review &amp; Save</button>
 </div>
 
 <div class="form-card">
@@ -117,8 +118,41 @@
       </div>
     </div>
 
-    <!-- Step 4: Review & Save -->
+    <!-- Step 4: Sessions -->
     <div class="wizard-panel" data-panel="4">
+      <h3 class="wizard-panel-title">Sessions</h3>
+      <p class="text-muted" style="margin-bottom:1rem">Add the sessions/talks for this event. You can also add more later from the edit page.</p>
+
+      {% if event and event_sessions %}
+      <div class="table-responsive mt-2 mb-3">
+        <h4 style="font-size:.9rem;color:var(--text-muted);margin-bottom:.5rem">Existing Sessions</h4>
+        <table class="table">
+          <thead><tr><th>Title</th><th>Speaker</th><th>Start Time</th><th>Actions</th></tr></thead>
+          <tbody>
+            {% for s in event_sessions %}
+            <tr>
+              <td>{{ s.title }}</td>
+              <td>{{ s.speaker_name or "—" }}</td>
+              <td>{{ s.start_time.strftime('%b %d, %I:%M %p') if s.start_time else "—" }}</td>
+              <td><a href="/admin/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a></td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <div id="inline-sessions-list"></div>
+      <button type="button" class="btn btn-outline btn-sm" id="add-inline-session" style="margin-top:.75rem">+ Add Session</button>
+
+      <div class="wizard-nav">
+        <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+        <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Step 5: Review & Save -->
+    <div class="wizard-panel" data-panel="5">
       <h3 class="wizard-panel-title">Review &amp; Save</h3>
       <table class="table" id="ev-review-table" style="margin-bottom:1.5rem">
         <tbody></tbody>
@@ -136,42 +170,6 @@
 </div>
 
 {% if event %}
-<div class="form-card mt-3">
-  <h3 class="panel-title">Sessions in this Event</h3>
-  {% if event_sessions %}
-  <div class="table-responsive mt-2">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Speaker</th>
-          <th>Start Time</th>
-          <th>Order</th>
-          <th>Actions</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for s in event_sessions %}
-        <tr>
-          <td>{{ s.title }}</td>
-          <td>{{ s.speaker_name or "—" }}</td>
-          <td>{{ s.start_time.strftime('%b %d, %I:%M %p') if s.start_time else "—" }}</td>
-          <td>{{ s.order or 0 }}</td>
-          <td>
-            <a href="/admin/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
-            <a href="/admin/sessions/{{ s.id }}/recordings" class="btn btn-sm btn-outline">Recordings</a>
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  <p class="text-muted">No sessions yet. Add sessions from the <a href="/admin/sessions">Sessions</a> page and link them to this event.</p>
-  {% endif %}
-  <a href="/admin/sessions/new" class="btn btn-outline btn-sm mt-2">+ New Session</a>
-</div>
-
 <div class="form-card mt-3">
   <h3 class="panel-title">Coupons</h3>
   {% if event_coupons %}
@@ -224,7 +222,7 @@
     currentStep = n;
     steps.forEach(function(s) { s.classList.toggle('active', parseInt(s.dataset.step) === n); });
     panels.forEach(function(p) { p.classList.toggle('active', parseInt(p.dataset.panel) === n); });
-    if (n === 4) buildReview();
+    if (n === 5) buildReview();
   }
 
   var urlStep = new URLSearchParams(window.location.search).get('step');
@@ -249,6 +247,10 @@
   }
 
   function buildReview() {
+    var sessionCount = document.querySelectorAll('.inline-session-entry').length;
+    {% if event and event_sessions %}
+    sessionCount += {{ event_sessions|length }};
+    {% endif %}
     var rows = [
       ['Event Name', val('ev-name') || '—'],
       ['Status', selectText('ev-status') || '—'],
@@ -260,6 +262,7 @@
       ['VIP Price', val('ev-price-vip') ? '₹' + val('ev-price-vip') : '—'],
       ['Accessible Price', val('ev-price-accessible') ? '₹' + val('ev-price-accessible') : '—'],
       ['Processing Fee', val('ev-fee') ? val('ev-fee') + '%' : '—'],
+      ['Sessions', sessionCount > 0 ? sessionCount + ' session(s)' : 'None yet'],
       ['Banner URL', val('ev-banner') || '—'],
       ['Description', (val('ev-desc') || '—').substring(0, 120) + (val('ev-desc').length > 120 ? '…' : '')],
     ];
@@ -268,6 +271,36 @@
       return '<tr><td style="width:38%;font-weight:600;color:var(--text-muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">' + r[0] + '</td><td>' + r[1] + '</td></tr>';
     }).join('');
   }
+
+  /* Inline session builder */
+  var sessionIdx = 0;
+  var container = document.getElementById('inline-sessions-list');
+  document.getElementById('add-inline-session').addEventListener('click', function() {
+    var i = sessionIdx++;
+    var div = document.createElement('div');
+    div.className = 'inline-session-entry form-card';
+    div.style.cssText = 'margin-bottom:1rem;padding:1rem;position:relative;border:1px solid var(--border);border-radius:var(--radius)';
+    div.innerHTML =
+      '<button type="button" class="btn btn-sm btn-danger" style="position:absolute;top:.5rem;right:.5rem" onclick="this.parentElement.remove()">&times;</button>' +
+      '<div class="form-row">' +
+        '<div class="form-group" style="flex:2"><label class="form-label">Title</label>' +
+          '<input type="text" name="sess_title_' + i + '" class="form-input" required placeholder="e.g. Intro to AI"></div>' +
+        '<div class="form-group" style="flex:1"><label class="form-label">Speaker</label>' +
+          '<input type="text" name="sess_speaker_' + i + '" class="form-input" placeholder="Speaker name"></div>' +
+      '</div>' +
+      '<div class="form-row">' +
+        '<div class="form-group"><label class="form-label">Start Time</label>' +
+          '<input type="datetime-local" name="sess_start_' + i + '" class="form-input"></div>' +
+        '<div class="form-group"><label class="form-label">Duration (min)</label>' +
+          '<input type="number" name="sess_duration_' + i + '" class="form-input" value="30" min="5"></div>' +
+        '<div class="form-group"><label class="form-label">Order</label>' +
+          '<input type="number" name="sess_order_' + i + '" class="form-input" value="' + i + '" min="0"></div>' +
+      '</div>' +
+      '<div class="form-group"><label class="form-label">Description</label>' +
+        '<textarea name="sess_desc_' + i + '" class="form-input" rows="2" placeholder="Brief description (optional)"></textarea></div>' +
+      '<input type="hidden" name="sess_idx" value="' + i + '">';
+    container.appendChild(div);
+  });
 })();
 </script>
 {% endblock %}

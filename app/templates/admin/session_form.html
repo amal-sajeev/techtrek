@@ -25,7 +25,7 @@
       <select name="event_id" id="sess-event" class="form-input" required placeholder="Select event">
         <option value="">Select event</option>
         {% for ev in events %}
-        <option value="{{ ev.id }}" {% if lecture and lecture.event_id == ev.id %}selected{% endif %}>{{ ev.name }}{% if ev.start_date %} ({{ ev.start_date.strftime('%b %d') }}){% endif %}</option>
+        <option value="{{ ev.id }}" {% if (lecture and lecture.event_id == ev.id) or (not lecture and preselect_event_id and preselect_event_id == ev.id) %}selected{% endif %}>{{ ev.name }}{% if ev.start_date %} ({{ ev.start_date.strftime('%b %d') }}){% endif %}</option>
         {% endfor %}
       </select>
     </div>

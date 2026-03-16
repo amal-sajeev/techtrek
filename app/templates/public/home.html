@@ -266,46 +266,66 @@
   </div>
 </section>
 
-<div class="section-divider"></div>
-
-<!-- WHY: Social proof ticker -->
-<section class="social-proof-strip proof-ticker-section">
-  <div class="container">
-  <div class="proof-ticker-badge">
-    <span class="proof-badge">&#9733; Trusted by students</span>
+<!-- Industry Quotes Marquee -->
+<section class="industry-quotes-strip">
+  <div class="iq-heading">
+    <span class="iq-heading-badge">&#9888; The world isn&rsquo;t waiting</span>
   </div>
-  <div class="proof-ticker-outer">
-    <div class="proof-ticker-track">
-      {# Render quotes TWICE for a seamless infinite loop (animation moves -50%) #}
-      {% for _repeat in range(2) %}
-        {% if featured_feedback %}
-          {% for fb in featured_feedback[:6] %}
-          <div class="proof-quote">
-            <span>"{{ fb.comment[:90] if fb.comment else '' }}{% if fb.comment and fb.comment|length > 90 %}…{% endif %}"</span>
-            <strong>&mdash; {{ fb.user_name }}</strong>
-          </div>
-          {% endfor %}
-        {% elif testimonials %}
-          {% for t in testimonials[:6] %}
-          <div class="proof-quote">
-            <span>"{{ t.quote[:90] }}{% if t.quote|length > 90 %}…{% endif %}"</span>
-            <strong>&mdash; {{ t.student_name }}</strong>
-          </div>
-          {% endfor %}
-        {% else %}
-          <div class="proof-quote"><span>"I walked in knowing about cloud storage. Left with a mental model of how distributed consensus actually works."</span><strong>&mdash; Priya S., KSR College</strong></div>
-          <div class="proof-quote"><span>"Three hours of ML infrastructure talks and I only wished it ran longer. First event where I forgot to check my phone."</span><strong>&mdash; Arjun M., DTU</strong></div>
-          <div class="proof-quote"><span>"The Rust systems programming talk covered things completely missing from our B.Tech curriculum."</span><strong>&mdash; Sneha P., BITS Pilani</strong></div>
-          <div class="proof-quote"><span>"The speaker was a principal engineer at a major cloud provider. Not a consultant, not a YouTuber &mdash; the real thing."</span><strong>&mdash; Vikram N., NIT Trichy</strong></div>
-          <div class="proof-quote"><span>"TechTrek at NIT was the first campus event where every single talk was worth attending. Zero filler."</span><strong>&mdash; Kavya R., VIT Vellore</strong></div>
-        {% endif %}
+  <div class="industry-quotes-marquee">
+    <div class="industry-quotes-track">
+      {% for _dup in range(2) %}
+      <div class="iq-card">
+        <blockquote>&ldquo;AI could automate 300 million full-time jobs worldwide.&rdquo;</blockquote>
+        <cite>Goldman Sachs, 2024</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;By 2030, 85 million jobs may be displaced by a shift in the division of labour between humans and machines.&rdquo;</blockquote>
+        <cite>World Economic Forum</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;The half-life of a professional skill has dropped to about 2.5 years &mdash; and it&rsquo;s still shrinking.&rdquo;</blockquote>
+        <cite>Harvard Business Review</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;87% of companies worldwide say they have a skills gap or expect one within a few years.&rdquo;</blockquote>
+        <cite>McKinsey &amp; Company</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;India will need 30 million digitally skilled workers by 2026 to stay competitive.&rdquo;</blockquote>
+        <cite>NASSCOM</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;65% of children entering primary school today will work in job types that don&rsquo;t yet exist.&rdquo;</blockquote>
+        <cite>World Economic Forum</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;Generative AI is expected to add $4.4 trillion in value to the global economy annually.&rdquo;</blockquote>
+        <cite>McKinsey, 2023</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;Within three years, AI will be a co-worker for 90% of knowledge workers.&rdquo;</blockquote>
+        <cite>Gartner, 2025</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;The demand for AI specialists has grown 74% annually over the past four years.&rdquo;</blockquote>
+        <cite>LinkedIn Workforce Report</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;Most university curricula are three to five years behind what industry actually needs.&rdquo;</blockquote>
+        <cite>MIT Technology Review</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;40% of workers will need reskilling within the next three years.&rdquo;</blockquote>
+        <cite>IBM Institute for Business Value</cite>
+      </div>
+      <div class="iq-card">
+        <blockquote>&ldquo;The companies that win will be the ones whose people learn faster than the rate of change.&rdquo;</blockquote>
+        <cite>Satya Nadella, CEO of Microsoft</cite>
+      </div>
       {% endfor %}
     </div>
   </div>
-  </div>
 </section>
-
-<div class="section-divider"></div>
 
 <!-- WHAT: Featured Events -->
 <section class="section phase-summit">
@@ -446,83 +466,6 @@
 </section>
 {% endif %}
 
-<!-- WHAT: Student Testimonials -->
-<section class="section phase-testimonials" style="padding-bottom:2rem">
-  <div class="container">
-    <h2 class="section-title">Student Testimonials</h2>
-  </div>
-
-  {% macro testimonial_card_fb(fb) %}
-  <div class="testimonial-card">
-    <div style="margin-bottom:.5rem;color:var(--yellow,#f59e0b);">
-      {% for i in range(fb.rating) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating) %}&#9734;{% endfor %}
-    </div>
-    {% if fb.comment %}
-    <blockquote class="testimonial-quote">"{{ fb.comment }}"</blockquote>
-    {% endif %}
-    <div class="testimonial-author">
-      <strong>{{ fb.user_name }}</strong>
-      {% if fb.college %}<br><span class="text-muted">{{ fb.college }}</span>{% endif %}
-      <br><small class="text-muted" style="opacity:.7;">on {{ fb.event_name }}</small>
-    </div>
-  </div>
-  {% endmacro %}
-
-  {% macro testimonial_card_t(t) %}
-  <div class="testimonial-card">
-    <blockquote class="testimonial-quote">"{{ t.quote }}"</blockquote>
-    <div class="testimonial-author">
-      <strong>{{ t.student_name }}</strong>
-      {% if t.college %}<br><span class="text-muted">{{ t.college }}</span>{% endif %}
-    </div>
-  </div>
-  {% endmacro %}
-
-  {% macro testimonial_static(quote, name, college) %}
-  <div class="testimonial-card">
-    <blockquote class="testimonial-quote">"{{ quote }}"</blockquote>
-    <div class="testimonial-author"><strong>{{ name }}</strong><br><span class="text-muted">{{ college }}</span></div>
-  </div>
-  {% endmacro %}
-
-  <div class="testimonials-marquee">
-    <div class="testimonials-track">
-      {% set has_content = testimonials or featured_feedback %}
-
-      {% for _dup in range(2) %}
-        {% if has_content %}
-          {% for fb in featured_feedback %}{{ testimonial_card_fb(fb) }}{% endfor %}
-          {% for t in testimonials %}{{ testimonial_card_t(t) }}{% endfor %}
-        {% endif %}
-
-        {{ testimonial_static(
-          "I walked in knowing about cloud storage. I left with a mental model of how distributed consensus actually works. The speaker was a principal engineer at a major cloud provider — the real thing.",
-          "Priya Sharma", "KSR College of Engineering") }}
-        {{ testimonial_static(
-          "TechTrek at DTU was the first event where I genuinely forgot to check my phone. Three hours of talks on ML infra and I only wished it ran longer.",
-          "Arjun Mehta", "Delhi Technological University") }}
-        {{ testimonial_static(
-          "The Rust systems programming talk was exactly the kind of content missing from the B.Tech curriculum. The venue map seat selection was a nice touch too.",
-          "Sneha Patel", "BITS Pilani") }}
-        {{ testimonial_static(
-          "Honestly didn't expect this level of depth from a college tech fest. The quantum computing session had actual circuit diagrams and live Qiskit demos.",
-          "Vikram Joshi", "IIT Bombay") }}
-        {{ testimonial_static(
-          "Booking was seamless — picked my seat on the venue map, paid in two clicks, and had my ticket in my inbox. The event itself was even better.",
-          "Aisha Khan", "Jamia Millia Islamia") }}
-        {{ testimonial_static(
-          "The speaker lineup felt like a mini-conference. Engineers from top startups sharing war stories about scaling — you can't get that from a textbook.",
-          "Rahul Nair", "NIT Trichy") }}
-        {{ testimonial_static(
-          "As a final-year student, TechTrek gave me clarity on what industry actually looks like. The networking lunch alone was worth showing up for.",
-          "Divya Reddy", "IIIT Hyderabad") }}
-        {{ testimonial_static(
-          "I've attended dozens of college fests. TechTrek is the only one where I took notes the entire time. Genuinely technical, zero fluff.",
-          "Karan Singh", "PEC Chandigarh") }}
-      {% endfor %}
-    </div>
-  </div>
-</section>
 
 <!-- HOW: How It Works -->
 <section class="section how-it-works" style="padding-top:2.5rem;padding-bottom:2rem">

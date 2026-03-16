@@ -929,7 +929,7 @@ def sessions_list(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/sessions/new")
-def session_new(request: Request, db: Session = Depends(get_db)):
+def session_new(request: Request, event_id: int | None = None, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
@@ -939,6 +939,7 @@ def session_new(request: Request, db: Session = Depends(get_db)):
         "admin/session_form.html",
         _admin_ctx(request, active_page="sessions", lecture=None,
                    events=events, speakers=speakers,
+                   preselect_event_id=event_id,
                    agenda_items=[], session_speakers=[], speaker_roles=SPEAKER_ROLES),
     )
 
@@ -2154,9 +2155,38 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
         status=form.get("status", "draft"),
     )
     db.add(ev)
+    db.flush()
+
+    sess_indices = form.getlist("sess_idx")
+    for idx in sess_indices:
+        title = form.get(f"sess_title_{idx}", "").strip()
+        if not title:
+            continue
+        start_str = form.get(f"sess_start_{idx}", "")
+        start_time = None
+        if start_str:
+            try:
+                start_time = datetime.fromisoformat(start_str)
+            except ValueError:
+                pass
+        sess = SessionModel(
+            event_id=ev.id,
+            title=title,
+            speaker_name=form.get(f"sess_speaker_{idx}", "").strip(),
+            description=form.get(f"sess_desc_{idx}", "").strip() or None,
+            duration_minutes=int(form.get(f"sess_duration_{idx}", 30) or 30),
+            start_time=start_time,
+            order=int(form.get(f"sess_order_{idx}", 0) or 0),
+        )
+        db.add(sess)
+
     log_activity(db, category="admin", action="create", description=f"Created event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
     db.commit()
-    flash(request, f"Event '{ev.name}' created.", "success")
+    sess_count = len([i for i in sess_indices if form.get(f"sess_title_{i}", "").strip()])
+    msg = f"Event '{ev.name}' created"
+    if sess_count:
+        msg += f" with {sess_count} session(s)"
+    flash(request, msg + ".", "success")
     return RedirectResponse("/admin/events", status_code=303)
 
 
@@ -2209,10 +2239,39 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     ev.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
     ev.processing_fee_pct = float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None
     ev.status = form.get("status", "draft")
+
+    sess_indices = form.getlist("sess_idx")
+    new_sess = 0
+    for idx in sess_indices:
+        title = form.get(f"sess_title_{idx}", "").strip()
+        if not title:
+            continue
+        start_str = form.get(f"sess_start_{idx}", "")
+        start_time = None
+        if start_str:
+            try:
+                start_time = datetime.fromisoformat(start_str)
+            except ValueError:
+                pass
+        sess = SessionModel(
+            event_id=ev.id,
+            title=title,
+            speaker_name=form.get(f"sess_speaker_{idx}", "").strip(),
+            description=form.get(f"sess_desc_{idx}", "").strip() or None,
+            duration_minutes=int(form.get(f"sess_duration_{idx}", 30) or 30),
+            start_time=start_time,
+            order=int(form.get(f"sess_order_{idx}", 0) or 0),
+        )
+        db.add(sess)
+        new_sess += 1
+
     log_activity(db, category="admin", action="update", description=f"Updated event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
     db.commit()
-    flash(request, f"Event '{ev.name}' updated.", "success")
-    return RedirectResponse("/admin/events", status_code=303)
+    msg = f"Event '{ev.name}' updated"
+    if new_sess:
+        msg += f" — {new_sess} new session(s) added"
+    flash(request, msg + ".", "success")
+    return RedirectResponse(f"/admin/events/{ev.id}/edit", status_code=303)
 
 
 @router.post("/events/{event_id}/delete")
