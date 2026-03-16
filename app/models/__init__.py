@@ -18,10 +18,12 @@ from app.models.site_setting import SiteSetting
 from app.models.event import Event
 from app.models.coupon import Coupon
 from app.models.feedback import Feedback
+from app.models.newsletter import Newsletter
 
 __all__ = [
     "User", "City", "College", "Auditorium", "Seat", "Speaker", "AgendaItem",
     "Session", "SessionSpeaker", "Booking", "Waitlist", "Testimonial",
     "NewsletterSubscriber", "SeatType", "ActivityLog", "WebhookLog",
     "SessionRecording", "SiteSetting", "Event", "Coupon", "Feedback",
+    "Newsletter",
 ]

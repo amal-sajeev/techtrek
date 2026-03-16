@@ -81,7 +81,7 @@
     <div class="container">
       <div class="ed-event-identity">
         {% if event.college %}
-        <p class="ed-eyebrow">{{ event.college.name }}&nbsp;&nbsp;&#127470;&#127475; Viksit Bharat 2047</p>
+        <p class="ed-eyebrow">{{ event.college.name }}</p>
         {% endif %}
         <h1 class="ed-hero-title">{{ event.name }}</h1>
         {% if event.description %}
@@ -124,9 +124,9 @@
           {% set s = item.session %}
           {% set img_id = img_pool[s.id % 8] %}
 
-          <div class="ed-session-card reveal-{{ 'left' if loop.index is odd else 'right' }}"
+          <a href="/sessions/{{ s.id }}" class="ed-session-card reveal-{{ 'left' if loop.index is odd else 'right' }}"
                data-session-id="{{ s.id }}"
-               style="transition-delay:{{ (loop.index0 * 0.12)|round(2) }}s">
+               style="transition-delay:{{ (loop.index0 * 0.12)|round(2) }}s; text-decoration:none; color:inherit;">
 
             <div class="ed-sc-img">
               <img src="{% if s.banner_url %}{{ s.banner_url }}{% else %}https://images.unsplash.com/{{ img_id }}?w=440&auto=format&fit=crop&q=80{% endif %}"
@@ -151,9 +151,10 @@
                 {% if venue %}<span>&#128205; {{ venue }}</span>{% endif %}
                 {% if s.duration_minutes %}<span class="meta-duration">&#9200; {{ s.duration_minutes }} min</span>{% endif %}
               </div>
+              <span class="ed-sc-view-link">View session &rarr;</span>
             </div>
 
-          </div>
+          </a>
           {% endfor %}
         </div>
 
@@ -185,17 +186,15 @@
         </ul>
 
         {% if event.start_date or venue %}
-        <div class="ed-bp-meta">
+        <div class="ed-bp-meta" style="display:flex;flex-direction:column;gap:.4rem;">
           {% if event.start_date %}
           <span>&#128197; {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
           {% endif %}
           {% if venue %}<span>&#128205; {{ venue }}</span>{% endif %}
-        </div>
-        {% if auditorium and auditorium.location %}
-        <div class="ed-bp-meta" style="font-size:.82rem;opacity:.8;">
+          {% if auditorium and auditorium.location %}
           <span>&#127970; {{ auditorium.location }}</span>
+          {% endif %}
         </div>
-        {% endif %}
         {% endif %}
 
         {% if stats.total > 0 %}

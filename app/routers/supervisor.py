@@ -284,18 +284,20 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
 
     if is_group:
         group_id = ticket_id[6:]
-        all_group = db.query(Booking).filter(
+        all_group_any_status = db.query(Booking).filter(
             Booking.booking_group == group_id,
-            Booking.payment_status == "paid",
         ).all()
-
-        all_group = [b for b in all_group if b.event_id in college_event_ids]
+        all_group_any_status = [b for b in all_group_any_status if b.event_id in college_event_ids]
+        all_group = [b for b in all_group_any_status if b.payment_status == "paid"]
+        refunded_count = sum(1 for b in all_group_any_status if b.payment_status in ("refunded", "cancelled"))
 
         result = None
         group_bookings = []
 
-        if not all_group:
+        if not all_group_any_status:
             result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets at {college.name}."}
+        elif not all_group:
+            result = {"status": "error", "msg": f"No valid (paid) tickets in this group — {refunded_count} ticket(s) are refunded/cancelled."}
         elif event_id_raw:
             try:
                 group_bookings = [b for b in all_group if b.event_id == int(event_id_raw)]
@@ -324,15 +326,16 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
             user = db.query(User).get(group_bookings[0].user_id)
             event = db.query(Event).get(group_bookings[0].event_id) if group_bookings[0].event_id else None
             event_name = event.name if event else "unknown"
+            refunded_note = f" ({refunded_count} ticket(s) in this group are refunded/cancelled.)" if refunded_count else ""
 
             if newly_checked and not already_checked:
-                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{event_name}'."
+                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{event_name}'.{refunded_note}"
                 status = "success"
             elif newly_checked and already_checked:
-                msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in."
+                msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in.{refunded_note}"
                 status = "success"
             else:
-                msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in. Ticket is valid."
+                msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in. Ticket is valid.{refunded_note}"
                 status = "reentry"
 
             result = {
@@ -344,6 +347,7 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
                 "event_name": event_name,
                 "newly_checked": newly_checked,
                 "already_checked": already_checked,
+                "refunded_count": refunded_count,
             }
     else:
         query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")

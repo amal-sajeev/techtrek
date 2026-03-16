@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Unsubscribed — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section" style="min-height:60vh;display:flex;align-items:center">
+  <div class="container" style="text-align:center;max-width:520px">
+    <div style="font-size:3rem;margin-bottom:1rem">&#128233;</div>
+    {% if found %}
+    <h1 style="font-size:1.5rem;margin-bottom:.75rem">You've been unsubscribed</h1>
+    <p style="color:var(--text-secondary);line-height:1.6;margin-bottom:1.5rem">
+      You won't receive any more newsletter emails from TechTrek. If this was a mistake, you can subscribe again from the home page.
+    </p>
+    {% else %}
+    <h1 style="font-size:1.5rem;margin-bottom:.75rem">Already unsubscribed</h1>
+    <p style="color:var(--text-secondary);line-height:1.6;margin-bottom:1.5rem">
+      This unsubscribe link has already been used or is no longer valid. You're not subscribed to our newsletter.
+    </p>
+    {% endif %}
+    <a href="/" class="btn btn-primary">Back to Home</a>
+  </div>
+</section>
+{% endblock %}

@@ -34,6 +34,8 @@ from app.models.user import User
 from app.services.razorpay import process_refund as rz_process_refund
 from app.models.waitlist import Waitlist
 from app.models.site_setting import SiteSetting
+from app.models.newsletter import Newsletter
+from app.models.testimonial import NewsletterSubscriber
 from app.config import settings
 
 
@@ -1660,16 +1662,19 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
 
     if is_group:
         group_id = ticket_id[6:]
-        all_group = db.query(Booking).filter(
+        all_group_any_status = db.query(Booking).filter(
             Booking.booking_group == group_id,
-            Booking.payment_status == "paid",
         ).all()
+        all_group = [b for b in all_group_any_status if b.payment_status == "paid"]
+        refunded_count = sum(1 for b in all_group_any_status if b.payment_status in ("refunded", "cancelled"))
 
         result = None
         group_bookings = []
 
-        if not all_group:
-            result = {"status": "error", "msg": f"Group '{group_id}' not found or no valid tickets."}
+        if not all_group_any_status:
+            result = {"status": "error", "msg": f"Group '{group_id}' not found."}
+        elif not all_group:
+            result = {"status": "error", "msg": f"No valid (paid) tickets in this group — {refunded_count} ticket(s) are refunded/cancelled."}
         elif event_id_raw:
             try:
                 group_bookings = [b for b in all_group if b.event_id == int(event_id_raw)]
@@ -1698,17 +1703,18 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             user = db.query(User).get(group_bookings[0].user_id)
             event = db.query(Event).get(group_bookings[0].event_id) if group_bookings[0].event_id else None
             event_name = event.name if event else "unknown"
+            refunded_note = f" ({refunded_count} ticket(s) in this group are refunded/cancelled.)" if refunded_count else ""
 
             if newly_checked and not already_checked:
-                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{event_name}'."
+                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{event_name}'.{refunded_note}"
                 status = "success"
                 log_activity(db, category="admin", action="checkin", description=f"Group check-in: {len(newly_checked)} ticket(s) for '{event_name}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
             elif newly_checked and already_checked:
-                msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in."
+                msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in.{refunded_note}"
                 status = "success"
                 log_activity(db, category="admin", action="checkin", description=f"Partial group check-in: {len(newly_checked)} new for '{event_name}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
             else:
-                msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in. Ticket is valid."
+                msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in. Ticket is valid.{refunded_note}"
                 status = "reentry"
 
             result = {
@@ -1720,6 +1726,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
                 "event_name": event_name,
                 "newly_checked": newly_checked,
                 "already_checked": already_checked,
+                "refunded_count": refunded_count,
             }
     else:
         query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
@@ -2398,3 +2405,202 @@ def feedback_toggle_featured(request: Request, feedback_id: int, db: Session = D
         db.commit()
         flash(request, f"Feedback #{fb.id} is now {status}.", "success")
     return RedirectResponse("/admin/feedback", status_code=303)
+
+
+# ─── Newsletter Campaigns ───
+
+
+@router.get("/newsletters")
+def newsletter_list(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    campaigns = db.query(Newsletter).order_by(Newsletter.created_at.desc()).all()
+    subscriber_count = db.query(func.count(NewsletterSubscriber.id)).scalar() or 0
+    return templates.TemplateResponse(
+        "admin/newsletters.html",
+        _admin_ctx(request, active_page="newsletters", campaigns=campaigns, subscriber_count=subscriber_count),
+    )
+
+
+@router.get("/newsletters/new")
+def newsletter_new_form(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    subscriber_count = db.query(func.count(NewsletterSubscriber.id)).scalar() or 0
+    return templates.TemplateResponse(
+        "admin/newsletter_compose.html",
+        _admin_ctx(request, active_page="newsletters", newsletter=None, subscriber_count=subscriber_count),
+    )
+
+
+@router.post("/newsletters/new")
+async def newsletter_new_save(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    form = await _form(request)
+    nl = Newsletter(
+        subject=form.get("subject", "").strip(),
+        body_html=form.get("body_html", ""),
+        status="draft",
+    )
+    db.add(nl)
+    db.flush()
+    log_activity(db, category="admin", action="create", description=f"Created newsletter draft '{nl.subject}'", request=request, user_id=admin.id, target_type="newsletter", target_id=nl.id)
+    db.commit()
+    flash(request, "Newsletter draft saved.", "success")
+    return RedirectResponse(f"/admin/newsletters/{nl.id}/edit", status_code=303)
+
+
+@router.get("/newsletters/{newsletter_id}/edit")
+def newsletter_edit_form(request: Request, newsletter_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    nl = db.query(Newsletter).get(newsletter_id)
+    if not nl:
+        flash(request, "Newsletter not found.", "danger")
+        return RedirectResponse("/admin/newsletters", status_code=303)
+    subscriber_count = db.query(func.count(NewsletterSubscriber.id)).scalar() or 0
+    return templates.TemplateResponse(
+        "admin/newsletter_compose.html",
+        _admin_ctx(request, active_page="newsletters", newsletter=nl, subscriber_count=subscriber_count),
+    )
+
+
+@router.post("/newsletters/{newsletter_id}/edit")
+async def newsletter_edit_save(request: Request, newsletter_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    nl = db.query(Newsletter).get(newsletter_id)
+    if not nl:
+        flash(request, "Newsletter not found.", "danger")
+        return RedirectResponse("/admin/newsletters", status_code=303)
+    if nl.status != "draft":
+        flash(request, "Only draft newsletters can be edited.", "warning")
+        return RedirectResponse("/admin/newsletters", status_code=303)
+    form = await _form(request)
+    nl.subject = form.get("subject", "").strip()
+    nl.body_html = form.get("body_html", "")
+    log_activity(db, category="admin", action="update", description=f"Updated newsletter draft '{nl.subject}'", request=request, user_id=admin.id, target_type="newsletter", target_id=nl.id)
+    db.commit()
+    flash(request, "Newsletter draft updated.", "success")
+    return RedirectResponse(f"/admin/newsletters/{nl.id}/edit", status_code=303)
+
+
+@router.post("/newsletters/{newsletter_id}/delete")
+def newsletter_delete(request: Request, newsletter_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    nl = db.query(Newsletter).get(newsletter_id)
+    if not nl:
+        flash(request, "Newsletter not found.", "danger")
+        return RedirectResponse("/admin/newsletters", status_code=303)
+    if nl.status != "draft":
+        flash(request, "Only draft newsletters can be deleted.", "warning")
+        return RedirectResponse("/admin/newsletters", status_code=303)
+    log_activity(db, category="admin", action="delete", description=f"Deleted newsletter draft '{nl.subject}'", request=request, user_id=admin.id, target_type="newsletter", target_id=nl.id)
+    db.delete(nl)
+    db.commit()
+    flash(request, "Newsletter draft deleted.", "success")
+    return RedirectResponse("/admin/newsletters", status_code=303)
+
+
+@router.post("/newsletters/{newsletter_id}/send")
+def newsletter_send(request: Request, newsletter_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    nl = db.query(Newsletter).get(newsletter_id)
+    if not nl:
+        flash(request, "Newsletter not found.", "danger")
+        return RedirectResponse("/admin/newsletters", status_code=303)
+    if nl.status != "draft":
+        flash(request, "This newsletter has already been sent or is currently sending.", "warning")
+        return RedirectResponse("/admin/newsletters", status_code=303)
+    subscriber_count = db.query(func.count(NewsletterSubscriber.id)).scalar() or 0
+    if subscriber_count == 0:
+        flash(request, "No subscribers to send to.", "warning")
+        return RedirectResponse(f"/admin/newsletters/{nl.id}/edit", status_code=303)
+    nl.status = "sending"
+    nl.total_recipients = subscriber_count
+    nl.sent_count = 0
+    nl.failed_count = 0
+    db.commit()
+
+    from app.services.email import send_newsletter_campaign
+    send_newsletter_campaign(nl.id)
+
+    log_activity(db, category="admin", action="send", description=f"Started sending newsletter '{nl.subject}' to {subscriber_count} subscribers", request=request, user_id=admin.id, target_type="newsletter", target_id=nl.id)
+    db.commit()
+    flash(request, f"Newsletter is being sent to {subscriber_count} subscriber(s).", "success")
+    return RedirectResponse("/admin/newsletters", status_code=303)
+
+
+@router.get("/newsletters/{newsletter_id}/status")
+def newsletter_status(request: Request, newsletter_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    nl = db.query(Newsletter).get(newsletter_id)
+    if not nl:
+        return JSONResponse({"error": "not found"}, status_code=404)
+    return JSONResponse({
+        "status": nl.status,
+        "total_recipients": nl.total_recipients,
+        "sent_count": nl.sent_count,
+        "failed_count": nl.failed_count,
+    })
+
+
+@router.post("/newsletters/preview")
+async def newsletter_preview(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+    form = await _form(request)
+    body_html = form.get("body_html", "")
+    from app.services.email import wrap_newsletter_html
+    full_html = wrap_newsletter_html(body_html, "#")
+    from fastapi.responses import HTMLResponse
+    return HTMLResponse(content=full_html)
+
+
+@router.post("/newsletters/upload-image")
+async def newsletter_upload_image(request: Request, db: Session = Depends(get_db)):
+    import os
+    import uuid
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    form = await request.form()
+    file = form.get("image")
+    if not file or not hasattr(file, "filename"):
+        return JSONResponse({"error": "No file uploaded"}, status_code=400)
+
+    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed:
+        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        return JSONResponse({"error": "File too large (max 5MB)"}, status_code=400)
+
+    ext_map = {"image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif", "image/webp": ".webp"}
+    ext = ext_map.get(file.content_type, ".jpg")
+    filename = f"{uuid.uuid4().hex}{ext}"
+
+    upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "uploads", "newsletters")
+    os.makedirs(upload_dir, exist_ok=True)
+    filepath = os.path.join(upload_dir, filename)
+
+    with open(filepath, "wb") as f:
+        f.write(content)
+
+    url = f"/static/uploads/newsletters/{filename}"
+    return JSONResponse({"url": url})

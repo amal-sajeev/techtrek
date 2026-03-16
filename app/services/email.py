@@ -1,5 +1,7 @@
 import logging
+import secrets
 import smtplib
+import threading
 from email.mime.application import MIMEApplication
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -330,3 +332,84 @@ def send_speaker_invite(email: str, speaker_name: str, invite_url: str):
   </table>
 </body></html>"""
     return _send(email, "You're Invited to TechTrek as a Speaker!", html)
+
+
+def wrap_newsletter_html(body_html: str, unsubscribe_url: str) -> str:
+    return f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="background:#0e7490;padding:20px 32px;">
+          <h1 style="margin:0;font-size:20px;color:#ffffff;font-weight:700;">&#9889; TechTrek</h1>
+        </td></tr>
+        <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
+          {body_html}
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;font-size:12px;color:#94a3b8;text-align:center;">
+            You received this email because you subscribed to TechTrek updates.<br>
+            <a href="{unsubscribe_url}" style="color:#64748b;text-decoration:underline;">Unsubscribe</a>
+          </p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+
+
+def send_newsletter_campaign(newsletter_id: int):
+    """Send a newsletter campaign in a background thread."""
+
+    def _worker():
+        from app.database import SessionLocal
+        from app.models.newsletter import Newsletter
+        from app.models.testimonial import NewsletterSubscriber
+        from app.utils import now_ist
+
+        db = SessionLocal()
+        try:
+            nl = db.query(Newsletter).get(newsletter_id)
+            if not nl or nl.status != "sending":
+                return
+
+            subscribers = db.query(NewsletterSubscriber).all()
+            nl.total_recipients = len(subscribers)
+            db.commit()
+
+            for sub in subscribers:
+                if not sub.unsubscribe_token:
+                    sub.unsubscribe_token = secrets.token_urlsafe(32)
+                    db.commit()
+
+            for i, sub in enumerate(subscribers):
+                unsub_url = f"https://techtrek.in/newsletter/unsubscribe/{sub.unsubscribe_token}"
+                html = wrap_newsletter_html(nl.body_html, unsub_url)
+                ok = _send(sub.email, nl.subject, html)
+
+                if ok:
+                    nl.sent_count += 1
+                else:
+                    nl.failed_count += 1
+
+                if (i + 1) % 10 == 0 or (i + 1) == len(subscribers):
+                    db.commit()
+
+            nl.status = "failed" if nl.sent_count == 0 and nl.failed_count > 0 else "sent"
+            nl.sent_at = now_ist()
+            db.commit()
+        except Exception:
+            logger.exception("Newsletter campaign %s failed", newsletter_id)
+            try:
+                nl = db.query(Newsletter).get(newsletter_id)
+                if nl:
+                    nl.status = "failed"
+                    db.commit()
+            except Exception:
+                pass
+        finally:
+            db.close()
+
+    thread = threading.Thread(target=_worker, daemon=True)
+    thread.start()

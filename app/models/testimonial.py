@@ -22,4 +22,5 @@ class NewsletterSubscriber(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String(255), unique=True, nullable=False)
+    unsubscribe_token = Column(String(64), unique=True, nullable=True)
     subscribed_at = Column(DateTime, default=now_ist)

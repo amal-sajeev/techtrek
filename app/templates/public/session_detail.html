@@ -1,7 +1,6 @@
 {% extends "base.html" %}
 {% block title %}{{ session.title }} — TechTrek{% endblock %}
 
-{% block content %}
 {% set img_pool = [
   'photo-1591115765373-5207764f72e7',
   'photo-1505373877841-8d25f7d46678',
@@ -13,223 +12,507 @@
   'photo-1573164713714-d95e436ab8d1'
 ] %}
 {% set img_id = img_pool[session.id % 8] %}
+{% set hero_img = session.banner_url or ('https://images.unsplash.com/' + img_id + '?w=1600&auto=format&fit=crop&q=80') %}
+{% set og_img = session.banner_url or ('https://images.unsplash.com/' + img_id + '?w=1200&auto=format&fit=crop&q=80') %}
+{% set venue = auditorium.name if auditorium else (event.college.name if event and event.college else '') %}
 
-<!-- Hero -->
-<section class="session-hero">
-  <img class="session-hero-img"
-    src="https://images.unsplash.com/{{ img_id }}?w=1400&auto=format&fit=crop&q=80"
-    alt="{{ session.title }}">
-  <div class="session-hero-vignette"></div>
-  <div class="session-hero-content">
-    <div class="session-breadcrumb">
-      <a href="/sessions">Sessions</a>
-      <span class="session-breadcrumb-sep">/</span>
-      <span>{{ session.title }}</span>
-    </div>
-    {% if event %}
-    <div class="session-status-badge badge-{{ event.status }}">
-      <span class="session-status-dot"></span>
-      {{ event.status | replace('-', ' ') | title }}
-    </div>
-    {% endif %}
-    <h1 class="session-title">{{ session.title }}</h1>
-    <div class="session-hero-meta">
-      {% if session.start_time %}
-      <div class="session-meta-chip">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
-        {{ session.start_time.strftime('%A, %B %d, %Y') }}
-      </div>
-      <div class="session-meta-chip">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12,6 12,12 16,14"/></svg>
-        {{ session.start_time.strftime('%I:%M %p') }}
-        <span class="meta-chip-divider"></span>
-        <span class="meta-chip-sub">{{ session.duration_minutes or 30 }} min</span>
-      </div>
-      {% endif %}
-      {% if auditorium %}
-      <div class="session-meta-chip">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
-        {{ auditorium.name }}
-        <span class="meta-chip-divider"></span>
-        <span class="meta-chip-sub">{{ auditorium.location }}</span>
-      </div>
-      {% endif %}
-    </div>
-  </div>
-</section>
+{% block head_extra %}
+<meta property="og:type" content="website">
+<meta property="og:title" content="{{ session.title }} — TechTrek">
+<meta property="og:description" content="{{ session.description|default('Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
+<meta property="og:image" content="{{ og_img }}">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ session.title }} — TechTrek">
+<meta name="twitter:description" content="{{ session.description|default('Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
+<meta name="twitter:image" content="{{ og_img }}">
+{% if session.description %}
+<meta name="description" content="{{ session.description|truncate(160, True, '...') }}">
+{% endif %}
+{% endblock %}
 
-<div class="session-hero-rule"></div>
+{% block content %}
 
-<!-- Main Body -->
-<div class="session-page-body">
-  <div>
-    <!-- Speakers -->
-    {% if session.session_speakers %}
-    <div class="session-speaker-wrap">
-      <div class="session-sec-head">
-        <span class="session-sec-label">Speaker{{ 's' if session.session_speakers|length > 1 }}</span>
-        <div class="session-sec-line"></div>
-      </div>
-      {% for ss in session.session_speakers %}
-      <div class="session-speaker-card">
-        {% if ss.speaker.photo_url %}
-        <img class="session-avatar" src="{{ ss.speaker.photo_url }}" alt="{{ ss.speaker.name }}">
-        {% else %}
-        <div class="session-avatar session-avatar-initials">{{ ss.speaker.name[0] }}</div>
-        {% endif %}
-        <div>
-          <div class="session-speaker-name">{{ ss.speaker.name }}</div>
-          <div class="session-speaker-role">
-            {{ ss.role }}
-            {% if ss.speaker.title %} · {{ ss.speaker.title }}{% endif %}
-          </div>
-          {% if ss.speaker.bio %}
-          <div class="session-speaker-bio">{{ ss.speaker.bio }}</div>
-          {% endif %}
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-    {% elif session.speaker_rel %}
-    <div class="session-speaker-wrap">
-      <div class="session-sec-head">
-        <span class="session-sec-label">Speaker</span>
-        <div class="session-sec-line"></div>
-      </div>
-      <div class="session-speaker-card">
-        {% if session.speaker_rel.photo_url %}
-        <img class="session-avatar" src="{{ session.speaker_rel.photo_url }}" alt="{{ session.speaker_rel.name }}">
-        {% else %}
-        <div class="session-avatar session-avatar-initials">{{ session.speaker_rel.name[0] }}</div>
-        {% endif %}
-        <div>
-          <div class="session-speaker-name">{{ session.speaker_rel.name }}</div>
-          {% if session.speaker_rel.title %}
-          <div class="session-speaker-role">{{ session.speaker_rel.title }}</div>
-          {% endif %}
-          {% if session.speaker_rel.bio %}
-          <div class="session-speaker-bio">{{ session.speaker_rel.bio }}</div>
-          {% endif %}
-        </div>
-      </div>
-    </div>
-    {% elif session.speaker_name %}
-    <div class="session-speaker-wrap">
-      <div class="session-sec-head">
-        <span class="session-sec-label">Speaker</span>
-        <div class="session-sec-line"></div>
-      </div>
-      <p class="session-about-text">{{ session.speaker_name }}</p>
-    </div>
-    {% endif %}
+{# ── SCROLL PROGRESS BAR ─────────────────────────────────────── #}
+<div class="sd-progress-bar" id="sd-progress"></div>
 
-    <!-- About -->
-    {% if session.description %}
-    <div class="session-about-wrap">
-      <div class="session-sec-head">
-        <span class="session-sec-label">About This Session</span>
-        <div class="session-sec-line"></div>
-      </div>
-      <p class="session-about-text">{{ session.description }}</p>
-    </div>
-    {% endif %}
-
-    <!-- Agenda -->
-    {% if session.agenda_items %}
-    <div>
-      <div class="session-sec-head">
-        <span class="session-sec-label">Session Agenda</span>
-        <div class="session-sec-line"></div>
-      </div>
-      {% for item in session.agenda_items %}
-      <div class="session-agenda-row">
-        <span class="session-agenda-num">{{ "%02d"|format(loop.index) }}</span>
-        <span class="session-agenda-title">{{ item.title }}</span>
-        <span class="session-agenda-time">{{ item.duration_minutes }} min</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% endif %}
-
-    <!-- Recordings -->
-    {% if recordings %}
-    <div class="session-about-wrap" style="margin-top:28px">
-      <div class="session-sec-head">
-        <span class="session-sec-label">Session Recording{{ 's' if recordings|length > 1 else '' }}</span>
-        <div class="session-sec-line"></div>
-      </div>
-      {% for item in recordings %}
-      {% if item.rec.title %}
-      <p style="font-weight:600;margin-bottom:.5rem;margin-top:{% if not loop.first %}1.5rem{% else %}0{% endif %}">{{ item.rec.title }}</p>
-      {% elif not loop.first %}
-      <div style="margin-top:1.5rem"></div>
-      {% endif %}
-      {% if item.embed_url %}
-        <div class="video-embed-wrap">
-          <iframe src="{{ item.embed_url }}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
-        </div>
-      {% else %}
-        <a href="{{ item.rec.url }}" target="_blank" rel="noopener" class="btn btn-primary">&#9654; Watch Recording</a>
-      {% endif %}
-      {% endfor %}
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Booking Card -->
-  <div>
-    <div class="session-booking-card">
-      <div class="session-card-header">
+{# ── STICKY CTA BAR ──────────────────────────────────────────── #}
+<div class="sd-sticky-bar" id="sd-sticky-bar">
+  <div class="container">
+    <div class="sd-sticky-inner">
+      <span class="sd-sticky-title">{{ session.title }}</span>
+      <div class="sd-sticky-actions">
         {% if event %}
-        <div class="session-price-eyebrow">Part of event</div>
-        <div class="session-price-block">
-          <span class="session-price-sym">₹</span>
-          <span class="session-price-num">{{ "%.0f"|format(event.price if event.price else 0) }}</span>
-        </div>
-        {% if event.price_vip is not none or event.price_accessible is not none %}
-        <div class="session-alt-tiers">
-          {% if event.price_vip is not none %}
-          <span class="session-alt-tier tier-vip-pill">VIP · ₹{{ "%.0f"|format(event.price_vip) }}</span>
+          {% if event.price == 0 %}
+            <span class="sd-sticky-price">Free</span>
+          {% else %}
+            <span class="sd-sticky-price">&#8377;{{ '{:,.0f}'.format(event.price) }}</span>
           {% endif %}
-          {% if event.price_accessible is not none %}
-          <span class="session-alt-tier tier-acc-pill">Accessible · ₹{{ "%.0f"|format(event.price_accessible) }}</span>
+          {% if user %}
+            {% if availability != 'sold-out' %}
+            <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm">Book Now</a>
+            {% else %}
+            <span class="btn btn-outline btn-sm" style="opacity:.5;cursor:not-allowed">Sold Out</span>
+            {% endif %}
+          {% else %}
+          <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm">Get Ticket</a>
           {% endif %}
-        </div>
         {% endif %}
-        {% endif %}
-      </div>
-      <div class="session-card-body">
-        <div class="session-event-guidance">
-          <div class="seg-icon">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5v2M15 11v2M15 17v2M5 5h5M5 11h5M5 17h5M3 3h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H3V3z"/><path d="M11 3h8a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-8V3z"/></svg>
-          </div>
-          <div>
-            <p class="seg-title">Book via an Event</p>
-            <p class="seg-text">This session is part of a TechTrek event. Book the event to get access to all sessions in one ticket.</p>
-          </div>
-        </div>
-        {% if event %}
-        <a href="/events/{{ event.id }}" class="session-book-btn">Book Event &rarr;</a>
-        {% else %}
-        <a href="/events" class="session-book-btn">Browse Events &rarr;</a>
-        {% endif %}
-
-        <div class="session-perks">
-          <div class="session-perk">
-            <div class="session-perk-icon">✓</div>
-            <span class="session-perk-text">QR ticket delivered instantly after payment</span>
-          </div>
-          <div class="session-perk">
-            <div class="session-perk-icon">✓</div>
-            <span class="session-perk-text">Seat confirmed and held in your name</span>
-          </div>
-          <div class="session-perk">
-            <div class="session-perk-icon">✓</div>
-            <span class="session-perk-text">Cancel for a full refund before the event</span>
-          </div>
-        </div>
       </div>
     </div>
   </div>
 </div>
+
+{# ── FULL-BLEED HERO ─────────────────────────────────────────── #}
+<div class="sd-hero">
+  <div class="sd-hero-media">
+    <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager">
+  </div>
+  <div class="sd-hero-gradient"></div>
+
+  <div class="sd-hero-nav">
+    <div class="container">
+      <a href="/sessions" class="sd-back-link">&#8592; All Sessions</a>
+    </div>
+  </div>
+
+  <div class="sd-hero-caption">
+    <div class="container">
+      {% if event %}
+      <div class="sd-hero-event-tag">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        Part of <a href="/events/{{ event.id }}">{{ event.name }}</a>
+      </div>
+      {% endif %}
+
+      <h1 class="sd-hero-title">{{ session.title }}</h1>
+
+      {% if session.description %}
+      <p class="sd-hero-desc">{{ session.description|truncate(180, True, '...') }}</p>
+      {% endif %}
+
+      <div class="sd-hero-pills">
+        {% if session.speaker_name %}
+        <span class="sd-pill">&#127908; {{ session.speaker_name }}</span>
+        {% endif %}
+        {% if session.start_time %}
+        <span class="sd-pill">&#128197; {{ session.start_time.strftime('%b %d, %Y') }}</span>
+        <span class="sd-pill">&#128336; {{ session.start_time.strftime('%I:%M %p') }}</span>
+        {% elif event and event.start_date %}
+        <span class="sd-pill">&#128197; {{ event.start_date.strftime('%b %d, %Y') }}</span>
+        {% endif %}
+        {% if session.duration_minutes %}
+        <span class="sd-pill">&#9200; {{ session.duration_minutes }} min</span>
+        {% endif %}
+        {% if venue %}
+        <span class="sd-pill">&#128205; {{ venue }}</span>
+        {% endif %}
+      </div>
+
+      {% if event %}
+      <div class="sd-hero-cta">
+        {% if user %}
+          {% if availability != 'sold-out' %}
+          <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-hero-btn">
+            {% if event.price == 0 %}Register Free{% else %}Book Event Ticket &mdash; &#8377;{{ '{:,.0f}'.format(event.price) }}{% endif %}
+          </a>
+          {% else %}
+          <span class="btn btn-outline btn-lg sd-hero-btn" style="opacity:.6;cursor:not-allowed">Sold Out</span>
+          {% endif %}
+        {% else %}
+        <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-hero-btn">
+          {% if event.price == 0 %}Register Free{% else %}Get Your Ticket &mdash; &#8377;{{ '{:,.0f}'.format(event.price) }}{% endif %}
+        </a>
+        {% endif %}
+        {% if availability == 'filling-up' and stats.available > 0 %}
+        <span class="sd-urgency-badge">&#128293; Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left</span>
+        {% endif %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── BODY ────────────────────────────────────────────────────── #}
+<div class="sd-body">
+  <div class="container">
+    <div class="sd-grid">
+
+      {# ── LEFT COLUMN: content ─────────────────────────────── #}
+      <div class="sd-content-col">
+
+        {# Speakers #}
+        {% if session.session_speakers %}
+        <div class="sd-section reveal">
+          <div class="sd-sec-head">
+            <span class="sd-sec-label">Speaker{{ 's' if session.session_speakers|length > 1 }}</span>
+            <div class="sd-sec-line"></div>
+          </div>
+          {% for ss in session.session_speakers %}
+          <div class="sd-speaker-card">
+            {% if ss.speaker.photo_url %}
+            <img class="sd-avatar" src="{{ ss.speaker.photo_url }}" alt="{{ ss.speaker.name }}">
+            {% else %}
+            <div class="sd-avatar sd-avatar-initials">{{ ss.speaker.name[0] }}</div>
+            {% endif %}
+            <div>
+              <div class="sd-speaker-name">{{ ss.speaker.name }}</div>
+              <div class="sd-speaker-role">
+                {{ ss.role }}
+                {% if ss.speaker.title %} &middot; {{ ss.speaker.title }}{% endif %}
+              </div>
+              {% if ss.speaker.bio %}
+              <div class="sd-speaker-bio">{{ ss.speaker.bio }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% elif session.speaker_rel %}
+        <div class="sd-section reveal">
+          <div class="sd-sec-head">
+            <span class="sd-sec-label">Speaker</span>
+            <div class="sd-sec-line"></div>
+          </div>
+          <div class="sd-speaker-card">
+            {% if session.speaker_rel.photo_url %}
+            <img class="sd-avatar" src="{{ session.speaker_rel.photo_url }}" alt="{{ session.speaker_rel.name }}">
+            {% else %}
+            <div class="sd-avatar sd-avatar-initials">{{ session.speaker_rel.name[0] }}</div>
+            {% endif %}
+            <div>
+              <div class="sd-speaker-name">{{ session.speaker_rel.name }}</div>
+              {% if session.speaker_rel.title %}
+              <div class="sd-speaker-role">{{ session.speaker_rel.title }}</div>
+              {% endif %}
+              {% if session.speaker_rel.bio %}
+              <div class="sd-speaker-bio">{{ session.speaker_rel.bio }}</div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        {% elif session.speaker_name %}
+        <div class="sd-section reveal">
+          <div class="sd-sec-head">
+            <span class="sd-sec-label">Speaker</span>
+            <div class="sd-sec-line"></div>
+          </div>
+          <p class="sd-body-text">{{ session.speaker_name }}</p>
+        </div>
+        {% endif %}
+
+        {# About #}
+        {% if session.description %}
+        <div class="sd-section reveal">
+          <div class="sd-sec-head">
+            <span class="sd-sec-label">About This Session</span>
+            <div class="sd-sec-line"></div>
+          </div>
+          <p class="sd-body-text">{{ session.description }}</p>
+        </div>
+        {% endif %}
+
+        {# Agenda #}
+        {% if session.agenda_items %}
+        <div class="sd-section reveal">
+          <div class="sd-sec-head">
+            <span class="sd-sec-label">Session Agenda</span>
+            <div class="sd-sec-line"></div>
+          </div>
+          {% for item in session.agenda_items %}
+          <div class="sd-agenda-row">
+            <span class="sd-agenda-num">{{ "%02d"|format(loop.index) }}</span>
+            <span class="sd-agenda-title">{{ item.title }}</span>
+            <span class="sd-agenda-time">{{ item.duration_minutes }} min</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Recordings #}
+        {% if recordings %}
+        <div class="sd-section reveal">
+          <div class="sd-sec-head">
+            <span class="sd-sec-label">Session Recording{{ 's' if recordings|length > 1 else '' }}</span>
+            <div class="sd-sec-line"></div>
+          </div>
+          {% for item in recordings %}
+          {% if item.rec.title %}
+          <p style="font-weight:600;margin-bottom:.5rem;margin-top:{% if not loop.first %}1.5rem{% else %}0{% endif %}">{{ item.rec.title }}</p>
+          {% elif not loop.first %}
+          <div style="margin-top:1.5rem"></div>
+          {% endif %}
+          {% if item.embed_url %}
+            <div class="video-embed-wrap">
+              <iframe src="{{ item.embed_url }}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+            </div>
+          {% else %}
+            <a href="{{ item.rec.url }}" target="_blank" rel="noopener" class="btn btn-primary">&#9654; Watch Recording</a>
+          {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Also Included — sibling sessions #}
+        {% if sibling_sessions %}
+        <div class="sd-section reveal">
+          <div class="sd-sec-head">
+            <span class="sd-sec-label">Also Included in This Event</span>
+            <div class="sd-sec-line"></div>
+          </div>
+          <p class="sd-body-text sd-sibling-intro">
+            Your ticket covers <strong>{{ total_sessions }} session{{ 's' if total_sessions != 1 else '' }}</strong> total. Here&#8217;s what else you&#8217;ll get:
+          </p>
+          <div class="sd-sibling-list">
+            {% for item in sibling_sessions %}
+            {% set s = item.session %}
+            {% set s_img_id = img_pool[s.id % 8] %}
+            <a href="/sessions/{{ s.id }}" class="sd-sibling-card">
+              <img class="sd-sibling-thumb"
+                src="{% if s.banner_url %}{{ s.banner_url }}{% else %}https://images.unsplash.com/{{ s_img_id }}?w=200&auto=format&fit=crop&q=80{% endif %}"
+                alt="{{ s.title }}" loading="lazy">
+              <div class="sd-sibling-info">
+                <h4 class="sd-sibling-title">{{ s.title }}</h4>
+                <p class="sd-sibling-speaker">{{ s.speaker_name }}</p>
+                {% if s.start_time %}
+                <p class="sd-sibling-meta">{{ s.start_time.strftime('%b %d') }} &middot; {{ s.start_time.strftime('%I:%M %p') }}{% if s.duration_minutes %} &middot; {{ s.duration_minutes }} min{% endif %}</p>
+                {% endif %}
+              </div>
+              <span class="sd-sibling-arrow">&rarr;</span>
+            </a>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+
+      </div>
+
+      {# ── RIGHT COLUMN: booking panel ──────────────────────── #}
+      <div class="sd-booking-col">
+        <div class="sd-booking-panel reveal-scale" id="sd-booking-panel">
+
+          {% if event %}
+          <div class="sd-bp-header">
+            <h3 class="sd-bp-title">Get Access to This Session</h3>
+            <p class="sd-bp-sub">Book the <a href="/events/{{ event.id }}">{{ event.name }}</a> event &mdash; {{ total_sessions }} session{{ 's' if total_sessions != 1 else '' }}, one ticket.</p>
+          </div>
+
+          {# Pricing #}
+          <div class="sd-bp-pricing">
+            <div class="sd-bp-tier sd-bp-tier--standard">
+              <span class="sd-bp-tier-badge">Standard</span>
+              <span class="sd-bp-tier-price">
+                {% if event.price == 0 %}Free{% else %}<span class="sd-bp-currency">&#8377;</span>{{ '{:,.0f}'.format(event.price) }}{% endif %}
+              </span>
+            </div>
+            {% if event.price_vip %}
+            <div class="sd-bp-tier sd-bp-tier--vip">
+              <span class="sd-bp-tier-badge sd-bp-badge--vip">VIP</span>
+              <span class="sd-bp-tier-price"><span class="sd-bp-currency">&#8377;</span>{{ '{:,.0f}'.format(event.price_vip) }}</span>
+            </div>
+            {% endif %}
+            {% if event.price_accessible %}
+            <div class="sd-bp-tier sd-bp-tier--accessible">
+              <span class="sd-bp-tier-badge sd-bp-badge--accessible">&#9855; Accessible</span>
+              <span class="sd-bp-tier-price"><span class="sd-bp-currency">&#8377;</span>{{ '{:,.0f}'.format(event.price_accessible) }}</span>
+            </div>
+            {% endif %}
+          </div>
+
+          {# Event details #}
+          {% if event.start_date or venue %}
+          <div class="sd-bp-meta">
+            {% if event.start_date %}
+            <div class="sd-bp-meta-row">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+              <span>{% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
+            </div>
+            {% endif %}
+            {% if venue %}
+            <div class="sd-bp-meta-row">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0118 0z"/><circle cx="12" cy="10" r="3"/></svg>
+              <span>{{ venue }}{% if auditorium and auditorium.location %} &middot; {{ auditorium.location }}{% endif %}</span>
+            </div>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {# Availability #}
+          {% if stats.total > 0 %}
+          <div class="sd-bp-availability sd-avail-{{ availability }}">
+            {% if availability == 'sold-out' %}
+            <span class="sd-avail-dot"></span> Sold Out
+            {% elif availability == 'filling-up' %}
+            <span class="sd-avail-dot"></span> Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left
+            {% else %}
+            <span class="sd-avail-dot"></span> {{ stats.available }} of {{ stats.total }} seats available
+            {% endif %}
+          </div>
+          {% endif %}
+
+          {# CTA buttons #}
+          <div class="sd-bp-actions">
+            {% if user %}
+              {% if availability != 'sold-out' %}
+              <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-bp-btn">
+                {% if event.price == 0 %}Register Free{% else %}Book Now{% endif %}
+              </a>
+              {% else %}
+              <div class="btn btn-outline btn-lg sd-bp-btn" style="opacity:.5;cursor:not-allowed">Sold Out</div>
+              {% endif %}
+            {% else %}
+            <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-bp-btn">Get Your Ticket</a>
+            <a href="/auth/login?next=/booking/event/{{ event.id }}/select" class="btn btn-outline btn-lg sd-bp-btn">Sign In</a>
+            {% endif %}
+          </div>
+
+          {# What's included checklist #}
+          <div class="sd-bp-checklist">
+            <p class="sd-bp-checklist-title">Your ticket includes:</p>
+            <div class="sd-perk">
+              <span class="sd-perk-icon">&#10003;</span>
+              <span>Access to all {{ total_sessions }} session{{ 's' if total_sessions != 1 else '' }}</span>
+            </div>
+            <div class="sd-perk">
+              <span class="sd-perk-icon">&#10003;</span>
+              <span>QR ticket delivered instantly</span>
+            </div>
+            <div class="sd-perk">
+              <span class="sd-perk-icon">&#10003;</span>
+              <span>Reserved seat in your name</span>
+            </div>
+            <div class="sd-perk">
+              <span class="sd-perk-icon">&#10003;</span>
+              <span>Free cancellation before the event</span>
+            </div>
+          </div>
+
+          {# Share button #}
+          <div class="sd-bp-share">
+            <button class="sd-share-btn" id="sd-share-btn" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>
+              Share this session
+            </button>
+          </div>
+
+          {% else %}
+          <div class="sd-bp-header">
+            <h3 class="sd-bp-title">Event Coming Soon</h3>
+            <p class="sd-bp-sub">This session will be part of an upcoming TechTrek event.</p>
+          </div>
+          <div class="sd-bp-actions">
+            <a href="/events" class="btn btn-primary btn-lg sd-bp-btn">Browse Events</a>
+          </div>
+          {% endif %}
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{# ── MOBILE FIXED FOOTER CTA ─────────────────────────────────── #}
+{% if event %}
+<div class="sd-mobile-footer" id="sd-mobile-footer">
+  <div class="sd-mobile-footer-inner">
+    <div class="sd-mobile-price">
+      {% if event.price == 0 %}
+        <span class="sd-mobile-amount">Free</span>
+      {% else %}
+        <span class="sd-mobile-amount">&#8377;{{ '{:,.0f}'.format(event.price) }}</span>
+      {% endif %}
+      <span class="sd-mobile-label">per ticket</span>
+    </div>
+    {% if user %}
+      {% if availability != 'sold-out' %}
+      <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary sd-mobile-btn">Book Now</a>
+      {% else %}
+      <span class="btn btn-outline sd-mobile-btn" style="opacity:.5;cursor:not-allowed">Sold Out</span>
+      {% endif %}
+    {% else %}
+    <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary sd-mobile-btn">Get Ticket</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# ── SCRIPTS ──────────────────────────────────────────────────── #}
+<script>
+(function () {
+  /* Parallax hero */
+  var heroMedia = document.querySelector('.sd-hero-media');
+  if (heroMedia) {
+    var ticking = false;
+    window.addEventListener('scroll', function () {
+      if (!ticking) {
+        requestAnimationFrame(function () {
+          heroMedia.style.transform = 'translateY(' + (window.scrollY * 0.35) + 'px) scale(1.05)';
+          ticking = false;
+        });
+        ticking = true;
+      }
+    }, { passive: true });
+  }
+
+  /* Scroll progress bar */
+  var bar = document.getElementById('sd-progress');
+  if (bar) {
+    window.addEventListener('scroll', function () {
+      var pct = window.scrollY / (document.body.scrollHeight - window.innerHeight) * 100;
+      bar.style.width = Math.min(Math.max(pct, 0), 100) + '%';
+    }, { passive: true });
+  }
+
+  /* Sticky bar shows after hero exits viewport */
+  var stickyBar = document.getElementById('sd-sticky-bar');
+  var hero = document.querySelector('.sd-hero');
+  if (stickyBar && hero) {
+    var isVisible = false;
+    window.addEventListener('scroll', function () {
+      var shouldShow = hero.getBoundingClientRect().bottom < 0;
+      if (shouldShow !== isVisible) {
+        isVisible = shouldShow;
+        stickyBar.classList.toggle('visible', shouldShow);
+      }
+    }, { passive: true });
+  }
+
+  /* Mobile footer shows after hero exits viewport */
+  var mobileFooter = document.getElementById('sd-mobile-footer');
+  if (mobileFooter && hero) {
+    var mobileVisible = false;
+    window.addEventListener('scroll', function () {
+      var show = hero.getBoundingClientRect().bottom < 0;
+      if (show !== mobileVisible) {
+        mobileVisible = show;
+        mobileFooter.classList.toggle('visible', show);
+      }
+    }, { passive: true });
+  }
+
+  /* Reveal on scroll */
+  var obs = new IntersectionObserver(function (entries) {
+    entries.forEach(function (e) {
+      if (e.isIntersecting) { e.target.classList.add('visible'); obs.unobserve(e.target); }
+    });
+  }, { threshold: 0.08 });
+  document.querySelectorAll('.reveal, .reveal-scale').forEach(function (el) { obs.observe(el); });
+
+  /* Share button */
+  var shareBtn = document.getElementById('sd-share-btn');
+  if (shareBtn) {
+    shareBtn.addEventListener('click', function () {
+      if (navigator.share) {
+        navigator.share({ title: document.title, url: location.href });
+      } else {
+        navigator.clipboard.writeText(location.href).then(function () {
+          shareBtn.textContent = 'Link copied!';
+          setTimeout(function () { shareBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg> Share this session'; }, 2000);
+        });
+      }
+    });
+  }
+}());
+</script>
+
 {% endblock %}

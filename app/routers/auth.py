@@ -2,7 +2,7 @@ import re
 
 import bcrypt
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.crypto import hash_lookup
@@ -143,7 +143,7 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
     email     = form.get("email", "").strip()
     full_name = form.get("full_name", "").strip()
     phone_country = form.get("phone_country", "+91").strip()
-    phone_raw = form.get("phone", "").strip()
+    phone_raw = re.sub(r'\D', '', form.get("phone", ""))[:11]
     phone = f"{phone_country}{phone_raw}" if phone_raw else ""
     college   = form.get("college", "").strip()
     discipline = form.get("discipline", "").strip()
@@ -233,6 +233,21 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
     return RedirectResponse(next_url, status_code=303)
 
 
+@router.post("/verify-password")
+async def verify_password(request: Request, db: Session = Depends(get_db)):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return JSONResponse({"ok": False, "error": "Not authenticated"}, status_code=401)
+    body = await request.json()
+    password = body.get("password", "")
+    if not password:
+        return JSONResponse({"ok": False, "error": "Password required"})
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user or not _verify_pw(password, user.password_hash):
+        return JSONResponse({"ok": False, "error": "Incorrect password"})
+    return JSONResponse({"ok": True})
+
+
 @router.get("/profile")
 def profile_page(request: Request, db: Session = Depends(get_db)):
     user_id = request.session.get("user_id")
@@ -256,7 +271,10 @@ async def profile_update(request: Request, db: Session = Depends(get_db), _csrf:
         return RedirectResponse("/auth/login", status_code=303)
 
     form = await request.form()
-    full_name  = form.get("full_name", "").strip()
+    full_name     = form.get("full_name", "").strip()
+    phone_country = form.get("phone_country", "+91").strip()
+    phone_raw     = re.sub(r'\D', '', form.get("phone", ""))[:11]
+    phone         = f"{phone_country}{phone_raw}" if phone_raw else ""
     college    = form.get("college", "").strip()
     discipline = form.get("discipline", "").strip()
     domain     = form.get("domain", "").strip()
@@ -273,8 +291,8 @@ async def profile_update(request: Request, db: Session = Depends(get_db), _csrf:
         except ValueError:
             pass
 
-    # full_name is an encrypted field; the TypeDecorator re-encrypts on save.
     user.full_name  = full_name
+    user.phone      = phone or None
     user.college    = college or None
     user.discipline = discipline or None
     user.domain     = domain or None

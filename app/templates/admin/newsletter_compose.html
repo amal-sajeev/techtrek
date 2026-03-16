@@ -1,0 +1,341 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Edit' if newsletter else 'Compose' }} Newsletter — Admin{% endblock %}
+
+{% block head_extra %}
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<style>
+  .nl-compose-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    align-items: start;
+  }
+  @media (max-width: 1024px) {
+    .nl-compose-grid { grid-template-columns: 1fr; }
+  }
+  .nl-editor-col, .nl-preview-col { min-width: 0; }
+  .nl-tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid var(--border);
+    margin-bottom: 1rem;
+  }
+  .nl-tab {
+    padding: .55rem 1.25rem;
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color .2s, border-color .2s;
+  }
+  .nl-tab.active {
+    color: var(--cyan);
+    border-bottom-color: var(--cyan);
+  }
+  .nl-quill-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 8px);
+    overflow: hidden;
+    background: var(--bg-surface);
+  }
+  #nl-quill-editor {
+    min-height: 320px;
+    font-size: .92rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+  }
+  .ql-toolbar.ql-snow {
+    border: none !important;
+    border-bottom: 1px solid var(--border) !important;
+    background: var(--bg-elevated);
+  }
+  .ql-container.ql-snow { border: none !important; }
+  .ql-editor { padding: 1rem 1.25rem; }
+  .ql-snow .ql-stroke { stroke: var(--text-secondary) !important; }
+  .ql-snow .ql-fill { fill: var(--text-secondary) !important; }
+  .ql-snow .ql-picker-label { color: var(--text-secondary) !important; }
+  .ql-snow .ql-picker-options {
+    background: var(--bg-elevated) !important;
+    border-color: var(--border) !important;
+  }
+  .ql-snow .ql-picker-item { color: var(--text-primary) !important; }
+
+  #nl-html-textarea {
+    width: 100%;
+    min-height: 380px;
+    font-family: 'Courier New', monospace;
+    font-size: .82rem;
+    line-height: 1.5;
+    padding: 1rem;
+    background: var(--bg-surface);
+    color: var(--text-primary);
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 8px);
+    resize: vertical;
+    tab-size: 2;
+  }
+  .nl-preview-frame {
+    width: 100%;
+    min-height: 500px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius, 8px);
+    background: #f4f6f8;
+  }
+  .nl-preview-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .75rem;
+  }
+  .nl-preview-label {
+    font-family: var(--font-mono);
+    font-size: .78rem;
+    text-transform: uppercase;
+    letter-spacing: .08em;
+    color: var(--text-muted);
+  }
+  .nl-actions {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    margin-top: 1.25rem;
+  }
+  .nl-send-info {
+    font-size: .82rem;
+    color: var(--text-muted);
+    margin-top: .5rem;
+  }
+  .nl-progress-bar {
+    height: 6px;
+    background: var(--bg-elevated);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 1rem;
+    display: none;
+  }
+  .nl-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--cyan), var(--green));
+    border-radius: 3px;
+    transition: width .3s ease;
+    width: 0%;
+  }
+  .nl-progress-text {
+    font-family: var(--font-mono);
+    font-size: .75rem;
+    color: var(--text-muted);
+    margin-top: .35rem;
+    display: none;
+  }
+</style>
+{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-header">
+  <h1 class="admin-page-title">{{ 'Edit' if newsletter else 'Compose' }} Newsletter</h1>
+  <a href="/admin/newsletters" class="btn btn-outline btn-sm">&larr; All Campaigns</a>
+</div>
+
+<form id="nl-form" method="post"
+      action="{% if newsletter %}/admin/newsletters/{{ newsletter.id }}/edit{% else %}/admin/newsletters/new{% endif %}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="body_html" id="nl-body-html" value="">
+
+  <div class="form-group" style="margin-bottom:1.25rem">
+    <label for="nl-subject" class="form-label">Subject</label>
+    <input type="text" id="nl-subject" name="subject" class="form-input" placeholder="Newsletter subject line..."
+           value="{{ newsletter.subject if newsletter else '' }}" required>
+  </div>
+
+  <div class="nl-compose-grid">
+
+    <div class="nl-editor-col">
+      <div class="nl-tabs">
+        <button type="button" class="nl-tab active" id="tab-richtext" onclick="switchTab('richtext')">Rich Text</button>
+        <button type="button" class="nl-tab" id="tab-html" onclick="switchTab('html')">Raw HTML</button>
+      </div>
+
+      <div id="panel-richtext">
+        <div class="nl-quill-wrap">
+          <div id="nl-quill-editor"></div>
+        </div>
+      </div>
+
+      <div id="panel-html" style="display:none">
+        <textarea id="nl-html-textarea" spellcheck="false"></textarea>
+      </div>
+
+      <div class="nl-actions">
+        <button type="submit" class="btn btn-primary" id="btn-save">Save Draft</button>
+        <button type="button" class="btn btn-outline" id="btn-preview" onclick="refreshPreview()">Refresh Preview</button>
+        {% if newsletter and newsletter.status == 'draft' %}
+        <button type="button" class="btn btn-primary" style="background:#10b981;border-color:#10b981" id="btn-send"
+                onclick="confirmSend()">
+          Send to {{ subscriber_count }} subscriber{{ 's' if subscriber_count != 1 else '' }}
+        </button>
+        {% elif not newsletter %}
+        <span class="nl-send-info">Save the draft first, then you can send it.</span>
+        {% endif %}
+      </div>
+
+      <div class="nl-progress-bar" id="nl-progress-bar">
+        <div class="nl-progress-fill" id="nl-progress-fill"></div>
+      </div>
+      <div class="nl-progress-text" id="nl-progress-text"></div>
+    </div>
+
+    <div class="nl-preview-col">
+      <div class="nl-preview-header">
+        <span class="nl-preview-label">Email Preview</span>
+        <button type="button" class="btn btn-outline btn-sm" onclick="refreshPreview()">Refresh</button>
+      </div>
+      <iframe id="nl-preview-frame" class="nl-preview-frame" sandbox="allow-same-origin"></iframe>
+    </div>
+
+  </div>
+</form>
+
+{% if newsletter and newsletter.status == 'draft' %}
+<form id="nl-send-form" method="post" action="/admin/newsletters/{{ newsletter.id }}/send" style="display:none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+</form>
+{% endif %}
+
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script>
+(function() {
+  var quill = new Quill('#nl-quill-editor', {
+    theme: 'snow',
+    placeholder: 'Write your newsletter content here...',
+    modules: {
+      toolbar: {
+        container: [
+          [{ header: [1, 2, 3, false] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ color: [] }, { background: [] }],
+          [{ align: [] }],
+          [{ list: 'ordered' }, { list: 'bullet' }],
+          ['blockquote', 'link', 'image'],
+          ['clean']
+        ],
+        handlers: {
+          image: function() { uploadImage(); }
+        }
+      }
+    }
+  });
+
+  var existingHtml = {{ (newsletter.body_html if newsletter else '')|tojson }};
+  if (existingHtml) {
+    quill.root.innerHTML = existingHtml;
+  }
+
+  var htmlTextarea = document.getElementById('nl-html-textarea');
+  var bodyInput = document.getElementById('nl-body-html');
+  var currentTab = 'richtext';
+
+  window.switchTab = function(tab) {
+    if (tab === currentTab) return;
+
+    if (tab === 'html') {
+      htmlTextarea.value = quill.root.innerHTML;
+      document.getElementById('panel-richtext').style.display = 'none';
+      document.getElementById('panel-html').style.display = '';
+    } else {
+      quill.root.innerHTML = htmlTextarea.value;
+      document.getElementById('panel-html').style.display = 'none';
+      document.getElementById('panel-richtext').style.display = '';
+    }
+
+    currentTab = tab;
+    document.getElementById('tab-richtext').classList.toggle('active', tab === 'richtext');
+    document.getElementById('tab-html').classList.toggle('active', tab === 'html');
+  };
+
+  function getCurrentHtml() {
+    return currentTab === 'html' ? htmlTextarea.value : quill.root.innerHTML;
+  }
+
+  document.getElementById('nl-form').addEventListener('submit', function() {
+    bodyInput.value = getCurrentHtml();
+  });
+
+  window.refreshPreview = function() {
+    var html = getCurrentHtml();
+    var csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    var fd = new FormData();
+    fd.append('body_html', html);
+    fd.append('csrf_token', csrfToken);
+
+    fetch('/admin/newsletters/preview', { method: 'POST', body: fd })
+      .then(function(r) { return r.text(); })
+      .then(function(previewHtml) {
+        var frame = document.getElementById('nl-preview-frame');
+        frame.srcdoc = previewHtml;
+      })
+      .catch(function() {});
+  };
+
+  function uploadImage() {
+    var input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/jpeg,image/png,image/gif,image/webp';
+    input.onchange = function() {
+      var file = input.files[0];
+      if (!file) return;
+      if (file.size > 5 * 1024 * 1024) {
+        alert('Image must be under 5MB.');
+        return;
+      }
+      var fd = new FormData();
+      fd.append('image', file);
+      var csrfToken = document.querySelector('input[name="csrf_token"]').value;
+      fd.append('csrf_token', csrfToken);
+
+      fetch('/admin/newsletters/upload-image', { method: 'POST', body: fd })
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          if (d.url) {
+            var range = quill.getSelection(true);
+            quill.insertEmbed(range.index, 'image', d.url);
+          } else {
+            alert(d.error || 'Upload failed');
+          }
+        })
+        .catch(function() { alert('Upload failed'); });
+    };
+    input.click();
+  }
+
+  window.confirmSend = function() {
+    var count = {{ subscriber_count }};
+    if (!confirm('Send this newsletter to ' + count + ' subscriber' + (count !== 1 ? 's' : '') + '?\n\nThis action cannot be undone.')) return;
+
+    bodyInput.value = getCurrentHtml();
+
+    var csrfToken = document.querySelector('input[name="csrf_token"]').value;
+    var fd = new FormData();
+    fd.append('csrf_token', csrfToken);
+    fd.append('subject', document.getElementById('nl-subject').value);
+    fd.append('body_html', bodyInput.value);
+
+    fetch(document.getElementById('nl-form').action, { method: 'POST', body: fd })
+      .then(function() {
+        var sendForm = document.getElementById('nl-send-form');
+        if (sendForm) sendForm.submit();
+      })
+      .catch(function() {
+        alert('Failed to save draft before sending. Please try again.');
+      });
+  };
+
+  setTimeout(refreshPreview, 600);
+})();
+</script>
+{% endblock %}

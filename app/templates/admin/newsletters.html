@@ -1,0 +1,120 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Newsletter Campaigns — Admin{% endblock %}
+
+{% block admin_content %}
+<div class="admin-page-header">
+  <h1 class="admin-page-title">Newsletter Campaigns</h1>
+  <a href="/admin/newsletters/new" class="btn btn-primary">+ Compose New</a>
+</div>
+
+<p style="color:var(--text-muted);margin-bottom:1.5rem;font-size:.88rem;">
+  <strong>{{ subscriber_count }}</strong> active subscriber{{ 's' if subscriber_count != 1 else '' }}
+</p>
+
+{% if campaigns %}
+<div class="table-wrap">
+  <table class="admin-table">
+    <thead>
+      <tr>
+        <th>Subject</th>
+        <th>Status</th>
+        <th>Recipients</th>
+        <th>Sent</th>
+        <th>Failed</th>
+        <th>Created</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for nl in campaigns %}
+      <tr id="nl-row-{{ nl.id }}">
+        <td data-label="Subject">{{ nl.subject or '(no subject)' }}</td>
+        <td data-label="Status">
+          {% if nl.status == 'draft' %}
+          <span class="badge badge-draft">Draft</span>
+          {% elif nl.status == 'sending' %}
+          <span class="badge badge-warning" style="animation:pulse 1.5s infinite" id="nl-badge-{{ nl.id }}">Sending&hellip;</span>
+          {% elif nl.status == 'sent' %}
+          <span class="badge badge-success">Sent</span>
+          {% elif nl.status == 'failed' %}
+          <span class="badge badge-danger">Failed</span>
+          {% else %}
+          <span class="badge">{{ nl.status }}</span>
+          {% endif %}
+        </td>
+        <td data-label="Recipients" id="nl-total-{{ nl.id }}">{{ nl.total_recipients }}</td>
+        <td data-label="Sent" id="nl-sent-{{ nl.id }}">{{ nl.sent_count }}</td>
+        <td data-label="Failed" id="nl-failed-{{ nl.id }}">{{ nl.failed_count }}</td>
+        <td data-label="Created">{{ nl.created_at.strftime('%b %d, %Y %I:%M %p') if nl.created_at else '' }}</td>
+        <td data-label="Actions" class="actions-cell">
+          {% if nl.status == 'draft' %}
+          <a href="/admin/newsletters/{{ nl.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <form method="post" action="/admin/newsletters/{{ nl.id }}/delete" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this draft?" data-confirm-label="Delete">Delete</button>
+          </form>
+          {% elif nl.status == 'sent' or nl.status == 'failed' %}
+          <span class="text-muted" style="font-size:.78rem">
+            {% if nl.sent_at %}Sent {{ nl.sent_at.strftime('%b %d, %Y') }}{% endif %}
+          </span>
+          {% elif nl.status == 'sending' %}
+          <span class="text-muted" style="font-size:.78rem">In progress&hellip;</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No campaigns yet</h3>
+  <p>Compose your first newsletter to reach your subscribers.</p>
+  <a href="/admin/newsletters/new" class="btn btn-primary">Compose Newsletter</a>
+</div>
+{% endif %}
+
+<script>
+(function() {
+  var sending = document.querySelectorAll('.badge-warning[id^="nl-badge-"]');
+  if (!sending.length) return;
+
+  var ids = [];
+  sending.forEach(function(el) {
+    var m = el.id.match(/nl-badge-(\d+)/);
+    if (m) ids.push(parseInt(m[1]));
+  });
+
+  function poll() {
+    ids.forEach(function(id) {
+      fetch('/admin/newsletters/' + id + '/status')
+        .then(function(r) { return r.json(); })
+        .then(function(d) {
+          var sentEl = document.getElementById('nl-sent-' + id);
+          var failedEl = document.getElementById('nl-failed-' + id);
+          var totalEl = document.getElementById('nl-total-' + id);
+          var badgeEl = document.getElementById('nl-badge-' + id);
+          if (sentEl) sentEl.textContent = d.sent_count;
+          if (failedEl) failedEl.textContent = d.failed_count;
+          if (totalEl) totalEl.textContent = d.total_recipients;
+          if (d.status !== 'sending' && badgeEl) {
+            badgeEl.style.animation = 'none';
+            if (d.status === 'sent') {
+              badgeEl.className = 'badge badge-success';
+              badgeEl.textContent = 'Sent';
+            } else if (d.status === 'failed') {
+              badgeEl.className = 'badge badge-danger';
+              badgeEl.textContent = 'Failed';
+            }
+            ids = ids.filter(function(x) { return x !== id; });
+          }
+        })
+        .catch(function() {});
+    });
+    if (ids.length > 0) setTimeout(poll, 3000);
+  }
+
+  setTimeout(poll, 2000);
+})();
+</script>
+{% endblock %}

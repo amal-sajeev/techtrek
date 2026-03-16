@@ -10,10 +10,21 @@
     </div>
 
     <form method="post" action="/auth/profile" id="profile-form" novalidate>
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <!-- PII section header -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+        <p style="color:var(--text-secondary);font-size:.85rem;margin:0">Personal Information</p>
+        <button type="button" id="edit-pii-btn" class="btn btn-outline" style="font-size:.78rem;padding:.3rem .8rem;display:flex;align-items:center;gap:.4rem">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Edit
+        </button>
+      </div>
+
       <div class="form-group">
         <label class="form-label" for="pf-fullname">Full Name <span class="required">*</span></label>
-        <input type="text" name="full_name" id="pf-fullname" class="form-input" value="{{ profile_user.full_name or '' }}" required autocomplete="name">
+        <input type="text" name="full_name" id="pf-fullname" class="form-input pii-field"
+          value="{{ profile_user.full_name or '' }}" required autocomplete="name" readonly>
       </div>
 
       <div class="form-row">
@@ -27,19 +38,43 @@
         </div>
       </div>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">
+      <div class="form-group">
+        <label class="form-label" for="pf-phone-display">Phone Number</label>
+        <!-- Locked: readonly display of full stored phone -->
+        <input type="tel" id="pf-phone-display" class="form-input pii-field"
+          value="{{ profile_user.phone or '' }}"
+          placeholder="{% if not profile_user.phone %}Not provided{% endif %}" readonly>
+        <!-- Unlocked: country code picker + national number -->
+        <div class="phone-input-wrap pf-phone-edit" id="pf-phone-edit-wrap" style="display:none">
+          <input type="hidden" name="phone_country" id="pf-phone-country" value="+91">
+          <div class="phone-cc-picker" id="pf-cc-picker">
+            <button type="button" class="form-input phone-cc-btn" id="pf-cc-btn">
+              <span id="pf-cc-label">IN +91</span>
+              <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+            </button>
+            <div class="phone-cc-dropdown" id="pf-cc-dropdown">
+              <input type="text" class="form-input phone-cc-search" id="pf-cc-search" placeholder="Search country..." autocomplete="off">
+              <ul class="phone-cc-list" id="pf-cc-list"></ul>
+            </div>
+          </div>
+          <input type="tel" name="phone" id="pf-phone" class="form-input phone-number-input" placeholder="98765 43210" maxlength="11" inputmode="numeric" pattern="[0-9]*" autocomplete="tel-national">
+        </div>
+      </div>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:1.25rem 0">
 
       <p style="color:var(--text-secondary);font-size:.85rem;margin-bottom:.75rem">Academic Details (optional)</p>
 
       <div class="form-group">
         <label class="form-label" for="pf-college">College / Institution</label>
-        <input type="text" name="college" id="pf-college" class="form-input" value="{{ profile_user.college or '' }}" placeholder="e.g. KSR College of Engineering" autocomplete="organization">
+        <input type="text" name="college" id="pf-college" class="form-input" value="{{ profile_user.college or '' }}"
+          placeholder="e.g. KSR College of Engineering" autocomplete="organization">
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="pf-discipline">Discipline</label>
-          <select name="discipline" id="pf-discipline" class="form-input" placeholder="Select discipline">
+          <select name="discipline" id="pf-discipline" class="form-input">
             <option value="">Select discipline</option>
             {% set disciplines = ['CSE','IT','ECE','EEE','Mechanical','Civil','AI/ML','Data Science','Commerce','BBA','BCA','Science','Arts','Law','Design','Other'] %}
             {% for d in disciplines %}
@@ -49,7 +84,7 @@
         </div>
         <div class="form-group">
           <label class="form-label" for="pf-domain">Domain of Interest</label>
-          <select name="domain" id="pf-domain" class="form-input" placeholder="Select domain">
+          <select name="domain" id="pf-domain" class="form-input">
             <option value="">Select domain</option>
             {% set domains = [('AI','Artificial Intelligence'),('Cloud Computing','Cloud Computing'),('Quantum Computing','Quantum Computing'),('Cybersecurity','Cybersecurity'),('Data Science','Data Science'),('Web Development','Web Development'),('Mobile Development','Mobile Development'),('IoT','IoT'),('Blockchain','Blockchain'),('DevOps','DevOps'),('Other','Other')] %}
             {% for val, label in domains %}
@@ -61,7 +96,7 @@
 
       <div class="form-group">
         <label class="form-label" for="pf-year">Year of Study</label>
-        <select name="year_of_study" id="pf-year" class="form-input" placeholder="Select year">
+        <select name="year_of_study" id="pf-year" class="form-input">
           <option value="">Select year</option>
           {% for y in range(1, 6) %}
           <option value="{{ y }}" {% if profile_user.year_of_study == y %}selected{% endif %}>{{ ['1st','2nd','3rd','4th','5th'][y-1] }} Year</option>
@@ -73,4 +108,255 @@
     </form>
   </div>
 </div>
+
+<!-- Password confirmation modal -->
+<div id="pw-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+  <div style="background:var(--bg-elevated);border:1px solid var(--border-strong);border-radius:var(--radius-lg);padding:2rem;width:100%;max-width:380px;margin:1rem">
+    <div style="display:flex;align-items:center;gap:.6rem;margin-bottom:1.25rem">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+      <span style="font-weight:600;font-size:1rem">Confirm Your Identity</span>
+    </div>
+    <p style="color:var(--text-secondary);font-size:.875rem;margin-bottom:1.25rem;line-height:1.5">
+      Enter your account password to unlock personal information editing.
+    </p>
+    <div class="form-group" style="margin-bottom:.5rem">
+      <label class="form-label" for="pw-confirm-input">Password</label>
+      <input type="password" id="pw-confirm-input" class="form-input" placeholder="Your password" autocomplete="current-password">
+    </div>
+    <p id="pw-modal-error" style="color:var(--red,#ef4444);font-size:.82rem;min-height:1.2em;margin:.25rem 0 .75rem"></p>
+    <div style="display:flex;gap:.75rem">
+      <button type="button" id="pw-modal-cancel" class="btn btn-outline" style="flex:1">Cancel</button>
+      <button type="button" id="pw-modal-confirm" class="btn btn-primary" style="flex:1">Unlock</button>
+    </div>
+  </div>
+</div>
+
+<style>
+.pii-field[readonly] {
+  opacity: .65;
+  cursor: default;
+  background: var(--bg-surface);
+}
+[data-theme="light"] .pii-field[readonly] {
+  background: rgba(0,0,0,.03);
+}
+</style>
+
+<script>
+(function () {
+  document.querySelectorAll('input[type="tel"]').forEach(function(el) {
+    el.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '');
+    });
+  });
+
+  /* ── Country codes (shared with register) ── */
+  var pfCountries = [
+    {code:"+93",iso:"AF",name:"Afghanistan"},{code:"+355",iso:"AL",name:"Albania"},
+    {code:"+213",iso:"DZ",name:"Algeria"},{code:"+54",iso:"AR",name:"Argentina"},
+    {code:"+61",iso:"AU",name:"Australia"},{code:"+43",iso:"AT",name:"Austria"},
+    {code:"+973",iso:"BH",name:"Bahrain"},{code:"+880",iso:"BD",name:"Bangladesh"},
+    {code:"+32",iso:"BE",name:"Belgium"},{code:"+55",iso:"BR",name:"Brazil"},
+    {code:"+673",iso:"BN",name:"Brunei"},{code:"+855",iso:"KH",name:"Cambodia"},
+    {code:"+237",iso:"CM",name:"Cameroon"},{code:"+1",iso:"CA",name:"Canada"},
+    {code:"+56",iso:"CL",name:"Chile"},{code:"+86",iso:"CN",name:"China"},
+    {code:"+57",iso:"CO",name:"Colombia"},{code:"+506",iso:"CR",name:"Costa Rica"},
+    {code:"+385",iso:"HR",name:"Croatia"},{code:"+53",iso:"CU",name:"Cuba"},
+    {code:"+420",iso:"CZ",name:"Czechia"},{code:"+45",iso:"DK",name:"Denmark"},
+    {code:"+20",iso:"EG",name:"Egypt"},{code:"+251",iso:"ET",name:"Ethiopia"},
+    {code:"+358",iso:"FI",name:"Finland"},{code:"+33",iso:"FR",name:"France"},
+    {code:"+49",iso:"DE",name:"Germany"},{code:"+233",iso:"GH",name:"Ghana"},
+    {code:"+30",iso:"GR",name:"Greece"},{code:"+852",iso:"HK",name:"Hong Kong"},
+    {code:"+36",iso:"HU",name:"Hungary"},{code:"+354",iso:"IS",name:"Iceland"},
+    {code:"+91",iso:"IN",name:"India"},{code:"+62",iso:"ID",name:"Indonesia"},
+    {code:"+98",iso:"IR",name:"Iran"},{code:"+964",iso:"IQ",name:"Iraq"},
+    {code:"+353",iso:"IE",name:"Ireland"},{code:"+972",iso:"IL",name:"Israel"},
+    {code:"+39",iso:"IT",name:"Italy"},{code:"+81",iso:"JP",name:"Japan"},
+    {code:"+962",iso:"JO",name:"Jordan"},{code:"+254",iso:"KE",name:"Kenya"},
+    {code:"+965",iso:"KW",name:"Kuwait"},{code:"+856",iso:"LA",name:"Laos"},
+    {code:"+961",iso:"LB",name:"Lebanon"},{code:"+60",iso:"MY",name:"Malaysia"},
+    {code:"+960",iso:"MV",name:"Maldives"},{code:"+52",iso:"MX",name:"Mexico"},
+    {code:"+212",iso:"MA",name:"Morocco"},{code:"+95",iso:"MM",name:"Myanmar"},
+    {code:"+977",iso:"NP",name:"Nepal"},{code:"+31",iso:"NL",name:"Netherlands"},
+    {code:"+64",iso:"NZ",name:"New Zealand"},{code:"+234",iso:"NG",name:"Nigeria"},
+    {code:"+47",iso:"NO",name:"Norway"},{code:"+968",iso:"OM",name:"Oman"},
+    {code:"+92",iso:"PK",name:"Pakistan"},{code:"+507",iso:"PA",name:"Panama"},
+    {code:"+51",iso:"PE",name:"Peru"},{code:"+63",iso:"PH",name:"Philippines"},
+    {code:"+48",iso:"PL",name:"Poland"},{code:"+351",iso:"PT",name:"Portugal"},
+    {code:"+974",iso:"QA",name:"Qatar"},{code:"+40",iso:"RO",name:"Romania"},
+    {code:"+7",iso:"RU",name:"Russia"},{code:"+966",iso:"SA",name:"Saudi Arabia"},
+    {code:"+65",iso:"SG",name:"Singapore"},{code:"+27",iso:"ZA",name:"South Africa"},
+    {code:"+82",iso:"KR",name:"South Korea"},{code:"+34",iso:"ES",name:"Spain"},
+    {code:"+94",iso:"LK",name:"Sri Lanka"},{code:"+46",iso:"SE",name:"Sweden"},
+    {code:"+41",iso:"CH",name:"Switzerland"},{code:"+886",iso:"TW",name:"Taiwan"},
+    {code:"+255",iso:"TZ",name:"Tanzania"},{code:"+66",iso:"TH",name:"Thailand"},
+    {code:"+90",iso:"TR",name:"Turkey"},{code:"+256",iso:"UG",name:"Uganda"},
+    {code:"+380",iso:"UA",name:"Ukraine"},{code:"+971",iso:"AE",name:"UAE"},
+    {code:"+44",iso:"GB",name:"United Kingdom"},{code:"+1",iso:"US",name:"United States"},
+    {code:"+598",iso:"UY",name:"Uruguay"},{code:"+84",iso:"VN",name:"Vietnam"},
+    {code:"+260",iso:"ZM",name:"Zambia"},{code:"+263",iso:"ZW",name:"Zimbabwe"}
+  ];
+
+  /* ── Parse stored phone into {country, iso, national} ── */
+  function parsePhone(stored) {
+    if (!stored) return {code:"+91", iso:"IN", national:""};
+    var sorted = pfCountries.slice().sort(function(a, b) { return b.code.length - a.code.length; });
+    for (var i = 0; i < sorted.length; i++) {
+      if (stored.indexOf(sorted[i].code) === 0) {
+        return {code: sorted[i].code, iso: sorted[i].iso, national: stored.slice(sorted[i].code.length)};
+      }
+    }
+    return {code:"+91", iso:"IN", national: stored};
+  }
+
+  /* ── Modal / PII unlock ── */
+  var modal     = document.getElementById('pw-modal');
+  var editBtn   = document.getElementById('edit-pii-btn');
+  var cancelBtn = document.getElementById('pw-modal-cancel');
+  var confirmBtn = document.getElementById('pw-modal-confirm');
+  var pwInput   = document.getElementById('pw-confirm-input');
+  var pwError   = document.getElementById('pw-modal-error');
+  var piiFields = document.querySelectorAll('.pii-field');
+
+  function openModal() {
+    pwInput.value = '';
+    pwError.textContent = '';
+    modal.style.display = 'flex';
+    setTimeout(function () { pwInput.focus(); }, 50);
+  }
+
+  function closeModal() {
+    modal.style.display = 'none';
+    pwInput.value = '';
+    pwError.textContent = '';
+  }
+
+  function unlockPii() {
+    piiFields.forEach(function (f) {
+      f.removeAttribute('readonly');
+      f.style.opacity = '';
+      f.style.cursor = '';
+    });
+    editBtn.style.display = 'none';
+
+    /* Swap phone display → picker */
+    var displayInput = document.getElementById('pf-phone-display');
+    var editWrap     = document.getElementById('pf-phone-edit-wrap');
+    if (displayInput && editWrap) {
+      var parsed = parsePhone(displayInput.value);
+      var ccHidden  = document.getElementById('pf-phone-country');
+      var ccLabel   = document.getElementById('pf-cc-label');
+      var natInput  = document.getElementById('pf-phone');
+      if (ccHidden) ccHidden.value = parsed.code;
+      if (ccLabel)  ccLabel.textContent = parsed.iso + ' ' + parsed.code;
+      if (natInput) natInput.value = parsed.national;
+      displayInput.style.display = 'none';
+      editWrap.style.display = 'flex';
+      initPfPicker();
+    }
+  }
+
+  editBtn.addEventListener('click', openModal);
+  cancelBtn.addEventListener('click', closeModal);
+
+  modal.addEventListener('click', function (e) {
+    if (e.target === modal) closeModal();
+  });
+
+  pwInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') confirmBtn.click();
+  });
+
+  confirmBtn.addEventListener('click', function () {
+    var pw = pwInput.value;
+    if (!pw) { pwError.textContent = 'Please enter your password.'; return; }
+    confirmBtn.disabled = true;
+    confirmBtn.textContent = 'Verifying…';
+    fetch('/auth/verify-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ password: pw })
+    })
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      if (data.ok) {
+        closeModal();
+        unlockPii();
+      } else {
+        pwError.textContent = data.error || 'Incorrect password.';
+        pwInput.select();
+      }
+    })
+    .catch(function () {
+      pwError.textContent = 'Something went wrong. Please try again.';
+    })
+    .finally(function () {
+      confirmBtn.disabled = false;
+      confirmBtn.textContent = 'Unlock';
+    });
+  });
+
+  /* ── Country picker (initialised after unlock) ── */
+  var pfPickerReady = false;
+
+  function initPfPicker() {
+    if (pfPickerReady) return;
+    pfPickerReady = true;
+
+    var ccHidden = document.getElementById('pf-phone-country');
+    var ccBtn    = document.getElementById('pf-cc-btn');
+    var ccDrop   = document.getElementById('pf-cc-dropdown');
+    var ccSearch = document.getElementById('pf-cc-search');
+    var ccList   = document.getElementById('pf-cc-list');
+
+    function renderPfList(filter) {
+      var q = (filter || '').toLowerCase();
+      ccList.innerHTML = '';
+      pfCountries.forEach(function (c) {
+        if (q && c.name.toLowerCase().indexOf(q) === -1 && c.iso.toLowerCase().indexOf(q) === -1 && c.code.indexOf(q) === -1) return;
+        var li = document.createElement('li');
+        li.className = 'phone-cc-item' + (c.code === ccHidden.value ? ' active' : '');
+        li.innerHTML = '<span class="cc-name">' + c.name + '</span><span class="cc-code">' + c.iso + ' ' + c.code + '</span>';
+        li.addEventListener('click', function () { pickPfCountry(c); });
+        ccList.appendChild(li);
+      });
+    }
+
+    function pickPfCountry(c) {
+      ccHidden.value = c.code;
+      document.getElementById('pf-cc-label').textContent = c.iso + ' ' + c.code;
+      closePfDrop();
+    }
+
+    function openPfDrop() {
+      ccDrop.classList.add('open');
+      ccSearch.value = '';
+      renderPfList('');
+      setTimeout(function () { ccSearch.focus(); }, 0);
+    }
+
+    function closePfDrop() { ccDrop.classList.remove('open'); }
+
+    ccBtn.addEventListener('click', function (e) {
+      e.preventDefault();
+      ccDrop.classList.contains('open') ? closePfDrop() : openPfDrop();
+    });
+
+    ccSearch.addEventListener('input', function () { renderPfList(ccSearch.value); });
+
+    ccSearch.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape') closePfDrop();
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        var first = ccList.querySelector('.phone-cc-item');
+        if (first) first.click();
+      }
+    });
+
+    document.addEventListener('click', function (e) {
+      if (!document.getElementById('pf-cc-picker').contains(e.target)) closePfDrop();
+    });
+  }
+})();
+</script>
 {% endblock %}

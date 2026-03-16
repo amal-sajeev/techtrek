@@ -13,23 +13,16 @@
           <span class="line-1">TechTrek</span>
           <span class="line-2" data-text="India's Campus Summit">India's Campus Summit</span>
         </h1>
-        <p class="hero-subtitle dark-only">
-          Live industry awareness events at campuses across India &mdash; talks by working engineers and founders, bridging the gap between academia and the real-world tech industry.
+        <p class="hero-subtitle">
+          Your professors can't teach you what industry is building right now. TechTrek brings working engineers and founders straight to your campus &mdash; live talks, real insights, zero fluff.
         </p>
-        <p class="hero-subtitle light-only">
-          TED-style industry summits empowering India's next generation of engineers &mdash;
-          aligned with the Viksit Bharat 2047 vision of a digitally skilled, future-ready nation.
-        </p>
-        <div class="hero-vision light-only">
-          <strong>Viksit Bharat 2047</strong> &mdash; Bridging academia and industry to build India's digital future.
-        </div>
         <div class="hero-actions">
           <a href="/events" class="btn btn-primary btn-lg">Explore Events</a>
           {% if not user %}
           <a href="/auth/register" class="btn btn-outline btn-lg">Register Now</a>
           {% endif %}
         </div>
-        {% if total_attendees > 10 or total_speakers > 0 or total_events > 0 %}
+        {% if total_attendees > 100 and total_speakers > 15 and total_events > 8 %}
         <div class="hero-stats">
           {% if total_attendees > 10 %}
           <div class="stat-item">
@@ -94,6 +87,10 @@
       <div class="hsess-body">
         <a href="/events/{{ fev.id }}" class="hsess-title">{{ fev.name }}</a>
 
+        {% if fev.description %}
+        <p class="hsess-desc">{{ fev.description[:180] }}{% if fev.description|length > 180 %}&hellip;{% endif %}</p>
+        {% endif %}
+
         <div class="hsess-speaker-row">
           <div class="hsess-speaker-info">
             <span class="hsess-speaker-name">{{ featured.session_count }} session{{ 's' if featured.session_count != 1 else '' }}</span>
@@ -130,8 +127,48 @@
 
 <div class="section-divider"></div>
 
-<!-- Social proof ticker -->
+<!-- WHY: Why TechTrek -->
+<section class="section section-surface section-alt">
+  <div class="container">
+    <h2 class="section-title">Why TechTrek?</h2>
+    <p class="section-subtitle">India's fastest-growing campus tech summit series, aligned with the national vision for a skilled digital workforce.</p>
+    <div class="steps-grid" style="margin-top:2rem">
+      <div class="step-card reveal" style="text-align:left">
+        <div class="step-top" style="margin-bottom:1rem">
+          <div class="step-icon" style="background:rgba(0,212,255,.1);color:var(--cyan)">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+          </div>
+        </div>
+        <h3>Industry Experts</h3>
+        <p style="color:var(--text-secondary);line-height:1.6">Talks from engineers, founders, and researchers working at the frontier — real insights from the real world.</p>
+      </div>
+      <div class="step-card reveal" style="text-align:left">
+        <div class="step-top" style="margin-bottom:1rem">
+          <div class="step-icon" style="background:rgba(100,220,100,.1);color:#64dc64">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          </div>
+        </div>
+        <h3>Campus Summits</h3>
+        <p style="color:var(--text-secondary);line-height:1.6">Multi-session events hosted live at colleges, bringing industry directly to where students are.</p>
+      </div>
+      <div class="step-card reveal" style="text-align:left">
+        <div class="step-top" style="margin-bottom:1rem">
+          <div class="step-icon" style="background:rgba(255,170,0,.1);color:#ffaa00">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+          </div>
+        </div>
+        <h3>Viksit Bharat Mission</h3>
+        <p style="color:var(--text-secondary);line-height:1.6">Part of India's 2047 national vision &mdash; shaping a skilled, aware, and future-ready talent pipeline for the digital age.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="section-divider"></div>
+
+<!-- WHY: Social proof ticker -->
 <section class="social-proof-strip proof-ticker-section">
+  <div class="container">
   <div class="proof-ticker-badge">
     <span class="proof-badge">&#9733; Trusted by students</span>
   </div>
@@ -154,58 +191,26 @@
           </div>
           {% endfor %}
         {% else %}
-          <div class="proof-quote"><span>"TechTrek opened my eyes to quantum computing. Phenomenal!"</span><strong>&mdash; Priya S., KSR College</strong></div>
-          <div class="proof-quote"><span>"The best industry event I've attended as a student."</span><strong>&mdash; Arjun M., DTU</strong></div>
-          <div class="proof-quote"><span>"Seamless booking, incredible talks. Can't wait for the next one!"</span><strong>&mdash; Sneha P., BITS Pilani</strong></div>
-          <div class="proof-quote"><span>"Real insights from working engineers &mdash; absolutely worth it!"</span><strong>&mdash; Vikram N., NIT Trichy</strong></div>
-          <div class="proof-quote"><span>"TechTrek brought the industry right to our campus. Inspiring!"</span><strong>&mdash; Kavya R., VIT Vellore</strong></div>
+          <div class="proof-quote"><span>"I walked in knowing about cloud storage. Left with a mental model of how distributed consensus actually works."</span><strong>&mdash; Priya S., KSR College</strong></div>
+          <div class="proof-quote"><span>"Three hours of ML infrastructure talks and I only wished it ran longer. First event where I forgot to check my phone."</span><strong>&mdash; Arjun M., DTU</strong></div>
+          <div class="proof-quote"><span>"The Rust systems programming talk covered things completely missing from our B.Tech curriculum."</span><strong>&mdash; Sneha P., BITS Pilani</strong></div>
+          <div class="proof-quote"><span>"The speaker was a principal engineer at a major cloud provider. Not a consultant, not a YouTuber &mdash; the real thing."</span><strong>&mdash; Vikram N., NIT Trichy</strong></div>
+          <div class="proof-quote"><span>"TechTrek at NIT was the first campus event where every single talk was worth attending. Zero filler."</span><strong>&mdash; Kavya R., VIT Vellore</strong></div>
         {% endif %}
       {% endfor %}
     </div>
   </div>
-</section>
-
-<div class="section-divider"></div>
-
-<!-- Viksit Bharat Mission Banner -->
-<section class="vb-mission-strip">
-  <div class="container">
-    <div class="vb-mission-inner">
-      <div class="vb-mission-badge">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-        Viksit Bharat 2047
-      </div>
-      <p class="vb-mission-tagline">Empowering India's engineers and technologists for a developed, digitally-sovereign nation by 2047.</p>
-      <div class="vb-mission-chips">
-        <span class="vb-chip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          Industry-Academia Bridge
-        </span>
-        <span class="vb-chip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          Digital Future Ready
-        </span>
-        <span class="vb-chip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-          Skilled Youth
-        </span>
-        <span class="vb-chip">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          Campuses Across India
-        </span>
-      </div>
-    </div>
   </div>
 </section>
 
 <div class="section-divider"></div>
 
-<!-- Featured Talks -->
+<!-- WHAT: Featured Events -->
 <section class="section phase-summit">
   <div class="container">
-    <h2 class="section-title"><span class="dark-only">Featured Talks</span><span class="light-only-inline">Industry Talks &amp; Sessions</span></h2>
-    <p class="section-subtitle dark-only">Expert talks from engineers and founders working at the frontier of technology &mdash; live at campuses near you.</p>
-    <p class="section-subtitle light-only">TED-style talks by industry experts on AI, Quantum Computing, Cloud, and emerging technologies &mdash; part of TechTrek events across India.</p>
+    <h2 class="section-title"><span class="dark-only">Featured Events</span><span class="light-only-inline">Upcoming Events</span></h2>
+    <p class="section-subtitle dark-only">Multi-session campus summits with talks from engineers and founders working at the frontier &mdash; live at campuses near you.</p>
+    <p class="section-subtitle light-only">Industry summits on AI, Quantum Computing, Cloud, and emerging technologies &mdash; happening at campuses across India.</p>
 
     {% set img_pool = [
       'photo-1540575467063-178a50c2df87',
@@ -279,40 +284,162 @@
   </div>
 </section>
 
-<div class="section-divider"></div>
+{% if sessions %}
 
-<!-- How It Works -->
-<section class="section how-it-works">
+<!-- WHAT: Featured Sessions -->
+<section class="section phase-sessions" style="padding-top:1rem;">
+  <div class="container">
+    <h2 class="section-title"><span class="dark-only">Featured Sessions</span><span class="light-only-inline">Upcoming Talks</span></h2>
+    <p class="section-subtitle">Browse individual talks by industry experts &mdash; each session is part of a TechTrek event.</p>
+
+    <div class="carousel-wrap" id="sessions-carousel-wrap">
+      <button class="carousel-btn carousel-prev" id="sessions-prev" aria-label="Previous">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <div class="carousel-track-outer">
+        <div class="carousel-track" id="sessions-track">
+          {% for item in sessions %}
+          {% set s = item.session %}
+          {% set ev = item.event %}
+          {% set s_img_id = img_pool[s.id % 8] %}
+          <a href="/sessions/{{ s.id }}" class="card card-hover carousel-card carousel-card-sm">
+            <div class="card-image card-image-sm">
+              {% if s.banner_url %}
+              <img src="{{ s.banner_url }}" alt="{{ s.title }}" loading="lazy">
+              {% else %}
+              <img src="https://images.unsplash.com/{{ s_img_id }}?w=400&auto=format&fit=crop&q=80"
+                   alt="{{ s.title }}" loading="lazy">
+              {% endif %}
+              <span class="card-badge" style="background:var(--color-accent);color:#000;font-size:.6rem">Session</span>
+            </div>
+            <div class="card-body card-body-sm">
+              <h3 class="card-title card-title-sm">{{ s.title }}</h3>
+              <p class="card-meta" style="font-size:.75rem">{{ s.speaker_name }}</p>
+              {% if s.description %}
+              <p class="card-desc" style="font-size:.72rem;margin-top:.25rem;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ s.description|truncate(90, True, '...') }}</p>
+              {% endif %}
+              <div class="card-details" style="font-size:.72rem;margin-top:.3rem">
+                {% if s.start_time %}
+                <span class="card-detail">&#128197; {{ s.start_time.strftime('%b %d, %Y') }}</span>
+                {% elif ev and ev.start_date %}
+                <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') }}</span>
+                {% endif %}
+              </div>
+            </div>
+            <div class="card-footer card-footer-sm">
+              <span class="card-detail" style="font-size:.68rem;color:var(--text-muted)">{{ ev.name }}</span>
+              <span class="card-cta-hint" style="font-size:.72rem">View &rarr;</span>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      <button class="carousel-btn carousel-next" id="sessions-next" aria-label="Next">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+      </button>
+    </div>
+    <div style="text-align:center;margin-top:2rem">
+      <a href="/sessions" class="btn btn-primary">View All Sessions &rarr;</a>
+    </div>
+  </div>
+</section>
+{% endif %}
+
+<!-- WHAT: Student Testimonials -->
+<section class="section phase-testimonials" style="padding-bottom:2rem">
+  <div class="container">
+    <h2 class="section-title">Student Testimonials</h2>
+  </div>
+
+  {% macro testimonial_card_fb(fb) %}
+  <div class="testimonial-card">
+    <div style="margin-bottom:.5rem;color:var(--yellow,#f59e0b);">
+      {% for i in range(fb.rating) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating) %}&#9734;{% endfor %}
+    </div>
+    {% if fb.comment %}
+    <blockquote class="testimonial-quote">"{{ fb.comment }}"</blockquote>
+    {% endif %}
+    <div class="testimonial-author">
+      <strong>{{ fb.user_name }}</strong>
+      {% if fb.college %}<br><span class="text-muted">{{ fb.college }}</span>{% endif %}
+      <br><small class="text-muted" style="opacity:.7;">on {{ fb.event_name }}</small>
+    </div>
+  </div>
+  {% endmacro %}
+
+  {% macro testimonial_card_t(t) %}
+  <div class="testimonial-card">
+    <blockquote class="testimonial-quote">"{{ t.quote }}"</blockquote>
+    <div class="testimonial-author">
+      <strong>{{ t.student_name }}</strong>
+      {% if t.college %}<br><span class="text-muted">{{ t.college }}</span>{% endif %}
+    </div>
+  </div>
+  {% endmacro %}
+
+  {% macro testimonial_static(quote, name, college) %}
+  <div class="testimonial-card">
+    <blockquote class="testimonial-quote">"{{ quote }}"</blockquote>
+    <div class="testimonial-author"><strong>{{ name }}</strong><br><span class="text-muted">{{ college }}</span></div>
+  </div>
+  {% endmacro %}
+
+  <div class="testimonials-marquee">
+    <div class="testimonials-track">
+      {% set has_content = testimonials or featured_feedback %}
+
+      {% for _dup in range(2) %}
+        {% if has_content %}
+          {% for fb in featured_feedback %}{{ testimonial_card_fb(fb) }}{% endfor %}
+          {% for t in testimonials %}{{ testimonial_card_t(t) }}{% endfor %}
+        {% endif %}
+
+        {{ testimonial_static(
+          "I walked in knowing about cloud storage. I left with a mental model of how distributed consensus actually works. The speaker was a principal engineer at a major cloud provider — the real thing.",
+          "Priya Sharma", "KSR College of Engineering") }}
+        {{ testimonial_static(
+          "TechTrek at DTU was the first event where I genuinely forgot to check my phone. Three hours of talks on ML infra and I only wished it ran longer.",
+          "Arjun Mehta", "Delhi Technological University") }}
+        {{ testimonial_static(
+          "The Rust systems programming talk was exactly the kind of content missing from the B.Tech curriculum. The venue map seat selection was a nice touch too.",
+          "Sneha Patel", "BITS Pilani") }}
+        {{ testimonial_static(
+          "Honestly didn't expect this level of depth from a college tech fest. The quantum computing session had actual circuit diagrams and live Qiskit demos.",
+          "Vikram Joshi", "IIT Bombay") }}
+        {{ testimonial_static(
+          "Booking was seamless — picked my seat on the venue map, paid in two clicks, and had my ticket in my inbox. The event itself was even better.",
+          "Aisha Khan", "Jamia Millia Islamia") }}
+        {{ testimonial_static(
+          "The speaker lineup felt like a mini-conference. Engineers from top startups sharing war stories about scaling — you can't get that from a textbook.",
+          "Rahul Nair", "NIT Trichy") }}
+        {{ testimonial_static(
+          "As a final-year student, TechTrek gave me clarity on what industry actually looks like. The networking lunch alone was worth showing up for.",
+          "Divya Reddy", "IIIT Hyderabad") }}
+        {{ testimonial_static(
+          "I've attended dozens of college fests. TechTrek is the only one where I took notes the entire time. Genuinely technical, zero fluff.",
+          "Karan Singh", "PEC Chandigarh") }}
+      {% endfor %}
+    </div>
+  </div>
+</section>
+
+<!-- HOW: How It Works -->
+<section class="section how-it-works" style="padding-top:2.5rem;padding-bottom:2rem">
   <div class="container">
     <h2 class="section-title">How It Works</h2>
-    <div class="steps-grid">
-      <div class="step-card reveal">
-        <div class="step-top">
-          <div class="step-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-          </div>
-          <div class="step-number">1</div>
-        </div>
+    <div class="process-steps">
+      <div class="process-step reveal">
+        <div class="process-step-num">1</div>
         <h3>Discover an Event</h3>
-        <p>Find upcoming TechTrek industry summits and events at campuses across India.</p>
+        <p>Find upcoming TechTrek industry summits at campuses across India.</p>
       </div>
-      <div class="step-card reveal">
-        <div class="step-top">
-          <div class="step-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
-          </div>
-          <div class="step-number">2</div>
-        </div>
+      <div class="process-step reveal">
+        <div class="process-step-num">2</div>
         <h3>Pick Your Seat</h3>
-        <p>Choose your preferred seat from an interactive venue map &mdash; one ticket covers the whole event.</p>
+        <p>Choose from an interactive venue map &mdash; one ticket covers the whole event.</p>
       </div>
-      <div class="step-card reveal">
-        <div class="step-top">
-          <div class="step-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          </div>
-          <div class="step-number">3</div>
-        </div>
+      <div class="process-step reveal">
+        <div class="process-step-num">3</div>
         <h3>Book &amp; Attend</h3>
         <p>Confirm your booking, get your QR ticket, and show up inspired.</p>
       </div>
@@ -323,105 +450,9 @@
   </div>
 </section>
 
-<div class="section-divider"></div>
-
-<!-- Why TechTrek -->
-<section class="section section-surface" style="background:var(--surface-2,rgba(255,255,255,.03))">
+<!-- HOW: Newsletter -->
+<section class="section newsletter-band section-alt" style="padding-top:1.5rem;padding-bottom:3rem">
   <div class="container">
-    <h2 class="section-title">Why TechTrek?</h2>
-    <p class="section-subtitle">India's fastest-growing campus tech summit series, aligned with the national vision for a skilled digital workforce.</p>
-    <div class="steps-grid" style="margin-top:2rem">
-      <div class="step-card reveal" style="text-align:left">
-        <div class="step-top" style="margin-bottom:1rem">
-          <div class="step-icon" style="background:rgba(0,212,255,.1);color:var(--cyan)">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
-          </div>
-        </div>
-        <h3>Industry Experts</h3>
-        <p style="color:var(--text-secondary);line-height:1.6">Talks from engineers, founders, and researchers working at the frontier — real insights from the real world.</p>
-      </div>
-      <div class="step-card reveal" style="text-align:left">
-        <div class="step-top" style="margin-bottom:1rem">
-          <div class="step-icon" style="background:rgba(100,220,100,.1);color:#64dc64">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-          </div>
-        </div>
-        <h3>Campus Summits</h3>
-        <p style="color:var(--text-secondary);line-height:1.6">Multi-session events hosted live at colleges, bringing industry directly to where students are.</p>
-      </div>
-      <div class="step-card reveal" style="text-align:left">
-        <div class="step-top" style="margin-bottom:1rem">
-          <div class="step-icon" style="background:rgba(255,170,0,.1);color:#ffaa00">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
-          </div>
-        </div>
-        <h3>Viksit Bharat Mission</h3>
-        <p style="color:var(--text-secondary);line-height:1.6">Part of India's 2047 national vision &mdash; shaping a skilled, aware, and future-ready talent pipeline for the digital age.</p>
-      </div>
-    </div>
-  </div>
-</section>
-
-<div class="section-divider"></div>
-
-<section class="section phase-testimonials">
-  <div class="container">
-    <h2 class="section-title"><span class="dark-only">Student Testimonials</span><span class="light-only-inline">What Students Say</span></h2>
-
-    <div class="carousel-wrap" id="testimonials-carousel-wrap">
-      <button class="carousel-btn carousel-prev" id="testi-prev" aria-label="Previous testimonial">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="carousel-track-outer">
-        <div class="carousel-track" id="testi-track">
-          {% set has_content = testimonials or featured_feedback %}
-          {% if has_content %}
-            {% for fb in featured_feedback %}
-            <div class="testimonial-card carousel-card">
-              <div style="margin-bottom:.5rem;color:var(--yellow,#f59e0b);">
-                {% for i in range(fb.rating) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating) %}&#9734;{% endfor %}
-              </div>
-              {% if fb.comment %}
-              <blockquote class="testimonial-quote">"{{ fb.comment }}"</blockquote>
-              {% endif %}
-              <div class="testimonial-author">
-                <strong>{{ fb.user_name }}</strong>
-                {% if fb.college %}<br><span class="text-muted">{{ fb.college }}</span>{% endif %}
-                <br><small class="text-muted" style="opacity:.7;">on {{ fb.event_name }}</small>
-              </div>
-            </div>
-            {% endfor %}
-            {% for t in testimonials %}
-            <div class="testimonial-card carousel-card">
-              <blockquote class="testimonial-quote">"{{ t.quote }}"</blockquote>
-              <div class="testimonial-author">
-                <strong>{{ t.student_name }}</strong>
-                {% if t.college %}<br><span class="text-muted">{{ t.college }}</span>{% endif %}
-              </div>
-            </div>
-            {% endfor %}
-          {% else %}
-            <div class="testimonial-card carousel-card">
-              <blockquote class="testimonial-quote">"TechTrek opened my eyes to quantum computing. The speaker was phenomenal and the venue was buzzing with energy!"</blockquote>
-              <div class="testimonial-author"><strong>Priya Sharma</strong><br><span class="text-muted">KSR College of Engineering</span></div>
-            </div>
-            <div class="testimonial-card carousel-card">
-              <blockquote class="testimonial-quote">"The best industry event I've attended as a student. Clear, concise talks that actually help you understand where the industry is heading."</blockquote>
-              <div class="testimonial-author"><strong>Arjun Mehta</strong><br><span class="text-muted">Delhi Technological University</span></div>
-            </div>
-            <div class="testimonial-card carousel-card">
-              <blockquote class="testimonial-quote">"From booking my seat to attending — the whole experience was seamless. Can't wait for the next TechTrek!"</blockquote>
-              <div class="testimonial-author"><strong>Sneha Patel</strong><br><span class="text-muted">BITS Pilani</span></div>
-            </div>
-          {% endif %}
-        </div>
-      </div>
-      <button class="carousel-btn carousel-next" id="testi-next" aria-label="Next testimonial">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-    </div>
-
-    <!-- Newsletter Section -->
     <div class="newsletter-section newsletter-enhanced reveal">
       <div class="newsletter-eyebrow">Join {{ total_attendees if total_attendees > 10 else "500+" }} students already on TechTrek</div>
       <h3>Stay in the Loop</h3>
@@ -561,7 +592,7 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     initCarousel('talks-track', 'talks-prev', 'talks-next', 4000);
-    initCarousel('testi-track', 'testi-prev', 'testi-next', 5000);
+    initCarousel('sessions-track', 'sessions-prev', 'sessions-next', 5000);
   });
 })();
 </script>

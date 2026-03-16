@@ -190,12 +190,31 @@ def home(request: Request, db: DbSession = Depends(get_db)):
     total_speakers = db.query(func.count(Speaker.id)).scalar() or 0
     total_events = db.query(func.count(Event.id)).filter(Event.status == "published").scalar() or 0
 
+    featured_sessions = (
+        db.query(Session)
+        .join(Event, Session.event_id == Event.id)
+        .filter(Event.status == "published", Event.start_date >= today)
+        .order_by(Session.start_time)
+        .limit(10)
+        .all()
+    )
+    sessions_with_info = []
+    for sess in featured_sessions:
+        ev = sess.event
+        speaker = db.query(Speaker).get(sess.speaker_id) if sess.speaker_id else None
+        sessions_with_info.append({
+            "session": sess,
+            "event": ev,
+            "speaker_obj": speaker,
+        })
+
     return templates.TemplateResponse(
         "public/home.html",
         template_ctx(
             request,
             events=events_with_info,
             featured=featured,
+            sessions=sessions_with_info,
             testimonials=testimonials,
             featured_feedback=featured_feedback,
             total_attendees=total_attendees,
@@ -279,6 +298,26 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
     event = session_obj.event
     auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
 
+    stats = (
+        _event_seat_stats(db, event.id, event.auditorium_id)
+        if event and event.auditorium_id
+        else {"total": 0, "booked": 0, "available": 0}
+    )
+    availability = _availability_label(stats)
+    event_status = _public_event_status(event, stats) if event else "open"
+
+    sibling_sessions = []
+    if event:
+        siblings = (
+            db.query(Session)
+            .filter(Session.event_id == event.id, Session.id != session_id)
+            .order_by(Session.order, Session.start_time)
+            .all()
+        )
+        for s in siblings:
+            speaker = db.query(Speaker).get(s.speaker_id) if s.speaker_id else None
+            sibling_sessions.append({"session": s, "speaker_obj": speaker})
+
     public_recordings = (
         db.query(SessionRecording)
         .filter(SessionRecording.session_id == session_id, SessionRecording.is_public == True)
@@ -296,6 +335,11 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
             event=event,
             auditorium=auditorium,
             recordings=enriched_recordings,
+            stats=stats,
+            availability=availability,
+            event_status=event_status,
+            sibling_sessions=sibling_sessions,
+            total_sessions=(len(sibling_sessions) + 1) if event else 1,
         ),
     )
 
@@ -876,3 +920,17 @@ async def feedback_dismiss(request: Request, event_id: int, db: DbSession = Depe
 
     db.commit()
     return JSONResponse({"ok": True})
+
+
+# --- Newsletter Unsubscribe ---
+
+@router.get("/newsletter/unsubscribe/{token}")
+def newsletter_unsubscribe(request: Request, token: str, db: DbSession = Depends(get_db)):
+    sub = db.query(NewsletterSubscriber).filter(NewsletterSubscriber.unsubscribe_token == token).first()
+    if sub:
+        db.delete(sub)
+        db.commit()
+    return templates.TemplateResponse(
+        "public/newsletter_unsubscribed.html",
+        template_ctx(request, found=sub is not None),
+    )

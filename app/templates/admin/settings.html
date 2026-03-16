@@ -43,7 +43,7 @@
     <div class="form-row">
       <div class="form-group">
         <label class="form-label" for="set-phone">Phone</label>
-        <input type="text" name="company_phone" id="set-phone" class="form-input" value="{{ s.company_phone }}">
+        <input type="tel" name="company_phone" id="set-phone" class="form-input" maxlength="11" inputmode="numeric" pattern="[0-9]*" value="{{ s.company_phone }}">
       </div>
       <div class="form-group">
         <label class="form-label" for="set-gstin">GSTIN</label>
@@ -70,6 +70,12 @@
 {% block scripts %}
 <script>
 (function(){
+  document.querySelectorAll('input[type="tel"]').forEach(function(el) {
+    el.addEventListener('input', function() {
+      this.value = this.value.replace(/\D/g, '');
+    });
+  });
+
   var logoInput = document.getElementById('set-logo');
   if (!logoInput) return;
   logoInput.addEventListener('blur', function() {

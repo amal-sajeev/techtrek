@@ -259,18 +259,30 @@ def run_migrations() -> None:
 # ---------------------------------------------------------------------------
 
 def start_server() -> None:
+    import pathlib
     host    = os.environ.get("HOST",    "0.0.0.0")
     port    = os.environ.get("PORT",    "8000")
     workers = os.environ.get("WORKERS", "4")
 
+    cert_dir = pathlib.Path(__file__).parent / "certs"
+    cert_file = cert_dir / "cert.pem"
+    key_file = cert_dir / "key.pem"
+    ssl_args = ""
+    if cert_file.exists() and key_file.exists():
+        ssl_args = f' --ssl-certfile "{cert_file}" --ssl-keyfile "{key_file}"'
+        scheme = "https"
+    else:
+        scheme = "http"
+        _warn(f"No SSL certs found at {cert_dir} — running plain HTTP")
+
     _header("Step 5 – Starting TechTrek server")
-    print(f"  Listening on  http://{host}:{port}")
+    print(f"  Listening on  {scheme}://{host}:{port}")
     print(f"  Workers       {workers}")
     print(f"  Press Ctrl+C  to stop\n")
 
     cmd = (
         f'"{sys.executable}" -m uvicorn app.main:app '
-        f'--host {host} --port {port} --workers {workers}'
+        f'--host {host} --port {port} --workers {workers}{ssl_args}'
     )
     result = _run(cmd)
     sys.exit(result.returncode)
