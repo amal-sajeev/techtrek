@@ -80,6 +80,16 @@
   closeBtn.addEventListener('click', stopScan);
 
   function startScan(){
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      var isInsecure = location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
+      var msg = isInsecure
+        ? 'Camera requires HTTPS. Access this page via <strong>https://' + location.host + location.pathname + '</strong> instead.'
+        : 'Camera API not available in this browser.';
+      overlay.style.display = 'flex';
+      document.body.style.overflow = 'hidden';
+      document.getElementById('qr-reader').innerHTML = '<p style="padding:2rem;text-align:center;color:var(--red);font-size:1rem">' + msg + '</p>';
+      return;
+    }
     overlay.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     scanning = true;
@@ -95,7 +105,10 @@
       },
       function(){}
     ).catch(function(err){
-      document.getElementById('qr-reader').innerHTML = '<p style="padding:2rem;text-align:center;color:var(--red);font-size:1rem">Camera access denied or unavailable.<br><small>' + err + '</small></p>';
+      var hint = (location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1')
+        ? '<br>Try accessing via <strong>https://' + location.host + location.pathname + '</strong>'
+        : '';
+      document.getElementById('qr-reader').innerHTML = '<p style="padding:2rem;text-align:center;color:var(--red);font-size:1rem">Camera access denied or unavailable.' + hint + '<br><small>' + err + '</small></p>';
     });
   }
 

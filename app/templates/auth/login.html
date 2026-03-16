@@ -20,8 +20,8 @@
       {% endif %}
 
       <div class="form-group">
-        <label class="form-label" for="login-username">Username</label>
-        <input type="text" name="username" id="login-username" class="form-input" placeholder="your_handle" required autofocus autocomplete="username">
+        <label class="form-label" for="login-username">Username or Email</label>
+        <input type="text" name="username" id="login-username" class="form-input" placeholder="your_handle or you@email.com" required autofocus autocomplete="username">
         <div class="field-error" id="err-login-user" role="alert"></div>
       </div>
 
@@ -58,7 +58,7 @@
 
   form.addEventListener('submit', function(e) {
     var valid = true;
-    if (!userEl.value.trim()) { showError('err-login-user','Username is required'); valid = false; }
+    if (!userEl.value.trim()) { showError('err-login-user','Username or email is required'); valid = false; }
     if (!passEl.value)        { showError('err-login-pass','Password is required'); valid = false; }
     if (!valid) { e.preventDefault(); return; }
     btn.classList.add('btn-loading');

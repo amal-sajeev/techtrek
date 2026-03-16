@@ -130,7 +130,17 @@ def generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_
     inv_date = bookings[0].booked_at.strftime("%d %b %Y, %I:%M %p") if bookings[0].booked_at else now_ist().strftime("%d %b %Y, %I:%M %p")
 
     logo_img = _get_logo_image(_logo_url) if _logo_url else None
-    left_cell = [logo_img, Paragraph(company_info, styles["SubHeader"])] if logo_img else [Paragraph(company_info, styles["SubHeader"])]
+    brand_style = ParagraphStyle(
+        "BrandLogo", parent=styles["Header"],
+        fontName=font_bold, fontSize=16,
+        textColor=colors.HexColor("#00d4ff"),
+        spaceAfter=4,
+    )
+    brand_logo = Paragraph("&#9889; TECHTREK", brand_style)
+    if logo_img:
+        left_cell = [logo_img, Paragraph(company_info, styles["SubHeader"])]
+    else:
+        left_cell = [brand_logo, Paragraph(company_info, styles["SubHeader"])]
 
     header_data = [
         [left_cell,

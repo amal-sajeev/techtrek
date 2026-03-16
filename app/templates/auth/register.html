@@ -33,10 +33,29 @@
         </div>
       </div>
 
-      <div class="form-group">
-        <label class="form-label" for="reg-email">Email <span class="required">*</span></label>
-        <input type="email" name="email" id="reg-email" class="form-input" placeholder="you@domain.com" required autocomplete="email">
-        <div class="field-error" id="err-email" role="alert"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="reg-email">Email <span class="required">*</span></label>
+          <input type="email" name="email" id="reg-email" class="form-input" placeholder="you@domain.com" required autocomplete="email">
+          <div class="field-error" id="err-email" role="alert"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-phone">Phone</label>
+          <div class="phone-input-wrap">
+            <input type="hidden" name="phone_country" id="reg-phone-country" value="+91">
+            <div class="phone-cc-picker" id="cc-picker">
+              <button type="button" class="form-input phone-cc-btn" id="cc-btn">
+                <span id="cc-label">IN +91</span>
+                <svg width="10" height="6" viewBox="0 0 10 6"><path d="M1 1l4 4 4-4" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linecap="round"/></svg>
+              </button>
+              <div class="phone-cc-dropdown" id="cc-dropdown">
+                <input type="text" class="form-input phone-cc-search" id="cc-search" placeholder="Search country..." autocomplete="off">
+                <ul class="phone-cc-list" id="cc-list"></ul>
+              </div>
+            </div>
+            <input type="tel" name="phone" id="reg-phone" class="form-input phone-number-input" placeholder="98765 43210" autocomplete="tel-national">
+          </div>
+        </div>
       </div>
 
       <div class="form-row">
@@ -128,6 +147,100 @@
     var msg = v.length === 0 ? '' : !ok ? 'Enter a valid email address' : '';
     showError('err-email', msg);
     setField(emailEl, ok && v.length > 0);
+  });
+
+  /* ── Searchable country-code picker ── */
+  var ccCountries = [
+    {code:"+93",iso:"AF",name:"Afghanistan"},{code:"+355",iso:"AL",name:"Albania"},
+    {code:"+213",iso:"DZ",name:"Algeria"},{code:"+54",iso:"AR",name:"Argentina"},
+    {code:"+61",iso:"AU",name:"Australia"},{code:"+43",iso:"AT",name:"Austria"},
+    {code:"+973",iso:"BH",name:"Bahrain"},{code:"+880",iso:"BD",name:"Bangladesh"},
+    {code:"+32",iso:"BE",name:"Belgium"},{code:"+55",iso:"BR",name:"Brazil"},
+    {code:"+673",iso:"BN",name:"Brunei"},{code:"+855",iso:"KH",name:"Cambodia"},
+    {code:"+237",iso:"CM",name:"Cameroon"},{code:"+1",iso:"CA",name:"Canada"},
+    {code:"+56",iso:"CL",name:"Chile"},{code:"+86",iso:"CN",name:"China"},
+    {code:"+57",iso:"CO",name:"Colombia"},{code:"+506",iso:"CR",name:"Costa Rica"},
+    {code:"+385",iso:"HR",name:"Croatia"},{code:"+53",iso:"CU",name:"Cuba"},
+    {code:"+420",iso:"CZ",name:"Czechia"},{code:"+45",iso:"DK",name:"Denmark"},
+    {code:"+20",iso:"EG",name:"Egypt"},{code:"+251",iso:"ET",name:"Ethiopia"},
+    {code:"+358",iso:"FI",name:"Finland"},{code:"+33",iso:"FR",name:"France"},
+    {code:"+49",iso:"DE",name:"Germany"},{code:"+233",iso:"GH",name:"Ghana"},
+    {code:"+30",iso:"GR",name:"Greece"},{code:"+852",iso:"HK",name:"Hong Kong"},
+    {code:"+36",iso:"HU",name:"Hungary"},{code:"+354",iso:"IS",name:"Iceland"},
+    {code:"+91",iso:"IN",name:"India"},{code:"+62",iso:"ID",name:"Indonesia"},
+    {code:"+98",iso:"IR",name:"Iran"},{code:"+964",iso:"IQ",name:"Iraq"},
+    {code:"+353",iso:"IE",name:"Ireland"},{code:"+972",iso:"IL",name:"Israel"},
+    {code:"+39",iso:"IT",name:"Italy"},{code:"+81",iso:"JP",name:"Japan"},
+    {code:"+962",iso:"JO",name:"Jordan"},{code:"+254",iso:"KE",name:"Kenya"},
+    {code:"+965",iso:"KW",name:"Kuwait"},{code:"+856",iso:"LA",name:"Laos"},
+    {code:"+961",iso:"LB",name:"Lebanon"},{code:"+60",iso:"MY",name:"Malaysia"},
+    {code:"+960",iso:"MV",name:"Maldives"},{code:"+52",iso:"MX",name:"Mexico"},
+    {code:"+212",iso:"MA",name:"Morocco"},{code:"+95",iso:"MM",name:"Myanmar"},
+    {code:"+977",iso:"NP",name:"Nepal"},{code:"+31",iso:"NL",name:"Netherlands"},
+    {code:"+64",iso:"NZ",name:"New Zealand"},{code:"+234",iso:"NG",name:"Nigeria"},
+    {code:"+47",iso:"NO",name:"Norway"},{code:"+968",iso:"OM",name:"Oman"},
+    {code:"+92",iso:"PK",name:"Pakistan"},{code:"+507",iso:"PA",name:"Panama"},
+    {code:"+51",iso:"PE",name:"Peru"},{code:"+63",iso:"PH",name:"Philippines"},
+    {code:"+48",iso:"PL",name:"Poland"},{code:"+351",iso:"PT",name:"Portugal"},
+    {code:"+974",iso:"QA",name:"Qatar"},{code:"+40",iso:"RO",name:"Romania"},
+    {code:"+7",iso:"RU",name:"Russia"},{code:"+966",iso:"SA",name:"Saudi Arabia"},
+    {code:"+65",iso:"SG",name:"Singapore"},{code:"+27",iso:"ZA",name:"South Africa"},
+    {code:"+82",iso:"KR",name:"South Korea"},{code:"+34",iso:"ES",name:"Spain"},
+    {code:"+94",iso:"LK",name:"Sri Lanka"},{code:"+46",iso:"SE",name:"Sweden"},
+    {code:"+41",iso:"CH",name:"Switzerland"},{code:"+886",iso:"TW",name:"Taiwan"},
+    {code:"+255",iso:"TZ",name:"Tanzania"},{code:"+66",iso:"TH",name:"Thailand"},
+    {code:"+90",iso:"TR",name:"Turkey"},{code:"+256",iso:"UG",name:"Uganda"},
+    {code:"+380",iso:"UA",name:"Ukraine"},{code:"+971",iso:"AE",name:"UAE"},
+    {code:"+44",iso:"GB",name:"United Kingdom"},{code:"+1",iso:"US",name:"United States"},
+    {code:"+598",iso:"UY",name:"Uruguay"},{code:"+84",iso:"VN",name:"Vietnam"},
+    {code:"+260",iso:"ZM",name:"Zambia"},{code:"+263",iso:"ZW",name:"Zimbabwe"}
+  ];
+  var ccHidden = document.getElementById('reg-phone-country');
+  var ccBtn    = document.getElementById('cc-btn');
+  var ccLabel  = document.getElementById('cc-label');
+  var ccDrop   = document.getElementById('cc-dropdown');
+  var ccSearch = document.getElementById('cc-search');
+  var ccList   = document.getElementById('cc-list');
+
+  function renderList(filter) {
+    var q = (filter || '').toLowerCase();
+    ccList.innerHTML = '';
+    ccCountries.forEach(function(c) {
+      if (q && c.name.toLowerCase().indexOf(q) === -1 && c.iso.toLowerCase().indexOf(q) === -1 && c.code.indexOf(q) === -1) return;
+      var li = document.createElement('li');
+      li.className = 'phone-cc-item' + (c.code === ccHidden.value ? ' active' : '');
+      li.innerHTML = '<span class="cc-name">' + c.name + '</span><span class="cc-code">' + c.iso + ' ' + c.code + '</span>';
+      li.addEventListener('click', function() { pickCountry(c); });
+      ccList.appendChild(li);
+    });
+  }
+  function pickCountry(c) {
+    ccHidden.value = c.code;
+    ccLabel.textContent = c.iso + ' ' + c.code;
+    closeDrop();
+  }
+  function openDrop() {
+    ccDrop.classList.add('open');
+    ccSearch.value = '';
+    renderList('');
+    setTimeout(function() { ccSearch.focus(); }, 0);
+  }
+  function closeDrop() { ccDrop.classList.remove('open'); }
+  ccBtn.addEventListener('click', function(e) {
+    e.preventDefault();
+    ccDrop.classList.contains('open') ? closeDrop() : openDrop();
+  });
+  ccSearch.addEventListener('input', function() { renderList(ccSearch.value); });
+  ccSearch.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeDrop();
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      var first = ccList.querySelector('.phone-cc-item');
+      if (first) first.click();
+    }
+  });
+  document.addEventListener('click', function(e) {
+    if (!document.getElementById('cc-picker').contains(e.target)) closeDrop();
   });
 
   form.addEventListener('submit', function(e) {

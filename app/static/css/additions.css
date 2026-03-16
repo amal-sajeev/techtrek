@@ -1641,6 +1641,17 @@
   margin: 0;
   line-height: 1.35;
 }
+.ed-sc-desc {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0.35rem 0 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+[data-theme="light"] .ed-sc-desc { color: #475569; }
 
 .ed-sc-meta {
   display: flex;
@@ -1701,7 +1712,96 @@
   box-shadow: 0 8px 40px rgba(0,0,0,0.12);
 }
 
-.ed-bp-header {}
+/* Pricing tiers */
+.ed-bp-pricing {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.ed-bp-tier {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 0.85rem;
+  border-radius: calc(var(--radius) - 2px);
+  border: 1px solid var(--border);
+  background: rgba(255,255,255,0.03);
+}
+
+[data-theme="light"] .ed-bp-tier {
+  background: rgba(0,0,0,0.025);
+}
+
+.ed-bp-tier--vip {
+  border-color: rgba(250, 204, 21, 0.35);
+  background: rgba(250, 204, 21, 0.05);
+}
+
+[data-theme="light"] .ed-bp-tier--vip {
+  background: rgba(250, 204, 21, 0.07);
+}
+
+.ed-bp-tier--accessible {
+  border-color: rgba(99, 179, 237, 0.3);
+  background: rgba(99, 179, 237, 0.05);
+}
+
+[data-theme="light"] .ed-bp-tier--accessible {
+  background: rgba(99, 179, 237, 0.07);
+}
+
+.ed-bp-tier-badge {
+  font-family: var(--font-mono);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.ed-bp-tier-badge--vip {
+  color: #e6b800;
+}
+
+[data-theme="light"] .ed-bp-tier-badge--vip {
+  color: #a07800;
+}
+
+.ed-bp-tier-badge--accessible {
+  color: #63b3ed;
+}
+
+[data-theme="light"] .ed-bp-tier-badge--accessible {
+  color: #2b6cb0;
+}
+
+.ed-bp-tier-price {
+  display: flex;
+  align-items: baseline;
+  gap: 0.1rem;
+}
+
+.ed-bp-currency {
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.ed-bp-amount {
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.02em;
+}
+
+.ed-bp-tier--standard .ed-bp-amount {
+  font-size: 1.5rem;
+}
+
 
 .ed-bp-title {
   font-family: var(--font-display);
@@ -1727,6 +1827,21 @@
   display: flex;
   flex-direction: column;
   gap: 0.55rem;
+  max-height: min(24rem, 45vh);
+  overflow-y: auto;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(127,127,127,0.3) transparent;
+  overscroll-behavior: contain;
+}
+.ed-booking-checklist::-webkit-scrollbar { width: 4px; }
+.ed-booking-checklist::-webkit-scrollbar-track { background: transparent; }
+.ed-booking-checklist::-webkit-scrollbar-thumb {
+  background: rgba(127,127,127,0.3);
+  border-radius: 4px;
+}
+.ed-booking-checklist::-webkit-scrollbar-thumb:hover {
+  background: rgba(127,127,127,0.5);
 }
 
 .ed-bcl-item {
@@ -1780,22 +1895,6 @@
   opacity: 0.75;
 }
 
-.ed-bp-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  color: var(--text-muted);
-  padding: 0.75rem;
-  border-radius: var(--radius);
-  background: rgba(255,255,255,0.03);
-  border: 1px solid var(--border);
-}
-
-[data-theme="light"] .ed-bp-meta {
-  background: rgba(0,0,0,0.03);
-}
 
 .ed-bp-discount {
   font-family: var(--font-mono);
@@ -2302,4 +2401,123 @@
   border-color: rgba(245,158,11,0.5);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   STICKY FLOATING TITLE BAR — Event Detail
+   Slides down from top once user scrolls past the hero
+   ═══════════════════════════════════════════════════════════════ */
+.ed-sticky-title {
+  position: fixed;
+  top: var(--nav-h, 64px); left: 0; right: 0;
+  z-index: 999;
+  transform: translateY(-100%);
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform .4s cubic-bezier(.22,1,.36,1),
+    opacity   .35s ease;
+}
+
+.ed-sticky-title.visible {
+  transform: translateY(0);
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.ed-sticky-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: .7rem 0;
+}
+
+/* Glass background — dark */
+.ed-sticky-title::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: rgba(1,4,9,.82);
+  backdrop-filter: blur(24px) saturate(1.6);
+  -webkit-backdrop-filter: blur(24px) saturate(1.6);
+  border-bottom: 1px solid rgba(0,212,255,.12);
+  box-shadow:
+    0 4px 24px rgba(0,0,0,.5),
+    0 0 40px rgba(0,212,255,.04);
+  z-index: -1;
+}
+
+/* Animated gradient accent line at the bottom edge */
+.ed-sticky-title::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg,
+    var(--cyan) 0%, var(--violet) 50%, var(--amber) 100%);
+  background-size: 200% 100%;
+  animation: stickyRainbow 4s linear infinite;
+}
+
+@keyframes stickyRainbow {
+  0%   { background-position: 0% 0%; }
+  100% { background-position: 200% 0%; }
+}
+
+/* Title text */
+.ed-sticky-name {
+  font-family: var(--font-display);
+  font-size: clamp(.85rem, 2vw, 1.1rem);
+  font-weight: 700;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  text-shadow: 0 0 20px rgba(0,212,255,.15);
+}
+
+/* Actions area */
+.ed-sticky-actions {
+  flex-shrink: 0;
+}
+
+.ed-sticky-btn {
+  white-space: nowrap;
+  font-size: .82rem;
+  padding: .4rem 1.1rem;
+}
+
+/* ── Light mode ── */
+[data-theme="light"] .ed-sticky-title::before {
+  background: rgba(255,255,255,.88);
+  border-bottom-color: rgba(0,60,110,.12);
+  box-shadow: 0 4px 20px rgba(0,40,80,.12);
+}
+
+[data-theme="light"] .ed-sticky-name {
+  text-shadow: none;
+}
+
+[data-theme="light"] .ed-sticky-title::after {
+  opacity: .7;
+}
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  .ed-sticky-inner { padding: .55rem 0; }
+  .ed-sticky-name  { font-size: .82rem; }
+  .ed-sticky-btn   { font-size: .75rem; padding: .35rem .8rem; }
+}
+
+/* ── Reduced motion ── */
+@media (prefers-reduced-motion: reduce) {
+  .ed-sticky-title {
+    transition: opacity .2s ease;
+    transform: none !important;
+  }
+  .ed-sticky-title::after {
+    animation: none;
+  }
 }

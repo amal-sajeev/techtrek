@@ -41,9 +41,10 @@
           <div class="detail-group">
             <h4>Your Tickets</h4>
             {% for b in bookings %}
+            {% set st = seats[loop.index0] %}
             <div class="ticket-card">
               <div class="ticket-card-info">
-                <span class="seat-label-chip">{{ seats[loop.index0].label }}{% if seats[loop.index0].seat_type not in ('standard', 'aisle') %} <small>({{ custom_types_map.get(seats[loop.index0].seat_type, seats[loop.index0].seat_type)|upper if seats[loop.index0].seat_type.startswith('custom_') else seats[loop.index0].seat_type|upper })</small>{% endif %}</span>
+                <span class="seat-label-chip">{{ st.label }}{% if st.seat_type not in ('standard', 'aisle') %} <small>({% if st.seat_type.startswith('custom_') %}{{ custom_types_map.get(st.seat_type, st.seat_type)|upper }}{% else %}{{ st.seat_type|upper }}{% endif %})</small>{% endif %}</span>
                 <span class="ticket-id">{{ b.ticket_id }}</span>
                 <span class="booking-ref-small">Ref: {{ b.booking_ref }} &middot; &#8377;{{ "%.0f"|format(b.amount_paid) }}</span>
               </div>

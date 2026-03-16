@@ -6,90 +6,132 @@
   <h1 class="admin-page-title">{{ "Edit" if event else "New" }} Event</h1>
 </div>
 
+<div class="wizard-steps mb-3">
+  <button type="button" class="wizard-step active" data-step="1">1. Details</button>
+  <button type="button" class="wizard-step" data-step="2">2. Pricing</button>
+  <button type="button" class="wizard-step" data-step="3">3. Media</button>
+  <button type="button" class="wizard-step" data-step="4">4. Review &amp; Save</button>
+</div>
+
 <div class="form-card">
   <form method="post" action="{{ '/admin/events/' ~ event.id ~ '/edit' if event else '/admin/events/new' }}" id="event-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <div class="form-row">
-      <div class="form-group" style="flex:2">
-        <label class="form-label" for="ev-name">Event Name</label>
-        <input type="text" name="name" id="ev-name" class="form-input" value="{{ event.name if event else '' }}" required>
+
+    <!-- Step 1: Details -->
+    <div class="wizard-panel active" data-panel="1">
+      <h3 class="wizard-panel-title">Event Details</h3>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label class="form-label" for="ev-name">Event Name</label>
+          <input type="text" name="name" id="ev-name" class="form-input" value="{{ event.name if event else '' }}" required>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label" for="ev-status">Status</label>
+          <select name="status" id="ev-status" class="form-input">
+            <option value="draft" {% if not event or event.status == 'draft' %}selected{% endif %}>Draft</option>
+            <option value="published" {% if event and event.status == 'published' %}selected{% endif %}>Published</option>
+            <option value="completed" {% if event and event.status == 'completed' %}selected{% endif %}>Completed</option>
+            <option value="cancelled" {% if event and event.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
+          </select>
+        </div>
       </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label" for="ev-status">Status</label>
-        <select name="status" id="ev-status" class="form-input">
-          <option value="draft" {% if not event or event.status == 'draft' %}selected{% endif %}>Draft</option>
-          <option value="published" {% if event and event.status == 'published' %}selected{% endif %}>Published</option>
-          <option value="completed" {% if event and event.status == 'completed' %}selected{% endif %}>Completed</option>
-          <option value="cancelled" {% if event and event.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
-        </select>
+      <div class="form-row">
+        <div class="form-group" style="flex:1">
+          <label class="form-label" for="ev-college">College (optional)</label>
+          <select name="college_id" id="ev-college" class="form-input">
+            <option value="">— No college —</option>
+            {% for c in colleges %}
+            <option value="{{ c.id }}" {% if event and event.college_id == c.id %}selected{% endif %}>{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label" for="ev-auditorium">Venue / Auditorium</label>
+          <select name="auditorium_id" id="ev-auditorium" class="form-input">
+            <option value="">— Select venue —</option>
+            {% for a in auditoriums %}
+            <option value="{{ a.id }}" {% if event and event.auditorium_id == a.id %}selected{% endif %}>{{ a.name }}{% if a.location %} — {{ a.location }}{% endif %}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="ev-start">Start Date</label>
+          <input type="date" name="start_date" id="ev-start" class="form-input" value="{{ event.start_date.isoformat() if event and event.start_date else '' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ev-end">End Date</label>
+          <input type="date" name="end_date" id="ev-end" class="form-input" value="{{ event.end_date.isoformat() if event and event.end_date else '' }}">
+        </div>
+      </div>
+      <div class="wizard-nav">
+        <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+        <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
       </div>
     </div>
 
-    <div class="form-row">
-      <div class="form-group" style="flex:1">
-        <label class="form-label" for="ev-college">College (optional)</label>
-        <select name="college_id" id="ev-college" class="form-input">
-          <option value="">— No college —</option>
-          {% for c in colleges %}
-          <option value="{{ c.id }}" {% if event and event.college_id == c.id %}selected{% endif %}>{{ c.name }}</option>
-          {% endfor %}
-        </select>
+    <!-- Step 2: Pricing -->
+    <div class="wizard-panel" data-panel="2">
+      <h3 class="wizard-panel-title">Pricing</h3>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="ev-price">Standard Price (&#8377;)</label>
+          <input type="number" name="price" id="ev-price" class="form-input" step="0.01" min="0" value="{{ event.price if event and event.price is not none else '0' }}">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ev-price-vip">VIP Price (&#8377;)</label>
+          <input type="number" name="price_vip" id="ev-price-vip" class="form-input" step="0.01" min="0" value="{{ event.price_vip if event and event.price_vip is not none else '' }}" placeholder="Optional">
+        </div>
       </div>
-      <div class="form-group" style="flex:1">
-        <label class="form-label" for="ev-auditorium">Venue / Auditorium</label>
-        <select name="auditorium_id" id="ev-auditorium" class="form-input">
-          <option value="">— Select venue —</option>
-          {% for a in auditoriums %}
-          <option value="{{ a.id }}" {% if event and event.auditorium_id == a.id %}selected{% endif %}>{{ a.name }}{% if a.location %} — {{ a.location }}{% endif %}</option>
-          {% endfor %}
-        </select>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="ev-price-accessible">Accessible Price (&#8377;)</label>
+          <input type="number" name="price_accessible" id="ev-price-accessible" class="form-input" step="0.01" min="0" value="{{ event.price_accessible if event and event.price_accessible is not none else '' }}" placeholder="Optional">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="ev-fee">Processing Fee %</label>
+          <input type="number" name="processing_fee_pct" id="ev-fee" class="form-input" step="0.01" min="0" max="100" value="{{ event.processing_fee_pct if event and event.processing_fee_pct is not none else '' }}" placeholder="e.g. 2.5">
+        </div>
       </div>
-    </div>
-
-    <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="ev-start">Start Date</label>
-        <input type="date" name="start_date" id="ev-start" class="form-input" value="{{ event.start_date.isoformat() if event and event.start_date else '' }}">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="ev-end">End Date</label>
-        <input type="date" name="end_date" id="ev-end" class="form-input" value="{{ event.end_date.isoformat() if event and event.end_date else '' }}">
+      <div class="wizard-nav">
+        <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+        <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
       </div>
     </div>
 
-    <div class="form-row">
+    <!-- Step 3: Media -->
+    <div class="wizard-panel" data-panel="3">
+      <h3 class="wizard-panel-title">Media &amp; Content</h3>
       <div class="form-group">
-        <label class="form-label" for="ev-price">Price (&#8377;)</label>
-        <input type="number" name="price" id="ev-price" class="form-input" step="0.01" min="0" value="{{ event.price if event and event.price is not none else '0' }}">
+        <label class="form-label" for="ev-banner">Banner URL</label>
+        <input type="url" name="banner_url" id="ev-banner" class="form-input" value="{{ event.banner_url if event and event.banner_url else '' }}" placeholder="https://...">
       </div>
       <div class="form-group">
-        <label class="form-label" for="ev-price-vip">VIP Price (&#8377;)</label>
-        <input type="number" name="price_vip" id="ev-price-vip" class="form-input" step="0.01" min="0" value="{{ event.price_vip if event and event.price_vip is not none else '' }}" placeholder="Optional">
+        <label class="form-label" for="ev-desc">Description</label>
+        <textarea name="description" id="ev-desc" class="form-input" rows="6">{{ event.description if event and event.description else '' }}</textarea>
       </div>
-      <div class="form-group">
-        <label class="form-label" for="ev-price-accessible">Accessible Price (&#8377;)</label>
-        <input type="number" name="price_accessible" id="ev-price-accessible" class="form-input" step="0.01" min="0" value="{{ event.price_accessible if event and event.price_accessible is not none else '' }}" placeholder="Optional">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="ev-fee">Processing Fee %</label>
-        <input type="number" name="processing_fee_pct" id="ev-fee" class="form-input" step="0.01" min="0" max="100" value="{{ event.processing_fee_pct if event and event.processing_fee_pct is not none else '' }}" placeholder="e.g. 2.5">
+      <div class="wizard-nav">
+        <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+        <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
       </div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label" for="ev-banner">Banner URL</label>
-      <input type="url" name="banner_url" id="ev-banner" class="form-input" value="{{ event.banner_url if event and event.banner_url else '' }}" placeholder="https://...">
+    <!-- Step 4: Review & Save -->
+    <div class="wizard-panel" data-panel="4">
+      <h3 class="wizard-panel-title">Review &amp; Save</h3>
+      <table class="table" id="ev-review-table" style="margin-bottom:1.5rem">
+        <tbody></tbody>
+      </table>
+      <div class="wizard-nav">
+        <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+        <div style="display:flex;gap:.75rem;align-items:center">
+          <a href="/admin/events" class="btn btn-outline">Cancel</a>
+          <button type="submit" class="btn btn-primary">{{ "Update" if event else "Create" }} Event</button>
+        </div>
+      </div>
     </div>
 
-    <div class="form-group">
-      <label class="form-label" for="ev-desc">Description</label>
-      <textarea name="description" id="ev-desc" class="form-input" rows="3">{{ event.description if event and event.description else '' }}</textarea>
-    </div>
-
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">{{ "Update" if event else "Create" }} Event</button>
-      <a href="/admin/events" class="btn btn-outline">Cancel</a>
-    </div>
   </form>
 </div>
 
@@ -171,4 +213,61 @@
   <a href="/admin/events/{{ event.id }}/coupons/new" class="btn btn-outline btn-sm mt-2">+ New Coupon</a>
 </div>
 {% endif %}
+
+<script>
+(function() {
+  var steps = document.querySelectorAll('.wizard-step');
+  var panels = document.querySelectorAll('.wizard-panel');
+  var currentStep = 1;
+
+  function goToStep(n) {
+    currentStep = n;
+    steps.forEach(function(s) { s.classList.toggle('active', parseInt(s.dataset.step) === n); });
+    panels.forEach(function(p) { p.classList.toggle('active', parseInt(p.dataset.panel) === n); });
+    if (n === 4) buildReview();
+  }
+
+  var urlStep = new URLSearchParams(window.location.search).get('step');
+  if (urlStep) goToStep(parseInt(urlStep));
+
+  steps.forEach(function(s) {
+    s.addEventListener('click', function() { goToStep(parseInt(s.dataset.step)); });
+  });
+  document.querySelectorAll('.wizard-next').forEach(function(btn) {
+    btn.addEventListener('click', function() { goToStep(currentStep + 1); });
+  });
+  document.querySelectorAll('.wizard-prev').forEach(function(btn) {
+    btn.addEventListener('click', function() { goToStep(currentStep - 1); });
+  });
+
+  function val(id) { return (document.getElementById(id) || {}).value || ''; }
+  function selectText(id) {
+    var el = document.getElementById(id);
+    if (!el) return '';
+    var opt = el.options[el.selectedIndex];
+    return opt ? opt.text : '';
+  }
+
+  function buildReview() {
+    var rows = [
+      ['Event Name', val('ev-name') || '—'],
+      ['Status', selectText('ev-status') || '—'],
+      ['College', selectText('ev-college') || '—'],
+      ['Venue', selectText('ev-auditorium') || '—'],
+      ['Start Date', val('ev-start') || '—'],
+      ['End Date', val('ev-end') || '—'],
+      ['Standard Price', val('ev-price') ? '₹' + val('ev-price') : '—'],
+      ['VIP Price', val('ev-price-vip') ? '₹' + val('ev-price-vip') : '—'],
+      ['Accessible Price', val('ev-price-accessible') ? '₹' + val('ev-price-accessible') : '—'],
+      ['Processing Fee', val('ev-fee') ? val('ev-fee') + '%' : '—'],
+      ['Banner URL', val('ev-banner') || '—'],
+      ['Description', (val('ev-desc') || '—').substring(0, 120) + (val('ev-desc').length > 120 ? '…' : '')],
+    ];
+    var tbody = document.querySelector('#ev-review-table tbody');
+    tbody.innerHTML = rows.map(function(r) {
+      return '<tr><td style="width:38%;font-weight:600;color:var(--text-muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">' + r[0] + '</td><td>' + r[1] + '</td></tr>';
+    }).join('');
+  }
+})();
+</script>
 {% endblock %}

@@ -536,10 +536,10 @@ def build_event_data(speakers, auditoriums, colleges):
             "aud_idx": 0,
             "start_offset_days": 3,
             "end_offset_days": 4,
-            "price": 0,
-            "price_vip": None,
-            "price_accessible": None,
-            "processing_fee_pct": None,
+            "price": 299,
+            "price_vip": 599,
+            "price_accessible": 149,
+            "processing_fee_pct": 2.5,
             "status": "published",
             "sessions": [
                 {
@@ -663,10 +663,10 @@ def build_event_data(speakers, auditoriums, colleges):
             "aud_idx": 2,
             "start_offset_days": 6,
             "end_offset_days": 8,
-            "price": 0,
-            "price_vip": None,
-            "price_accessible": None,
-            "processing_fee_pct": None,
+            "price": 499,
+            "price_vip": 899,
+            "price_accessible": 249,
+            "processing_fee_pct": 2.5,
             "status": "published",
             "sessions": [
                 {
@@ -860,10 +860,10 @@ def build_event_data(speakers, auditoriums, colleges):
             "aud_idx": 3,
             "start_offset_days": 9,
             "end_offset_days": 9,
-            "price": 0,
-            "price_vip": None,
-            "price_accessible": None,
-            "processing_fee_pct": None,
+            "price": 199,
+            "price_vip": 399,
+            "price_accessible": 99,
+            "processing_fee_pct": 2.5,
             "status": "published",
             "sessions": [
                 {
@@ -978,10 +978,10 @@ def build_event_data(speakers, auditoriums, colleges):
             "aud_idx": 0,
             "start_offset_days": 14,
             "end_offset_days": 16,
-            "price": 0,
-            "price_vip": None,
-            "price_accessible": None,
-            "processing_fee_pct": None,
+            "price": 749,
+            "price_vip": 1499,
+            "price_accessible": 399,
+            "processing_fee_pct": 2.5,
             "status": "draft",
             "sessions": [
                 {
@@ -1031,6 +1031,307 @@ def build_event_data(speakers, auditoriums, colleges):
             ],
             "coupons": [
                 {"code": "TOUR20", "discount_pct": 20, "max_uses": 100},
+            ],
+        },
+
+        # ── Event 7: TechTrek AI & Future Tech Summit ────────────────
+        {
+            "name": "TechTrek AI & Future Tech Summit 2026",
+            "description": (
+                "A full-day summit exploring AI's impact on careers, technology, and society. "
+                "From designing human-centric AI futures to quantum computing breakthroughs, "
+                "this event equips students with the knowledge and action plans to thrive in "
+                "an AI-accelerated world."
+            ),
+            "banner_url": "https://images.unsplash.com/photo-1485827404703-89b55fcc595e?w=1200&h=400&fit=crop",
+            "college_idx": 0,
+            "aud_idx": 0,
+            "start_offset_days": 10,
+            "end_offset_days": 10,
+            "price": 349,
+            "price_vip": 699,
+            "price_accessible": 179,
+            "processing_fee_pct": 2.5,
+            "status": "published",
+            "sessions": [
+                {
+                    "title": "Designing a Human-Centric AI Future",
+                    "speaker_id": speakers[0]["id"],
+                    "speaker_name": "Dr. Sarah Chen",
+                    "description": (
+                        "AI doesn\u2019t arrive in a vacuum\u2014it lands inside geopolitics, regulation, "
+                        "culture, and power. Using the \u2018Good Future\u2019 lens, this talk explores how "
+                        "nations can shape AI toward human-centered outcomes: trust, democracy, "
+                        "sustainability, and shared prosperity instead of surveillance, manipulation, "
+                        "or inequality."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 10,
+                    "agenda": [
+                        {"title": "Geopolitics & AI Policy", "speaker_idx": 0, "dur": 10,
+                         "desc": "How geopolitics and policy influence AI development and deployment."},
+                        {"title": "Good Future vs Bad Future Pathways", "speaker_idx": 0, "dur": 10,
+                         "desc": "Differentiating outcomes using concrete examples from governance, ethics, and security."},
+                        {"title": "Framing Career Choices Around Impact", "speaker_idx": 0, "dur": 10,
+                         "desc": "What you build, who it benefits, and what it risks."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 0, "role": "Keynote"}],
+                    "cert": {
+                        "cert_title": "Certificate of Attendance",
+                        "cert_subtitle": "Designing a Human-Centric AI Future \u2013 TechTrek 2026",
+                        "cert_footer": "Issued by TechTrek Pvt Ltd",
+                        "cert_signer_name": "Dr. Sarah Chen",
+                        "cert_signer_designation": "VP of AI Research, DeepMind",
+                        "cert_color_scheme": "blue",
+                    },
+                    "recordings": [],
+                },
+                {
+                    "title": "The Invisible Wave of Technological Change",
+                    "speaker_id": speakers[5]["id"],
+                    "speaker_name": "Michael Torres",
+                    "description": (
+                        "\u2018AI Tsunami\u2019 is a blunt metaphor for scale and speed: capabilities arrive "
+                        "faster than institutions can adapt. This session unpacks near-term AI progress, "
+                        "societal readiness gaps, and why safety, alignment, and governance become "
+                        "engineering problems\u2014not just philosophy."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 10.75,
+                    "agenda": [
+                        {"title": "The AI Tsunami Argument", "speaker_idx": 5, "dur": 10,
+                         "desc": "Summarizing the readiness challenges as capabilities outpace institutions."},
+                        {"title": "Safety Concepts for Students", "speaker_idx": 5, "dur": 10,
+                         "desc": "Evaluation, red-teaming, and guardrails in practical terms."},
+                        {"title": "Personal Action Planning", "speaker_idx": 5, "dur": 10,
+                         "desc": "Skills to learn, communities to join, and questions to research."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 5, "role": "Keynote"}],
+                    "cert": {},
+                    "recordings": [],
+                },
+                {
+                    "title": "How Computers Are Redefining Work",
+                    "speaker_id": speakers[1]["id"],
+                    "speaker_name": "James Kowalski",
+                    "description": (
+                        "Perplexity\u2019s \u2018Computer\u2019 idea points to a shift from chatbots to agents that "
+                        "can operate a full digital workspace\u2014browsing, clicking, filling forms, and "
+                        "completing tasks end-to-end. This session looks at how \u2018AI that uses a computer\u2019 "
+                        "changes productivity, entry-level work, and the skills students need to stay "
+                        "valuable when routine screen-work is automated."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 11.5,
+                    "agenda": [
+                        {"title": "AI Agents vs Chatbots", "speaker_idx": 1, "dur": 10,
+                         "desc": "What an AI computer/agent is and how it differs from a normal chatbot."},
+                        {"title": "Tasks Most Likely to Be Automated", "speaker_idx": 1, "dur": 10,
+                         "desc": "Identifying office-style workflows ripe for automation."},
+                        {"title": "Human Advantage & Portfolio Planning", "speaker_idx": 1, "dur": 10,
+                         "desc": "Judgment, problem framing, and showcasing collaboration with AI tools."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 1, "role": "Keynote"}],
+                    "cert": {},
+                    "recordings": [],
+                },
+                {
+                    "title": "The World Students Will Graduate Into",
+                    "speaker_id": speakers[6]["id"],
+                    "speaker_name": "Anika Desai",
+                    "description": (
+                        "The late-2020s as a \u2018reset\u2019 period where AI reshapes how value is created. "
+                        "This talk argues that relying only on paid labor is risky, and emphasizes "
+                        "building durable skills, networks, and ownership\u2014from projects and products "
+                        "to audiences and equity-like assets\u2014so students can thrive in an "
+                        "AI-accelerated economy."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 12.25,
+                    "agenda": [
+                        {"title": "Labor vs Ownership Income", "speaker_idx": 6, "dur": 10,
+                         "desc": "The difference between income-from-labor and income-from-ownership."},
+                        {"title": "Durable Assets for Students", "speaker_idx": 6, "dur": 10,
+                         "desc": "Portfolio, audience, product, or niche skill stack\u2014choosing one to build."},
+                        {"title": "90-Day Builder Plan", "speaker_idx": 6, "dur": 10,
+                         "desc": "Moving from consumer of AI to builder with AI: projects, distribution, community."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 6, "role": "Keynote"}],
+                    "cert": {},
+                    "recordings": [],
+                },
+                {
+                    "title": "Lunch Break",
+                    "speaker_id": speakers[8]["id"],
+                    "speaker_name": "Amal Sajeev",
+                    "description": (
+                        "A purposeful pause to reset attention and energy. Use this slot to reflect "
+                        "on the morning sessions, capture 5 key ideas, and convert them into questions "
+                        "you want answered in the afternoon\u2014because your next question shapes your "
+                        "learning path."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&h=400&fit=crop",
+                    "duration_minutes": 45,
+                    "start_offset_hours": 13,
+                    "agenda": [
+                        {"title": "Morning Takeaway Summary", "speaker_idx": 8, "dur": 15,
+                         "desc": "Consolidate notes into a 5-point summary of the morning."},
+                        {"title": "Peer Learning & Question Crafting", "speaker_idx": 8, "dur": 15,
+                         "desc": "Generate 3 high-quality questions and explain one idea to a friend in 60 seconds."},
+                        {"title": "Deeper Exploration", "speaker_idx": None, "dur": 15,
+                         "desc": "Identify one concept to explore deeper after the event."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 8, "role": "Moderator"}],
+                    "cert": {},
+                    "recordings": [],
+                },
+                {
+                    "title": "Building AI Projects That Employers Notice",
+                    "speaker_id": speakers[8]["id"],
+                    "speaker_name": "Amal Sajeev",
+                    "description": (
+                        "Hiring signals have changed: recruiters want proof you can build, ship, "
+                        "and explain. This talk breaks down portfolio-ready project ideas that "
+                        "demonstrate data handling, modeling, evaluation, and real-world deployment "
+                        "thinking\u2014not just notebooks."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 13.75,
+                    "agenda": [
+                        {"title": "Project Archetypes That Land Jobs", "speaker_idx": 8, "dur": 10,
+                         "desc": "Five project types employers recognize as job-relevant."},
+                        {"title": "Defining \u2018Done\u2019 for AI Projects", "speaker_idx": 8, "dur": 10,
+                         "desc": "Problem, data, metrics, demo, documentation, and evaluation mindset."},
+                        {"title": "Portfolio Checklist for Recruiters", "speaker_idx": 8, "dur": 10,
+                         "desc": "A GitHub/portfolio checklist that communicates impact clearly."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 8, "role": "Keynote"}],
+                    "cert": {
+                        "cert_title": "Certificate of Attendance",
+                        "cert_subtitle": "Building AI Projects That Employers Notice \u2013 TechTrek 2026",
+                        "cert_footer": "Issued by TechTrek Pvt Ltd",
+                        "cert_signer_name": "Amal Sajeev",
+                        "cert_signer_designation": "Principal Engineer & Tech Speaker",
+                        "cert_color_scheme": "green",
+                    },
+                    "recordings": [],
+                },
+                {
+                    "title": "Will AI Take Over Jobs\u2014or Transform Them?",
+                    "speaker_id": speakers[4]["id"],
+                    "speaker_name": "Priya Sharma",
+                    "description": (
+                        "This session examines bold claims about AI replacing millions of jobs. "
+                        "Students learn how to interrogate such statements: what counts as a \u2018job\u2019, "
+                        "what tasks get automated first, and how industries redesign roles rather "
+                        "than simply deleting them."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 14.5,
+                    "agenda": [
+                        {"title": "Job Replacement vs Task Automation", "speaker_idx": 4, "dur": 10,
+                         "desc": "Distinguishing the two with real-world examples."},
+                        {"title": "Interrogating AI Headlines", "speaker_idx": 4, "dur": 10,
+                         "desc": "Evidence questions: who said it, context, assumptions, and timeframe."},
+                        {"title": "Personal Automation Audit", "speaker_idx": 4, "dur": 10,
+                         "desc": "Career strategies: adaptability, domain depth, tool fluency, and skill upgrades."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 4, "role": "Keynote"}],
+                    "cert": {},
+                    "recordings": [],
+                },
+                {
+                    "title": "AI is Outdated: Quantum + AI is the Next Big Leap",
+                    "speaker_id": speakers[7]["id"],
+                    "speaker_name": "Rahul Mehta",
+                    "description": (
+                        "This talk positions quantum computing as a new layer that could amplify "
+                        "AI\u2014especially for optimization, simulation, and complex search. Without "
+                        "requiring heavy physics, it introduces why quantum matters, where hype exists, "
+                        "and how students can build a credible learning path from linear algebra basics "
+                        "to quantum algorithms and AI applications."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 15.25,
+                    "agenda": [
+                        {"title": "Quantum Computing Demystified", "speaker_idx": 7, "dur": 10,
+                         "desc": "What quantum computing is and is not\u2014in plain language."},
+                        {"title": "Where Quantum Meets AI", "speaker_idx": 7, "dur": 10,
+                         "desc": "AI problem types that may benefit: optimization, simulation, and practical constraints."},
+                        {"title": "Starter Roadmap for Students", "speaker_idx": 7, "dur": 10,
+                         "desc": "Prerequisites, tools (simulators), and mini-experiments to get started."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 7, "role": "Keynote"}],
+                    "cert": {},
+                    "recordings": [],
+                },
+                {
+                    "title": "Lessons from Failed GenAI Experiments",
+                    "speaker_id": speakers[3]["id"],
+                    "speaker_name": "Alex Petrov",
+                    "description": (
+                        "Most GenAI prototypes die before production because the hard parts start "
+                        "after the demo: data quality, evaluation, security, cost, reliability, and "
+                        "governance. This session turns failure modes into a practical playbook "
+                        "students can apply to projects, hackathons, and internships."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 16,
+                    "agenda": [
+                        {"title": "Why GenAI Projects Fail", "speaker_idx": 3, "dur": 10,
+                         "desc": "Top reasons AI prototypes die after a promising demo."},
+                        {"title": "Evaluation & Production Essentials", "speaker_idx": 3, "dur": 10,
+                         "desc": "Quality, safety, robustness, monitoring, feedback loops, latency, and cost control."},
+                        {"title": "Demo to Production Problem Statement", "speaker_idx": 3, "dur": 10,
+                         "desc": "Rewriting a cool demo idea into a production-ready problem statement with constraints."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 3, "role": "Keynote"}],
+                    "cert": {},
+                    "recordings": [],
+                },
+                {
+                    "title": "Student Voices: Open Forum and Career Guidance",
+                    "speaker_id": speakers[8]["id"],
+                    "speaker_name": "Amal Sajeev",
+                    "description": (
+                        "An interactive forum where students drive the agenda: doubts, career paths, "
+                        "higher studies, projects, internships, and AI ethics. The goal is to convert "
+                        "uncertainty into clarity\u2014through honest questions, peer stories, and concrete "
+                        "next steps."
+                    ),
+                    "banner_url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
+                    "duration_minutes": 30,
+                    "start_offset_hours": 16.75,
+                    "agenda": [
+                        {"title": "Asking Sharper Questions", "speaker_idx": 8, "dur": 10,
+                         "desc": "Describe your goal, constraints, and current skill level."},
+                        {"title": "Career Pathways & Portfolio Feedback", "speaker_idx": 8, "dur": 10,
+                         "desc": "3 actionable pathways with required skills, plus 1-minute narrative reviews."},
+                        {"title": "Commit to One Next Step", "speaker_idx": None, "dur": 10,
+                         "desc": "One concrete action to execute within 7 days after TechTrek."},
+                    ],
+                    "session_speakers": [{"speaker_idx": 8, "role": "Moderator"}, {"speaker_idx": 0, "role": "Panelist"}],
+                    "cert": {
+                        "cert_title": "Certificate of Attendance",
+                        "cert_subtitle": "TechTrek AI & Future Tech Summit 2026",
+                        "cert_footer": "Issued by TechTrek Pvt Ltd",
+                        "cert_signer_name": "Amal Sajeev",
+                        "cert_signer_designation": "Principal Engineer & Tech Speaker",
+                        "cert_color_scheme": "purple",
+                    },
+                    "recordings": [],
+                },
+            ],
+            "coupons": [
+                {"code": "AISUMMIT10", "discount_pct": 10, "max_uses": 50},
             ],
         },
     ]

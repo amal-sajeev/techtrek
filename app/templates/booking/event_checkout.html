@@ -49,12 +49,14 @@
         </div>
 
         <div class="checkout-summary">
-          {% for item in seat_items %}
-          <div class="checkout-line">
-            <span>{{ item.seat.label }}{% if item.seat.seat_type not in ('standard', 'aisle') %} ({{ custom_types_map.get(item.seat.seat_type, item.seat.seat_type)|upper if item.seat.seat_type.startswith('custom_') else item.seat.seat_type|upper }}){% endif %}</span>
-            <span>&#8377;{{ "%.0f"|format(item.price) }}</span>
+          <div class="checkout-seat-lines">
+            {% for item in seat_items %}
+            <div class="checkout-line">
+              <span>{{ item.seat.label }}{% if item.seat.seat_type not in ('standard', 'aisle') %} ({{ custom_types_map.get(item.seat.seat_type, item.seat.seat_type)|upper if item.seat.seat_type.startswith('custom_') else item.seat.seat_type|upper }}){% endif %}</span>
+              <span>&#8377;{{ "%.0f"|format(item.price) }}</span>
+            </div>
+            {% endfor %}
           </div>
-          {% endfor %}
           {% if coupon_discount and coupon_discount > 0 %}
           <div class="checkout-line" style="color:var(--green)">
             <span>Coupon discount</span>

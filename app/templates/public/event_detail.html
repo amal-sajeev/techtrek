@@ -23,6 +23,28 @@
 {# ── SCROLL PROGRESS BAR ─────────────────────────────────────── #}
 <div class="ed-progress-bar" id="ed-progress"></div>
 
+{# ── STICKY FLOATING TITLE BAR ───────────────────────────────── #}
+<div class="ed-sticky-title" id="ed-sticky-title">
+  <div class="container">
+    <div class="ed-sticky-inner">
+      <span class="ed-sticky-name">{{ event.name }}</span>
+      <div class="ed-sticky-actions">
+        {% if sessions %}
+          {% if user %}
+            {% if availability != 'sold-out' %}
+            <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm ed-sticky-btn">Book Now</a>
+            {% else %}
+            <span class="btn btn-outline btn-sm ed-sticky-btn" style="opacity:.5;cursor:not-allowed">Sold Out</span>
+            {% endif %}
+          {% else %}
+          <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm ed-sticky-btn">Get Ticket</a>
+          {% endif %}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
 {# ── FULL-BLEED HERO ─────────────────────────────────────────── #}
 <div class="ed-hero-full">
 
@@ -118,6 +140,9 @@
               <p class="ed-sc-speaker">{{ s.speaker_name }}</p>
               {% endif %}
               <h3 class="ed-sc-title">{{ s.title }}</h3>
+              {% if s.description %}
+              <p class="ed-sc-desc">{{ s.description|truncate(100, True, '...') }}</p>
+              {% endif %}
               <div class="ed-sc-meta">
                 {% if s.start_time %}
                 <span>&#128197; {{ s.start_time.strftime('%b %d, %Y') }}</span>
@@ -181,20 +206,40 @@
         </div>
         {% endif %}
 
-        <div class="ed-bp-header" style="margin-top:.75rem">
-          <span class="ed-bp-price">{% if event.price == 0 %}Free{% else %}₹{{ '{:,.0f}'.format(event.price) }}{% endif %}</span>
-        </div>
-
-        {% if event.price_vip or event.price_accessible %}
-        <div class="ed-bp-meta" style="font-size:.85rem;">
+        <div class="ed-bp-pricing">
+          <div class="ed-bp-tier ed-bp-tier--standard">
+            <div class="ed-bp-tier-label">
+              <span class="ed-bp-tier-badge">Standard</span>
+            </div>
+            <div class="ed-bp-tier-price">
+              {% if event.price == 0 %}
+                <span class="ed-bp-amount">Free</span>
+              {% else %}
+                <span class="ed-bp-currency">₹</span><span class="ed-bp-amount">{{ '{:,.0f}'.format(event.price) }}</span>
+              {% endif %}
+            </div>
+          </div>
           {% if event.price_vip %}
-          <span>VIP: ₹{{ '{:,.0f}'.format(event.price_vip) }}</span>
+          <div class="ed-bp-tier ed-bp-tier--vip">
+            <div class="ed-bp-tier-label">
+              <span class="ed-bp-tier-badge ed-bp-tier-badge--vip">VIP</span>
+            </div>
+            <div class="ed-bp-tier-price">
+              <span class="ed-bp-currency">₹</span><span class="ed-bp-amount">{{ '{:,.0f}'.format(event.price_vip) }}</span>
+            </div>
+          </div>
           {% endif %}
           {% if event.price_accessible %}
-          <span>Accessible: ₹{{ '{:,.0f}'.format(event.price_accessible) }}</span>
+          <div class="ed-bp-tier ed-bp-tier--accessible">
+            <div class="ed-bp-tier-label">
+              <span class="ed-bp-tier-badge ed-bp-tier-badge--accessible">♿ Accessible</span>
+            </div>
+            <div class="ed-bp-tier-price">
+              <span class="ed-bp-currency">₹</span><span class="ed-bp-amount">{{ '{:,.0f}'.format(event.price_accessible) }}</span>
+            </div>
+          </div>
           {% endif %}
         </div>
-        {% endif %}
 
         <div class="ed-bp-actions">
           {% if user %}
@@ -269,7 +314,27 @@
     });
   }
 
-  /* 4 — Cross-highlight card ↔ checklist */
+  /* 4 — Cross-highlight card ↔ checklist + scroll-sync */
+  var checklist = document.getElementById('booking-checklist');
+  var userScrolling = false;
+  var userScrollTimer = null;
+
+  if (checklist) {
+    checklist.addEventListener('wheel', function () {
+      userScrolling = true;
+      clearTimeout(userScrollTimer);
+      userScrollTimer = setTimeout(function () { userScrolling = false; }, 2000);
+    }, { passive: true });
+    checklist.addEventListener('touchstart', function () {
+      userScrolling = true;
+      clearTimeout(userScrollTimer);
+    }, { passive: true });
+    checklist.addEventListener('touchend', function () {
+      clearTimeout(userScrollTimer);
+      userScrollTimer = setTimeout(function () { userScrolling = false; }, 2000);
+    }, { passive: true });
+  }
+
   document.querySelectorAll('.ed-session-card').forEach(function (card) {
     var id = card.dataset.sessionId;
     var li = document.querySelector('.ed-bcl-item[data-session-id="' + id + '"]');
@@ -277,6 +342,47 @@
     card.addEventListener('mouseenter', function () { li.classList.add('highlighted'); });
     card.addEventListener('mouseleave', function () { li.classList.remove('highlighted'); });
   });
+
+  /* Scroll-sync: as session cards enter the viewport on the left,
+     auto-scroll the booking checklist to keep the matching item visible */
+  if (checklist) {
+    var allCards = Array.prototype.slice.call(document.querySelectorAll('.ed-session-card'));
+    var allItems = Array.prototype.slice.call(checklist.querySelectorAll('.ed-bcl-item'));
+
+    function syncChecklist() {
+      if (userScrolling || !allCards.length) return;
+      var vpMid = window.innerHeight * 0.45;
+      var best = null;
+      var bestDist = Infinity;
+      allCards.forEach(function (card) {
+        var r = card.getBoundingClientRect();
+        var cardMid = r.top + r.height / 2;
+        var dist = Math.abs(cardMid - vpMid);
+        if (r.bottom > 0 && r.top < window.innerHeight && dist < bestDist) {
+          bestDist = dist;
+          best = card;
+        }
+      });
+      if (!best) return;
+      var id = best.dataset.sessionId;
+      var li = checklist.querySelector('.ed-bcl-item[data-session-id="' + id + '"]');
+      if (li) {
+        var clRect = checklist.getBoundingClientRect();
+        var liRect = li.getBoundingClientRect();
+        var liTop = liRect.top - clRect.top + checklist.scrollTop;
+        var targetScroll = liTop - (clRect.height / 2) + (liRect.height / 2);
+        checklist.scrollTop = Math.max(0, Math.min(targetScroll, checklist.scrollHeight - clRect.height));
+      }
+    }
+
+    var scrollTick = false;
+    window.addEventListener('scroll', function () {
+      if (!scrollTick) {
+        requestAnimationFrame(function () { syncChecklist(); scrollTick = false; });
+        scrollTick = true;
+      }
+    }, { passive: true });
+  }
 
   /* 5 — Scroll progress bar */
   var bar = document.getElementById('ed-progress');
@@ -286,6 +392,23 @@
       bar.style.width = Math.min(Math.max(pct, 0), 100) + '%';
     }, { passive: true });
   }
+
+  /* 7 — Sticky floating title bar */
+  (function () {
+    var stickyBar = document.getElementById('ed-sticky-title');
+    var heroFull = document.querySelector('.ed-hero-full');
+    if (!stickyBar || !heroFull) return;
+
+    var isVisible = false;
+    window.addEventListener('scroll', function () {
+      var heroBottom = heroFull.getBoundingClientRect().bottom;
+      var shouldShow = heroBottom < 0;
+      if (shouldShow !== isVisible) {
+        isVisible = shouldShow;
+        stickyBar.classList.toggle('visible', shouldShow);
+      }
+    }, { passive: true });
+  }());
 
   /* 6 — Hero carousel auto-scroll + dot indicators */
   (function () {

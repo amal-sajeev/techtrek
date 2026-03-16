@@ -69,6 +69,7 @@ class User(Base):
 
     # --- Non-sensitive fields (stored as plain text) ---
     password_hash = Column(String(255), nullable=False)
+    phone = Column(EncryptedStr, nullable=True)
     college = Column(String(300), nullable=True)
     discipline = Column(String(100), nullable=True)
     domain = Column(String(100), nullable=True)
