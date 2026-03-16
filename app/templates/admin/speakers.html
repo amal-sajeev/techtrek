@@ -17,8 +17,12 @@
 </form>
 
 {% if speakers %}
+<div class="filter-bar mb-3">
+  <input type="text" id="speaker-search" class="form-input" placeholder="Search by name, title, or email…" oninput="filterSpeakers(this.value)" style="max-width:340px">
+  <span id="speaker-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ speakers|length }} speaker{{ 's' if speakers|length != 1 }}</span>
+</div>
 <div class="table-responsive">
-  <table class="table">
+  <table class="table table-cards-mobile" id="speakers-table">
     <thead>
       <tr>
         <th>Name</th>
@@ -30,20 +34,20 @@
     </thead>
     <tbody>
       {% for sp in speakers %}
-      <tr>
-        <td><strong>{{ sp.name }}</strong></td>
-        <td>{{ sp.title or "—" }}</td>
-        <td>{{ sp.email or "—" }}</td>
-        <td>
+      <tr data-search="{{ sp.name|lower }} {{ (sp.title or '')|lower }} {{ (sp.email or '')|lower }}">
+        <td data-label="Name"><strong>{{ sp.name }}</strong></td>
+        <td data-label="Title">{{ sp.title or "—" }}</td>
+        <td data-label="Email">{{ sp.email or "—" }}</td>
+        <td data-label="Status">
           {% if sp.user_id %}
             <span class="badge badge-success">Linked</span>
           {% elif sp.invite_token %}
-            <span class="badge badge-warning">Invited</span>
+            <span class="badge badge-draft">Invited</span>
           {% else %}
-            <span class="badge badge-secondary">Not Invited</span>
+            <span class="badge badge-muted">Not Invited</span>
           {% endif %}
         </td>
-        <td class="actions-cell">
+        <td data-label="Actions" class="actions-cell">
           <a href="/admin/speakers/{{ sp.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           {% if not sp.user_id %}
           <form method="post" action="/admin/speakers/{{ sp.id }}/invite" style="display:inline">
@@ -60,8 +64,23 @@
     </tbody>
   </table>
 </div>
+<script>
+function filterSpeakers(q) {
+  q = q.toLowerCase().trim();
+  var rows = document.querySelectorAll('#speakers-table tbody tr');
+  var visible = 0;
+  rows.forEach(function(row) {
+    var match = !q || row.dataset.search.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  var countEl = document.getElementById('speaker-count');
+  if (countEl) countEl.textContent = visible + ' speaker' + (visible !== 1 ? 's' : '') + (q ? ' found' : '');
+}
+</script>
 {% else %}
 <div class="empty-state">
+  <div class="empty-state-icon">&#127908;</div>
   <h3>No speakers yet</h3>
   <p>Add speakers who will deliver talks at events.</p>
   <a href="/admin/speakers/new" class="btn btn-primary">Add Speaker</a>

@@ -10,8 +10,12 @@
 </div>
 
 {% if sessions %}
+<div class="filter-bar mb-3">
+  <input type="text" id="session-search" class="form-input" placeholder="Search by title, speaker, or event…" oninput="filterSessions(this.value)" style="max-width:360px">
+  <span id="session-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ sessions|length }} session{{ 's' if sessions|length != 1 }}</span>
+</div>
 <div class="table-responsive">
-  <table class="table">
+  <table class="table table-cards-mobile" id="sessions-table">
     <thead>
       <tr>
         <th>Title</th>
@@ -24,14 +28,14 @@
     </thead>
     <tbody>
       {% for item in sessions %}
-      <tr>
-        <td><strong>{{ item.session.title }}</strong></td>
-        <td>{{ item.session.speaker_name or "—" }}</td>
-        <td>{{ item.event.name if item.event else "—" }}</td>
-        <td>{{ item.session.start_time.strftime('%b %d, %Y %I:%M %p') if item.session.start_time else "—" }}</td>
-        <td>{{ item.bookings }}</td>
+      <tr data-search="{{ item.session.title|lower }} {{ (item.session.speaker_name or '')|lower }} {{ (item.event.name if item.event else '')|lower }}">
+        <td data-label="Title"><strong>{{ item.session.title }}</strong></td>
+        <td data-label="Speaker">{{ item.session.speaker_name or "—" }}</td>
+        <td data-label="Event">{{ item.event.name if item.event else "—" }}</td>
+        <td data-label="Start Time">{{ item.session.start_time.strftime('%b %d, %Y %I:%M %p') if item.session.start_time else "—" }}</td>
+        <td data-label="Bookings">{{ item.bookings }}</td>
         {% if user.is_admin %}
-        <td class="actions-cell">
+        <td data-label="Actions" class="actions-cell">
           <a href="/admin/sessions/{{ item.session.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           <a href="/admin/sessions/{{ item.session.id }}/recordings" class="btn btn-sm btn-outline">Recordings</a>
           <form method="post" action="/admin/sessions/{{ item.session.id }}/delete" style="display:inline">
@@ -45,8 +49,23 @@
     </tbody>
   </table>
 </div>
+<script>
+function filterSessions(q) {
+  q = q.toLowerCase().trim();
+  var rows = document.querySelectorAll('#sessions-table tbody tr');
+  var visible = 0;
+  rows.forEach(function(row) {
+    var match = !q || row.dataset.search.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  var countEl = document.getElementById('session-count');
+  if (countEl) countEl.textContent = visible + ' session' + (visible !== 1 ? 's' : '') + (q ? ' found' : '');
+}
+</script>
 {% else %}
 <div class="empty-state">
+  <div class="empty-state-icon">&#127916;</div>
   <h3>No sessions yet</h3>
   {% if user.is_admin %}
   <p>Create your first session to start selling tickets.</p>

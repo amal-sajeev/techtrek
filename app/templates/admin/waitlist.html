@@ -3,13 +3,16 @@
 
 {% block admin_content %}
 <div class="admin-header">
-  <h1 class="admin-page-title">Waitlist Management</h1>
+  <h1 class="admin-page-title">Waitlist</h1>
 </div>
 
-<!-- Waitlist Entries -->
 {% if entries %}
+<div class="filter-bar mb-3">
+  <input type="text" id="waitlist-search" class="form-input" placeholder="Search by user or event…" oninput="filterWaitlist(this.value)" style="max-width:340px">
+  <span id="waitlist-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ entries|length }} entr{{ 'ies' if entries|length != 1 else 'y' }}</span>
+</div>
 <div class="table-responsive">
-  <table class="table table-cards-mobile">
+  <table class="table table-cards-mobile" id="waitlist-table">
     <thead>
       <tr>
         <th>User</th>
@@ -21,12 +24,15 @@
     </thead>
     <tbody>
       {% for item in entries %}
-      <tr>
-        <td data-label="User">{{ item.user.username if item.user else 'N/A' }}</td>
-        <td data-label="Waiting For">{{ item.event.name if item.event else 'N/A' }}</td>
-        <td data-label="Joined">{{ item.entry.joined_at.strftime('%b %d, %H:%M') }}</td>
+      <tr data-search="{{ (item.user.username if item.user else '')|lower }} {{ (item.event.name if item.event else '')|lower }}">
+        <td data-label="User">
+          <strong>{{ item.user.username if item.user else '—' }}</strong>
+          {% if item.user and item.user.email %}<br><small class="text-muted">{{ item.user.email }}</small>{% endif %}
+        </td>
+        <td data-label="Waiting For">{{ item.event.name if item.event else '—' }}</td>
+        <td data-label="Joined">{{ item.entry.joined_at.strftime('%b %d, %Y %H:%M') }}</td>
         <td data-label="Notified">
-          <span class="badge badge-{% if item.entry.notified %}available{% else %}draft{% endif %}">
+          <span class="badge {% if item.entry.notified %}badge-success{% else %}badge-muted{% endif %}">
             {{ 'Yes' if item.entry.notified else 'No' }}
           </span>
         </td>
@@ -41,10 +47,25 @@
     </tbody>
   </table>
 </div>
+<script>
+function filterWaitlist(q) {
+  q = q.toLowerCase().trim();
+  var rows = document.querySelectorAll('#waitlist-table tbody tr');
+  var visible = 0;
+  rows.forEach(function(row) {
+    var match = !q || row.dataset.search.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  var countEl = document.getElementById('waitlist-count');
+  if (countEl) countEl.textContent = visible + (visible !== 1 ? ' entries' : ' entry') + (q ? ' found' : '');
+}
+</script>
 {% else %}
 <div class="empty-state">
+  <div class="empty-state-icon">&#128221;</div>
   <h3>No waitlist entries</h3>
-  <p>When events sell out, users can join the waitlist.</p>
+  <p>When events sell out, users can join the waitlist here.</p>
 </div>
 {% endif %}
 {% endblock %}

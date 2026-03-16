@@ -98,7 +98,9 @@
 </div>
 {% else %}
 <div class="empty-state">
-  <h3>No users yet</h3>
+  <div class="empty-state-icon">&#128101;</div>
+  <h3>No users found</h3>
+  <p>{% if q %}No users match "{{ q }}". <a href="/admin/users">Clear search</a>{% else %}No users have registered yet.{% endif %}</p>
 </div>
 {% endif %}
 {% endblock %}

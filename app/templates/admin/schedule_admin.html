@@ -25,10 +25,10 @@
 {% if grouped %}
   {% for date_key, items in grouped.items() %}
   {% set dt = items[0].event.start_date if items and items[0].event and items[0].event.start_date else None %}
-  <div style="margin-bottom:2rem">
-    <h3 style="margin-bottom:1rem;opacity:.7">{{ dt.strftime('%A, %B %d, %Y') if dt else date_key }}</h3>
+  <div class="admin-section">
+    <h3 class="admin-section-title">{{ dt.strftime('%A, %B %d, %Y') if dt else date_key }}</h3>
     <div class="table-responsive">
-      <table class="table">
+      <table class="table table-cards-mobile">
         <thead>
           <tr>
             <th>Event</th>
@@ -42,10 +42,15 @@
           {% set ev = item.event %}
           {% set aud = item.auditorium %}
           <tr>
-            <td><strong>{{ ev.name if ev else '—' }}</strong></td>
-            <td>{{ aud.name if aud else '—' }}</td>
-            <td><span class="badge badge-{{ ev.status }}">{{ ev.status | title }}</span></td>
-            <td class="actions-cell">
+            <td data-label="Event"><strong>{{ ev.name if ev else '—' }}</strong></td>
+            <td data-label="Venue">{{ aud.name if aud else '—' }}</td>
+            <td data-label="Status">
+              {% if ev.status == 'published' %}<span class="badge badge-published">Published</span>
+              {% elif ev.status == 'completed' %}<span class="badge badge-muted">Completed</span>
+              {% elif ev.status == 'cancelled' %}<span class="badge badge-danger">Cancelled</span>
+              {% else %}<span class="badge badge-draft">Draft</span>{% endif %}
+            </td>
+            <td data-label="Actions" class="actions-cell">
               <a href="/admin/events/{{ ev.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
             </td>
           </tr>

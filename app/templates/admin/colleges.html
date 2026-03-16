@@ -9,7 +9,7 @@
 
 {% if colleges %}
 <div class="table-responsive">
-  <table class="table">
+  <table class="table table-cards-mobile">
     <thead>
       <tr>
         <th>Name</th>
@@ -22,18 +22,18 @@
     <tbody>
       {% for item in colleges %}
       <tr>
-        <td><strong>{{ item.college.name }}</strong></td>
-        <td>{{ item.city.name if item.city else "—" }}</td>
-        <td>{{ item.college.address or "—" }}</td>
-        <td>
+        <td data-label="Name"><strong>{{ item.college.name }}</strong></td>
+        <td data-label="City">{{ item.city.name if item.city else "—" }}</td>
+        <td data-label="Address">{{ item.college.address or "—" }}</td>
+        <td data-label="Status">
           <span class="badge {% if item.college.is_active %}badge-success{% else %}badge-muted{% endif %}">
             {{ "Active" if item.college.is_active else "Inactive" }}
           </span>
         </td>
-        <td class="actions-cell">
+        <td data-label="Actions" class="actions-cell">
           <a href="/admin/colleges/{{ item.college.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           <form method="post" action="/admin/colleges/{{ item.college.id }}/delete" style="display:inline">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this college?" data-confirm-label="Delete">Delete</button>
           </form>
         </td>
@@ -44,6 +44,7 @@
 </div>
 {% else %}
 <div class="empty-state">
+  <div class="empty-state-icon">&#127979;</div>
   <h3>No colleges yet</h3>
   <p>Add colleges that will host TechTrek events.</p>
   <a href="/admin/colleges/new" class="btn btn-primary">Add College</a>

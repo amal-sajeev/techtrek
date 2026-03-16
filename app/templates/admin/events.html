@@ -10,8 +10,12 @@
 </div>
 
 {% if events %}
+<div class="filter-bar mb-3">
+  <input type="text" id="events-search" class="form-input" placeholder="Search by name, college, or venue…" oninput="filterEvents(this.value)" style="max-width:360px">
+  <span id="events-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ events|length }} event{{ 's' if events|length != 1 }}</span>
+</div>
 <div class="table-responsive">
-  <table class="table table-cards-mobile">
+  <table class="table table-cards-mobile" id="events-table">
     <thead>
       <tr>
         <th>Name</th>
@@ -28,7 +32,7 @@
     <tbody>
       {% for item in events %}
       {% set ev = item.event %}
-      <tr>
+      <tr data-search="{{ ev.name|lower }} {{ (ev.college.name if ev.college else '')|lower }} {{ (item.auditorium.name if item.auditorium else '')|lower }}">
         <td data-label="Name"><strong>{{ ev.name }}</strong></td>
         <td data-label="College">{{ ev.college.name if ev.college else "—" }}</td>
         <td data-label="Venue">{{ item.auditorium.name if item.auditorium else "—" }}</td>
@@ -63,6 +67,7 @@
 </div>
 {% else %}
 <div class="empty-state">
+  <div class="empty-state-icon">&#127942;</div>
   <h3>No events yet</h3>
   <p>Create events with pricing, dates, and venue. Add sessions as agenda items within each event.</p>
   {% if user.is_admin %}
@@ -70,4 +75,21 @@
   {% endif %}
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterEvents(q) {
+  q = q.toLowerCase().trim();
+  var rows = document.querySelectorAll('#events-table tbody tr');
+  var visible = 0;
+  rows.forEach(function(row) {
+    var match = !q || row.dataset.search.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  var countEl = document.getElementById('events-count');
+  if (countEl) countEl.textContent = visible + ' event' + (visible !== 1 ? 's' : '') + (q ? ' found' : '');
+}
+</script>
 {% endblock %}

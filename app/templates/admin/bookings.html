@@ -9,31 +9,28 @@
 
 <!-- Search & Filter -->
 <form method="get" action="/admin/bookings" class="filter-bar mb-3">
-  <div class="filter-search">
-    <input type="text" name="q" class="form-input" placeholder="Search by user, ref, ticket..." value="{{ q or '' }}">
-  </div>
-  <div style="min-width:140px">
-    <select name="status" class="form-input" placeholder="All Statuses">
-      <option value="">All Statuses</option>
-      {% for s in ['paid','hold','refunded','cancelled'] %}
-      <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
-      {% endfor %}
-    </select>
-  </div>
-  <div style="min-width:180px">
-    <select name="event_id" class="form-input" placeholder="All Events">
-      <option value="">All Events</option>
-      {% for ev in all_events %}
-      <option value="{{ ev.id }}" {% if session_filter|string == ev.id|string %}selected{% endif %}>{{ ev.name }}</option>
-      {% endfor %}
-    </select>
-  </div>
+  <input type="text" name="q" class="form-input" placeholder="Search by user, ref, ticket…" value="{{ q or '' }}" style="min-width:200px;flex:1">
+  <select name="status" class="form-input" style="min-width:140px">
+    <option value="">All Statuses</option>
+    {% for s in ['paid','hold','refunded','cancelled'] %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
+    {% endfor %}
+  </select>
+  <select name="event_id" class="form-input" style="min-width:180px">
+    <option value="">All Events</option>
+    {% for ev in all_events %}
+    <option value="{{ ev.id }}" {% if session_filter|string == ev.id|string %}selected{% endif %}>{{ ev.name }}</option>
+    {% endfor %}
+  </select>
   <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+  {% if q or status_filter or session_filter %}
+  <a href="/admin/bookings" class="btn btn-outline btn-sm">Clear</a>
+  {% endif %}
 </form>
 
 {% if bookings %}
 <div class="table-responsive">
-  <table class="table">
+  <table class="table table-cards-mobile">
     <thead>
       <tr>
         <th>Ref</th>
@@ -50,21 +47,21 @@
     <tbody>
       {% for item in bookings %}
       <tr>
-        <td><code>{{ item.booking.booking_ref }}</code></td>
-        <td><code>{{ item.booking.ticket_id or "—" }}</code></td>
-        <td>
+        <td data-label="Ref"><code>{{ item.booking.booking_ref }}</code></td>
+        <td data-label="Ticket"><code>{{ item.booking.ticket_id or "—" }}</code></td>
+        <td data-label="User">
           {{ item.user.username if item.user else "—" }}
           {% if item.user and item.user.full_name %}<br><small class="text-muted">{{ item.user.full_name }}</small>{% endif %}
         </td>
-        <td>{{ item.event.name if item.event else "—" }}</td>
-        <td>{{ item.seat.label if item.seat else "—" }}</td>
-        <td>
-          <span class="badge {% if item.booking.payment_status == 'paid' %}badge-success{% elif item.booking.payment_status == 'refunded' %}badge-muted{% else %}badge-available{% endif %}">
+        <td data-label="Event">{{ item.event.name if item.event else "—" }}</td>
+        <td data-label="Seat">{{ item.seat.label if item.seat else "—" }}</td>
+        <td data-label="Status">
+          <span class="badge {% if item.booking.payment_status == 'paid' %}badge-success{% elif item.booking.payment_status == 'refunded' %}badge-muted{% elif item.booking.payment_status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">
             {{ item.booking.payment_status }}
           </span>
-          {% if item.booking.checked_in %}<br><small class="text-muted">Checked in</small>{% endif %}
+          {% if item.booking.checked_in %}<br><small class="text-muted">&#10003; Checked in</small>{% endif %}
         </td>
-        <td>
+        <td data-label="Refund">
           {% if item.booking.refund_status %}
             {% if item.booking.refund_status == 'completed' %}
             <span class="badge badge-success">Completed</span>
@@ -75,13 +72,13 @@
             {% elif item.booking.refund_status == 'initiated' %}
             <span class="badge badge-info">Initiated</span>
             {% else %}
-            <span class="badge badge-secondary">{{ item.booking.refund_status|title }}</span>
+            <span class="badge badge-muted">{{ item.booking.refund_status|title }}</span>
             {% endif %}
           {% else %}
           —
           {% endif %}
         </td>
-        <td>{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
+        <td data-label="Booked">{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
         {% if user.is_admin %}
         <td class="actions-cell">
           {% if item.booking.payment_status in ['paid', 'refunded'] %}

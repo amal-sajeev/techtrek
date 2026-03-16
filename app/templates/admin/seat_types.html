@@ -9,11 +9,11 @@
 
 {% if seat_types %}
 <div class="table-responsive">
-  <table class="table">
+  <table class="table table-cards-mobile">
     <thead>
       <tr>
-        <th>Colour</th>
         <th>Name</th>
+        <th>Colour</th>
         <th>Icon</th>
         <th>Actions</th>
       </tr>
@@ -21,16 +21,16 @@
     <tbody>
       {% for st in seat_types %}
       <tr>
-        <td>
-          <span style="display:inline-block;width:24px;height:24px;border-radius:4px;background:{{ st.colour }};vertical-align:middle;border:1px solid var(--border)"></span>
-          <code style="margin-left:6px">{{ st.colour }}</code>
+        <td data-label="Name"><strong>{{ st.name }}</strong></td>
+        <td data-label="Colour">
+          <span style="display:inline-block;width:20px;height:20px;border-radius:3px;background:{{ st.colour }};vertical-align:middle;border:1px solid var(--border)"></span>
+          <code style="margin-left:6px;font-size:.8em">{{ st.colour }}</code>
         </td>
-        <td><strong>{{ st.name }}</strong></td>
-        <td>{{ st.icon or '—' }}</td>
-        <td class="actions-cell">
+        <td data-label="Icon">{{ st.icon or '—' }}</td>
+        <td data-label="Actions" class="actions-cell">
           <a href="/admin/seat-types/{{ st.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           <form method="post" action="/admin/seat-types/{{ st.id }}/delete" style="display:inline">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete seat type '{{ st.name }}'?" data-confirm-label="Delete">Delete</button>
           </form>
         </td>
@@ -41,6 +41,7 @@
 </div>
 {% else %}
 <div class="empty-state">
+  <div class="empty-state-icon">&#128178;</div>
   <h3>No custom seat types yet</h3>
   <p>Create custom seat types to use in the seat layout designer.</p>
   <a href="/admin/seat-types/new" class="btn btn-primary">Add Seat Type</a>
