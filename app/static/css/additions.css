@@ -248,7 +248,7 @@
 .hero-split {
   display: flex !important;
   align-items: center;
-  min-height: 520px;
+  min-height: auto;
   padding: 0;
 }
 
@@ -2723,7 +2723,7 @@
 }
 
 /* 4. Section breathing room */
-.section { padding-top: 5.5rem; padding-bottom: 5.5rem; }
+.section { padding-top: 4rem; padding-bottom: 4rem; }
 .phase-summit, .phase-testimonials { padding: 5.5rem 0; }
 
 /* 5. Newsletter: section band, not dark-card-on-dark-background */

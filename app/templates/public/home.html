@@ -3,6 +3,7 @@
 
 {% block content %}
 
+<div class="dark-only">
 <section class="hero hero-compact">
   <div class="hero-glow hero-glow-1"></div>
   <div class="hero-glow hero-glow-2"></div>
@@ -124,6 +125,107 @@
   </div>
   {% endif %}
 </section>
+</div><!-- /dark-only hero -->
+
+<!-- ── LIGHT-MODE NEWSPAPER HERO ────────────────────────────────────────── -->
+<div class="light-only">
+<section class="lm-hero">
+  <div class="container">
+
+    <!-- Masthead bar -->
+    <div class="lm-masthead">
+      <div class="lm-masthead-inner">
+        <div class="lm-date-strip">
+          India's Campus Tech Summit Series<br>
+          Est. 2022 &middot; Viksit Bharat Initiative
+        </div>
+        <div class="lm-issue">
+          <span class="lm-eyebrow">Events this season</span>
+          <span class="lm-issue-num">{{ events|length if events else '&mdash;' }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Two-column editorial grid -->
+    <div class="lm-hero-grid">
+
+      <!-- Left column: headline + standfirst + CTAs + stats -->
+      <div class="lm-hero-left">
+        <div>
+          <div class="lm-brand-title">TECHTREK</div>
+          <h1 class="lm-headline">
+            What industry is building <em>right now.</em>
+          </h1>
+          <p class="lm-standfirst">
+            Your professors can't teach it yet. TechTrek brings working engineers,
+            founders, and researchers to your campus &mdash; live talks, real insights, no consultants.
+          </p>
+          <div class="lm-cta-group">
+            <a href="/events" class="btn lm-btn-accent lm-btn-lg">Explore Events &rarr;</a>
+            {% if not user %}<a href="/auth/register" class="lm-link-secondary">Create account</a>{% else %}<a href="/sessions" class="lm-link-secondary">View full program</a>{% endif %}
+          </div>
+        </div>
+        {% if total_attendees > 100 and total_events > 5 %}
+        <div class="lm-stats">
+          <div class="lm-stat">
+            <span class="lm-stat-num">{{ total_attendees }}+</span>
+            <span class="lm-stat-label">Attendees</span>
+          </div>
+          <div class="lm-stat">
+            <span class="lm-stat-num">{{ total_speakers }}+</span>
+            <span class="lm-stat-label">Speakers</span>
+          </div>
+          <div class="lm-stat">
+            <span class="lm-stat-num">{{ total_events }}</span>
+            <span class="lm-stat-label">Events</span>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Right column: featured event card -->
+      <div class="lm-hero-right">
+        {% if featured and featured.event %}
+        {% set fev = featured.event %}
+        <div class="lm-featured-label">
+          <span class="lm-live-dot"></span>
+          <span class="lm-featured-text">Featured upcoming event</span>
+        </div>
+        <a href="/events/{{ fev.id }}" class="lm-featured-card">
+          {% set hero_img_pool = [
+            'photo-1540575467063-178a50c2df87',
+            'photo-1475721027785-f74eccf877e2',
+            'photo-1591115765373-5207764f72e7',
+            'photo-1505373877841-8d25f7d46678'
+          ] %}
+          <img src="{{ fev.banner_url or 'https://images.unsplash.com/' + hero_img_pool[fev.id % 4] + '?w=900&auto=format&fit=crop&q=80' }}"
+               alt="{{ fev.name }}" loading="eager">
+          <div class="lm-featured-content">
+            <span class="lm-featured-eyebrow">&#9679;
+              {% if featured.days_until > 0 %}in {{ featured.days_until }}d {{ featured.hours_until }}h
+              {% elif featured.hours_until > 0 %}in {{ featured.hours_until }}h
+              {% else %}Starting soon{% endif %}
+            </span>
+            <div class="lm-featured-title">{{ fev.name }}</div>
+            <div class="lm-featured-meta">
+              {% if fev.start_date %}<span>{{ fev.start_date.strftime('%b %d, %Y') }}</span>{% endif %}
+              {% if featured.auditorium %}<span>{{ featured.auditorium.name }}</span>{% endif %}
+            </div>
+            <div class="lm-featured-cta">View event details &rarr;</div>
+          </div>
+        </a>
+        {% else %}
+        <div class="lm-no-featured">
+          <p class="lm-eyebrow" style="margin-bottom:1rem">Stay tuned</p>
+          <p style="color:var(--ink-muted);line-height:1.7">New events are being announced. <a href="/events" style="color:var(--accent)">Browse all events &rarr;</a></p>
+        </div>
+        {% endif %}
+      </div>
+
+    </div><!-- /lm-hero-grid -->
+  </div><!-- /container -->
+</section>
+</div><!-- /light-only hero -->
 
 <div class="section-divider"></div>
 
@@ -310,7 +412,6 @@
               <img src="https://images.unsplash.com/{{ s_img_id }}?w=400&auto=format&fit=crop&q=80"
                    alt="{{ s.title }}" loading="lazy">
               {% endif %}
-              <span class="card-badge" style="background:var(--color-accent);color:#000;font-size:.6rem">Session</span>
             </div>
             <div class="card-body card-body-sm">
               <h3 class="card-title card-title-sm">{{ s.title }}</h3>

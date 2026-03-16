@@ -25,11 +25,11 @@
             {% endif %}
           </div>
 
-          {% if bookings[0].group_qr_data %}
+          {% if group_qr_data %}
           <div class="detail-group" style="text-align:center">
             <h4>Group Check-in QR</h4>
             <p class="booking-ref-small">Scan to check in all {{ bookings|length }} tickets at once</p>
-            <img src="data:image/png;base64,{{ bookings[0].group_qr_data }}" alt="Group QR Code" class="ticket-qr" width="160" height="160" style="margin:.75rem auto">
+            <img src="data:image/png;base64,{{ group_qr_data }}" alt="Group QR Code" class="ticket-qr" width="160" height="160" style="margin:.75rem auto">
           </div>
           {% endif %}
 

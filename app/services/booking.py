@@ -205,7 +205,16 @@ def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None) -> 
         )
         .all()
     )
-    group_id = str(uuid.uuid4()) if holds else None
+    # Preserve existing booking_group from holds (set during hold phase) so the
+    # group UUID stays stable across hold → payment. Fall back to a new UUID only
+    # when holds come from multiple sessions (different booking_group values).
+    existing_groups = {h.booking_group for h in holds if h.booking_group}
+    if len(existing_groups) == 1:
+        group_id = existing_groups.pop()
+    elif holds:
+        group_id = str(uuid.uuid4())
+    else:
+        group_id = None
     group_qr = None
     if len(holds) > 1 and group_id:
         group_qr = _generate_qr_base64(f"GROUP-{group_id}")

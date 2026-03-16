@@ -18,6 +18,7 @@ from app.models.event import Event
 from app.models.user import User
 from app.models.waitlist import Waitlist
 from app.services.booking import (
+    _generate_qr_base64,
     _price_for_seat,
     apply_coupon_to_price,
     cancel_booking_user,
@@ -444,7 +445,8 @@ def event_confirmation(request: Request, event_id: int, db: Session = Depends(ge
     auditorium = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     total = sum(b.amount_paid or 0 for b in bookings)
-    group_qr = bookings[0].group_qr_data if bookings else None
+    group_id = bookings[0].booking_group if bookings and len(bookings) > 1 else None
+    group_qr = _generate_qr_base64(f"GROUP-{group_id}") if group_id else None
     custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
 
     return templates.TemplateResponse(
@@ -585,6 +587,11 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
     paid_bookings = [b for b in bookings if b.payment_status == "paid"]
     custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
 
+    group_id = first.booking_group if len(bookings) > 1 else None
+    # Always generate the group QR from the actual group_id so it stays consistent
+    # with the booking_group field (avoids stale group_qr_data from earlier sessions).
+    group_qr_data = _generate_qr_base64(f"GROUP-{group_id}") if group_id else None
+
     return templates.TemplateResponse(
         "booking/booking_detail.html",
         template_ctx(
@@ -594,8 +601,8 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
             event=event,
             auditorium=auditorium,
             total=total,
-            group_qr_data=first.group_qr_data if len(bookings) > 1 else None,
-            group_id=first.booking_group,
+            group_qr_data=group_qr_data,
+            group_id=group_id,
             is_group=len(bookings) > 1,
             has_cancellable=len(paid_bookings) > 0,
             custom_types_map=custom_types_map,

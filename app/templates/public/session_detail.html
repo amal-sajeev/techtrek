@@ -62,7 +62,8 @@
   </div>
 </div>
 
-{# ── FULL-BLEED HERO ─────────────────────────────────────────── #}
+{# ── FULL-BLEED HERO (dark mode only) ────────────────────────── #}
+<div class="dark-only">
 <div class="sd-hero">
   <div class="sd-hero-media">
     <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager">
@@ -131,6 +132,73 @@
     </div>
   </div>
 </div>
+</div>{# /dark-only #}
+
+{# ── EDITORIAL HEADER (light mode only) ──────────────────────── #}
+<div class="light-only">
+<div class="lm-sd-header">
+  <div class="container">
+    <a href="/sessions" class="lm-ed-back">&#8592; All Sessions</a>
+    <div class="lm-ed-split">
+
+      {# Left: title + meta + CTA #}
+      <div class="lm-ed-text">
+        {% if event %}
+        <p class="lm-ed-eyebrow">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:4px"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+          Part of <a href="/events/{{ event.id }}" class="lm-ed-eyebrow-link">{{ event.name }}</a>
+        </p>
+        {% endif %}
+        <h1 class="lm-ed-title">{{ session.title }}</h1>
+        {% if session.description %}
+        <p class="lm-ed-desc">{{ session.description|truncate(200, True, '...') }}</p>
+        {% endif %}
+        <div class="lm-ed-chips">
+          {% if session.speaker_name %}
+          <span class="lm-ed-chip">&#127908; {{ session.speaker_name }}</span>
+          {% endif %}
+          {% if session.start_time %}
+          <span class="lm-ed-chip">&#128197; {{ session.start_time.strftime('%b %d, %Y') }}</span>
+          <span class="lm-ed-chip">&#128336; {{ session.start_time.strftime('%I:%M %p') }}</span>
+          {% elif event and event.start_date %}
+          <span class="lm-ed-chip">&#128197; {{ event.start_date.strftime('%b %d, %Y') }}</span>
+          {% endif %}
+          {% if session.duration_minutes %}
+          <span class="lm-ed-chip">&#9200; {{ session.duration_minutes }} min</span>
+          {% endif %}
+          {% if venue %}
+          <span class="lm-ed-chip">&#128205; {{ venue }}</span>
+          {% endif %}
+        </div>
+        {% if event %}
+          {% if user %}
+            {% if availability != 'sold-out' %}
+            <a href="/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">
+              {% if event.price == 0 %}Register Free{% else %}Book Ticket &mdash; &#8377;{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
+            </a>
+            {% else %}
+            <span class="btn lm-ed-cta-btn lm-ed-cta-sold">Sold Out</span>
+            {% endif %}
+          {% else %}
+          <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">
+            {% if event.price == 0 %}Register Free{% else %}Get Ticket &mdash; &#8377;{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
+          </a>
+          {% endif %}
+          {% if availability == 'filling-up' and stats.available > 0 %}
+          <span class="lm-ed-urgency">&#128293; Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left</span>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      {# Right: boxed image #}
+      <div class="lm-ed-img-wrap">
+        <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager">
+      </div>
+
+    </div>
+  </div>
+</div>
+</div>{# /light-only #}
 
 {# ── BODY ────────────────────────────────────────────────────── #}
 <div class="sd-body">

@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session as DbSession
 
 from app.csrf import csrf_protection
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
+from app.services.booking import _generate_qr_base64
 from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.city import City
@@ -793,6 +794,7 @@ def public_ticket_group(request: Request, group_id: str, db: DbSession = Depends
     auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
     user = db.query(User).get(bookings[0].user_id)
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
+    group_qr_data = _generate_qr_base64(f"GROUP-{group_id}") if len(bookings) > 1 else None
 
     return templates.TemplateResponse(
         "public/ticket_group.html",
@@ -804,6 +806,7 @@ def public_ticket_group(request: Request, group_id: str, db: DbSession = Depends
             seats=seats,
             ticket_user=user,
             group_id=group_id,
+            group_qr_data=group_qr_data,
         ),
     )
 

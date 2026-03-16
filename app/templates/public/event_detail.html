@@ -45,7 +45,8 @@
   </div>
 </div>
 
-{# ── FULL-BLEED HERO ─────────────────────────────────────────── #}
+{# ── FULL-BLEED HERO (dark mode only) ────────────────────────── #}
+<div class="dark-only">
 <div class="ed-hero-full">
 
   {# Carousel: event banner + unique session banners #}
@@ -101,6 +102,70 @@
   </div>
 
 </div>
+</div>{# /dark-only #}
+
+{# ── EDITORIAL HEADER (light mode only) ──────────────────────── #}
+<div class="light-only">
+<div class="lm-ed-header">
+  <div class="container">
+    <a href="/events" class="lm-ed-back">&#8592; All Events</a>
+    <div class="lm-ed-split">
+
+      {# Left: title + meta + CTA #}
+      <div class="lm-ed-text">
+        {% if event.college %}
+        <p class="lm-ed-eyebrow">{{ event.college.name }}</p>
+        {% endif %}
+        <h1 class="lm-ed-title">{{ event.name }}</h1>
+        {% if event.description %}
+        <p class="lm-ed-desc">{{ event.description }}</p>
+        {% endif %}
+        <div class="lm-ed-chips">
+          <span class="lm-ed-chip">{{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}</span>
+          {% if event.start_date %}
+          <span class="lm-ed-chip">&#128197; {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
+          {% endif %}
+          {% if venue %}
+          <span class="lm-ed-chip">&#128205; {{ venue }}</span>
+          {% endif %}
+        </div>
+        {% if sessions %}
+          {% if user %}
+            {% if availability != 'sold-out' %}
+            <a href="/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">Book Now &rarr;</a>
+            {% else %}
+            <span class="btn lm-ed-cta-btn lm-ed-cta-sold">Sold Out</span>
+            {% endif %}
+          {% else %}
+          <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">Get Ticket &rarr;</a>
+          {% endif %}
+        {% endif %}
+      </div>
+
+      {# Right: carousel (same images as dark-mode hero) #}
+      <div class="lm-ed-img-wrap">
+        <div class="lm-ed-carousel" id="lm-ed-carousel">
+          <div class="lm-ed-slide active">
+            <img src="{{ hero_img }}" alt="{{ event.name }}" loading="eager">
+          </div>
+          {% set ns_lm = namespace(seen=[hero_img]) %}
+          {% for item in sessions %}
+            {% set s = item.session %}
+            {% set s_img = s.banner_url or ('https://images.unsplash.com/' + img_pool[s.id % 8] + '?w=1200&auto=format&fit=crop&q=80') %}
+            {% if s_img not in ns_lm.seen %}
+              {% set ns_lm.seen = ns_lm.seen + [s_img] %}
+              <div class="lm-ed-slide">
+                <img src="{{ s_img }}" alt="{{ s.title }}" loading="lazy">
+              </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</div>{# /light-only #}
 
 {# ── BODY ────────────────────────────────────────────────────── #}
 <div class="ed-body">
@@ -442,6 +507,40 @@
     var heroEl = document.querySelector('.ed-hero-full');
     heroEl.addEventListener('mouseenter', function () { clearInterval(timer); });
     heroEl.addEventListener('mouseleave', function () { resetTimer(); });
+  }());
+
+  /* 7 — Light-mode editorial carousel (same timing/logic, drives .lm-ed-slide) */
+  (function () {
+    var lmSlides = document.querySelectorAll('.lm-ed-slide');
+    if (lmSlides.length < 2) return;
+    var lmCurrent = 0;
+
+    // Build dots and append to wrapper
+    var lmWrap = document.getElementById('lm-ed-carousel');
+    var lmDots = document.createElement('div');
+    lmDots.className = 'lm-ed-dots';
+    lmSlides.forEach(function (_, i) {
+      var d = document.createElement('button');
+      d.className = 'lm-ed-dot' + (i === 0 ? ' active' : '');
+      d.setAttribute('aria-label', 'Slide ' + (i + 1));
+      d.addEventListener('click', function () { lmGoTo(i); lmReset(); });
+      lmDots.appendChild(d);
+    });
+    lmWrap.appendChild(lmDots);
+
+    function lmGoTo(idx) {
+      lmSlides[lmCurrent].classList.remove('active');
+      lmDots.children[lmCurrent].classList.remove('active');
+      lmCurrent = idx;
+      lmSlides[lmCurrent].classList.add('active');
+      lmDots.children[lmCurrent].classList.add('active');
+    }
+
+    var lmTimer = setInterval(function () { lmGoTo((lmCurrent + 1) % lmSlides.length); }, 6000);
+    function lmReset() { clearInterval(lmTimer); lmTimer = setInterval(function () { lmGoTo((lmCurrent + 1) % lmSlides.length); }, 6000); }
+
+    lmWrap.addEventListener('mouseenter', function () { clearInterval(lmTimer); });
+    lmWrap.addEventListener('mouseleave', function () { lmReset(); });
   }());
 }());
 </script>
