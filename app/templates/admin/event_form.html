@@ -11,7 +11,12 @@
   <button type="button" class="wizard-step" data-step="2">2. Pricing</button>
   <button type="button" class="wizard-step" data-step="3">3. Media</button>
   <button type="button" class="wizard-step" data-step="4">4. Sessions</button>
+  {% if event %}
+  <button type="button" class="wizard-step" data-step="5">5. Certificate</button>
+  <button type="button" class="wizard-step" data-step="6">6. Review &amp; Save</button>
+  {% else %}
   <button type="button" class="wizard-step" data-step="5">5. Review &amp; Save</button>
+  {% endif %}
 </div>
 
 <div class="form-card">
@@ -151,8 +156,81 @@
       </div>
     </div>
 
-    <!-- Step 5: Review & Save -->
+    {% if event %}
+    <!-- Step 5: Certificate (edit only) -->
     <div class="wizard-panel" data-panel="5">
+      <h3 class="wizard-panel-title">Certificate Template</h3>
+      <p class="text-muted" style="margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees.</p>
+      <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
+
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label class="form-label" for="cert-title">Certificate Title</label>
+          <input type="text" name="cert_title" id="cert-title" class="form-input" value="{{ event.cert_title or '' }}" placeholder="Certificate of Attendance">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cert-color">Color Scheme</label>
+          <select name="cert_color_scheme" id="cert-color" class="form-input" data-no-tomselect>
+            {% set schemes = [('', 'Teal (Default)'), ('teal', 'Teal'), ('navy', 'Navy'), ('emerald', 'Emerald'), ('royal', 'Royal Purple'), ('crimson', 'Crimson')] %}
+            {% for val, label in schemes %}
+            <option value="{{ val }}" {% if event.cert_color_scheme == val %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cert-subtitle">Subtitle / Message</label>
+        <textarea name="cert_subtitle" id="cert-subtitle" class="form-input" rows="2" placeholder="This certificate is proudly presented to">{{ event.cert_subtitle or '' }}</textarea>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="cert-signer-name">Signer Name</label>
+          <input type="text" name="cert_signer_name" id="cert-signer-name" class="form-input" value="{{ event.cert_signer_name or '' }}" placeholder="e.g. Dr. Priya Sharma">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cert-signer-desg">Signer Designation</label>
+          <input type="text" name="cert_signer_designation" id="cert-signer-desg" class="form-input" value="{{ event.cert_signer_designation or '' }}" placeholder="e.g. Program Director">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cert-signature-url">Signature Image URL</label>
+          <input type="url" name="cert_signature_url" id="cert-signature-url" class="form-input" value="{{ event.cert_signature_url or '' }}" placeholder="https://...">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="cert-footer">Custom Footer Text</label>
+        <input type="text" name="cert_footer" id="cert-footer" class="form-input" value="{{ event.cert_footer or '' }}" placeholder="&copy; 2026 TechTrek. All rights reserved.">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="cert-logo-url">Logo URL</label>
+          <input type="url" name="cert_logo_url" id="cert-logo-url" class="form-input" value="{{ event.cert_logo_url or '' }}" placeholder="https://...">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="cert-bg-url">Background Image URL</label>
+          <input type="url" name="cert_bg_url" id="cert-bg-url" class="form-input" value="{{ event.cert_bg_url or '' }}" placeholder="https://...">
+        </div>
+      </div>
+
+      <div style="margin:1rem 0">
+        <a href="/admin/events/{{ event.id }}/certificate/preview" target="_blank" class="btn btn-outline btn-sm">Open Full PDF &#8599;</a>
+      </div>
+
+      <div class="wizard-nav">
+        <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
+        <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
+      </div>
+    </div>
+
+    <!-- Step 6: Review & Save (edit mode) -->
+    <div class="wizard-panel" data-panel="6">
+    {% else %}
+    <!-- Step 5: Review & Save (create mode) -->
+    <div class="wizard-panel" data-panel="5">
+    {% endif %}
       <h3 class="wizard-panel-title">Review &amp; Save</h3>
       <table class="table" id="ev-review-table" style="margin-bottom:1.5rem">
         <tbody></tbody>
@@ -210,6 +288,7 @@
   {% endif %}
   <a href="/admin/events/{{ event.id }}/coupons/new" class="btn btn-outline btn-sm mt-2">+ New Coupon</a>
 </div>
+
 {% endif %}
 
 <script>
@@ -217,12 +296,13 @@
   var steps = document.querySelectorAll('.wizard-step');
   var panels = document.querySelectorAll('.wizard-panel');
   var currentStep = 1;
+  var reviewStep = {{ 6 if event else 5 }};
 
   function goToStep(n) {
     currentStep = n;
     steps.forEach(function(s) { s.classList.toggle('active', parseInt(s.dataset.step) === n); });
     panels.forEach(function(p) { p.classList.toggle('active', parseInt(p.dataset.panel) === n); });
-    if (n === 5) buildReview();
+    if (n === reviewStep) buildReview();
   }
 
   var urlStep = new URLSearchParams(window.location.search).get('step');

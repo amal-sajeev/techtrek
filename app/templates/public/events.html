@@ -59,6 +59,7 @@
     </form>
     <div class="section-divider" style="margin-bottom:2rem"></div>
 
+    <div id="events-results">
     {% if events %}
 
     {# ── Split events into date buckets ── #}
@@ -179,25 +180,53 @@
       {% endif %}
     </div>
     {% endif %}
+    </div>{# /events-results #}
 
   </div>
 </section>
 
 <script>
 (function () {
-  var form  = document.getElementById('events-filter-form');
+  var form = document.getElementById('events-filter-form');
   var qInput = document.getElementById('ev-filter-q');
+  var resultsContainer = document.getElementById('events-results');
   var selects = form ? form.querySelectorAll('select') : [];
   var timer;
+  var abortCtrl;
+
+  function fetchResults() {
+    var params = new URLSearchParams(new FormData(form)).toString();
+    var url = '/events?' + params;
+    history.replaceState(null, '', url);
+    if (abortCtrl) abortCtrl.abort();
+    abortCtrl = new AbortController();
+    fetch(url, {signal: abortCtrl.signal, headers: {'X-Requested-With': 'XMLHttpRequest'}})
+      .then(function(r) { return r.text(); })
+      .then(function(html) {
+        var doc = new DOMParser().parseFromString(html, 'text/html');
+        var newResults = doc.getElementById('events-results');
+        if (newResults && resultsContainer) {
+          resultsContainer.innerHTML = newResults.innerHTML;
+          resultsContainer.querySelectorAll('.reveal, .stagger').forEach(function(el) {
+            if (typeof revealObserver !== 'undefined') {
+              revealObserver.observe(el);
+            } else {
+              el.classList.add('visible');
+            }
+          });
+        }
+      })
+      .catch(function(e) { if (e.name !== 'AbortError') console.error(e); });
+  }
 
   if (qInput) {
     qInput.addEventListener('input', function () {
       clearTimeout(timer);
-      timer = setTimeout(function () { form.submit(); }, 380);
+      timer = setTimeout(fetchResults, 400);
     });
   }
   selects.forEach(function (sel) {
-    sel.addEventListener('change', function () { form.submit(); });
+    sel.addEventListener('change', fetchResults);
   });
 })();
 </script>

@@ -975,16 +975,6 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         duration_minutes=int(form.get("duration_minutes", 30)),
         start_time=start_time,
         order=int(form.get("order", 0) or 0),
-        cert_title=form.get("cert_title", "").strip() or None,
-        cert_subtitle=form.get("cert_subtitle", "").strip() or None,
-        cert_footer=form.get("cert_footer", "").strip() or None,
-        cert_signer_name=form.get("cert_signer_name", "").strip() or None,
-        cert_signer_designation=form.get("cert_signer_designation", "").strip() or None,
-        cert_signature_url=form.get("cert_signature_url", "").strip() or None,
-        cert_logo_url=form.get("cert_logo_url", "").strip() or None,
-        cert_bg_url=form.get("cert_bg_url", "").strip() or None,
-        cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
-        cert_style=form.get("cert_style", "").strip() or None,
     )
 
     db.add(session_obj)
@@ -1049,16 +1039,6 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
         except ValueError:
             pass
     lecture.order = int(form.get("order", lecture.order or 0) or 0)
-    lecture.cert_title = form.get("cert_title", "").strip() or None
-    lecture.cert_subtitle = form.get("cert_subtitle", "").strip() or None
-    lecture.cert_footer = form.get("cert_footer", "").strip() or None
-    lecture.cert_signer_name = form.get("cert_signer_name", "").strip() or None
-    lecture.cert_signer_designation = form.get("cert_signer_designation", "").strip() or None
-    lecture.cert_signature_url = form.get("cert_signature_url", "").strip() or None
-    lecture.cert_logo_url = form.get("cert_logo_url", "").strip() or None
-    lecture.cert_bg_url = form.get("cert_bg_url", "").strip() or None
-    lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
-    lecture.cert_style = form.get("cert_style", "").strip() or None
 
     _save_agenda_items(db, form, sess_id)
     _save_session_speakers(db, form, sess_id)
@@ -1151,11 +1131,11 @@ def session_delete(request: Request, sess_id: int, db: Session = Depends(get_db)
 
 
 
-# ─── Certificate Preview ───
+# ─── Certificate Preview (Event-level) ───
 
-@router.get("/sessions/{sess_id}/certificate/preview")
-def session_certificate_preview(
-    request: Request, sess_id: int, db: Session = Depends(get_db)
+@router.get("/events/{event_id}/certificate/preview")
+def event_certificate_preview(
+    request: Request, event_id: int, db: Session = Depends(get_db)
 ):
     import io as _io
     from types import SimpleNamespace
@@ -1165,13 +1145,12 @@ def session_certificate_preview(
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    lecture = db.query(SessionModel).get(sess_id)
-    if not lecture:
-        flash(request, "Session not found.", "danger")
-        return RedirectResponse("/admin/sessions", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
 
-    event = lecture.event
-    auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
+    auditorium = db.query(Auditorium).get(event.auditorium_id) if event.auditorium_id else None
 
     dummy_booking = SimpleNamespace(
         booking_ref="PREVIEW",
@@ -1182,7 +1161,7 @@ def session_certificate_preview(
         username="sample_attendee",
     )
 
-    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, lecture, event, auditorium)
+    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, event, event, auditorium)
 
     return StreamingResponse(
         _io.BytesIO(pdf_bytes),
@@ -1194,39 +1173,39 @@ def session_certificate_preview(
     )
 
 
-@router.post("/sessions/{sess_id}/certificate/save")
-async def session_certificate_save(
-    request: Request, sess_id: int, db: Session = Depends(get_db)
+@router.post("/events/{event_id}/certificate/save")
+async def event_certificate_save(
+    request: Request, event_id: int, db: Session = Depends(get_db)
 ):
-    """Save only certificate template fields without touching other session data."""
+    """Save only certificate template fields on the event."""
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    lecture = db.query(SessionModel).get(sess_id)
-    if not lecture:
-        flash(request, "Session not found.", "danger")
-        return RedirectResponse("/admin/sessions", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
 
     form = await request.form()
-    lecture.cert_title = form.get("cert_title", "").strip() or None
-    lecture.cert_subtitle = form.get("cert_subtitle", "").strip() or None
-    lecture.cert_footer = form.get("cert_footer", "").strip() or None
-    lecture.cert_signer_name = form.get("cert_signer_name", "").strip() or None
-    lecture.cert_signer_designation = form.get("cert_signer_designation", "").strip() or None
-    lecture.cert_signature_url = form.get("cert_signature_url", "").strip() or None
-    lecture.cert_logo_url = form.get("cert_logo_url", "").strip() or None
-    lecture.cert_bg_url = form.get("cert_bg_url", "").strip() or None
-    lecture.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
-    lecture.cert_style = form.get("cert_style", "").strip() or None
+    event.cert_title = form.get("cert_title", "").strip() or None
+    event.cert_subtitle = form.get("cert_subtitle", "").strip() or None
+    event.cert_footer = form.get("cert_footer", "").strip() or None
+    event.cert_signer_name = form.get("cert_signer_name", "").strip() or None
+    event.cert_signer_designation = form.get("cert_signer_designation", "").strip() or None
+    event.cert_signature_url = form.get("cert_signature_url", "").strip() or None
+    event.cert_logo_url = form.get("cert_logo_url", "").strip() or None
+    event.cert_bg_url = form.get("cert_bg_url", "").strip() or None
+    event.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
+    event.cert_style = form.get("cert_style", "").strip() or None
     db.commit()
 
     flash(request, "Certificate template saved.", "success")
-    return RedirectResponse(f"/admin/sessions/{sess_id}/edit?step=5", status_code=303)
+    return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
 
 
-@router.post("/sessions/certificate/preview-image")
-async def session_certificate_preview_image(
+@router.post("/events/certificate/preview-image")
+async def event_certificate_preview_image(
     request: Request, db: Session = Depends(get_db)
 ):
     """Generate a PNG thumbnail of the certificate from live form values."""
@@ -1247,15 +1226,9 @@ async def session_certificate_preview_image(
     if aud_id and aud_id.strip().isdigit():
         auditorium = db.query(Auditorium).get(int(aud_id))
 
-    start_str = form.get("start_time", "")
-    try:
-        start_time = datetime.fromisoformat(start_str) if start_str else datetime.now()
-    except ValueError:
-        start_time = datetime.now()
-
-    draft_lecture = SimpleNamespace(
-        title=form.get("title", "").strip() or "Session Title",
-        speaker_name=form.get("speaker", "").strip() or "Speaker Name",
+    draft_event = SimpleNamespace(
+        name=form.get("name", "").strip() or "Event Title",
+        start_date=date.today(),
         cert_title=form.get("cert_title", "").strip() or None,
         cert_subtitle=form.get("cert_subtitle", "").strip() or None,
         cert_footer=form.get("cert_footer", "").strip() or None,
@@ -1267,7 +1240,6 @@ async def session_certificate_preview_image(
         cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
         cert_style=form.get("cert_style", "").strip() or None,
     )
-    draft_event = SimpleNamespace(start_date=start_time.date() if start_time else date.today())
     dummy_booking = SimpleNamespace(
         booking_ref="PREVIEW",
         qr_code_data="CERT-PREVIEW-SAMPLE",
@@ -1277,7 +1249,7 @@ async def session_certificate_preview_image(
         username="sample_attendee",
     )
 
-    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, draft_lecture, draft_event, auditorium)
+    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, draft_event, draft_event, auditorium)
 
     pdf_doc = pypdfium2.PdfDocument(pdf_bytes)
     page = pdf_doc[0]
@@ -2239,6 +2211,17 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     ev.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
     ev.processing_fee_pct = float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None
     ev.status = form.get("status", "draft")
+
+    ev.cert_title = form.get("cert_title", "").strip() or ev.cert_title
+    ev.cert_subtitle = form.get("cert_subtitle", "").strip() or ev.cert_subtitle
+    ev.cert_footer = form.get("cert_footer", "").strip() or ev.cert_footer
+    ev.cert_signer_name = form.get("cert_signer_name", "").strip() or ev.cert_signer_name
+    ev.cert_signer_designation = form.get("cert_signer_designation", "").strip() or ev.cert_signer_designation
+    ev.cert_signature_url = form.get("cert_signature_url", "").strip() or ev.cert_signature_url
+    ev.cert_logo_url = form.get("cert_logo_url", "").strip() or ev.cert_logo_url
+    ev.cert_bg_url = form.get("cert_bg_url", "").strip() or ev.cert_bg_url
+    ev.cert_color_scheme = form.get("cert_color_scheme", "").strip() or ev.cert_color_scheme
+    ev.cert_style = form.get("cert_style", "").strip() or ev.cert_style
 
     sess_indices = form.getlist("sess_idx")
     new_sess = 0

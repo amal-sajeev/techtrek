@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
@@ -88,6 +88,18 @@ application.include_router(speaker.router)
 application.include_router(webhook.router)
 
 app = application
+
+
+@application.get("/service-worker.js", include_in_schema=False)
+async def service_worker():
+    sw_path = BASE_DIR / "static" / "service-worker.js"
+    return FileResponse(sw_path, media_type="application/javascript",
+                        headers={"Cache-Control": "no-cache", "Service-Worker-Allowed": "/"})
+
+
+@application.get("/offline", include_in_schema=False)
+async def offline_page(request: Request):
+    return templates.TemplateResponse("offline.html", template_ctx(request))
 
 
 @application.exception_handler(AuthRedirect)

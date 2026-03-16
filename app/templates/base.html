@@ -5,6 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}TechTrek{% endblock %}</title>
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1117'/><text y='24' x='4' font-size='22' font-family='monospace'>⚡</text></svg>">
+  <link rel="manifest" href="/static/manifest.json">
+  <meta name="theme-color" content="#00d4ff">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -55,6 +60,7 @@
     </div>
 
     <div class="navbar-actions">
+      <button id="pwa-install-btn" class="btn btn-outline btn-sm" style="display:none" aria-label="Install app">Install App</button>
       <button id="theme-toggle" class="btn-icon theme-toggle" aria-label="Toggle theme">
         <span class="icon-sun">&#9788;</span>
         <span class="icon-moon">&#9790;</span>
@@ -563,5 +569,30 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
 })();
 </script>
 {% block scripts %}{% endblock %}
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/service-worker.js').catch(function(){});
+}
+(function() {
+  var deferredPrompt;
+  var installBtn = document.getElementById('pwa-install-btn');
+  window.addEventListener('beforeinstallprompt', function(e) {
+    e.preventDefault();
+    deferredPrompt = e;
+    if (installBtn) installBtn.style.display = '';
+  });
+  if (installBtn) {
+    installBtn.addEventListener('click', function() {
+      if (!deferredPrompt) return;
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(function() { deferredPrompt = null; installBtn.style.display = 'none'; });
+    });
+  }
+  window.addEventListener('appinstalled', function() {
+    if (installBtn) installBtn.style.display = 'none';
+    deferredPrompt = null;
+  });
+})();
+</script>
 </body>
 </html>

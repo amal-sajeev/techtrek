@@ -68,7 +68,9 @@ class User(Base):
     username_hash = Column(String(64), unique=True, nullable=False, index=True)
 
     # --- Non-sensitive fields (stored as plain text) ---
-    password_hash = Column(String(255), nullable=False)
+    password_hash = Column(String(255), nullable=True)
+    oauth_provider = Column(String(30), nullable=True)
+    oauth_id = Column(String(255), nullable=True)
     phone = Column(EncryptedStr, nullable=True)
     college = Column(String(300), nullable=True)
     discipline = Column(String(100), nullable=True)

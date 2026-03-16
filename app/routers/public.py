@@ -351,9 +351,10 @@ def events_list(
     db: DbSession = Depends(get_db),
     q: str = Query("", alias="q"),
     sort: str = Query("date", alias="sort"),
-    city_id: int | None = Query(None, alias="city_id"),
+    city_id: str | None = Query(None, alias="city_id"),
 ):
     now = now_ist()
+    city_id_int = int(city_id) if city_id else None
 
     query = (
         db.query(Event)
@@ -367,8 +368,8 @@ def events_list(
             | College.name.ilike(f"%{q}%")
             | City.name.ilike(f"%{q}%")
         )
-    if city_id:
-        query = query.filter(College.city_id == city_id)
+    if city_id_int:
+        query = query.filter(College.city_id == city_id_int)
 
     events = query.all()
     cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
@@ -407,7 +408,7 @@ def events_list(
             cities=cities,
             q=q,
             sort=sort,
-            city_id=city_id,
+            city_id=city_id_int,
             now=now,
             week_end=week_end,
             two_weeks_end=two_weeks_end,

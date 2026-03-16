@@ -685,11 +685,9 @@ def download_certificate(request: Request, booking_id: int, db: Session = Depend
         return RedirectResponse("/booking/my", status_code=303)
 
     auditorium = db.query(Auditorium).get(event.auditorium_id) if event.auditorium_id else None
-    sessions = event.sessions if event else []
-    session_obj = sessions[0] if sessions else None
 
     from app.services.certificate import generate_certificate_pdf
-    pdf_bytes = generate_certificate_pdf(booking, user, session_obj, event, auditorium)
+    pdf_bytes = generate_certificate_pdf(booking, user, event, event, auditorium)
     log_activity(db, category="booking", action="certificate", description=f"Downloaded certificate for event '{event.name}'", request=request, user_id=user.id, target_type="booking", target_id=booking_id)
     db.commit()
     ref = booking.booking_ref or "certificate"

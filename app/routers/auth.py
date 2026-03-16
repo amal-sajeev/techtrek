@@ -13,6 +13,7 @@ from app.models.speaker import Speaker
 from app.models.user import User
 from app.services.activity_log import log_activity
 from app.services.email import send_signup_confirmation
+from app.services.oauth import oauth
 
 
 def _safe_next(url: str) -> str:
@@ -102,7 +103,7 @@ async def login(request: Request, db: Session = Depends(get_db), _csrf: None = D
         (User.username_hash == login_hash) | (User.email_hash == login_hash)
     ).first()
 
-    if not user or not _verify_pw(password, user.password_hash):
+    if not user or not user.password_hash or not _verify_pw(password, user.password_hash):
         log_activity(
             db, category="auth", action="login_failed",
             description=f"Failed login attempt for '{login_id}'",
@@ -345,6 +346,84 @@ def speaker_invite_accept(request: Request, token: str, db: Session = Depends(ge
     request.session["speaker_invite_next"] = "/speaker/"
     flash(request, "Please log in or create an account to accept the speaker invite.", "info")
     return RedirectResponse("/auth/login?next=/speaker/", status_code=303)
+
+
+@router.get("/google")
+async def google_login(request: Request):
+    try:
+        redirect_uri = str(request.url_for("google_callback"))
+        return await oauth.google.authorize_redirect(request, redirect_uri)
+    except Exception:
+        flash(request, "Google SSO is not configured. Please set valid credentials.", "danger")
+        return RedirectResponse("/auth/login", status_code=303)
+
+
+@router.get("/google/callback")
+async def google_callback(request: Request, db: Session = Depends(get_db)):
+    try:
+        token = await oauth.google.authorize_access_token(request)
+    except Exception:
+        flash(request, "Google sign-in failed. Please try again.", "danger")
+        return RedirectResponse("/auth/login", status_code=303)
+    userinfo = token.get("userinfo", {})
+    google_email = userinfo.get("email", "").strip().lower()
+    google_name = userinfo.get("name", "").strip()
+    google_sub = userinfo.get("sub", "")
+
+    if not google_email:
+        flash(request, "Could not retrieve email from Google.", "danger")
+        return RedirectResponse("/auth/login", status_code=303)
+
+    email_hash = hash_lookup(google_email, settings.field_encryption_key)
+    user = db.query(User).filter(User.email_hash == email_hash).first()
+
+    if user:
+        if not user.oauth_provider:
+            user.oauth_provider = "google"
+            user.oauth_id = google_sub
+            db.commit()
+    else:
+        base_username = re.sub(r"[^a-zA-Z0-9_]", "", google_email.split("@")[0]) or "user"
+        username = base_username
+        counter = 1
+        while db.query(User).filter(User.username_hash == hash_lookup(username, settings.field_encryption_key)).first():
+            username = f"{base_username}{counter}"
+            counter += 1
+
+        username_hash = hash_lookup(username, settings.field_encryption_key)
+
+        bootstrap_email = settings.admin_bootstrap_email.strip().lower()
+        if bootstrap_email:
+            is_admin = google_email == bootstrap_email
+        else:
+            is_admin = db.query(User).count() == 0
+
+        user = User(
+            username=username,
+            email=google_email,
+            full_name=google_name or None,
+            email_hash=email_hash,
+            username_hash=username_hash,
+            password_hash=None,
+            oauth_provider="google",
+            oauth_id=google_sub,
+            is_admin=is_admin,
+        )
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    request.session["user_id"] = user.id
+    _try_link_speaker_token(request, db, user)
+    log_activity(
+        db, category="auth", action="login_google",
+        description=f"{user.username} signed in via Google",
+        request=request, user_id=user.id, target_type="user", target_id=user.id,
+    )
+    db.commit()
+    flash(request, f"Welcome, {user.username}!", "success")
+    next_url = _safe_next(request.session.pop("google_next", "") or "/")
+    return RedirectResponse(next_url, status_code=303)
 
 
 @router.get("/logout")

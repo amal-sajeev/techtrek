@@ -6,6 +6,7 @@ from fastapi.responses import RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.csrf import get_csrf_token
 from app.database import SessionLocal
 from app.models.speaker import Speaker
@@ -114,6 +115,7 @@ def template_ctx(request: Request, **kwargs) -> dict:
         "pending_feedback": pending_feedback,
         "flashes": get_flashes(request),
         "csrf_token": get_csrf_token(request),
+        "google_sso": bool(settings.google_client_id),
     }
     ctx.update(kwargs)
     return ctx

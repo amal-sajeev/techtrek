@@ -62,6 +62,9 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@techtrek.in"
     smtp_from_name: str = "TechTrek"
 
+    google_client_id: str = ""
+    google_client_secret: str = ""
+
     babel_default_locale: str = "en"
     babel_default_timezone: str = "Asia/Kolkata"
 
