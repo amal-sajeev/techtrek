@@ -13,14 +13,9 @@
     <h3 class="section-title" style="margin-bottom:1rem;font-size:1rem;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em">Branding</h3>
 
     <div class="form-group">
-      <label class="form-label" for="set-logo">Platform Logo URL</label>
-      <input type="url" name="platform_logo_url" id="set-logo" class="form-input"
-             value="{{ s.platform_logo_url }}" placeholder="https://example.com/logo.png">
-      {% if s.platform_logo_url %}
-      <div style="margin-top:.5rem">
-        <img src="{{ s.platform_logo_url }}" alt="Logo preview" style="max-height:60px;max-width:200px;border-radius:4px;border:1px solid var(--border)">
-      </div>
-      {% endif %}
+      <label class="form-label" for="set-logo">Platform Logo</label>
+      <input type="text" name="platform_logo_url" id="set-logo" class="form-input"
+             value="{{ s.platform_logo_url }}" placeholder="https://... or upload">
       <p class="form-hint">Used on PDF invoices sent to customers.</p>
     </div>
 
@@ -95,4 +90,6 @@
   });
 })();
 </script>
+<script src="/static/js/image-upload.js"></script>
+<script>initImageUpload('set-logo', '/admin/upload-image');</script>
 {% endblock %}

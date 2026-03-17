@@ -132,27 +132,21 @@
 <section class="lm-hero">
   <div class="container">
 
-    <!-- Masthead bar -->
-    <div class="lm-masthead">
-      <div class="lm-masthead-inner">
-        <div class="lm-date-strip">
-          India's Campus Tech Summit Series<br>
-          Est. 2022 &middot; Viksit Bharat Initiative
-        </div>
-        <div class="lm-issue">
-          <span class="lm-eyebrow">Events this season</span>
-          <span class="lm-issue-num">{{ events|length if events else '&mdash;' }}</span>
-        </div>
-      </div>
-    </div>
-
     <!-- Two-column editorial grid -->
     <div class="lm-hero-grid">
 
       <!-- Left column: headline + standfirst + CTAs + stats -->
       <div class="lm-hero-left">
         <div>
-          <div class="lm-brand-title">TECHTREK</div>
+          <div class="lm-brand-title">
+            <div class="lm-bt-top">
+              <div class="lm-bt-left">India's<br>Campus<br>Summit</div>
+              <div class="lm-bt-rule-v"></div>
+              <div class="lm-bt-logo">TechTrek</div>
+            </div>
+            <hr class="lm-bt-rule-h">
+            <div class="lm-bt-sub">Est. 2022 &middot; Viksit Bharat Initiative</div>
+          </div>
           <h1 class="lm-headline">
             What industry is building <em>right now.</em>
           </h1>
@@ -163,6 +157,17 @@
           <div class="lm-cta-group">
             <a href="/events" class="btn lm-btn-accent lm-btn-lg">Explore Events &rarr;</a>
             {% if not user %}<a href="/auth/register" class="lm-link-secondary">Create account</a>{% else %}<a href="/sessions" class="lm-link-secondary">View full program</a>{% endif %}
+          </div>
+          <div class="lm-dispatch">
+            <span class="lm-dispatch-count">{{ total_events }} event{{ 's' if total_events != 1 else '' }} this season</span>
+            <span class="lm-dispatch-sep"></span>
+            <div class="lm-dispatch-ticker-wrap">
+              <div class="lm-dispatch-ticker">
+                {% set city_names = cities | map(attribute='name') | list if cities else ['Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata'] %}
+                {% for city in city_names %}<span>{{ city }}</span>{% endfor %}
+                {% for city in city_names %}<span>{{ city }}</span>{% endfor %}
+              </div>
+            </div>
           </div>
         </div>
         {% if total_attendees > 100 and total_events > 5 %}
@@ -357,8 +362,11 @@
           {% set img_id = img_pool[ev.id % 8] %}
           <a href="/events/{{ ev.id }}" class="card card-hover carousel-card">
             <div class="card-image">
+              {% set ev_gallery_img = first_gallery.get('event:' ~ ev.id|string) if first_gallery else None %}
               {% if ev.banner_url %}
               <img src="{{ ev.banner_url }}" alt="{{ ev.name }}" loading="lazy">
+              {% elif ev_gallery_img %}
+              <img src="{{ ev_gallery_img }}" alt="{{ ev.name }}" loading="lazy">
               {% else %}
               <img src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
                    alt="{{ ev.name }}" loading="lazy">
@@ -426,8 +434,11 @@
           {% set s_img_id = img_pool[s.id % 8] %}
           <a href="/sessions/{{ s.id }}" class="card card-hover carousel-card carousel-card-sm">
             <div class="card-image card-image-sm">
+              {% set s_gallery_img = first_gallery.get('session:' ~ s.id|string) if first_gallery else None %}
               {% if s.banner_url %}
               <img src="{{ s.banner_url }}" alt="{{ s.title }}" loading="lazy">
+              {% elif s_gallery_img %}
+              <img src="{{ s_gallery_img }}" alt="{{ s.title }}" loading="lazy">
               {% else %}
               <img src="https://images.unsplash.com/{{ s_img_id }}?w=400&auto=format&fit=crop&q=80"
                    alt="{{ s.title }}" loading="lazy">
@@ -493,6 +504,47 @@
     </div>
   </div>
 </section>
+
+<!-- SOCIAL PROOF: Testimonials & Featured Feedback -->
+{% if testimonials or featured_feedback %}
+<section class="section section-surface testimonials-section">
+  <div class="container">
+    <h2 class="section-title"><span class="dark-only">What Attendees Say</span><span class="light-only-inline">Voices from the Summit</span></h2>
+    <p class="section-subtitle">Real experiences from students who attended TechTrek events.</p>
+
+    <div class="testimonials-grid">
+      {% for fb in featured_feedback %}
+      <div class="testimonial-card reveal">
+        <div class="testimonial-stars">
+          {% for i in range(fb.rating|int) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating|int) %}&#9734;{% endfor %}
+        </div>
+        <blockquote class="testimonial-quote">&ldquo;{{ fb.comment }}&rdquo;</blockquote>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">{{ fb.user_name[0]|upper }}</div>
+          <div>
+            <p class="testimonial-name">{{ fb.user_name }}</p>
+            {% if fb.college %}<p class="testimonial-college">{{ fb.college }}</p>{% endif %}
+            <p class="testimonial-event">{{ fb.event_name }}</p>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      {% for t in testimonials %}
+      <div class="testimonial-card reveal">
+        <blockquote class="testimonial-quote">&ldquo;{{ t.quote }}&rdquo;</blockquote>
+        <div class="testimonial-author">
+          <div class="testimonial-avatar">{{ t.student_name[0]|upper }}</div>
+          <div>
+            <p class="testimonial-name">{{ t.student_name }}</p>
+            {% if t.college %}<p class="testimonial-college">{{ t.college }}</p>{% endif %}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endif %}
 
 <!-- HOW: Newsletter -->
 <section class="section newsletter-band section-alt" style="padding-top:1.5rem;padding-bottom:3rem">

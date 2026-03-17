@@ -3,6 +3,7 @@ import re
 import bcrypt
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import JSONResponse, RedirectResponse
+from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from sqlalchemy.orm import Session
 
 from app.crypto import hash_lookup
@@ -12,7 +13,7 @@ from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.models.speaker import Speaker
 from app.models.user import User
 from app.services.activity_log import log_activity
-from app.services.email import send_signup_confirmation
+from app.services.email import send_password_reset, send_signup_confirmation
 from app.services.oauth import oauth
 
 
@@ -424,6 +425,96 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
     flash(request, f"Welcome, {user.username}!", "success")
     next_url = _safe_next(request.session.pop("google_next", "") or "/")
     return RedirectResponse(next_url, status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Forgot / Reset password
+# ---------------------------------------------------------------------------
+
+_reset_serializer = URLSafeTimedSerializer(settings.secret_key, salt="password-reset")
+_RESET_MAX_AGE = 30 * 60  # 30 minutes
+
+
+@router.get("/forgot-password")
+def forgot_password_page(request: Request):
+    return templates.TemplateResponse("auth/forgot_password.html", template_ctx(request))
+
+
+@router.post("/forgot-password")
+async def forgot_password(request: Request, db: Session = Depends(get_db), _csrf: None = Depends(require_csrf_form)):
+    form = await request.form()
+    email = form.get("email", "").strip()
+
+    if email:
+        email_hash = hash_lookup(email, settings.field_encryption_key)
+        user = db.query(User).filter(User.email_hash == email_hash).first()
+        if user:
+            token = _reset_serializer.dumps(user.email_hash)
+            reset_url = str(request.url_for("reset_password_page", token=token))
+            send_password_reset(user.email, user.username, reset_url)
+            log_activity(
+                db, category="auth", action="password_reset_requested",
+                description=f"Password reset requested for {user.username}",
+                request=request, user_id=user.id, target_type="user", target_id=user.id,
+            )
+            db.commit()
+
+    flash(request, "If an account with that email exists, we've sent a password reset link.", "success")
+    return RedirectResponse("/auth/forgot-password", status_code=303)
+
+
+@router.get("/reset-password/{token}")
+def reset_password_page(request: Request, token: str):
+    try:
+        _reset_serializer.loads(token, max_age=_RESET_MAX_AGE)
+    except SignatureExpired:
+        flash(request, "This reset link has expired. Please request a new one.", "danger")
+        return RedirectResponse("/auth/forgot-password", status_code=303)
+    except BadSignature:
+        flash(request, "Invalid reset link. Please request a new one.", "danger")
+        return RedirectResponse("/auth/forgot-password", status_code=303)
+
+    return templates.TemplateResponse("auth/reset_password.html", template_ctx(request, token=token))
+
+
+@router.post("/reset-password/{token}")
+async def reset_password(request: Request, token: str, db: Session = Depends(get_db), _csrf: None = Depends(require_csrf_form)):
+    try:
+        email_hash = _reset_serializer.loads(token, max_age=_RESET_MAX_AGE)
+    except SignatureExpired:
+        flash(request, "This reset link has expired. Please request a new one.", "danger")
+        return RedirectResponse("/auth/forgot-password", status_code=303)
+    except BadSignature:
+        flash(request, "Invalid reset link. Please request a new one.", "danger")
+        return RedirectResponse("/auth/forgot-password", status_code=303)
+
+    user = db.query(User).filter(User.email_hash == email_hash).first()
+    if not user:
+        flash(request, "Could not find the associated account. Please try again.", "danger")
+        return RedirectResponse("/auth/forgot-password", status_code=303)
+
+    form = await request.form()
+    password = form.get("password", "")
+    confirm = form.get("confirm_password", "")
+
+    errors = _validate_password(password)
+    if password != confirm:
+        errors.append("Passwords do not match.")
+
+    if errors:
+        for e in errors:
+            flash(request, e, "danger")
+        return RedirectResponse(f"/auth/reset-password/{token}", status_code=303)
+
+    user.password_hash = _hash_pw(password)
+    log_activity(
+        db, category="auth", action="password_reset",
+        description=f"Password reset completed for {user.username}",
+        request=request, user_id=user.id, target_type="user", target_id=user.id,
+    )
+    db.commit()
+    flash(request, "Your password has been updated. Please log in with your new password.", "success")
+    return RedirectResponse("/auth/login", status_code=303)
 
 
 @router.get("/logout")

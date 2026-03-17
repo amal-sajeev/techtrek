@@ -51,13 +51,27 @@ def _seat_type_display(seat_type, custom_types_map=None):
 
 
 def _get_logo_image(logo_url: str, max_h_mm: float = 14):
-    """Download logo URL and return a ReportLab Image, or None on failure."""
+    """Load logo from DB upload path or external URL. Returns a ReportLab Image or None."""
     try:
-        resp = requests.get(logo_url, timeout=5)
-        resp.raise_for_status()
-        buf = io.BytesIO(resp.content)
+        import re as _re
+        m = _re.match(r'^/uploads/(\d+)$', logo_url)
+        if m:
+            from app.database import SessionLocal
+            from app.models.uploaded_image import UploadedImage
+            db = SessionLocal()
+            try:
+                img_row = db.query(UploadedImage).filter(UploadedImage.id == int(m.group(1))).first()
+                if not img_row or not img_row.data:
+                    return None
+                buf = io.BytesIO(img_row.data)
+            finally:
+                db.close()
+        else:
+            resp = requests.get(logo_url, timeout=5)
+            resp.raise_for_status()
+            buf = io.BytesIO(resp.content)
+
         img = RLImage(buf)
-        # Scale to fixed height
         aspect = img.imageWidth / img.imageHeight
         img.drawHeight = max_h_mm * mm
         img.drawWidth = max_h_mm * mm * aspect

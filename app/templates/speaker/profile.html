@@ -9,12 +9,6 @@
       <p class="auth-title">Speaker Profile</p>
     </div>
 
-    {% if speaker.photo_url %}
-    <div style="text-align:center;margin-bottom:1rem;">
-      <img src="{{ speaker.photo_url }}" alt="{{ speaker.name }}" style="width:100px;height:100px;object-fit:cover;border-radius:50%;border:2px solid var(--border);">
-    </div>
-    {% endif %}
-
     <form method="post" action="/speaker/profile">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="form-group">
@@ -33,8 +27,8 @@
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="sp-photo">Photo URL</label>
-        <input type="url" name="photo_url" id="sp-photo" class="form-input" value="{{ speaker.photo_url or '' }}" placeholder="https://...">
+        <label class="form-label" for="sp-photo">Photo</label>
+        <input type="text" name="photo_url" id="sp-photo" class="form-input" value="{{ speaker.photo_url or '' }}" placeholder="https://... or upload">
       </div>
 
       <div style="display:flex;gap:1rem;margin-top:1rem;">
@@ -44,4 +38,6 @@
     </form>
   </div>
 </div>
+<script src="/static/js/image-upload.js"></script>
+<script>initImageUpload('sp-photo', '/speaker/upload-image');</script>
 {% endblock %}

@@ -3,7 +3,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
@@ -17,6 +17,8 @@ from app.models.event import Event
 from app.models.session import Session as SessionModel
 from app.models.session_speaker import SessionSpeaker
 from app.models.speaker import Speaker
+from app.models.gallery_image import GalleryImage
+from app.models.uploaded_image import UploadedImage
 from app.models.user import User
 
 router = APIRouter(prefix="/speaker", tags=["speaker"], dependencies=[Depends(csrf_protection)])
@@ -310,9 +312,12 @@ def session_edit(request: Request, session_id: int, db: Session = Depends(get_db
     )
     all_speakers = db.query(Speaker).order_by(Speaker.name).all()
     event = session_obj.event
+    gallery = db.query(GalleryImage).filter(
+        GalleryImage.owner_type == "session", GalleryImage.owner_id == session_id
+    ).order_by(GalleryImage.position).all()
     return templates.TemplateResponse(
         "speaker/session_edit.html",
-        _speaker_ctx(request, speaker=speaker, lecture=session_obj, session=session_obj, event=event, agenda_items=agenda_items, is_primary=is_primary, all_speakers=all_speakers),
+        _speaker_ctx(request, speaker=speaker, lecture=session_obj, session=session_obj, event=event, agenda_items=agenda_items, is_primary=is_primary, all_speakers=all_speakers, gallery_images=gallery),
     )
 
 
@@ -375,6 +380,16 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
                 item.duration_minutes = int(form.get(f"agenda_duration_{idx}", item.duration_minutes) or item.duration_minutes)
                 item.description = form.get(f"agenda_desc_{idx}", "").strip() or None
 
+    raw_gallery = form.get("gallery_image_ids", "").strip()
+    if raw_gallery:
+        db.query(GalleryImage).filter(
+            GalleryImage.owner_type == "session", GalleryImage.owner_id == session_id
+        ).delete()
+        for pos, img_id_str in enumerate(raw_gallery.split(",")):
+            img_id_str = img_id_str.strip()
+            if img_id_str and img_id_str.isdigit():
+                db.add(GalleryImage(owner_type="session", owner_id=session_id, image_id=int(img_id_str), position=pos))
+
     log_activity(db, category="speaker", action="update", description=f"Speaker '{speaker.name}' updated session '{session_obj.title}'", request=request, user_id=user.id, target_type="session", target_id=session_id)
     db.commit()
     flash(request, f"Session '{session_obj.title}' updated.", "success")
@@ -408,3 +423,34 @@ async def profile_update(request: Request, db: Session = Depends(get_db)):
 
     flash(request, "Speaker profile updated.", "success")
     return RedirectResponse("/speaker/profile", status_code=303)
+
+
+@router.post("/upload-image")
+async def speaker_upload_image(request: Request, db: Session = Depends(get_db)):
+    from app.models.uploaded_image import UploadedImage
+
+    _require_speaker(request, db)
+
+    form = await request.form()
+    file = form.get("image")
+    if not file or not hasattr(file, "filename"):
+        return JSONResponse({"error": "No file uploaded"}, status_code=400)
+
+    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed:
+        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        return JSONResponse({"error": "File too large (max 5MB)"}, status_code=400)
+
+    img = UploadedImage(
+        filename=file.filename or "upload",
+        content_type=file.content_type,
+        data=content,
+    )
+    db.add(img)
+    db.commit()
+    db.refresh(img)
+
+    return JSONResponse({"url": f"/uploads/{img.id}"})

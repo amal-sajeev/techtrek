@@ -27,15 +27,18 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label" for="ss-banner">Banner Image URL</label>
-      <input type="url" name="banner_url" id="ss-banner" class="form-input" value="{{ lecture.banner_url or '' }}" placeholder="https://...">
+      <label class="form-label" for="ss-banner">Banner Image</label>
+      <input type="text" name="banner_url" id="ss-banner" class="form-input" value="{{ lecture.banner_url or '' }}" placeholder="https://... or upload">
     </div>
-
-    {% if lecture.banner_url %}
-    <div style="margin-bottom:1rem;">
-      <img src="{{ lecture.banner_url }}" alt="Banner preview" style="max-width:100%;max-height:200px;border-radius:8px;border:1px solid var(--border);">
+    <div class="form-group">
+      <label class="form-label">Gallery Images</label>
+      <div class="gallery-upload" id="ss-gallery">
+        <div class="gallery-grid"></div>
+        <input type="hidden" name="gallery_image_ids" class="gallery-ids-input" value="">
+        <button type="button" class="gallery-add-btn">+ Add Images</button>
+        <p class="gallery-hint">Drag to reorder. These images appear in the session carousel.</p>
+      </div>
     </div>
-    {% endif %}
 
     <div class="form-row">
       <div class="form-group">
@@ -206,4 +209,12 @@
 })();
 </script>
 {% endif %}
+<script src="/static/js/image-upload.js"></script>
+<script src="/static/js/gallery-upload.js"></script>
+<script>
+initImageUpload('ss-banner', '/speaker/upload-image');
+initGalleryUpload('ss-gallery', '/speaker/upload-image', [
+  {% if gallery_images %}{% for gi in gallery_images %}{id:{{ gi.image_id }},url:'/uploads/{{ gi.image_id }}'}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}
+]);
+</script>
 {% endblock %}

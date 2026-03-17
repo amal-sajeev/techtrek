@@ -49,12 +49,20 @@
 <div class="dark-only">
 <div class="ed-hero-full">
 
-  {# Carousel: event banner + unique session banners #}
+  {# Carousel: event banner + gallery images + unique session banners #}
   <div class="ed-hero-carousel">
     <div class="ed-hero-slide active">
       <img src="{{ hero_img }}" alt="{{ event.name }}" loading="eager">
     </div>
     {% set ns_h = namespace(seen=[hero_img]) %}
+    {% for gurl in gallery_urls %}
+      {% if gurl not in ns_h.seen %}
+        {% set ns_h.seen = ns_h.seen + [gurl] %}
+        <div class="ed-hero-slide">
+          <img src="{{ gurl }}" alt="{{ event.name }} gallery" loading="lazy">
+        </div>
+      {% endif %}
+    {% endfor %}
     {% for item in sessions %}
       {% set s = item.session %}
       {% set s_img = s.banner_url or ('https://images.unsplash.com/' + img_pool[s.id % 8] + '?w=1600&auto=format&fit=crop&q=80') %}
@@ -149,6 +157,14 @@
             <img src="{{ hero_img }}" alt="{{ event.name }}" loading="eager">
           </div>
           {% set ns_lm = namespace(seen=[hero_img]) %}
+          {% for gurl in gallery_urls %}
+            {% if gurl not in ns_lm.seen %}
+              {% set ns_lm.seen = ns_lm.seen + [gurl] %}
+              <div class="lm-ed-slide">
+                <img src="{{ gurl }}" alt="{{ event.name }} gallery" loading="lazy">
+              </div>
+            {% endif %}
+          {% endfor %}
           {% for item in sessions %}
             {% set s = item.session %}
             {% set s_img = s.banner_url or ('https://images.unsplash.com/' + img_pool[s.id % 8] + '?w=1200&auto=format&fit=crop&q=80') %}

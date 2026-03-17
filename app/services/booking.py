@@ -143,6 +143,12 @@ def _price_for_seat(event, seat_type: str, db=None) -> float:
     if not event:
         return TICKET_PRICE
     base = float(event.price)
+
+    # Check event-level custom_prices dict first (set via wizard pricing step)
+    cp = getattr(event, "custom_prices", None) or {}
+    if seat_type in cp:
+        return float(cp[seat_type])
+
     if seat_type == "vip" and event.price_vip is not None:
         price = float(event.price_vip)
     elif seat_type == "accessible" and event.price_accessible is not None:

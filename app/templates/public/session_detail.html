@@ -66,7 +66,10 @@
 <div class="dark-only">
 <div class="sd-hero">
   <div class="sd-hero-media">
-    <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager">
+    <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager" class="sd-hero-slide active">
+    {% for gurl in gallery_urls %}
+    <img src="{{ gurl }}" alt="{{ session.title }} gallery" loading="lazy" class="sd-hero-slide">
+    {% endfor %}
   </div>
   <div class="sd-hero-gradient"></div>
 
@@ -190,9 +193,18 @@
         {% endif %}
       </div>
 
-      {# Right: boxed image #}
+      {# Right: boxed image / carousel #}
       <div class="lm-ed-img-wrap">
-        <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager">
+        <div class="lm-ed-carousel" id="lm-sd-carousel">
+          <div class="lm-ed-slide active">
+            <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager">
+          </div>
+          {% for gurl in gallery_urls %}
+          <div class="lm-ed-slide">
+            <img src="{{ gurl }}" alt="{{ session.title }} gallery" loading="lazy">
+          </div>
+          {% endfor %}
+        </div>
       </div>
 
     </div>
@@ -580,6 +592,47 @@
       }
     });
   }
+}());
+
+/* Session hero slideshow (dark mode) */
+(function () {
+  var slides = document.querySelectorAll('.sd-hero-slide');
+  if (slides.length < 2) return;
+  var cur = 0;
+  setInterval(function () {
+    slides[cur].classList.remove('active');
+    cur = (cur + 1) % slides.length;
+    slides[cur].classList.add('active');
+  }, 5000);
+}());
+
+/* Session light-mode carousel */
+(function () {
+  var lmSlides = document.querySelectorAll('#lm-sd-carousel .lm-ed-slide');
+  if (lmSlides.length < 2) return;
+  var cur = 0;
+  var wrap = document.getElementById('lm-sd-carousel');
+  var dots = document.createElement('div');
+  dots.className = 'lm-ed-dots';
+  lmSlides.forEach(function (_, i) {
+    var d = document.createElement('button');
+    d.className = 'lm-ed-dot' + (i === 0 ? ' active' : '');
+    d.setAttribute('aria-label', 'Slide ' + (i + 1));
+    d.addEventListener('click', function () { goTo(i); resetT(); });
+    dots.appendChild(d);
+  });
+  wrap.appendChild(dots);
+  function goTo(idx) {
+    lmSlides[cur].classList.remove('active');
+    dots.children[cur].classList.remove('active');
+    cur = idx;
+    lmSlides[cur].classList.add('active');
+    dots.children[cur].classList.add('active');
+  }
+  var t = setInterval(function () { goTo((cur + 1) % lmSlides.length); }, 5000);
+  function resetT() { clearInterval(t); t = setInterval(function () { goTo((cur + 1) % lmSlides.length); }, 5000); }
+  wrap.addEventListener('mouseenter', function () { clearInterval(t); });
+  wrap.addEventListener('mouseleave', function () { resetT(); });
 }());
 </script>
 

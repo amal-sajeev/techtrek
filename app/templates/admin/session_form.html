@@ -36,8 +36,17 @@
       <textarea name="description" id="sess-desc" class="form-input" rows="4">{{ lecture.description if lecture and lecture.description else '' }}</textarea>
     </div>
     <div class="form-group">
-      <label class="form-label" for="sess-banner">Banner Image URL</label>
-      <input type="url" name="banner_url" id="sess-banner" class="form-input" value="{{ lecture.banner_url if lecture and lecture.banner_url else '' }}" placeholder="https://...">
+      <label class="form-label" for="sess-banner">Banner Image</label>
+      <input type="text" name="banner_url" id="sess-banner" class="form-input" value="{{ lecture.banner_url if lecture and lecture.banner_url else '' }}" placeholder="https://... or upload">
+    </div>
+    <div class="form-group">
+      <label class="form-label">Gallery Images</label>
+      <div class="gallery-upload" id="sess-gallery">
+        <div class="gallery-grid"></div>
+        <input type="hidden" name="gallery_image_ids" class="gallery-ids-input" value="">
+        <button type="button" class="gallery-add-btn">+ Add Images</button>
+        <p class="gallery-hint">Drag to reorder. These images appear in the session detail carousel.</p>
+      </div>
     </div>
     <div class="form-row">
       <div class="form-group">
@@ -471,7 +480,13 @@
     }
   });
 })();
-
-
+</script>
+<script src="/static/js/image-upload.js"></script>
+<script src="/static/js/gallery-upload.js"></script>
+<script>
+initImageUpload('sess-banner', '/admin/upload-image');
+initGalleryUpload('sess-gallery', '/admin/upload-image', [
+  {% if gallery_images %}{% for gi in gallery_images %}{id:{{ gi.image_id }},url:'/uploads/{{ gi.image_id }}'}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}
+]);
 </script>
 {% endblock %}

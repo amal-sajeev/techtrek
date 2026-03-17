@@ -1,4 +1,5 @@
 from sqlalchemy import Column, Date, DateTime, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy.dialects.postgresql import JSON
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -20,6 +21,7 @@ class Event(Base):
     price_vip = Column(Numeric(10, 2), nullable=True)
     price_accessible = Column(Numeric(10, 2), nullable=True)
     processing_fee_pct = Column(Numeric(5, 2), nullable=True, default=0)
+    custom_prices = Column(JSON, nullable=True)
     status = Column(String(20), default="draft")
     cert_title = Column(String(300), nullable=True)
     cert_subtitle = Column(Text, nullable=True)

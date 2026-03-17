@@ -11,12 +11,8 @@
   <button type="button" class="wizard-step" data-step="2">2. Pricing</button>
   <button type="button" class="wizard-step" data-step="3">3. Media</button>
   <button type="button" class="wizard-step" data-step="4">4. Sessions</button>
-  {% if event %}
   <button type="button" class="wizard-step" data-step="5">5. Certificate</button>
   <button type="button" class="wizard-step" data-step="6">6. Review &amp; Save</button>
-  {% else %}
-  <button type="button" class="wizard-step" data-step="5">5. Review &amp; Save</button>
-  {% endif %}
 </div>
 
 <div class="form-card">
@@ -80,26 +76,14 @@
     <!-- Step 2: Pricing -->
     <div class="wizard-panel" data-panel="2">
       <h3 class="wizard-panel-title">Pricing</h3>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="ev-price">Standard Price (&#8377;)</label>
-          <input type="number" name="price" id="ev-price" class="form-input" step="0.01" min="0" value="{{ event.price if event and event.price is not none else '0' }}">
-        </div>
-        <div class="form-group">
-          <label class="form-label" for="ev-price-vip">VIP Price (&#8377;)</label>
-          <input type="number" name="price_vip" id="ev-price-vip" class="form-input" step="0.01" min="0" value="{{ event.price_vip if event and event.price_vip is not none else '' }}" placeholder="Optional">
-        </div>
-      </div>
-      <div class="form-row">
-        <div class="form-group">
-          <label class="form-label" for="ev-price-accessible">Accessible Price (&#8377;)</label>
-          <input type="number" name="price_accessible" id="ev-price-accessible" class="form-input" step="0.01" min="0" value="{{ event.price_accessible if event and event.price_accessible is not none else '' }}" placeholder="Optional">
-        </div>
+      <div id="pricing-fields"></div>
+      <div class="form-row" style="margin-top:1rem">
         <div class="form-group">
           <label class="form-label" for="ev-fee">Processing Fee %</label>
           <input type="number" name="processing_fee_pct" id="ev-fee" class="form-input" step="0.01" min="0" max="100" value="{{ event.processing_fee_pct if event and event.processing_fee_pct is not none else '' }}" placeholder="e.g. 2.5">
         </div>
       </div>
+      <p id="pricing-hint" style="font-size:.82rem;color:var(--text-muted);margin:.75rem 0 0;display:none">Select an auditorium in Step 1 to see its seat types here.</p>
       <div class="wizard-nav">
         <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
         <button type="button" class="btn btn-primary wizard-next">Next &rarr;</button>
@@ -110,12 +94,21 @@
     <div class="wizard-panel" data-panel="3">
       <h3 class="wizard-panel-title">Media &amp; Content</h3>
       <div class="form-group">
-        <label class="form-label" for="ev-banner">Banner URL</label>
-        <input type="url" name="banner_url" id="ev-banner" class="form-input" value="{{ event.banner_url if event and event.banner_url else '' }}" placeholder="https://...">
+        <label class="form-label" for="ev-banner">Banner Image</label>
+        <input type="text" name="banner_url" id="ev-banner" class="form-input" value="{{ event.banner_url if event and event.banner_url else '' }}" placeholder="https://... or upload">
       </div>
       <div class="form-group">
         <label class="form-label" for="ev-desc">Description</label>
         <textarea name="description" id="ev-desc" class="form-input" rows="6">{{ event.description if event and event.description else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Gallery Images</label>
+        <div class="gallery-upload" id="ev-gallery">
+          <div class="gallery-grid"></div>
+          <input type="hidden" name="gallery_image_ids" class="gallery-ids-input" value="">
+          <button type="button" class="gallery-add-btn">+ Add Images</button>
+          <p class="gallery-hint">Drag to reorder. These images appear in the event detail carousel.</p>
+        </div>
       </div>
       <div class="wizard-nav">
         <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
@@ -126,11 +119,10 @@
     <!-- Step 4: Sessions -->
     <div class="wizard-panel" data-panel="4">
       <h3 class="wizard-panel-title">Sessions</h3>
-      <p class="text-muted" style="margin-bottom:1rem">Add the sessions/talks for this event. You can also add more later from the edit page.</p>
+      <p class="text-muted" style="margin-bottom:1rem">Link existing sessions to this event. Sessions must be <a href="/admin/sessions/new" target="_blank">created first</a> from the Sessions page.</p>
 
       {% if event and event_sessions %}
       <div class="table-responsive mt-2 mb-3">
-        <h4 style="font-size:.9rem;color:var(--text-muted);margin-bottom:.5rem">Existing Sessions</h4>
         <table class="table">
           <thead><tr><th>Title</th><th>Speaker</th><th>Start Time</th><th>Actions</th></tr></thead>
           <tbody>
@@ -156,67 +148,260 @@
       </div>
     </div>
 
-    {% if event %}
-    <!-- Step 5: Certificate (edit only) -->
+    <!-- Step 5: Certificate -->
     <div class="wizard-panel" data-panel="5">
       <h3 class="wizard-panel-title">Certificate Template</h3>
-      <p class="text-muted" style="margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees.</p>
+      <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees. Leave blank for defaults.</p>
       <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
 
       <div class="form-row">
         <div class="form-group" style="flex:2">
           <label class="form-label" for="cert-title">Certificate Title</label>
-          <input type="text" name="cert_title" id="cert-title" class="form-input" value="{{ event.cert_title or '' }}" placeholder="Certificate of Attendance">
+          <input type="text" name="cert_title" id="cert-title" class="form-input" value="{{ event.cert_title if event else '' }}" placeholder="Certificate of Attendance">
         </div>
         <div class="form-group">
           <label class="form-label" for="cert-color">Color Scheme</label>
           <select name="cert_color_scheme" id="cert-color" class="form-input" data-no-tomselect>
             {% set schemes = [('', 'Teal (Default)'), ('teal', 'Teal'), ('navy', 'Navy'), ('emerald', 'Emerald'), ('royal', 'Royal Purple'), ('crimson', 'Crimson')] %}
             {% for val, label in schemes %}
-            <option value="{{ val }}" {% if event.cert_color_scheme == val %}selected{% endif %}>{{ label }}</option>
+            <option value="{{ val }}" {% if event and event.cert_color_scheme == val %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
         </div>
       </div>
 
       <div class="form-group">
-        <label class="form-label" for="cert-subtitle">Subtitle / Message</label>
-        <textarea name="cert_subtitle" id="cert-subtitle" class="form-input" rows="2" placeholder="This certificate is proudly presented to">{{ event.cert_subtitle or '' }}</textarea>
+        <label class="form-label" for="cert-subtitle">Custom Subtitle / Message</label>
+        <textarea name="cert_subtitle" id="cert-subtitle" class="form-input" rows="2" placeholder="This certificate is proudly presented to">{{ event.cert_subtitle if event else '' }}</textarea>
       </div>
 
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="cert-signer-name">Signer Name</label>
-          <input type="text" name="cert_signer_name" id="cert-signer-name" class="form-input" value="{{ event.cert_signer_name or '' }}" placeholder="e.g. Dr. Priya Sharma">
+          <input type="text" name="cert_signer_name" id="cert-signer-name" class="form-input" value="{{ event.cert_signer_name if event else '' }}" placeholder="e.g. Dr. Priya Sharma">
         </div>
         <div class="form-group">
           <label class="form-label" for="cert-signer-desg">Signer Designation</label>
-          <input type="text" name="cert_signer_designation" id="cert-signer-desg" class="form-input" value="{{ event.cert_signer_designation or '' }}" placeholder="e.g. Program Director">
+          <input type="text" name="cert_signer_designation" id="cert-signer-desg" class="form-input" value="{{ event.cert_signer_designation if event else '' }}" placeholder="e.g. Program Director">
         </div>
         <div class="form-group">
-          <label class="form-label" for="cert-signature-url">Signature Image URL</label>
-          <input type="url" name="cert_signature_url" id="cert-signature-url" class="form-input" value="{{ event.cert_signature_url or '' }}" placeholder="https://...">
+          <label class="form-label" for="cert-signature-url">Signature Image</label>
+          <input type="text" name="cert_signature_url" id="cert-signature-url" class="form-input" value="{{ event.cert_signature_url if event else '' }}" placeholder="https://... or upload">
         </div>
       </div>
 
       <div class="form-group">
         <label class="form-label" for="cert-footer">Custom Footer Text</label>
-        <input type="text" name="cert_footer" id="cert-footer" class="form-input" value="{{ event.cert_footer or '' }}" placeholder="&copy; 2026 TechTrek. All rights reserved.">
+        <input type="text" name="cert_footer" id="cert-footer" class="form-input" value="{{ event.cert_footer if event else '' }}" placeholder="&copy; 2026 TechTrek. All rights reserved.">
       </div>
 
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="cert-logo-url">Logo URL</label>
-          <input type="url" name="cert_logo_url" id="cert-logo-url" class="form-input" value="{{ event.cert_logo_url or '' }}" placeholder="https://...">
+          <label class="form-label" for="cert-logo-url">Logo Image</label>
+          <input type="text" name="cert_logo_url" id="cert-logo-url" class="form-input" value="{{ event.cert_logo_url if event else '' }}" placeholder="https://... or upload">
         </div>
         <div class="form-group">
-          <label class="form-label" for="cert-bg-url">Background Image URL</label>
-          <input type="url" name="cert_bg_url" id="cert-bg-url" class="form-input" value="{{ event.cert_bg_url or '' }}" placeholder="https://...">
+          <label class="form-label" for="cert-bg-url">Background Image</label>
+          <input type="text" name="cert_bg_url" id="cert-bg-url" class="form-input" value="{{ event.cert_bg_url if event else '' }}" placeholder="https://... or upload">
         </div>
       </div>
 
-      <div style="margin:1rem 0">
-        <a href="/admin/events/{{ event.id }}/certificate/preview" target="_blank" class="btn btn-outline btn-sm">Open Full PDF &#8599;</a>
+      {% if event %}
+      <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin:1rem 0">
+        <button type="button" id="cert-save-btn" class="btn btn-primary btn-sm">Save Certificate Template</button>
+        <a href="/admin/events/{{ event.id }}/certificate/preview"
+           target="_blank" class="btn btn-sm btn-outline" style="font-size:.8rem">
+          Preview PDF &#8599;
+        </a>
+      </div>
+      {% endif %}
+
+      <!-- Advanced Styling -->
+      <details id="cert-advanced-styling" style="margin-top:1.5rem;border:1px solid var(--color-border,#e2e8f0);border-radius:8px;padding:0 1rem">
+        <summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:.75rem 0;user-select:none">Advanced Styling Options</summary>
+        <div style="padding-bottom:1rem">
+
+          <div class="form-group" style="margin-bottom:1rem">
+            <label class="form-label" style="font-size:.8rem">Border Style</label>
+            <input type="hidden" id="cert-style-border" name="cert_style_border" value="classic">
+            <div id="cert-border-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
+
+              <label class="bsp-opt active" data-val="classic" title="Classic — double border with solid gold corner brackets">
+                <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M1.5 13.5 L1.5 1.5 L13.5 1.5 L13.5 4.5 L4.5 4.5 L4.5 13.5 Z" fill="#d4a853"/>
+                  <path d="M62.5 13.5 L62.5 1.5 L50.5 1.5 L50.5 4.5 L59.5 4.5 L59.5 13.5 Z" fill="#d4a853"/>
+                  <path d="M1.5 30.5 L1.5 42.5 L13.5 42.5 L13.5 39.5 L4.5 39.5 L4.5 30.5 Z" fill="#d4a853"/>
+                  <path d="M62.5 30.5 L62.5 42.5 L50.5 42.5 L50.5 39.5 L59.5 39.5 L59.5 30.5 Z" fill="#d4a853"/>
+                  <path d="M13.5 1.5 L13.5 4.5 L4.5 4.5 L4.5 13.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
+                  <path d="M50.5 1.5 L50.5 4.5 L59.5 4.5 L59.5 13.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
+                  <path d="M4.5 30.5 L4.5 39.5 L13.5 39.5 L13.5 42.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
+                  <path d="M59.5 30.5 L59.5 39.5 L50.5 39.5 L50.5 42.5" stroke="#f0c868" stroke-width="0.6" stroke-linecap="square"/>
+                  <rect x="1.5" y="1.5" width="61" height="41" rx="2" stroke="#0e7490" stroke-width="1.75"/>
+                  <rect x="6.5" y="6.5" width="51" height="31" rx="1" stroke="#0e7490" stroke-width="0.6"/>
+                </svg>
+                <span>Classic</span>
+              </label>
+
+              <label class="bsp-opt" data-val="modern" title="Modern — bold solid-slab frame with bevel">
+                <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="4" y="4" width="56" height="36" rx="8" stroke="#0e7490" stroke-width="8"/>
+                  <rect x="8" y="8" width="48" height="28" rx="5" stroke="#2ab8d8" stroke-width="0.75"/>
+                </svg>
+                <span>Modern</span>
+              </label>
+
+              <label class="bsp-opt" data-val="elegant" title="Elegant — fine double lines with mid-side diamond ornaments">
+                <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1.5" y="1.5" width="61" height="41" rx="1" stroke="#0e7490" stroke-width="0.75"/>
+                  <rect x="9" y="9" width="46" height="26" rx="0.5" stroke="#0e7490" stroke-width="0.5"/>
+                  <path d="M32 2 L35.5 5.5 L32 9 L28.5 5.5 Z" fill="#d4a853"/>
+                  <path d="M32 35 L35.5 38.5 L32 42 L28.5 38.5 Z" fill="#d4a853"/>
+                  <path d="M2 22 L5.5 18.5 L9 22 L5.5 25.5 Z" fill="#d4a853"/>
+                  <path d="M55 22 L58.5 18.5 L62 22 L58.5 25.5 Z" fill="#d4a853"/>
+                </svg>
+                <span>Elegant</span>
+              </label>
+
+              <label class="bsp-opt" data-val="minimal" title="Minimal — top and bottom bars only, no sides">
+                <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="3" width="58" height="6" fill="#0e7490" rx="0.5"/>
+                  <line x1="3" y1="4.5" x2="61" y2="4.5" stroke="#2ab8d8" stroke-width="0.5" opacity="0.7"/>
+                  <rect x="3" y="35" width="58" height="6" fill="#0e7490" rx="0.5"/>
+                  <line x1="3" y1="36.5" x2="61" y2="36.5" stroke="#2ab8d8" stroke-width="0.5" opacity="0.7"/>
+                </svg>
+                <span>Minimal</span>
+              </label>
+
+              <label class="bsp-opt" data-val="ornate" title="Ornate — triple border with diamond corners and mid-side ornaments">
+                <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="1" y="1" width="62" height="42" rx="2" stroke="#0e7490" stroke-width="1.5"/>
+                  <rect x="4.5" y="4.5" width="55" height="35" rx="1.5" stroke="#d4a853" stroke-width="0.75"/>
+                  <rect x="8" y="8" width="48" height="28" rx="1" stroke="#00b4cc" stroke-width="0.5"/>
+                  <path d="M4.5 0.5 L8.5 4.5 L4.5 8.5 L0.5 4.5 Z" fill="#d4a853"/>
+                  <path d="M59.5 0.5 L63.5 4.5 L59.5 8.5 L55.5 4.5 Z" fill="#d4a853"/>
+                  <path d="M4.5 35.5 L8.5 39.5 L4.5 43.5 L0.5 39.5 Z" fill="#d4a853"/>
+                  <path d="M59.5 35.5 L63.5 39.5 L59.5 43.5 L55.5 39.5 Z" fill="#d4a853"/>
+                  <path d="M32 2 L34.5 4.5 L32 7 L29.5 4.5 Z" fill="#d4a853"/>
+                  <path d="M32 37 L34.5 39.5 L32 42 L29.5 39.5 Z" fill="#d4a853"/>
+                  <path d="M2 22 L4.5 19.5 L7 22 L4.5 24.5 Z" fill="#d4a853"/>
+                  <path d="M57 22 L59.5 19.5 L62 22 L59.5 24.5 Z" fill="#d4a853"/>
+                </svg>
+                <span>Ornate</span>
+              </label>
+
+              <label class="bsp-opt" data-val="none" title="No border">
+                <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="2" y="2" width="60" height="40" rx="2" stroke="#cbd5e1" stroke-width="1" stroke-dasharray="4 3"/>
+                  <line x1="18" y1="12" x2="46" y2="32" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round"/>
+                  <line x1="46" y1="12" x2="18" y2="32" stroke="#cbd5e1" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+                <span>None</span>
+              </label>
+
+            </div>
+            <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.75rem;align-items:end">
+              <div class="form-group" style="margin-bottom:0;max-width:180px">
+                <label class="form-label" style="font-size:.8rem">Border Width</label>
+                <input type="number" id="cert-style-border-width" name="cert_style_border_width" class="form-input" value="1" min="0.25" max="10" step="0.25" style="font-size:.85rem">
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label" style="font-size:.78rem">Primary</label>
+                <span style="display:inline-flex;align-items:center;gap:4px">
+                  <input type="color" id="cert-style-border-primary" name="cert_style_border_primary" data-custom="false" value="#0e7490" style="width:40px;height:30px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
+                  <button type="button" class="cert-color-reset" data-target="cert-style-border-primary" data-key="border" title="Reset to scheme default">&#8634;</button>
+                </span>
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label" style="font-size:.78rem">Secondary</label>
+                <span style="display:inline-flex;align-items:center;gap:4px">
+                  <input type="color" id="cert-style-border-secondary" name="cert_style_border_secondary" data-custom="false" value="#d4a853" style="width:40px;height:30px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
+                  <button type="button" class="cert-color-reset" data-target="cert-style-border-secondary" data-key="gold" title="Reset to scheme default">&#8634;</button>
+                </span>
+              </div>
+              <div class="form-group" style="margin-bottom:0">
+                <label class="form-label" style="font-size:.78rem">Tertiary</label>
+                <span style="display:inline-flex;align-items:center;gap:4px">
+                  <input type="color" id="cert-style-border-tertiary" name="cert_style_border_tertiary" data-custom="false" value="#00d4ff" style="width:40px;height:30px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
+                  <button type="button" class="cert-color-reset" data-target="cert-style-border-tertiary" data-key="accent" title="Reset to scheme default">&#8634;</button>
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:1rem">
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" style="font-size:.8rem">Background Size</label>
+              <select id="cert-style-bg-size" name="cert_style_bg_size" class="form-input" data-no-tomselect style="font-size:.85rem">
+                <option value="cover">Cover (fill)</option>
+                <option value="contain">Contain (fit)</option>
+                <option value="stretch">Stretch</option>
+              </select>
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" style="font-size:.8rem">BG Offset X (pt)</label>
+              <input type="number" id="cert-style-bg-offset-x" name="cert_style_bg_offset_x" class="form-input" value="0" step="1" style="font-size:.85rem">
+            </div>
+            <div class="form-group" style="margin-bottom:0">
+              <label class="form-label" style="font-size:.8rem">BG Offset Y (pt)</label>
+              <input type="number" id="cert-style-bg-offset-y" name="cert_style_bg_offset_y" class="form-input" value="0" step="1" style="font-size:.85rem">
+            </div>
+          </div>
+
+          <hr style="border-color:var(--color-border,#e2e8f0);margin:.75rem 0">
+          <label class="form-label" style="font-size:.85rem;font-weight:600;margin-bottom:.5rem">Text Element Styles</label>
+
+          <div class="cert-elem-two-col">
+            {% for col_items in [
+              [('brand','Brand'),('title','Title'),('subtitle','Subtitle'),('name','Name'),('attending','Attending')],
+              [('session','Session'),('details','Details'),('venue','Venue'),('signer','Signer'),('footer','Footer')]
+            ] %}
+            <div>
+              <div class="cert-elem-header">
+                <span>Element</span><span>Font</span><span>Size</span><span>Color</span><span>B</span><span>I</span><span>U</span><span style="text-align:center">Pad</span>
+              </div>
+              {% for ek, el in col_items %}
+              <div class="cert-elem-row">
+                <span style="font-size:.8rem;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="{{ el }}">{{ el }}</span>
+                <select id="cert-style-{{ ek }}-font" name="cert_style_{{ ek }}_font" class="form-input" data-no-tomselect style="font-size:.78rem;padding:4px 6px">
+                  {% for fk, fl in [('arial','Arial'),('georgia','Georgia'),('times','Times NR'),('verdana','Verdana'),('trebuchet','Trebuchet'),('courier','Courier'),('comic','Comic Sans'),('calibri','Calibri'),('palatino','Palatino'),('candara','Candara')] %}
+                  <option value="{{ fk }}">{{ fl }}</option>
+                  {% endfor %}
+                </select>
+                <input type="number" id="cert-style-{{ ek }}-size" name="cert_style_{{ ek }}_size" class="form-input" min="6" max="80" step="1" style="font-size:.78rem;padding:4px 6px">
+                <input type="color" id="cert-style-{{ ek }}-color" name="cert_style_{{ ek }}_color" style="width:100%;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
+                <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1;color:#fff" title="Bold">B</button>
+                <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1;color:#fff" title="Italic">I</button>
+                <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1;color:#fff" title="Underline">U</button>
+                <button type="button" class="cert-pad-toggle" data-elem="{{ ek }}" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-size:.7rem;line-height:1" title="Toggle padding">&#9638;</button>
+                <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
+                <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
+                <input type="hidden" id="cert-style-{{ ek }}-underline" name="cert_style_{{ ek }}_underline" value="false">
+              </div>
+              <div class="cert-elem-pad-row" id="cert-pad-row-{{ ek }}" style="display:none">
+                {% for dir, dlbl in [('top','T'),('right','R'),('bottom','B'),('left','L')] %}
+                <div style="display:flex;align-items:center;gap:2px">
+                  <label style="font-size:.65rem;color:var(--color-muted,#94a3b8);min-width:10px">{{ dlbl }}</label>
+                  <input type="number" id="cert-style-{{ ek }}-pad-{{ dir }}" name="cert_style_{{ ek }}_pad_{{ dir }}" class="form-input" value="0" step="1" style="font-size:.75rem;padding:2px 4px;width:52px">
+                </div>
+                {% endfor %}
+              </div>
+              {% endfor %}
+            </div>
+            {% endfor %}
+          </div>
+
+        </div>
+      </details>
+
+      <!-- Live Certificate Preview -->
+      <div id="cert-preview-wrapper" style="margin:1.5rem 0">
+        <div style="margin-bottom:.5rem">
+          <span style="font-weight:600;font-size:.9rem">Live Preview</span>
+        </div>
+        <div style="width:100%;max-width:760px;aspect-ratio:841/595;background:#f1f5f9;border-radius:8px;overflow:hidden;position:relative">
+          <img id="cert-preview-image" style="width:100%;height:100%;object-fit:contain;display:block" alt="Certificate preview">
+          <div id="cert-preview-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.85rem">Loading preview&hellip;</div>
+        </div>
       </div>
 
       <div class="wizard-nav">
@@ -225,12 +410,8 @@
       </div>
     </div>
 
-    <!-- Step 6: Review & Save (edit mode) -->
+    <!-- Step 6: Review & Save -->
     <div class="wizard-panel" data-panel="6">
-    {% else %}
-    <!-- Step 5: Review & Save (create mode) -->
-    <div class="wizard-panel" data-panel="5">
-    {% endif %}
       <h3 class="wizard-panel-title">Review &amp; Save</h3>
       <table class="table" id="ev-review-table" style="margin-bottom:1.5rem">
         <tbody></tbody>
@@ -292,11 +473,34 @@
 {% endif %}
 
 <script>
+window._wizardSessions = [
+  {% for s in all_sessions %}
+  { id: {{ s.id }}, title: {{ s.title|tojson }}, speaker: {{ (s.speaker_name or '')|tojson }}, speakerId: {{ s.speaker_id|tojson }} },
+  {% endfor %}
+];
+window._wizardSpeakers = [
+  {% for sp in speakers %}
+  { id: {{ sp.id }}, name: {{ sp.name|tojson }}, title: {{ (sp.title or '')|tojson }} },
+  {% endfor %}
+];
+window._wizardCustomPrices = {{ (event.custom_prices or {})|tojson }};
+window._wizardAuditoriums = {};
+{% for a in auditoriums %}
+(window._wizardAuditoriums[{{ a.college_id or 0 }}] = window._wizardAuditoriums[{{ a.college_id or 0 }}] || []).push(
+  { id: {{ a.id }}, name: {{ a.name|tojson }}, location: {{ (a.location or '')|tojson }} }
+);
+{% endfor %}
+window._wizardAudSeatTypes = {{ aud_seat_types|tojson }};
+window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script>
 (function() {
   var steps = document.querySelectorAll('.wizard-step');
   var panels = document.querySelectorAll('.wizard-panel');
   var currentStep = 1;
-  var reviewStep = {{ 6 if event else 5 }};
+  var reviewStep = 6;
 
   function goToStep(n) {
     currentStep = n;
@@ -322,15 +526,143 @@
   function selectText(id) {
     var el = document.getElementById(id);
     if (!el) return '';
+    if (el.tomselect) {
+      var item = el.tomselect.getItem(el.tomselect.getValue());
+      return item ? item.textContent : '';
+    }
     var opt = el.options[el.selectedIndex];
     return opt ? opt.text : '';
   }
 
+  /* ── Dynamic pricing fields driven by auditorium seat types ── */
+  var pricingContainer = document.getElementById('pricing-fields');
+  var pricingHint = document.getElementById('pricing-hint');
+  var audSeatTypes = window._wizardAudSeatTypes || {};
+  var ctMap = window._wizardCustomTypesMap || {};
+  var savedCustomPrices = window._wizardCustomPrices || {};
+  var savedBuiltin = {
+    price: {{ (event.price|float if event and event.price is not none else 0)|tojson }},
+    price_vip: {{ (event.price_vip|float if event and event.price_vip is not none else '')|tojson }},
+    price_accessible: {{ (event.price_accessible|float if event and event.price_accessible is not none else '')|tojson }}
+  };
+
+  var BUILTIN_TYPES = {
+    standard:   { label: 'Standard',   field: 'price',             saved: savedBuiltin.price },
+    vip:        { label: 'VIP',         field: 'price_vip',         saved: savedBuiltin.price_vip },
+    accessible: { label: 'Accessible',  field: 'price_accessible',  saved: savedBuiltin.price_accessible }
+  };
+
+  function seatTypeLabel(key) {
+    if (BUILTIN_TYPES[key]) return BUILTIN_TYPES[key].label;
+    if (ctMap[key]) return ctMap[key].name;
+    return key;
+  }
+
+  function seatTypeColour(key) {
+    if (key === 'standard') return '#22c55e';
+    if (key === 'vip') return '#f59e0b';
+    if (key === 'accessible') return '#8b5cf6';
+    if (ctMap[key]) return ctMap[key].colour || '#6366f1';
+    return '#6366f1';
+  }
+
+  function rebuildPricingFields() {
+    var audEl = document.getElementById('ev-auditorium');
+    var audId = audEl ? (audEl.tomselect ? audEl.tomselect.getValue() : audEl.value) : '';
+
+    var curValues = {};
+    pricingContainer.querySelectorAll('input[data-seat-key]').forEach(function(inp) {
+      curValues[inp.dataset.seatKey] = inp.value;
+    });
+
+    var types = audId ? (audSeatTypes[audId] || []) : [];
+
+    if (!types.length) {
+      pricingContainer.innerHTML = '';
+      if (!audId) {
+        pricingHint.textContent = 'Select an auditorium in Step 1 to see its seat types here.';
+        pricingHint.style.display = '';
+      } else {
+        pricingHint.textContent = 'This auditorium has no seat layout yet. Set one up in the Auditoriums page.';
+        pricingHint.style.display = '';
+      }
+      return;
+    }
+    pricingHint.style.display = 'none';
+
+    var html = '';
+    var pairs = [];
+    types.forEach(function(key) {
+      if (key === 'aisle' || key === 'reserved') return;
+      var label = seatTypeLabel(key);
+      var colour = seatTypeColour(key);
+      var isBuiltin = !!BUILTIN_TYPES[key];
+      var fieldName = isBuiltin ? BUILTIN_TYPES[key].field : 'csp_price_' + key;
+      var idAttr = isBuiltin ? ('ev-price' + (key === 'standard' ? '' : '-' + key)) : ('ev-csp-' + key);
+
+      var savedVal = '';
+      if (curValues[key] !== undefined) {
+        savedVal = curValues[key];
+      } else if (isBuiltin) {
+        savedVal = BUILTIN_TYPES[key].saved;
+      } else if (savedCustomPrices[key] != null) {
+        savedVal = savedCustomPrices[key];
+      }
+
+      var hiddenTag = '';
+      if (!isBuiltin) {
+        hiddenTag = '<input type="hidden" name="csp_key" value="' + key + '">';
+      }
+
+      pairs.push(
+        '<div class="form-group">' +
+          '<label class="form-label" for="' + idAttr + '">' +
+            '<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:' + colour + ';margin-right:6px;vertical-align:middle"></span>' +
+            label + ' Price (₹)</label>' +
+          '<input type="number" name="' + fieldName + '" id="' + idAttr + '" class="form-input" ' +
+            'data-seat-key="' + key + '" step="0.01" min="0" value="' + (savedVal != null && savedVal !== '' ? savedVal : '') + '" placeholder="' + (key === 'standard' ? '0' : 'Optional') + '">' +
+          hiddenTag +
+        '</div>'
+      );
+    });
+
+    for (var r = 0; r < pairs.length; r += 2) {
+      html += '<div class="form-row">' + pairs[r] + (pairs[r + 1] || '') + '</div>';
+    }
+    pricingContainer.innerHTML = html;
+  }
+
+  var audSelect = document.getElementById('ev-auditorium');
+  if (audSelect) {
+    function onAudChange() { rebuildPricingFields(); }
+    if (audSelect.tomselect) {
+      audSelect.tomselect.on('change', onAudChange);
+    } else {
+      audSelect.addEventListener('change', onAudChange);
+      var _origTSInit = window.TechTrekInitSelects;
+      if (_origTSInit) {
+        window.TechTrekInitSelects = function(root) {
+          _origTSInit(root);
+          if (audSelect.tomselect) {
+            audSelect.tomselect.on('change', onAudChange);
+          }
+        };
+      }
+    }
+  }
+  rebuildPricingFields();
+
   function buildReview() {
-    var sessionCount = document.querySelectorAll('.inline-session-entry').length;
+    var newCount = 0;
+    document.querySelectorAll('.inline-session-entry.confirmed').forEach(function(entry) {
+      var hid = entry.querySelector('input[name^="sess_id_"]');
+      if (hid && hid.value) newCount++;
+    });
+    var sessionCount = newCount;
     {% if event and event_sessions %}
     sessionCount += {{ event_sessions|length }};
     {% endif %}
+
     var rows = [
       ['Event Name', val('ev-name') || '—'],
       ['Status', selectText('ev-status') || '—'],
@@ -338,49 +670,776 @@
       ['Venue', selectText('ev-auditorium') || '—'],
       ['Start Date', val('ev-start') || '—'],
       ['End Date', val('ev-end') || '—'],
-      ['Standard Price', val('ev-price') ? '₹' + val('ev-price') : '—'],
-      ['VIP Price', val('ev-price-vip') ? '₹' + val('ev-price-vip') : '—'],
-      ['Accessible Price', val('ev-price-accessible') ? '₹' + val('ev-price-accessible') : '—'],
-      ['Processing Fee', val('ev-fee') ? val('ev-fee') + '%' : '—'],
+    ];
+    pricingContainer.querySelectorAll('input[data-seat-key]').forEach(function(inp) {
+      var label = seatTypeLabel(inp.dataset.seatKey) + ' Price';
+      rows.push([label, inp.value ? '₹' + inp.value : '—']);
+    });
+    rows.push(['Processing Fee', val('ev-fee') ? val('ev-fee') + '%' : '—']);
+    rows = rows.concat([
       ['Sessions', sessionCount > 0 ? sessionCount + ' session(s)' : 'None yet'],
       ['Banner URL', val('ev-banner') || '—'],
       ['Description', (val('ev-desc') || '—').substring(0, 120) + (val('ev-desc').length > 120 ? '…' : '')],
-    ];
+    ]);
     var tbody = document.querySelector('#ev-review-table tbody');
     tbody.innerHTML = rows.map(function(r) {
       return '<tr><td style="width:38%;font-weight:600;color:var(--text-muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">' + r[0] + '</td><td>' + r[1] + '</td></tr>';
     }).join('');
   }
 
-  /* Inline session builder */
-  var sessionIdx = 0;
+  /* Build <option> strings from embedded data */
+  var sessOptions = '<option value="">-- Select session --</option>';
+  window._wizardSessions.forEach(function(s) {
+    var label = s.title + (s.speaker ? ' — ' + s.speaker : '');
+    sessOptions += '<option value="' + s.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
+  });
+
+  var speakerOptions = '<option value="">-- Select speaker --</option>';
+  window._wizardSpeakers.forEach(function(sp) {
+    var label = sp.name + (sp.title ? ' — ' + sp.title : '');
+    speakerOptions += '<option value="' + sp.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
+  });
+
+  function buildAuditoriumOptions() {
+    var collegeEl = document.getElementById('ev-college');
+    var cid = collegeEl ? (collegeEl.tomselect ? collegeEl.tomselect.getValue() : collegeEl.value) : '';
+    var auds = window._wizardAuditoriums[cid || 0] || [];
+    if (!auds.length && cid) auds = window._wizardAuditoriums[cid] || [];
+    var html = '<option value="">-- Select auditorium --</option>';
+    auds.forEach(function(a) {
+      var label = a.name + (a.location ? ' — ' + a.location : '');
+      html += '<option value="' + a.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
+    });
+    return html;
+  }
+
+  function refreshAllAuditoriumSelects() {
+    var html = buildAuditoriumOptions();
+    document.querySelectorAll('.sess-auditorium-select').forEach(function(sel) {
+      var current = sel.tomselect ? sel.tomselect.getValue() : sel.value;
+      if (sel.tomselect) sel.tomselect.destroy();
+      sel.innerHTML = html;
+      if (current) {
+        var exists = sel.querySelector('option[value="' + current + '"]');
+        if (exists) sel.value = current;
+      }
+      if (window.TechTrekInitSelects) window.TechTrekInitSelects(sel.parentElement);
+    });
+  }
+
+  var collegeEl = document.getElementById('ev-college');
+  if (collegeEl) {
+    var handler = function() { refreshAllAuditoriumSelects(); };
+    if (collegeEl.tomselect) {
+      collegeEl.tomselect.on('change', handler);
+    } else {
+      collegeEl.addEventListener('change', handler);
+      var origObserver = new MutationObserver(function() {
+        if (collegeEl.tomselect) { collegeEl.tomselect.on('change', handler); origObserver.disconnect(); }
+      });
+      origObserver.observe(collegeEl.parentElement, { childList: true, subtree: true });
+    }
+  }
+
+  /* ── Helpers to read TomSelect / native select text ── */
+  function tsVal(sel) { return sel.tomselect ? sel.tomselect.getValue() : sel.value; }
+  function tsText(sel) {
+    if (sel.tomselect) {
+      var it = sel.tomselect.getItem(sel.tomselect.getValue());
+      return it ? it.textContent : '';
+    }
+    var o = sel.options[sel.selectedIndex];
+    return o ? o.text : '';
+  }
+  function destroyTS(sel) { if (sel && sel.tomselect) sel.tomselect.destroy(); }
+
+  /* ── Look up a session's default speaker_id from embedded data ── */
+  var sessMap = {};
+  window._wizardSessions.forEach(function(s) { sessMap[String(s.id)] = s; });
+
+  /* ── Recompute hidden order fields from DOM order ── */
+  function recomputeOrder() {
+    container.querySelectorAll('.inline-session-entry').forEach(function(entry, idx) {
+      var h = entry.querySelector('input[name^="sess_order_"]');
+      if (h) h.value = idx;
+    });
+  }
+
+  /* ── Sortable on the confirmed-session list ── */
   var container = document.getElementById('inline-sessions-list');
+  var sortable = Sortable.create(container, {
+    handle: '.drag-handle',
+    animation: 150,
+    ghostClass: 'sortable-ghost',
+    onEnd: recomputeOrder
+  });
+
+  /* ── Combine separate date + time inputs into a datetime string ── */
+  function combineDatetime(div) {
+    var d = div.querySelector('.date-in');
+    var t = div.querySelector('.time-in');
+    if (!d || !t) return '';
+    if (d.value && t.value) return d.value + 'T' + t.value;
+    if (d.value) return d.value + 'T00:00';
+    return '';
+  }
+
+  /* ── Split a datetime string into {date, time} parts ── */
+  function splitDatetime(val) {
+    if (!val) return { date: '', time: '' };
+    var parts = val.split('T');
+    return { date: parts[0] || '', time: parts[1] || '' };
+  }
+
+  /* ── Custom 12hr / 24hr time picker ── */
+  var _12HR_HOURS = [12,1,2,3,4,5,6,7,8,9,10,11];
+
+  function buildTimeGroupHTML(timeVal) {
+    var h24 = -1, min = -1;
+    if (timeVal) {
+      var p = timeVal.split(':');
+      h24 = parseInt(p[0] || '0', 10);
+      min = parseInt(p[1] || '0', 10);
+    }
+    var h12 = h24 >= 0 ? (h24 % 12 || 12) : -1;
+    var ampm = h24 >= 12 ? 'PM' : 'AM';
+    var minRound = min >= 0 ? Math.round(min / 5) * 5 : -1;
+    if (minRound >= 60) minRound = 55;
+
+    var hourOpts = '<option value="">--</option>';
+    _12HR_HOURS.forEach(function(hv) {
+      hourOpts += '<option value="' + hv + '"' + (h12 === hv ? ' selected' : '') + '>' + hv + '</option>';
+    });
+
+    var minOpts = '<option value="">--</option>';
+    for (var mi = 0; mi < 60; mi += 5) {
+      var ms = mi < 10 ? '0' + mi : '' + mi;
+      minOpts += '<option value="' + ms + '"' + (minRound === mi ? ' selected' : '') + '>' + ms + '</option>';
+    }
+
+    return '<div class="time-group" style="display:flex;align-items:center;gap:.35rem;flex-wrap:nowrap">' +
+      '<select class="form-input hour-sel" data-no-tomselect style="width:auto;min-width:52px;padding:6px 8px">' + hourOpts + '</select>' +
+      '<span style="font-weight:600;color:var(--text-muted)">:</span>' +
+      '<select class="form-input min-sel" data-no-tomselect style="width:auto;min-width:58px;padding:6px 8px">' + minOpts + '</select>' +
+      '<select class="form-input ampm-sel" data-no-tomselect style="width:auto;min-width:58px;padding:6px 8px">' +
+        '<option value="AM"' + (ampm === 'AM' ? ' selected' : '') + '>AM</option>' +
+        '<option value="PM"' + (ampm === 'PM' ? ' selected' : '') + '>PM</option>' +
+      '</select>' +
+      '<button type="button" class="time-mode-btn" style="font-size:.72rem;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;cursor:pointer;white-space:nowrap">24hr</button>' +
+      '<input type="hidden" class="time-in" value="' + (timeVal || '') + '">' +
+    '</div>';
+  }
+
+  function initTimeGroup(grp) {
+    var hourSel = grp.querySelector('.hour-sel');
+    var minSel  = grp.querySelector('.min-sel');
+    var ampmSel = grp.querySelector('.ampm-sel');
+    var modeBtn = grp.querySelector('.time-mode-btn');
+    var hidden  = grp.querySelector('.time-in');
+    var is24 = false;
+
+    function syncHidden() {
+      var hv = hourSel.value, mv = minSel.value;
+      if (!hv || mv === '') { hidden.value = ''; return; }
+      var h = parseInt(hv, 10);
+      if (!is24) {
+        var pm = ampmSel.value === 'PM';
+        if (h === 12) h = pm ? 12 : 0;
+        else if (pm) h += 12;
+      }
+      hidden.value = (h < 10 ? '0' + h : '' + h) + ':' + mv;
+    }
+
+    hourSel.addEventListener('change', syncHidden);
+    minSel.addEventListener('change', syncHidden);
+    ampmSel.addEventListener('change', syncHidden);
+
+    modeBtn.addEventListener('click', function() {
+      var cur = hidden.value, curH = -1;
+      if (cur) curH = parseInt(cur.split(':')[0], 10);
+
+      is24 = !is24;
+      modeBtn.textContent = is24 ? '12hr' : '24hr';
+
+      if (is24) {
+        ampmSel.style.display = 'none';
+        var opts = '<option value="">--</option>';
+        for (var hi = 0; hi < 24; hi++) {
+          var hs = hi < 10 ? '0' + hi : '' + hi;
+          opts += '<option value="' + hs + '"' + (curH === hi ? ' selected' : '') + '>' + hs + '</option>';
+        }
+        hourSel.innerHTML = opts;
+      } else {
+        ampmSel.style.display = '';
+        var h12 = curH >= 0 ? (curH % 12 || 12) : -1;
+        ampmSel.value = curH >= 12 ? 'PM' : 'AM';
+        var opts = '<option value="">--</option>';
+        _12HR_HOURS.forEach(function(hv) {
+          opts += '<option value="' + hv + '"' + (h12 === hv ? ' selected' : '') + '>' + hv + '</option>';
+        });
+        hourSel.innerHTML = opts;
+      }
+    });
+  }
+
+  /* ── Collapse an entry into a compact pill ── */
+  function collapseEntry(div, i) {
+    var sessSel  = div.querySelector('select[name="sess_id_' + i + '"]');
+    var spkSel   = div.querySelector('select[name="sess_speaker_id_' + i + '"]');
+    var audSel   = div.querySelector('.sess-auditorium-select');
+
+    var sessVal    = tsVal(sessSel);
+    var sessLabel  = tsText(sessSel) || '(no session)';
+    var spkVal     = tsVal(spkSel);
+    var spkLabel   = tsText(spkSel);
+    var audLabel   = audSel ? tsText(audSel) : '';
+    var timeVal    = combineDatetime(div);
+    var timeFmt    = '';
+    if (timeVal) {
+      try { timeFmt = new Date(timeVal).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); } catch(e) { timeFmt = timeVal; }
+    }
+
+    var meta = [spkLabel, audLabel, timeFmt].filter(Boolean).join(' \u00B7 ');
+
+    destroyTS(sessSel);
+    destroyTS(spkSel);
+    if (audSel) destroyTS(audSel);
+
+    div.className = 'inline-session-entry confirmed';
+    div.innerHTML =
+      '<div class="sess-pill" style="display:flex;align-items:center;gap:.75rem;padding:.6rem 1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-surface);margin-bottom:.5rem">' +
+        '<span class="drag-handle" style="cursor:grab;color:var(--text-muted);flex:0 0 auto;font-size:1.1rem;line-height:1;user-select:none">\u2807</span>' +
+        '<span style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sessLabel.replace(/</g,'&lt;') + '</span>' +
+        (meta ? '<span style="font-size:.82rem;color:var(--text-muted);white-space:nowrap">' + meta.replace(/</g,'&lt;') + '</span>' : '') +
+        '<button type="button" class="btn btn-sm btn-outline sess-edit-btn" style="padding:2px 8px;font-size:.75rem">Edit</button>' +
+        '<button type="button" class="btn btn-sm btn-danger sess-remove-btn" style="padding:2px 8px;font-size:.75rem">&times;</button>' +
+      '</div>' +
+      '<input type="hidden" name="sess_idx" value="' + i + '">' +
+      '<input type="hidden" name="sess_id_' + i + '" value="' + sessVal + '">' +
+      '<input type="hidden" name="sess_speaker_id_' + i + '" value="' + spkVal + '">' +
+      '<input type="hidden" name="sess_start_' + i + '" value="' + timeVal + '">' +
+      '<input type="hidden" name="sess_order_' + i + '" value="0">' +
+      '<div class="sess-edit-form" style="display:none"></div>';
+
+    div.querySelector('.sess-remove-btn').addEventListener('click', function() {
+      div.remove();
+      recomputeOrder();
+    });
+
+    div.querySelector('.sess-edit-btn').addEventListener('click', function() {
+      expandEntry(div, i, sessVal, spkVal, timeVal);
+    });
+
+    recomputeOrder();
+  }
+
+  /* ── Expand an entry back into picker form ── */
+  function expandEntry(div, i, sessVal, spkVal, timeVal) {
+    var dt = splitDatetime(timeVal);
+    div.className = 'inline-session-entry editing';
+    div.innerHTML =
+      '<div style="margin-bottom:1rem;padding:1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-card);position:relative">' +
+        '<div class="form-group"><label class="form-label">Session</label>' +
+          '<select name="sess_id_' + i + '" class="form-input sess-sel">' + sessOptions + '</select></div>' +
+        '<div class="form-row">' +
+          '<div class="form-group" style="flex:2"><label class="form-label">Speaker</label>' +
+            '<select name="sess_speaker_id_' + i + '" class="form-input spk-sel">' + speakerOptions + '</select></div>' +
+          '<div class="form-group" style="flex:2"><label class="form-label">Auditorium</label>' +
+            '<select class="form-input sess-auditorium-select aud-sel" data-no-submit>' + buildAuditoriumOptions() + '</select></div>' +
+        '</div>' +
+        '<div class="form-row">' +
+          '<div class="form-group"><label class="form-label">Date</label>' +
+            '<input type="date" class="form-input date-in" value="' + dt.date + '"></div>' +
+          '<div class="form-group"><label class="form-label">Time</label>' +
+            buildTimeGroupHTML(dt.time) + '</div>' +
+        '</div>' +
+        '<div style="display:flex;gap:.5rem;margin-top:.75rem">' +
+          '<button type="button" class="btn btn-primary btn-sm sess-confirm-btn">Confirm</button>' +
+          '<button type="button" class="btn btn-outline btn-sm sess-cancel-btn">Cancel</button>' +
+        '</div>' +
+      '</div>' +
+      '<input type="hidden" name="sess_idx" value="' + i + '">' +
+      '<input type="hidden" name="sess_order_' + i + '" value="0">';
+
+    if (sessVal) div.querySelector('.sess-sel').value = sessVal;
+    if (spkVal)  div.querySelector('.spk-sel').value = spkVal;
+
+    if (window.TechTrekInitSelects) window.TechTrekInitSelects(div);
+
+    var tg = div.querySelector('.time-group');
+    if (tg) initTimeGroup(tg);
+
+    /* Auto-select the session's default speaker when session changes */
+    var sessSel = div.querySelector('.sess-sel');
+    var spkSel  = div.querySelector('.spk-sel');
+    function onSessionChange() {
+      var sid = sessSel.tomselect ? sessSel.tomselect.getValue() : sessSel.value;
+      var info = sessMap[sid];
+      if (info && info.speakerId) {
+        var spkId = String(info.speakerId);
+        if (spkSel.tomselect) {
+          spkSel.tomselect.setValue(spkId, true);
+        } else {
+          spkSel.value = spkId;
+        }
+      }
+    }
+    if (sessSel.tomselect) {
+      sessSel.tomselect.on('change', onSessionChange);
+    } else {
+      sessSel.addEventListener('change', onSessionChange);
+    }
+
+    div.querySelector('.sess-confirm-btn').addEventListener('click', function() {
+      var v = sessSel.tomselect ? sessSel.tomselect.getValue() : sessSel.value;
+      if (!v) {
+        sessSel.closest('.form-group').style.outline = '2px solid var(--danger, #f43f5e)';
+        setTimeout(function() { sessSel.closest('.form-group').style.outline = ''; }, 1500);
+        return;
+      }
+      collapseEntry(div, i);
+    });
+
+    div.querySelector('.sess-cancel-btn').addEventListener('click', function() {
+      var currentVal = sessSel.tomselect ? sessSel.tomselect.getValue() : sessSel.value;
+      if (currentVal || sessVal) {
+        collapseEntry(div, i);
+      } else {
+        div.remove();
+        recomputeOrder();
+      }
+    });
+  }
+
+  /* ── "+ Add Session" creates a fresh expanded entry ── */
+  var sessionIdx = 0;
   document.getElementById('add-inline-session').addEventListener('click', function() {
     var i = sessionIdx++;
     var div = document.createElement('div');
-    div.className = 'inline-session-entry form-card';
-    div.style.cssText = 'margin-bottom:1rem;padding:1rem;position:relative;border:1px solid var(--border);border-radius:var(--radius)';
-    div.innerHTML =
-      '<button type="button" class="btn btn-sm btn-danger" style="position:absolute;top:.5rem;right:.5rem" onclick="this.parentElement.remove()">&times;</button>' +
-      '<div class="form-row">' +
-        '<div class="form-group" style="flex:2"><label class="form-label">Title</label>' +
-          '<input type="text" name="sess_title_' + i + '" class="form-input" required placeholder="e.g. Intro to AI"></div>' +
-        '<div class="form-group" style="flex:1"><label class="form-label">Speaker</label>' +
-          '<input type="text" name="sess_speaker_' + i + '" class="form-input" placeholder="Speaker name"></div>' +
-      '</div>' +
-      '<div class="form-row">' +
-        '<div class="form-group"><label class="form-label">Start Time</label>' +
-          '<input type="datetime-local" name="sess_start_' + i + '" class="form-input"></div>' +
-        '<div class="form-group"><label class="form-label">Duration (min)</label>' +
-          '<input type="number" name="sess_duration_' + i + '" class="form-input" value="30" min="5"></div>' +
-        '<div class="form-group"><label class="form-label">Order</label>' +
-          '<input type="number" name="sess_order_' + i + '" class="form-input" value="' + i + '" min="0"></div>' +
-      '</div>' +
-      '<div class="form-group"><label class="form-label">Description</label>' +
-        '<textarea name="sess_desc_' + i + '" class="form-input" rows="2" placeholder="Brief description (optional)"></textarea></div>' +
-      '<input type="hidden" name="sess_idx" value="' + i + '">';
+    div.className = 'inline-session-entry editing';
     container.appendChild(div);
+    expandEntry(div, i, '', '', '');
   });
 })();
+</script>
+
+<style>
+.bsp-opt {
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 8px;
+  border: 2px solid var(--color-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: .7rem;
+  color: var(--color-muted, #94a3b8);
+  transition: border-color .12s, color .12s, background .12s;
+  user-select: none;
+}
+.bsp-opt:hover {
+  border-color: var(--color-primary, #0ea5e9);
+  color: var(--color-fg, #1e293b);
+}
+.bsp-opt.active {
+  border-color: var(--color-primary, #0ea5e9);
+  background: color-mix(in srgb, var(--color-primary, #0ea5e9) 10%, transparent);
+  color: var(--color-primary, #0ea5e9);
+}
+.cert-color-reset {
+  background: none;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  color: var(--color-muted, #94a3b8);
+  padding: 2px 5px;
+  line-height: 1;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.cert-color-reset:hover {
+  color: var(--color-primary, #0ea5e9);
+  border-color: var(--color-primary, #0ea5e9);
+  background: color-mix(in srgb, var(--color-primary, #0ea5e9) 8%, transparent);
+}
+.cert-elem-two-col {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0 1.5rem;
+}
+@media (min-width: 860px) {
+  .cert-elem-two-col {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+.cert-elem-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px 40px 28px 28px 28px 28px;
+  gap: 6px;
+  align-items: center;
+  font-size: .7rem;
+  color: var(--color-muted, #94a3b8);
+  margin-bottom: 4px;
+  padding: 0 2px;
+}
+.cert-elem-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px 40px 28px 28px 28px 28px;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 2px;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+.cert-elem-pad-row {
+  display: none;
+  grid-template-columns: repeat(4, auto);
+  gap: 6px;
+  padding: 4px 2px 6px 80px;
+  background: color-mix(in srgb, var(--color-border, #e2e8f0) 30%, transparent);
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+</style>
+
+<script>
+// ─── Border style visual picker ───
+function _syncBorderPicker() {
+  var val = (document.getElementById('cert-style-border') || {}).value || 'classic';
+  document.querySelectorAll('.bsp-opt').forEach(function(opt) {
+    opt.classList.toggle('active', opt.dataset.val === val);
+  });
+}
+document.querySelectorAll('.bsp-opt').forEach(function(opt) {
+  opt.addEventListener('click', function() {
+    var hid = document.getElementById('cert-style-border');
+    if (hid) {
+      hid.value = opt.dataset.val;
+      _syncBorderPicker();
+      if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
+    }
+  });
+});
+
+// ─── Advanced Styling: init from cert_style JSON + toggle buttons ───
+(function () {
+  var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
+  var DEFAULTS = {
+    brand:     {font:'arial',size:30,color:'#0e7490',bold:true, italic:false,underline:false},
+    title:     {font:'arial',size:28,color:'#0a1628',bold:true, italic:false,underline:false},
+    subtitle:  {font:'arial',size:12,color:'#475569',bold:false,italic:false,underline:false},
+    name:      {font:'arial',size:50,color:'#0a1628',bold:true, italic:false,underline:false},
+    attending: {font:'arial',size:15,color:'#475569',bold:false,italic:true, underline:false},
+    session:   {font:'arial',size:22,color:'#0e7490',bold:true, italic:false,underline:false},
+    details:   {font:'arial',size:16,color:'#334155',bold:false,italic:false,underline:false},
+    venue:     {font:'arial',size:16,color:'#334155',bold:false,italic:false,underline:false},
+    signer:    {font:'arial',size:11,color:'#0a1628',bold:true, italic:false,underline:false},
+    footer:    {font:'arial',size:8, color:'#94a3b8',bold:false,italic:false,underline:false}
+  };
+
+  var raw = {{ ((event.cert_style if event else '') or '{}')|tojson }};
+  var sty = {};
+  try { sty = JSON.parse(raw); } catch(e) {}
+  var elems = sty.elements || {};
+
+  function setVal(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.value = val;
+  }
+
+  setVal('cert-style-border', sty.border_style || 'classic');
+  _syncBorderPicker();
+  setVal('cert-style-border-width', sty.border_width != null ? sty.border_width : 1);
+  var _BORDER_SCHEME_COLORS = {
+    '':        {border:'#0e7490', gold:'#d4a853', accent:'#00d4ff'},
+    teal:      {border:'#0e7490', gold:'#d4a853', accent:'#00d4ff'},
+    navy:      {border:'#1e3a5f', gold:'#c5a55a', accent:'#4a90d9'},
+    emerald:   {border:'#065f46', gold:'#d4a853', accent:'#34d399'},
+    royal:     {border:'#4c1d95', gold:'#d4a853', accent:'#a78bfa'},
+    crimson:   {border:'#991b1b', gold:'#d4a853', accent:'#f87171'}
+  };
+
+  function _getSchemeDefaults() {
+    var sel = document.getElementById('cert-color');
+    var scheme = sel ? sel.value : '';
+    return _BORDER_SCHEME_COLORS[scheme] || _BORDER_SCHEME_COLORS[''];
+  }
+
+  function _markColorCustom(inputEl, isCustom) {
+    inputEl.dataset.custom = isCustom ? 'true' : 'false';
+  }
+
+  var _borderColorMap = {
+    'cert-style-border-primary':   'border',
+    'cert-style-border-secondary': 'gold',
+    'cert-style-border-tertiary':  'accent'
+  };
+
+  ['cert-style-border-primary','cert-style-border-secondary','cert-style-border-tertiary'].forEach(function(id) {
+    var key = _borderColorMap[id];
+    var saved = sty['border_color_' + {border:'primary',gold:'secondary',accent:'tertiary'}[key]] || '';
+    var defs = _getSchemeDefaults();
+    var inp = document.getElementById(id);
+    if (inp) {
+      inp.value = saved || defs[key];
+      _markColorCustom(inp, !!saved);
+      inp.addEventListener('input', function() { _markColorCustom(inp, true); });
+    }
+  });
+
+  document.querySelectorAll('.cert-color-reset').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var inp = document.getElementById(btn.dataset.target);
+      if (!inp) return;
+      var defs = _getSchemeDefaults();
+      inp.value = defs[btn.dataset.key];
+      _markColorCustom(inp, false);
+      if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
+    });
+  });
+
+  var schemeSelect = document.getElementById('cert-color');
+  if (schemeSelect) {
+    schemeSelect.addEventListener('change', function() {
+      var defs = _getSchemeDefaults();
+      for (var id in _borderColorMap) {
+        var inp = document.getElementById(id);
+        if (inp && inp.dataset.custom !== 'true') {
+          inp.value = defs[_borderColorMap[id]];
+        }
+      }
+    });
+  }
+
+  setVal('cert-style-bg-size', sty.bg_size || 'cover');
+  setVal('cert-style-bg-offset-x', (sty.bg_offset_x || 0));
+  setVal('cert-style-bg-offset-y', (sty.bg_offset_y || 0));
+
+  ELEMENTS.forEach(function(ek) {
+    var es = elems[ek] || DEFAULTS[ek] || {};
+    var d = DEFAULTS[ek] || {};
+    setVal('cert-style-' + ek + '-font', es.font || d.font);
+    setVal('cert-style-' + ek + '-size', es.size != null ? es.size : d.size);
+    setVal('cert-style-' + ek + '-color', es.color || d.color);
+    ['bold','italic','underline'].forEach(function(prop) {
+      var active = es[prop] != null ? es[prop] : d[prop];
+      var hid = document.getElementById('cert-style-' + ek + '-' + prop);
+      if (hid) hid.value = active ? 'true' : 'false';
+      var btn = document.querySelector('.cert-style-toggle[data-target="cert-style-' + ek + '-' + prop + '"]');
+      if (btn && active) {
+        btn.style.background = 'var(--color-primary,#0ea5e9)';
+      }
+    });
+    var ep = es.padding || {};
+    ['top','right','bottom','left'].forEach(function(dir) {
+      setVal('cert-style-' + ek + '-pad-' + dir, ep[dir] || 0);
+    });
+  });
+
+  document.querySelectorAll('.cert-style-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var hid = document.getElementById(btn.dataset.target);
+      if (!hid) return;
+      var active = hid.value === 'true';
+      hid.value = active ? 'false' : 'true';
+      btn.style.background = active ? 'transparent' : 'var(--color-primary,#0ea5e9)';
+      if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
+    });
+  });
+
+  document.querySelectorAll('.cert-pad-toggle').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var ek = btn.dataset.elem;
+      var row = document.getElementById('cert-pad-row-' + ek);
+      if (!row) return;
+      var open = row.style.display !== 'none';
+      row.style.display = open ? 'none' : 'grid';
+      btn.style.background = open ? 'transparent' : 'var(--color-primary,#0ea5e9)';
+      btn.style.color = open ? '' : '#fff';
+    });
+  });
+})();
+
+// ─── Certificate live preview (server-rendered PNG) ───
+var _certPreviewSchedule = null;
+(function () {
+  var img = document.getElementById('cert-preview-image');
+  var loader = document.getElementById('cert-preview-loading');
+  if (!img) return;
+
+  var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
+
+  var fields = [
+    'cert-title', 'cert-color', 'cert-subtitle',
+    'cert-signer-name', 'cert-signer-desg', 'cert-signature-url', 'cert-footer',
+    'cert-logo-url', 'cert-bg-url',
+    'ev-name', 'ev-auditorium',
+    'cert-style-border', 'cert-style-border-width',
+    'cert-style-border-primary', 'cert-style-border-secondary', 'cert-style-border-tertiary',
+    'cert-style-bg-size', 'cert-style-bg-offset-x', 'cert-style-bg-offset-y',
+  ];
+  ELEMENTS.forEach(function(ek) {
+    ['font','size','color','bold','italic','underline'].forEach(function(prop) {
+      fields.push('cert-style-' + ek + '-' + prop);
+    });
+    ['top','right','bottom','left'].forEach(function(dir) {
+      fields.push('cert-style-' + ek + '-pad-' + dir);
+    });
+  });
+
+  var timer = null;
+  var ctrl = null;
+  var prevUrl = null;
+
+  var map = {
+    'cert-title': 'cert_title',
+    'cert-color': 'cert_color_scheme',
+    'cert-subtitle': 'cert_subtitle',
+    'cert-signer-name': 'cert_signer_name',
+    'cert-signer-desg': 'cert_signer_designation',
+    'cert-signature-url': 'cert_signature_url',
+    'cert-footer': 'cert_footer',
+    'cert-logo-url': 'cert_logo_url',
+    'cert-bg-url': 'cert_bg_url',
+    'ev-name': 'name',
+    'ev-auditorium': 'auditorium_id',
+  };
+
+  function refresh() {
+    if (ctrl) ctrl.abort();
+    ctrl = new AbortController();
+    if (loader) loader.style.display = 'flex';
+
+    var fd = new FormData();
+    for (var htmlId in map) {
+      var el = document.getElementById(htmlId);
+      if (el) fd.append(map[htmlId], el.value || '');
+    }
+
+    var styleJson = _buildCertStyleJson();
+    fd.append('cert_style', styleJson);
+
+    var csrfEl = document.querySelector('input[name="csrf_token"]');
+    if (csrfEl) fd.append('csrf_token', csrfEl.value);
+
+    fetch('/admin/events/certificate/preview-image', {
+      method: 'POST',
+      body: fd,
+      signal: ctrl.signal,
+    })
+    .then(function(r) { return r.blob(); })
+    .then(function(blob) {
+      if (prevUrl) URL.revokeObjectURL(prevUrl);
+      prevUrl = URL.createObjectURL(blob);
+      img.src = prevUrl;
+      if (loader) loader.style.display = 'none';
+    })
+    .catch(function(e) {
+      if (e.name !== 'AbortError') console.error('Preview error:', e);
+    });
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(refresh, 500);
+  }
+  _certPreviewSchedule = schedule;
+
+  fields.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('input', schedule);
+    el.addEventListener('change', schedule);
+  });
+
+  refresh();
+})();
+
+function _isColorCustom(id) {
+  var el = document.getElementById(id);
+  return el && el.dataset.custom === 'true';
+}
+
+// ─── Build cert_style JSON from form fields ───
+function _buildCertStyleJson() {
+  var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
+  function gv(id, fallback) { var el = document.getElementById(id); return el ? el.value : (fallback || ''); }
+  var obj = {
+    border_style: gv('cert-style-border', 'classic'),
+    border_width: parseFloat(gv('cert-style-border-width', '1')) || 1,
+    border_color_primary: _isColorCustom('cert-style-border-primary') ? gv('cert-style-border-primary', '') : '',
+    border_color_secondary: _isColorCustom('cert-style-border-secondary') ? gv('cert-style-border-secondary', '') : '',
+    border_color_tertiary: _isColorCustom('cert-style-border-tertiary') ? gv('cert-style-border-tertiary', '') : '',
+    bg_size: gv('cert-style-bg-size', 'cover'),
+    bg_offset_x: parseFloat(gv('cert-style-bg-offset-x', '0')) || 0,
+    bg_offset_y: parseFloat(gv('cert-style-bg-offset-y', '0')) || 0,
+    elements: {}
+  };
+  ELEMENTS.forEach(function(ek) {
+    obj.elements[ek] = {
+      font: gv('cert-style-' + ek + '-font', 'arial'),
+      size: parseInt(gv('cert-style-' + ek + '-size', '12')) || 12,
+      color: gv('cert-style-' + ek + '-color', '#000000'),
+      bold: gv('cert-style-' + ek + '-bold') === 'true',
+      italic: gv('cert-style-' + ek + '-italic') === 'true',
+      underline: gv('cert-style-' + ek + '-underline') === 'true',
+      padding: {
+        top: parseFloat(gv('cert-style-' + ek + '-pad-top', '0')) || 0,
+        right: parseFloat(gv('cert-style-' + ek + '-pad-right', '0')) || 0,
+        bottom: parseFloat(gv('cert-style-' + ek + '-pad-bottom', '0')) || 0,
+        left: parseFloat(gv('cert-style-' + ek + '-pad-left', '0')) || 0,
+      },
+    };
+  });
+  return JSON.stringify(obj);
+}
+
+// ─── Save Certificate Template button ───
+(function () {
+  var btn = document.getElementById('cert-save-btn');
+  if (!btn) return;
+  btn.addEventListener('click', function () {
+    var form = document.getElementById('event-form');
+    if (!form) return;
+
+    var existing = form.querySelector('input[name="cert_style"]');
+    if (!existing) {
+      existing = document.createElement('input');
+      existing.type = 'hidden';
+      existing.name = 'cert_style';
+      form.appendChild(existing);
+    }
+    existing.value = _buildCertStyleJson();
+
+    var origAction = form.action;
+    var evId = origAction.match(/events\/(\d+)\/edit/);
+    if (!evId) return;
+    form.action = '/admin/events/' + evId[1] + '/certificate/save';
+    form.submit();
+    form.action = origAction;
+  });
+})();
+
+// ─── Populate cert_style hidden field on form submit ───
+(function () {
+  var form = document.getElementById('event-form');
+  if (!form) return;
+  form.addEventListener('submit', function() {
+    var hid = document.getElementById('cert-style-hidden');
+    if (hid && typeof _buildCertStyleJson === 'function') {
+      hid.value = _buildCertStyleJson();
+    }
+  });
+})();
+</script>
+<script src="/static/js/image-upload.js"></script>
+<script src="/static/js/gallery-upload.js"></script>
+<script>
+initImageUpload('ev-banner', '/admin/upload-image');
+initImageUpload('cert-signature-url', '/admin/upload-image');
+initImageUpload('cert-logo-url', '/admin/upload-image');
+initImageUpload('cert-bg-url', '/admin/upload-image');
+initGalleryUpload('ev-gallery', '/admin/upload-image', [
+  {% if gallery_images %}{% for gi in gallery_images %}{id:{{ gi.image_id }},url:'/uploads/{{ gi.image_id }}'}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}
+]);
 </script>
 {% endblock %}

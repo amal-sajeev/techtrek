@@ -454,9 +454,32 @@ def _is_private_ip(host: str) -> bool:
     return False
 
 
+def _load_uploaded_image(image_id: int):
+    """Load an UploadedImage from the database by id."""
+    try:
+        from app.database import SessionLocal
+        from app.models.uploaded_image import UploadedImage
+        db = SessionLocal()
+        try:
+            img = db.query(UploadedImage).filter(UploadedImage.id == image_id).first()
+            if img and img.data:
+                return ImageReader(io.BytesIO(img.data))
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return None
+
+
 def _try_load_image(url: str):
     if not url:
         return None
+
+    import re as _re
+    m = _re.match(r'^/uploads/(\d+)$', url)
+    if m:
+        return _load_uploaded_image(int(m.group(1)))
+
     try:
         parsed = urllib.parse.urlparse(url)
         if parsed.scheme != "https":
@@ -526,6 +549,9 @@ def _parse_cert_style(lecture) -> dict:
     merged = {
         "border_style": style.get("border_style", DEFAULT_STYLE["border_style"]),
         "border_width": float(style.get("border_width", DEFAULT_STYLE["border_width"])),
+        "border_color_primary": style.get("border_color_primary") or "",
+        "border_color_secondary": style.get("border_color_secondary") or "",
+        "border_color_tertiary": style.get("border_color_tertiary") or "",
         "bg_size": style.get("bg_size", DEFAULT_STYLE["bg_size"]),
         "bg_offset_x": float(style.get("bg_offset_x", 0)),
         "bg_offset_y": float(style.get("bg_offset_y", 0)),
@@ -554,6 +580,23 @@ def generate_certificate_pdf(booking, user, cert_source, event, auditorium) -> b
 
     clr = _get_colors(color_scheme)
     sty = _parse_cert_style(cert_source)
+
+    if sty.get("border_color_primary"):
+        try:
+            clr["border"] = colors.HexColor(sty["border_color_primary"])
+        except Exception:
+            pass
+    if sty.get("border_color_secondary"):
+        try:
+            clr["gold"] = colors.HexColor(sty["border_color_secondary"])
+        except Exception:
+            pass
+    if sty.get("border_color_tertiary"):
+        try:
+            clr["accent"] = colors.HexColor(sty["border_color_tertiary"])
+        except Exception:
+            pass
+
     elems = sty["elements"]
 
     attendee_name = user.full_name or user.username

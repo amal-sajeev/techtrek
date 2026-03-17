@@ -5,7 +5,7 @@ from datetime import datetime, date, time, timedelta
 from urllib.parse import urlparse, parse_qs
 
 from fastapi import APIRouter, Depends, Query, Request
-from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
+from fastapi.responses import RedirectResponse, Response, StreamingResponse, JSONResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session as DbSession
 
@@ -24,9 +24,23 @@ from app.models.session_recording import SessionRecording
 from app.models.seat_type import SeatType
 from app.models.event import Event
 from app.models.feedback import Feedback
+from app.models.gallery_image import GalleryImage
+from app.models.uploaded_image import UploadedImage
 from app.models.user import User
 
 router = APIRouter(tags=["public"], dependencies=[Depends(csrf_protection)])
+
+
+@router.get("/uploads/{image_id}")
+def serve_uploaded_image(image_id: int, db: DbSession = Depends(get_db)):
+    img = db.query(UploadedImage).filter(UploadedImage.id == image_id).first()
+    if not img:
+        return Response(status_code=404)
+    return Response(
+        content=img.data,
+        media_type=img.content_type,
+        headers={"Cache-Control": "public, max-age=31536000, immutable"},
+    )
 
 
 def _build_embed_url(recording_url: str | None) -> str | None:
@@ -209,6 +223,27 @@ def home(request: Request, db: DbSession = Depends(get_db)):
             "speaker_obj": speaker,
         })
 
+    cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
+
+    ev_ids = [ev.id for ev in upcoming_events]
+    sess_ids = [s.id for s in featured_sessions]
+    first_gallery: dict[str, str] = {}
+    if ev_ids or sess_ids:
+        from sqlalchemy import case
+        rows = (
+            db.query(GalleryImage)
+            .filter(
+                ((GalleryImage.owner_type == "event") & GalleryImage.owner_id.in_(ev_ids)) |
+                ((GalleryImage.owner_type == "session") & GalleryImage.owner_id.in_(sess_ids))
+            )
+            .order_by(GalleryImage.position)
+            .all()
+        )
+        for r in rows:
+            key = f"{r.owner_type}:{r.owner_id}"
+            if key not in first_gallery:
+                first_gallery[key] = f"/uploads/{r.image_id}"
+
     return templates.TemplateResponse(
         "public/home.html",
         template_ctx(
@@ -221,6 +256,8 @@ def home(request: Request, db: DbSession = Depends(get_db)):
             total_attendees=total_attendees,
             total_speakers=total_speakers,
             total_events=total_events,
+            cities=cities,
+            first_gallery=first_gallery,
         ),
     )
 
@@ -327,6 +364,11 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
     )
     enriched_recordings = [{"rec": r, "embed_url": _build_embed_url(r.url)} for r in public_recordings]
 
+    session_gallery = db.query(GalleryImage).filter(
+        GalleryImage.owner_type == "session", GalleryImage.owner_id == session_id
+    ).order_by(GalleryImage.position).all()
+    gallery_urls = [f"/uploads/{gi.image_id}" for gi in session_gallery]
+
     return templates.TemplateResponse(
         "public/session_detail.html",
         template_ctx(
@@ -341,6 +383,7 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
             event_status=event_status,
             sibling_sessions=sibling_sessions,
             total_sessions=(len(sibling_sessions) + 1) if event else 1,
+            gallery_urls=gallery_urls,
         ),
     )
 
@@ -453,6 +496,11 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
             is not None
         )
 
+    event_gallery = db.query(GalleryImage).filter(
+        GalleryImage.owner_type == "event", GalleryImage.owner_id == event_id
+    ).order_by(GalleryImage.position).all()
+    gallery_urls = [f"/uploads/{gi.image_id}" for gi in event_gallery]
+
     return templates.TemplateResponse(
         "public/event_detail.html",
         template_ctx(
@@ -464,6 +512,7 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
             availability=availability,
             event_status=_public_event_status(ev, stats),
             on_waitlist=on_waitlist,
+            gallery_urls=gallery_urls,
         ),
     )
 

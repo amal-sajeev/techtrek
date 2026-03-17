@@ -13,10 +13,10 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=135">
   <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v=135">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/light-mode.css') }}?v=6">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/light-mode.css') }}?v=8">
   <script>
     (function(){
       var t = localStorage.getItem('techtrek-theme');
@@ -37,7 +37,10 @@
 <nav class="navbar" id="navbar">
   <div class="container navbar-inner">
     <a href="/" class="navbar-brand">
-      <span class="brand-lightning">&#9889;</span> TECHTREK
+      <span class="brand-lightning">&#9889;</span><span class="lm-nb-hidden"> TECHTREK</span>
+      <span class="lm-nb-left">India's<br>Campus<br>Summit</span>
+      <span class="lm-nb-rule"></span>
+      <span class="lm-nb-logo">TechTrek</span>
     </a>
 
     <div class="navbar-links" id="navbar-links">

@@ -29,6 +29,9 @@ from app.services.booking import (
     hold_seats,
     validate_coupon,
 )
+from app.models.feedback import Feedback
+from app.models.session import Session as SessionModel
+from app.models.session_feedback import SessionFeedback
 from app.services.invoice import generate_invoice_pdf
 from app.services.razorpay import create_order as rz_create_order
 from app.services.razorpay import verify_payment as rz_verify_payment
@@ -71,11 +74,12 @@ def event_select_seats(request: Request, event_id: int, db: Session = Depends(ge
     seat_map = get_seat_map(db, event_id, ev.auditorium_id)
 
     custom_types = db.query(SeatType).filter(SeatType.is_custom == True).order_by(SeatType.name).all()
-    custom_types_data = [
-        {"id": st.id, "name": st.name, "colour": st.colour, "icon": st.icon,
-         "price": float(st.price) if st.price is not None else None}
-        for st in custom_types
-    ]
+    ev_cp = ev.custom_prices or {}
+    custom_types_data = []
+    for st in custom_types:
+        key = f"custom_{st.id}"
+        price = float(ev_cp[key]) if key in ev_cp else (float(st.price) if st.price is not None else None)
+        custom_types_data.append({"id": st.id, "name": st.name, "colour": st.colour, "icon": st.icon, "price": price})
 
     return templates.TemplateResponse(
         "booking/event_select_seats.html",
@@ -660,29 +664,142 @@ def join_waitlist(request: Request, event_id: int, db: Session = Depends(get_db)
     return RedirectResponse(f"/events/{event_id}", status_code=303)
 
 
-@router.get("/certificate/{booking_id}")
-def download_certificate(request: Request, booking_id: int, db: Session = Depends(get_db)):
+def _validate_certificate_access(request, db, booking_id):
+    """Common guard for all certificate endpoints. Returns (user, booking, event) or a redirect."""
     user = _require_user(request, db)
     if not user:
-        return RedirectResponse("/auth/login", status_code=303)
+        return None, None, None, RedirectResponse("/auth/login", status_code=303)
 
     booking = db.query(Booking).filter(Booking.id == booking_id).first()
     if not booking or booking.user_id != user.id:
         flash(request, "Booking not found.", "danger")
-        return RedirectResponse("/booking/my", status_code=303)
+        return None, None, None, RedirectResponse("/booking/my", status_code=303)
 
     if not booking.checked_in:
         flash(request, "Certificate is only available after check-in.", "warning")
-        return RedirectResponse("/booking/my", status_code=303)
+        return None, None, None, RedirectResponse("/booking/my", status_code=303)
 
     if booking.payment_status != "paid":
         flash(request, "Certificate is only available for paid bookings.", "warning")
-        return RedirectResponse("/booking/my", status_code=303)
+        return None, None, None, RedirectResponse("/booking/my", status_code=303)
 
     event = db.query(Event).get(booking.event_id) if booking.event_id else None
     if not event:
         flash(request, "Event not found.", "danger")
-        return RedirectResponse("/booking/my", status_code=303)
+        return None, None, None, RedirectResponse("/booking/my", status_code=303)
+
+    return user, booking, event, None
+
+
+@router.get("/certificate/{booking_id}")
+def certificate_feedback_page(request: Request, booking_id: int, db: Session = Depends(get_db)):
+    user, booking, event, redirect = _validate_certificate_access(request, db, booking_id)
+    if redirect:
+        return redirect
+
+    has_session_feedback = (
+        db.query(SessionFeedback)
+        .filter(SessionFeedback.user_id == user.id, SessionFeedback.event_id == event.id)
+        .first()
+    )
+    if has_session_feedback:
+        return RedirectResponse(f"/booking/certificate/{booking_id}/download", status_code=303)
+
+    auditorium = db.query(Auditorium).get(event.auditorium_id) if event.auditorium_id else None
+
+    sessions = (
+        db.query(SessionModel)
+        .filter(SessionModel.event_id == event.id)
+        .order_by(SessionModel.order, SessionModel.start_time)
+        .all()
+    )
+
+    existing_feedback = (
+        db.query(Feedback)
+        .filter(Feedback.user_id == user.id, Feedback.event_id == event.id)
+        .first()
+    )
+
+    return templates.TemplateResponse(
+        "booking/certificate_feedback.html",
+        template_ctx(
+            request,
+            event=event,
+            auditorium=auditorium,
+            booking=booking,
+            sessions=sessions,
+            existing_feedback=existing_feedback,
+        ),
+    )
+
+
+@router.post("/certificate/{booking_id}")
+async def certificate_feedback_submit(request: Request, booking_id: int, db: Session = Depends(get_db)):
+    user, booking, event, redirect = _validate_certificate_access(request, db, booking_id)
+    if redirect:
+        return redirect
+
+    form = await request.form()
+    testimonial = form.get("testimonial", "").strip()
+    allow_public = "allow_public" in form
+
+    sessions = (
+        db.query(SessionModel)
+        .filter(SessionModel.event_id == event.id)
+        .all()
+    )
+
+    for sess in sessions:
+        rating_raw = form.get(f"rating_{sess.id}", "")
+        try:
+            rating = int(rating_raw)
+            if rating < 1 or rating > 5:
+                continue
+        except (ValueError, TypeError):
+            continue
+
+        existing_sf = (
+            db.query(SessionFeedback)
+            .filter(SessionFeedback.user_id == user.id, SessionFeedback.session_id == sess.id)
+            .first()
+        )
+        if existing_sf:
+            existing_sf.rating = rating
+        else:
+            db.add(SessionFeedback(
+                user_id=user.id,
+                session_id=sess.id,
+                event_id=event.id,
+                rating=rating,
+            ))
+
+    existing_fb = (
+        db.query(Feedback)
+        .filter(Feedback.user_id == user.id, Feedback.event_id == event.id)
+        .first()
+    )
+    if existing_fb:
+        if testimonial:
+            existing_fb.comment = testimonial
+        existing_fb.allow_public = allow_public
+        existing_fb.dismissed = False
+    else:
+        db.add(Feedback(
+            user_id=user.id,
+            event_id=event.id,
+            comment=testimonial or None,
+            allow_public=allow_public,
+        ))
+
+    db.commit()
+    return RedirectResponse(f"/booking/certificate/{booking_id}/download", status_code=303)
+
+
+@router.get("/certificate/{booking_id}/download")
+def certificate_download(request: Request, booking_id: int, db: Session = Depends(get_db)):
+    user, booking, event, redirect = _validate_certificate_access(request, db, booking_id)
+    if redirect:
+        return redirect
 
     auditorium = db.query(Auditorium).get(event.auditorium_id) if event.auditorium_id else None
 

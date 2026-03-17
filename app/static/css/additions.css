@@ -2789,6 +2789,14 @@
   object-position: center 30%;
   display: block;
 }
+.sd-hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity .8s ease;
+}
+.sd-hero-slide.active { opacity: 1; }
+.sd-hero-slide:first-child { position: relative; }
 
 .sd-hero-gradient {
   position: absolute;

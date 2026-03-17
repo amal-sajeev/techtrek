@@ -1,8 +1,6 @@
 import asyncio
 import logging
-from datetime import timedelta
 
-from sqlalchemy import and_
 from sqlalchemy.orm import Session as DBSession
 
 from app.database import SessionLocal
@@ -10,7 +8,7 @@ from app.models.booking import Booking
 from app.models.feedback import Feedback
 from app.models.event import Event
 from app.models.user import User
-from app.services.email import send_feedback_request
+from app.services.email import send_certificate_ready
 from app.utils import now_ist
 
 logger = logging.getLogger(__name__)
@@ -19,7 +17,7 @@ FEEDBACK_CHECK_INTERVAL = 15 * 60  # 15 minutes
 
 
 def process_pending_feedback(base_url: str = "https://techtrek.in"):
-    """Find events that have ended and create+email feedback requests."""
+    """Find ended events and email certificate links to checked-in attendees."""
     db: DBSession = SessionLocal()
     try:
         now = now_ist()
@@ -39,14 +37,20 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
             if end_dt >= now.replace(tzinfo=None):
                 continue
 
-            paid_user_ids = set(
-                uid for (uid,) in db.query(Booking.user_id)
+            checked_in_bookings = (
+                db.query(Booking)
                 .filter(
                     Booking.event_id == event.id,
                     Booking.payment_status == "paid",
+                    Booking.checked_in == True,
                 )
                 .all()
             )
+
+            user_booking_map: dict[int, int] = {}
+            for b in checked_in_bookings:
+                if b.user_id not in user_booking_map:
+                    user_booking_map[b.user_id] = b.id
 
             existing_user_ids = set(
                 uid for (uid,) in db.query(Feedback.user_id)
@@ -54,12 +58,11 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
                 .all()
             )
 
-            new_user_ids = paid_user_ids - existing_user_ids
+            new_user_ids = set(user_booking_map.keys()) - existing_user_ids
             if not new_user_ids:
                 continue
 
             event_date = event.start_date.strftime("%d %b %Y")
-            feedback_url = f"{base_url}/feedback/{event.id}"
 
             for user_id in new_user_ids:
                 user = db.query(User).get(user_id)
@@ -75,20 +78,23 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
                 db.add(fb)
                 db.flush()
 
+                booking_id = user_booking_map[user_id]
+                cert_url = f"{base_url}/booking/certificate/{booking_id}"
+
                 try:
-                    send_feedback_request(
+                    send_certificate_ready(
                         user.email,
                         user.full_name or user.username,
                         event.name,
                         event_date,
-                        feedback_url,
+                        cert_url,
                     )
                 except Exception:
-                    logger.exception("Failed to send feedback email to user %d", user_id)
+                    logger.exception("Failed to send certificate email to user %d", user_id)
 
             db.commit()
             logger.info(
-                "Created %d feedback requests for event %d (%s)",
+                "Sent %d certificate notifications for event %d (%s)",
                 len(new_user_ids), event.id, event.name,
             )
 

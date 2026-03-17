@@ -305,6 +305,35 @@ def send_feedback_request(email: str, user_name: str, session_title: str, showin
     return _send(email, f"How was {session_title}? — Share your feedback", html)
 
 
+def send_certificate_ready(email: str, user_name: str, event_title: str, event_date: str, certificate_url: str):
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="background:linear-gradient(135deg,#0e7490,#065f46);padding:28px 32px;">
+          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">Your Certificate is Ready!</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#cffafe;">Thank you for attending {event_title}</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
+          <p style="margin:0 0 16px;">Hi <strong>{user_name}</strong>,</p>
+          <p style="margin:0 0 16px;">Thank you for attending <strong>{event_title}</strong> on {event_date}. Your certificate of attendance is now ready for download.</p>
+          <p style="margin:0 0 16px;">Before you grab it, we'd love a quick minute of your time to rate the sessions &mdash; your feedback helps us bring you even better events.</p>
+          <p style="margin:0 0 24px;">
+            <a href="{certificate_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">Get Your Certificate &rarr;</a>
+          </p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because you attended a TechTrek event.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return _send(email, f"Your Certificate for {event_title} is Ready!", html)
+
+
 def send_speaker_invite(email: str, speaker_name: str, invite_url: str):
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
@@ -332,6 +361,35 @@ def send_speaker_invite(email: str, speaker_name: str, invite_url: str):
   </table>
 </body></html>"""
     return _send(email, "You're Invited to TechTrek as a Speaker!", html)
+
+
+def send_password_reset(email: str, username: str, reset_url: str):
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="background:#0e7490;padding:28px 32px;">
+          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">Reset Your Password</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#cffafe;">A password reset was requested for your account</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
+          <p style="margin:0 0 16px;">Hi <strong>{username}</strong>,</p>
+          <p style="margin:0 0 16px;">We received a request to reset your TechTrek password. Click the button below to choose a new password:</p>
+          <p style="margin:0 0 24px;">
+            <a href="{reset_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">Reset Password &rarr;</a>
+          </p>
+          <p style="margin:0 0 8px;font-size:13px;color:#64748b;">This link expires in 30 minutes. If you didn't request a password reset, you can safely ignore this email.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because a password reset was requested for your TechTrek account.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return _send(email, "Reset Your Password — TechTrek", html)
 
 
 def wrap_newsletter_html(body_html: str, unsubscribe_url: str) -> str:

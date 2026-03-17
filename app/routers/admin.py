@@ -36,6 +36,8 @@ from app.models.waitlist import Waitlist
 from app.models.site_setting import SiteSetting
 from app.models.newsletter import Newsletter
 from app.models.testimonial import NewsletterSubscriber
+from app.models.gallery_image import GalleryImage
+from app.models.uploaded_image import UploadedImage
 from app.config import settings
 
 
@@ -90,6 +92,42 @@ def _admin_ctx(request: Request, active_page: str = "", **kwargs):
 
 async def _form(request: Request):
     return await request.form()
+
+
+def _extract_custom_prices(form) -> dict | None:
+    """Build {seat_type_key: price} dict from csp_* form fields."""
+    keys = form.getlist("csp_key")
+    if not keys:
+        return None
+    result = {}
+    for key in keys:
+        raw = (form.get(f"csp_price_{key}", "") or "").strip()
+        if raw:
+            try:
+                result[key] = float(raw)
+            except ValueError:
+                pass
+    return result or None
+
+
+def _auditorium_seat_types(db) -> dict:
+    """Return {aud_id: [sorted list of distinct seat_type strings]} for all auditoriums."""
+    rows = (
+        db.query(Seat.auditorium_id, Seat.seat_type)
+        .filter(Seat.seat_type != "aisle", Seat.is_active == True)
+        .distinct()
+        .all()
+    )
+    mapping = defaultdict(set)
+    for aud_id, stype in rows:
+        mapping[aud_id].add(stype)
+    return {k: sorted(v) for k, v in mapping.items()}
+
+
+def _custom_types_map(db) -> dict:
+    """Return {\"custom_N\": {id, name, colour}} for all custom seat types."""
+    cts = db.query(SeatType).order_by(SeatType.name).all()
+    return {f"custom_{ct.id}": {"id": ct.id, "name": ct.name, "colour": ct.colour} for ct in cts}
 
 
 # ─── Dashboard ───
@@ -982,6 +1020,7 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
 
     _save_agenda_items(db, form, session_obj.id)
     _save_session_speakers(db, form, session_obj.id)
+    _save_gallery_images(db, form, "session", session_obj.id)
 
     log_activity(db, category="admin", action="create", description=f"Created session '{session_obj.title}'", request=request, user_id=admin.id, target_type="session", target_id=session_obj.id)
     db.commit()
@@ -1002,12 +1041,15 @@ def session_edit(request: Request, sess_id: int, db: Session = Depends(get_db)):
     events = db.query(Event).order_by(Event.name).all()
     agenda_items = db.query(AgendaItem).filter(AgendaItem.session_id == sess_id).order_by(AgendaItem.order).all()
     session_speakers = db.query(SessionSpeaker).filter(SessionSpeaker.session_id == sess_id).all()
+    gallery = db.query(GalleryImage).filter(
+        GalleryImage.owner_type == "session", GalleryImage.owner_id == sess_id
+    ).order_by(GalleryImage.position).all()
     return templates.TemplateResponse(
         "admin/session_form.html",
         _admin_ctx(request, active_page="sessions", lecture=lecture,
                    events=events, speakers=speakers,
                    agenda_items=agenda_items, session_speakers=session_speakers,
-                   speaker_roles=SPEAKER_ROLES),
+                   speaker_roles=SPEAKER_ROLES, gallery_images=gallery),
     )
 
 
@@ -1042,6 +1084,7 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
 
     _save_agenda_items(db, form, sess_id)
     _save_session_speakers(db, form, sess_id)
+    _save_gallery_images(db, form, "session", sess_id)
 
     log_activity(db, category="admin", action="update", description=f"Updated session '{lecture.title}'", request=request, user_id=admin.id, target_type="session", target_id=sess_id)
     db.commit()
@@ -1061,6 +1104,28 @@ def _collect_speaker_ids_from_form(form) -> list[int]:
             ids.append(int(raw))
         idx += 1
     return ids
+
+
+def _save_gallery_images(db: Session, form, owner_type: str, owner_id: int):
+    """Sync gallery images from form data. Expects gallery_image_ids as a
+    comma-separated list of UploadedImage IDs in display order."""
+    db.query(GalleryImage).filter(
+        GalleryImage.owner_type == owner_type,
+        GalleryImage.owner_id == owner_id,
+    ).delete()
+    raw = form.get("gallery_image_ids", "").strip()
+    if not raw:
+        return
+    for pos, img_id_str in enumerate(raw.split(",")):
+        img_id_str = img_id_str.strip()
+        if not img_id_str or not img_id_str.isdigit():
+            continue
+        db.add(GalleryImage(
+            owner_type=owner_type,
+            owner_id=owner_id,
+            image_id=int(img_id_str),
+            position=pos,
+        ))
 
 
 def _save_agenda_items(db: Session, form, session_id: int):
@@ -2097,9 +2162,15 @@ def event_new_form(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login", status_code=303)
     colleges = db.query(College).order_by(College.name).all()
     auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
+    all_sessions = db.query(SessionModel).order_by(SessionModel.title).all()
+    speakers = db.query(Speaker).order_by(Speaker.name).all()
+    aud_seat_types = _auditorium_seat_types(db)
+    ct_map = _custom_types_map(db)
     return templates.TemplateResponse(
         "admin/event_form.html",
-        _admin_ctx(request, active_page="events", event=None, colleges=colleges, auditoriums=auditoriums),
+        _admin_ctx(request, active_page="events", event=None, colleges=colleges,
+                   auditoriums=auditoriums, all_sessions=all_sessions, speakers=speakers,
+                   aud_seat_types=aud_seat_types, custom_types_map=ct_map),
     )
 
 
@@ -2124,40 +2195,54 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
         price_vip=float(form["price_vip"]) if form.get("price_vip", "").strip() else None,
         price_accessible=float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None,
         processing_fee_pct=float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None,
+        custom_prices=_extract_custom_prices(form),
         status=form.get("status", "draft"),
+        cert_title=form.get("cert_title", "").strip() or None,
+        cert_subtitle=form.get("cert_subtitle", "").strip() or None,
+        cert_footer=form.get("cert_footer", "").strip() or None,
+        cert_signer_name=form.get("cert_signer_name", "").strip() or None,
+        cert_signer_designation=form.get("cert_signer_designation", "").strip() or None,
+        cert_signature_url=form.get("cert_signature_url", "").strip() or None,
+        cert_logo_url=form.get("cert_logo_url", "").strip() or None,
+        cert_bg_url=form.get("cert_bg_url", "").strip() or None,
+        cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
+        cert_style=form.get("cert_style", "").strip() or None,
     )
     db.add(ev)
     db.flush()
 
+    _save_gallery_images(db, form, "event", ev.id)
+
     sess_indices = form.getlist("sess_idx")
+    linked = 0
     for idx in sess_indices:
-        title = form.get(f"sess_title_{idx}", "").strip()
-        if not title:
+        sess_id = form.get(f"sess_id_{idx}", "").strip()
+        if not sess_id or not sess_id.isdigit():
             continue
+        sess = db.query(SessionModel).get(int(sess_id))
+        if not sess:
+            continue
+        sess.event_id = ev.id
         start_str = form.get(f"sess_start_{idx}", "")
-        start_time = None
         if start_str:
             try:
-                start_time = datetime.fromisoformat(start_str)
+                sess.start_time = datetime.fromisoformat(start_str)
             except ValueError:
                 pass
-        sess = SessionModel(
-            event_id=ev.id,
-            title=title,
-            speaker_name=form.get(f"sess_speaker_{idx}", "").strip(),
-            description=form.get(f"sess_desc_{idx}", "").strip() or None,
-            duration_minutes=int(form.get(f"sess_duration_{idx}", 30) or 30),
-            start_time=start_time,
-            order=int(form.get(f"sess_order_{idx}", 0) or 0),
-        )
-        db.add(sess)
+        speaker_id_raw = form.get(f"sess_speaker_id_{idx}", "").strip()
+        if speaker_id_raw and speaker_id_raw.isdigit():
+            speaker = db.query(Speaker).get(int(speaker_id_raw))
+            if speaker:
+                sess.speaker_id = speaker.id
+                sess.speaker_name = speaker.name
+        sess.order = int(form.get(f"sess_order_{idx}", 0) or 0)
+        linked += 1
 
     log_activity(db, category="admin", action="create", description=f"Created event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
     db.commit()
-    sess_count = len([i for i in sess_indices if form.get(f"sess_title_{i}", "").strip()])
     msg = f"Event '{ev.name}' created"
-    if sess_count:
-        msg += f" with {sess_count} session(s)"
+    if linked:
+        msg += f" with {linked} session(s)"
     flash(request, msg + ".", "success")
     return RedirectResponse("/admin/events", status_code=303)
 
@@ -2175,10 +2260,21 @@ def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_d
     auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
     sessions = db.query(SessionModel).filter(SessionModel.event_id == event_id).order_by(SessionModel.order, SessionModel.start_time).all()
     coupons = db.query(Coupon).filter(Coupon.event_id == event_id).order_by(Coupon.created_at.desc()).all()
+    linked_ids = {s.id for s in sessions}
+    all_sessions = [s for s in db.query(SessionModel).order_by(SessionModel.title).all() if s.id not in linked_ids]
+    speakers = db.query(Speaker).order_by(Speaker.name).all()
+    aud_seat_types = _auditorium_seat_types(db)
+    ct_map = _custom_types_map(db)
+    gallery = db.query(GalleryImage).filter(
+        GalleryImage.owner_type == "event", GalleryImage.owner_id == event_id
+    ).order_by(GalleryImage.position).all()
     return templates.TemplateResponse(
         "admin/event_form.html",
         _admin_ctx(request, active_page="events", event=ev, colleges=colleges, auditoriums=auditoriums,
-                   event_sessions=sessions, event_coupons=coupons),
+                   event_sessions=sessions, event_coupons=coupons,
+                   all_sessions=all_sessions, speakers=speakers,
+                   aud_seat_types=aud_seat_types, custom_types_map=ct_map,
+                   gallery_images=gallery),
     )
 
 
@@ -2210,6 +2306,7 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     ev.price_vip = float(form["price_vip"]) if form.get("price_vip", "").strip() else None
     ev.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
     ev.processing_fee_pct = float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None
+    ev.custom_prices = _extract_custom_prices(form)
     ev.status = form.get("status", "draft")
 
     ev.cert_title = form.get("cert_title", "").strip() or ev.cert_title
@@ -2224,35 +2321,37 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     ev.cert_style = form.get("cert_style", "").strip() or ev.cert_style
 
     sess_indices = form.getlist("sess_idx")
-    new_sess = 0
+    linked = 0
     for idx in sess_indices:
-        title = form.get(f"sess_title_{idx}", "").strip()
-        if not title:
+        sess_id = form.get(f"sess_id_{idx}", "").strip()
+        if not sess_id or not sess_id.isdigit():
             continue
+        sess = db.query(SessionModel).get(int(sess_id))
+        if not sess:
+            continue
+        sess.event_id = ev.id
         start_str = form.get(f"sess_start_{idx}", "")
-        start_time = None
         if start_str:
             try:
-                start_time = datetime.fromisoformat(start_str)
+                sess.start_time = datetime.fromisoformat(start_str)
             except ValueError:
                 pass
-        sess = SessionModel(
-            event_id=ev.id,
-            title=title,
-            speaker_name=form.get(f"sess_speaker_{idx}", "").strip(),
-            description=form.get(f"sess_desc_{idx}", "").strip() or None,
-            duration_minutes=int(form.get(f"sess_duration_{idx}", 30) or 30),
-            start_time=start_time,
-            order=int(form.get(f"sess_order_{idx}", 0) or 0),
-        )
-        db.add(sess)
-        new_sess += 1
+        speaker_id_raw = form.get(f"sess_speaker_id_{idx}", "").strip()
+        if speaker_id_raw and speaker_id_raw.isdigit():
+            speaker = db.query(Speaker).get(int(speaker_id_raw))
+            if speaker:
+                sess.speaker_id = speaker.id
+                sess.speaker_name = speaker.name
+        sess.order = int(form.get(f"sess_order_{idx}", 0) or 0)
+        linked += 1
+
+    _save_gallery_images(db, form, "event", ev.id)
 
     log_activity(db, category="admin", action="update", description=f"Updated event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
     db.commit()
     msg = f"Event '{ev.name}' updated"
-    if new_sess:
-        msg += f" — {new_sess} new session(s) added"
+    if linked:
+        msg += f" — {linked} session(s) linked"
     flash(request, msg + ".", "success")
     return RedirectResponse(f"/admin/events/{ev.id}/edit", status_code=303)
 
@@ -2610,6 +2709,39 @@ async def newsletter_preview(request: Request, db: Session = Depends(get_db)):
     full_html = wrap_newsletter_html(body_html, "#")
     from fastapi.responses import HTMLResponse
     return HTMLResponse(content=full_html)
+
+
+@router.post("/upload-image")
+async def admin_upload_image(request: Request, db: Session = Depends(get_db)):
+    from app.models.uploaded_image import UploadedImage
+
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
+
+    form = await request.form()
+    file = form.get("image")
+    if not file or not hasattr(file, "filename"):
+        return JSONResponse({"error": "No file uploaded"}, status_code=400)
+
+    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
+    if file.content_type not in allowed:
+        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
+
+    content = await file.read()
+    if len(content) > 5 * 1024 * 1024:
+        return JSONResponse({"error": "File too large (max 5MB)"}, status_code=400)
+
+    img = UploadedImage(
+        filename=file.filename or "upload",
+        content_type=file.content_type,
+        data=content,
+    )
+    db.add(img)
+    db.commit()
+    db.refresh(img)
+
+    return JSONResponse({"url": f"/uploads/{img.id}"})
 
 
 @router.post("/newsletters/upload-image")
