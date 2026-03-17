@@ -19,18 +19,7 @@
     {# ── Page header ── #}
     <div class="page-header-block reveal">
       <h1 class="page-title">Upcoming Events</h1>
-      <p class="section-subtitle" style="color:var(--text-muted)">
-        Live industry talks by engineers and founders at campuses across India.
-      </p>
-      <p style="font-family:var(--font-mono);font-size:1.1rem;color:var(--text-muted);margin-top:.4rem">
-        {% if events %}{{ events|length }} event{{ 's' if events|length != 1 else '' }} upcoming{% endif %}
-      </p>
-      <div style="margin-top:.75rem">
-        <span class="badge badge-published" style="font-size:.85rem">&#127470;&#127475; Aligned with Viksit Bharat 2047</span>
-      </div>
-    </div>
-    <div class="section-divider" style="margin-bottom:1.5rem"></div>
-
+    <div class="section-divider" style="margin-bottom:1rem"></div>
     {# ── Filter bar ── #}
     <form class="filter-bar reveal" id="events-filter-form" method="get" action="/events">
       <div class="filter-search">
@@ -57,7 +46,6 @@
         </select>
       </div>
     </form>
-    <div class="section-divider" style="margin-bottom:2rem"></div>
 
     <div id="events-results">
     {% if events %}
@@ -122,7 +110,7 @@
             <h3 class="ev-card-title">{{ item.event.name }}</h3>
 
             <div class="ev-card-venue">
-              {% set venue = item.auditorium.name if item.auditorium else (item.college.name if item.college else '') %}
+              {% set venue = item.college.name if item.college else '' %}
               {% if venue %}<span>{{ venue }}</span>{% endif %}
               {% if item.city %}
               <span class="ev-card-dot">·</span>

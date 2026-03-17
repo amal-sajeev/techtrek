@@ -75,7 +75,7 @@
 
   <div class="sd-hero-nav">
     <div class="container">
-      <a href="/sessions" class="sd-back-link">&#8592; All Sessions</a>
+      {% if event %}<a href="/events/{{ event.id }}" class="sd-back-link">&#8592; {{ event.name }}</a>{% else %}<a href="/sessions" class="sd-back-link">&#8592; All Sessions</a>{% endif %}
     </div>
   </div>
 
@@ -141,7 +141,7 @@
 <div class="light-only">
 <div class="lm-sd-header">
   <div class="container">
-    <a href="/sessions" class="lm-ed-back">&#8592; All Sessions</a>
+    {% if event %}<a href="/events/{{ event.id }}" class="lm-ed-back">&#8592; {{ event.name }}</a>{% else %}<a href="/sessions" class="lm-ed-back">&#8592; All Sessions</a>{% endif %}
     <div class="lm-ed-split">
 
       {# Left: title + meta + CTA #}

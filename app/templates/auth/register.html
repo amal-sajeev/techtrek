@@ -58,6 +58,48 @@
         </div>
       </div>
 
+      <div class="form-group">
+        <label class="form-label" for="reg-college">College / Institution <span class="required">*</span></label>
+        <input type="text" name="college" id="reg-college" class="form-input" placeholder="e.g. KSR College of Engineering" required autocomplete="organization">
+        <div class="field-error" id="err-college" role="alert"></div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label" for="reg-discipline">Discipline <span class="required">*</span></label>
+          <select name="discipline" id="reg-discipline" class="form-input" required>
+            <option value="">Select discipline</option>
+            {% set disciplines = ['CSE','IT','ECE','EEE','Mechanical','Civil','AI/ML','Data Science','Commerce','BBA','BCA','Science','Arts','Law','Design','Other'] %}
+            {% for d in disciplines %}
+            <option value="{{ d }}">{{ d }}</option>
+            {% endfor %}
+          </select>
+          <div class="field-error" id="err-discipline" role="alert"></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-domain">Domain of Interest <span class="required">*</span></label>
+          <select name="domain" id="reg-domain" class="form-input" required>
+            <option value="">Select domain</option>
+            {% set domains = [('AI','Artificial Intelligence'),('Cloud Computing','Cloud Computing'),('Quantum Computing','Quantum Computing'),('Cybersecurity','Cybersecurity'),('Data Science','Data Science'),('Web Development','Web Development'),('Mobile Development','Mobile Development'),('IoT','IoT'),('Blockchain','Blockchain'),('DevOps','DevOps'),('Other','Other')] %}
+            {% for val, label in domains %}
+            <option value="{{ val }}">{{ label }}</option>
+            {% endfor %}
+          </select>
+          <div class="field-error" id="err-domain" role="alert"></div>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="reg-year">Year of Study <span class="required">*</span></label>
+        <select name="year_of_study" id="reg-year" class="form-input" required>
+          <option value="">Select year</option>
+          {% for y in range(1, 6) %}
+          <option value="{{ y }}">{{ ['1st','2nd','3rd','4th','5th'][y-1] }} Year</option>
+          {% endfor %}
+        </select>
+        <div class="field-error" id="err-year" role="alert"></div>
+      </div>
+
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="reg-password">Password <span class="required">*</span></label>
@@ -105,6 +147,10 @@
   var fullnameEl = document.getElementById('reg-fullname');
   var usernameEl = document.getElementById('reg-username');
   var emailEl = document.getElementById('reg-email');
+  var collegeEl = document.getElementById('reg-college');
+  var disciplineEl = document.getElementById('reg-discipline');
+  var domainEl = document.getElementById('reg-domain');
+  var yearEl = document.getElementById('reg-year');
   var passwordEl = document.getElementById('reg-password');
   var confirmEl = document.getElementById('reg-confirm');
   var submitBtn = document.getElementById('register-btn');
@@ -262,6 +308,10 @@
     if (!fullnameEl.value.trim()) { showError('err-fullname','Full name is required'); valid = false; }
     if (usernameEl.value.trim().length < 2) { showError('err-username','Username required'); valid = false; }
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailEl.value)) { showError('err-email','Valid email required'); valid = false; }
+    if (!collegeEl.value.trim()) { showError('err-college','College is required'); valid = false; }
+    if (!disciplineEl.value) { showError('err-discipline','Please select a discipline'); valid = false; }
+    if (!domainEl.value) { showError('err-domain','Please select a domain'); valid = false; }
+    if (!yearEl.value) { showError('err-year','Please select your year of study'); valid = false; }
     if (passwordEl.value.length < 8) { showError('err-password','Password must be at least 8 characters'); valid = false; }
     if (!validateConfirm()) { valid = false; }
     if (!valid) { e.preventDefault(); return; }

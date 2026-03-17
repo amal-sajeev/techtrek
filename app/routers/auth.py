@@ -161,6 +161,14 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
         errors.append("Please enter a valid email.")
     if not full_name:
         errors.append("Full name is required.")
+    if not college:
+        errors.append("College / Institution is required.")
+    if not discipline:
+        errors.append("Discipline is required.")
+    if not domain:
+        errors.append("Domain of interest is required.")
+    if not year_raw:
+        errors.append("Year of study is required.")
 
     # Enforce strong password policy
     errors.extend(_validate_password(password))

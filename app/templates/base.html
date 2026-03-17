@@ -46,9 +46,9 @@
     <div class="navbar-links" id="navbar-links">
       <a href="/" class="nav-link">{{ _('Home') }}</a>
       <a href="/events" class="nav-link">{{ _('Events') }}</a>
-      <a href="/sessions" class="nav-link">{{ _('Program') }}</a>
-      <a href="/schedule" class="nav-link">{{ _('Schedule') }}</a>
+      {% if user %}
       <a href="/recordings" class="nav-link">{{ _('Recordings') }}</a>
+      {% endif %}
       {% if user %}
           <a href="/booking/my" class="nav-link">{{ _('Bookings') }}</a>
         {% if is_speaker %}
@@ -89,9 +89,9 @@
   <div class="nav-drawer-header">&#9889; TECHTREK</div>
   <a href="/" class="nav-drawer-link">{{ _('Home') }}</a>
   <a href="/events" class="nav-drawer-link">{{ _('Events') }}</a>
-  <a href="/sessions" class="nav-drawer-link">{{ _('Program') }}</a>
-  <a href="/schedule" class="nav-drawer-link">{{ _('Schedule') }}</a>
+  {% if user %}
   <a href="/recordings" class="nav-drawer-link">{{ _('Recordings') }}</a>
+  {% endif %}
   {% if user %}
       <a href="/booking/my" class="nav-drawer-link">{{ _('Bookings') }}</a>
       <a href="/auth/profile" class="nav-drawer-link">Profile</a>
@@ -139,7 +139,6 @@
   <div class="footer-links">
     <a href="/">Home</a>
     <a href="/events">Events</a>
-    <a href="/sessions">Program</a>
     <a href="/auth/login">Login</a>
   </div>
   <div class="footer-bottom">&copy; 2026 TechTrek. Empowering India's tech future.</div>
