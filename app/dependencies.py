@@ -90,7 +90,7 @@ def template_ctx(request: Request, **kwargs) -> dict:
                     db.query(Feedback)
                     .filter(
                         Feedback.user_id == user_id,
-                        Feedback.rating == None,  # noqa: E711
+                        Feedback.submitted_at == None,  # noqa: E711
                         Feedback.dismissed == False,
                     )
                     .all()

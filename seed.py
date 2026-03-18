@@ -11,6 +11,7 @@ uvicorn automatically and shut it down when seeding is done.
 """
 
 import argparse
+import pathlib
 import re
 import subprocess
 import sys
@@ -64,26 +65,30 @@ def parse_args():
 
 def ensure_service(base_url: str, port: int):
     """Return a subprocess handle if we had to start the server, else None."""
+    _conn_errors = (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout,
+                     httpx.RemoteProtocolError)
     try:
-        httpx.get(base_url, timeout=3, follow_redirects=True)
+        httpx.get(base_url, timeout=3, follow_redirects=True, verify=False)
         print(f"  Service already running at {base_url}")
         return None
-    except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout):
+    except _conn_errors:
         pass
 
     print(f"  Service not running -- launching uvicorn on port {port} ...")
-    proc = subprocess.Popen(
-        [sys.executable, "-m", "uvicorn", "app.main:app",
-         "--host", "127.0.0.1", "--port", str(port)],
-        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
+    cmd = [sys.executable, "-m", "uvicorn", "app.main:app",
+           "--host", "0.0.0.0", "--port", str(port)]
+    cert_dir = pathlib.Path(__file__).parent / "certs"
+    if base_url.startswith("https") and (cert_dir / "cert.pem").exists():
+        cmd += ["--ssl-certfile", str(cert_dir / "cert.pem"),
+                "--ssl-keyfile", str(cert_dir / "key.pem")]
+    proc = subprocess.Popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     for _ in range(30):
         time.sleep(1)
         try:
-            httpx.get(base_url, timeout=2, follow_redirects=True)
+            httpx.get(base_url, timeout=2, follow_redirects=True, verify=False)
             print(f"  Service started (pid {proc.pid})")
             return proc
-        except (httpx.ConnectError, httpx.ConnectTimeout, httpx.ReadTimeout):
+        except _conn_errors:
             pass
     proc.terminate()
     sys.exit("ERROR: service did not become healthy within 30 s")
@@ -102,6 +107,7 @@ class ApiClient:
             base_url=self.base_url,
             follow_redirects=True,
             timeout=30,
+            verify=False,
         )
         self._csrf: str | None = None
 
@@ -443,28 +449,30 @@ def phase1_db_seed(force: bool):
         name="Workshop Feedback",
         description="Post-workshop feedback form with session-specific and overall questions.",
         created_by=admin.id,
+        session_ratings_enabled=True,
+        session_ratings_required=False,
     )
     db.add(fb_template)
     db.flush()
     template_questions = [
         TemplateQuestion(
-            template_id=fb_template.id, order=0,
+            template_id=fb_template.id, page=1, order=0,
             question_text="Which session was the most valuable to you and why?",
             question_type="text", is_required=True,
         ),
         TemplateQuestion(
-            template_id=fb_template.id, order=1,
+            template_id=fb_template.id, page=1, order=1,
             question_text="How would you rate the hands-on exercises?",
             question_type="rating_scale", is_required=True,
         ),
         TemplateQuestion(
-            template_id=fb_template.id, order=2,
+            template_id=fb_template.id, page=2, order=0,
             question_text="What is your experience level with cloud-native technologies?",
             question_type="multiple_choice", is_required=False,
             options_json=["Complete beginner", "Some exposure", "Intermediate", "Advanced"],
         ),
         TemplateQuestion(
-            template_id=fb_template.id, order=3,
+            template_id=fb_template.id, page=2, order=1,
             question_text="What topics would you like covered in a future workshop?",
             question_type="text", is_required=False,
         ),
@@ -534,8 +542,9 @@ def _create_seats(db, auditoriums, seat_types):
 def build_event_data(speakers, auditoriums, colleges):
     """Return a list of event dicts with sessions, breaks, and coupons.
 
-    Single event: TechTrek AI & Future Tech Summit 2026 at KSR College.
-    Data sourced from the official session spreadsheet.
+    Two events:
+      1. Past — Cybersecurity Bootcamp at DTU (completed, for feedback/cert demo)
+      2. Future — AI & Future Tech Summit at KSR (active, for bookings/polls/features)
     Speakers 0=Sarah 1=James 2=Maria 3=Alex 4=Priya 5=Michael 6=Anika 7=Rahul 8=Amal
     """
 
@@ -544,104 +553,105 @@ def build_event_data(speakers, auditoriums, colleges):
     return [
         # ── Past completed event (for feedback / certificate demo) ──
         {
-            "name": "TechTrek Cloud-Native Engineering Workshop 2026",
+            "name": "TechTrek Cybersecurity & Ethical Hacking Bootcamp 2026",
             "description": (
-                "An intensive hands-on workshop covering cloud-native architecture, "
-                "containerisation with Docker and Kubernetes, CI/CD pipelines, and "
-                "observability. Attendees built and deployed a microservice from "
-                "scratch and left with a production-grade starter template."
+                "A high-energy, single-day bootcamp that took students from zero to "
+                "hands-on hacker. Attendees learned network reconnaissance, web app "
+                "exploitation, privilege escalation, and incident response — all inside "
+                "a purpose-built capture-the-flag lab. Every participant walked out with "
+                "a personal attack-defence playbook and real CTF flags under their belt."
             ),
-            "banner_url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&h=400&fit=crop",
-            "college_idx": 1,   # Anna University
-            "aud_idx": 3,       # Lecture Theatre B
+            "banner_url": "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=1200&h=400&fit=crop",
+            "college_idx": 2,   # Delhi Technological University
+            "aud_idx": 1,       # Innovation Lab
             "start_offset_days": yesterday,
             "end_offset_days": yesterday,
             "price": 0,
             "price_vip": None,
             "price_accessible": None,
             "processing_fee_pct": None,
-            "status": "published",  # changed to completed after amalsajeev books in phase3
+            "status": "published",
             "link_feedback_template": True,
             "cert": {
                 "cert_title": "Certificate of Completion",
-                "cert_subtitle": "TechTrek Cloud-Native Engineering Workshop 2026",
-                "cert_footer": "Issued by TechTrek Pvt Ltd & Anna University",
-                "cert_signer_name": "James Kowalski",
-                "cert_signer_designation": "Staff Engineer, Fastly",
+                "cert_subtitle": "TechTrek Cybersecurity & Ethical Hacking Bootcamp 2026",
+                "cert_footer": "Issued by TechTrek Pvt Ltd & Delhi Technological University",
+                "cert_signer_name": "Maria Gonzalez",
+                "cert_signer_designation": "Principal Security Engineer, CrowdStrike",
                 "cert_color_scheme": "blue",
             },
             "sessions": [
                 {
-                    "title": "Containers from First Principles",
-                    "speaker_id": speakers[1]["id"],
-                    "speaker_name": "James Kowalski",
+                    "title": "Recon & Footprinting: Mapping the Attack Surface",
+                    "speaker_id": speakers[2]["id"],
+                    "speaker_name": "Maria Gonzalez",
                     "description": (
-                        "What happens when you type docker run? This session peels "
-                        "back namespaces, cgroups, and overlay filesystems to show "
-                        "exactly how containers work under the hood — then builds "
-                        "one from scratch using only shell commands."
+                        "Every penetration test starts with reconnaissance. This session "
+                        "teaches passive and active information gathering — OSINT, DNS "
+                        "enumeration, port scanning with Nmap, and service fingerprinting "
+                        "— then applies them live against the bootcamp's lab network."
                     ),
-                    "banner_url": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&h=400&fit=crop",
-                    "duration_minutes": 40,
+                    "banner_url": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&h=400&fit=crop",
+                    "duration_minutes": 45,
                     "start_offset_hours": 10,
                     "order": 0,
                     "agenda": [
-                        {"title": "Linux Namespaces & Cgroups", "speaker_idx": 1, "dur": 15,
-                         "desc": "The kernel primitives that make containers possible."},
-                        {"title": "Building a Container by Hand", "speaker_idx": 1, "dur": 15,
-                         "desc": "Using unshare, chroot, and pivot_root to build a container from scratch."},
-                        {"title": "Docker Architecture Walkthrough", "speaker_idx": 1, "dur": 10,
-                         "desc": "From Dockerfile to running container — every layer explained."},
+                        {"title": "OSINT & Passive Recon", "speaker_idx": 2, "dur": 15,
+                         "desc": "Harvesting publicly available data — WHOIS, social media, leaked credentials."},
+                        {"title": "Active Scanning with Nmap", "speaker_idx": 2, "dur": 15,
+                         "desc": "Port sweeps, version detection, and OS fingerprinting in a safe lab."},
+                        {"title": "Building an Attack Map", "speaker_idx": 2, "dur": 15,
+                         "desc": "Documenting findings into a structured attack map for the next stages."},
                     ],
-                    "session_speakers": [{"speaker_idx": 1, "role": "Workshop Lead"}],
+                    "session_speakers": [{"speaker_idx": 2, "role": "Workshop Lead"}],
                     "recordings": [],
                 },
                 {
-                    "title": "Kubernetes in Production: Patterns That Scale",
-                    "speaker_id": speakers[3]["id"],
-                    "speaker_name": "Alex Petrov",
+                    "title": "Web App Exploitation & the OWASP Top 10",
+                    "speaker_id": speakers[4]["id"],
+                    "speaker_name": "Priya Sharma",
                     "description": (
-                        "Moving beyond kubectl apply. This session covers production "
-                        "patterns: health probes, resource budgets, HPA, network "
-                        "policies, and secrets management — with live demos on a "
-                        "real cluster."
+                        "Websites are the most common attack surface. This session walks "
+                        "through the OWASP Top 10 vulnerabilities — SQL injection, XSS, "
+                        "broken authentication, SSRF — with live exploitation against a "
+                        "deliberately vulnerable web app (DVWA) running in the lab."
                     ),
-                    "banner_url": "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=1200&h=400&fit=crop",
-                    "duration_minutes": 40,
+                    "banner_url": "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=1200&h=400&fit=crop",
+                    "duration_minutes": 50,
                     "start_offset_hours": 11,
                     "order": 1,
                     "agenda": [
-                        {"title": "Health Probes & Resource Budgets", "speaker_idx": 3, "dur": 15,
-                         "desc": "Liveness, readiness, startup probes and how they prevent outages."},
-                        {"title": "Autoscaling & Network Policies", "speaker_idx": 3, "dur": 15,
-                         "desc": "HPA, VPA, and zero-trust networking inside a cluster."},
-                        {"title": "Secrets & Config Management", "speaker_idx": 3, "dur": 10,
-                         "desc": "External Secrets Operator, sealed secrets, and config reload patterns."},
+                        {"title": "SQL Injection & Data Exfiltration", "speaker_idx": 4, "dur": 18,
+                         "desc": "From basic UNION-based SQLi to blind extraction techniques."},
+                        {"title": "Cross-Site Scripting (XSS) & Session Hijacking", "speaker_idx": 4, "dur": 17,
+                         "desc": "Reflected, stored, and DOM XSS — stealing cookies and defacing pages."},
+                        {"title": "SSRF, IDOR & Broken Access Control", "speaker_idx": 4, "dur": 15,
+                         "desc": "Server-side request forgery, insecure direct object references, and privilege escalation via API flaws."},
                     ],
-                    "session_speakers": [{"speaker_idx": 3, "role": "Workshop Lead"}],
+                    "session_speakers": [{"speaker_idx": 4, "role": "Workshop Lead"}],
                     "recordings": [],
                 },
                 {
-                    "title": "Observability: Logs, Metrics, and Traces",
+                    "title": "Capture the Flag: Live Attack-Defence Challenge",
                     "speaker_id": speakers[8]["id"],
                     "speaker_name": "Amal Sajeev",
                     "description": (
-                        "You can't fix what you can't see. This session introduces "
-                        "the three pillars of observability — structured logging with "
-                        "Loki, metrics with Prometheus/Grafana, and distributed tracing "
-                        "with OpenTelemetry — wired into the microservice built earlier."
+                        "Everything learned in the morning sessions comes together in a "
+                        "timed CTF competition. Teams race to exploit vulnerable services, "
+                        "capture flags, and simultaneously defend their own box. The session "
+                        "ends with a live scoreboard reveal and a debrief on winning strategies."
                     ),
-                    "banner_url": "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=1200&h=400&fit=crop",
-                    "duration_minutes": 40,
-                    "start_offset_hours": 12.25,
+                    "banner_url": "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=1200&h=400&fit=crop",
+                    "duration_minutes": 60,
+                    "start_offset_hours": 12.75,
                     "order": 3,
                     "agenda": [
-                        {"title": "Structured Logging with Loki", "speaker_idx": 8, "dur": 12,
-                         "desc": "Moving beyond print statements to queryable, structured logs."},
-                        {"title": "Metrics & Dashboards with Prometheus", "speaker_idx": 8, "dur": 14,
-                         "desc": "RED metrics, custom counters, and building a Grafana dashboard."},
-                        {"title": "Distributed Tracing with OpenTelemetry", "speaker_idx": 8, "dur": 14,
-                         "desc": "Propagating trace context across services to debug latency."},
+                        {"title": "CTF Briefing & Rules", "speaker_idx": 8, "dur": 10,
+                         "desc": "Scope, scoring system, and ethical ground rules for the challenge."},
+                        {"title": "Live Hacking Round", "speaker_idx": 8, "dur": 35,
+                         "desc": "Teams exploit services and capture flags in a real-time scoreboard race."},
+                        {"title": "Scoreboard Reveal & Debrief", "speaker_idx": 8, "dur": 15,
+                         "desc": "Winning strategies, common mistakes, and the path to competitive CTF play."},
                     ],
                     "session_speakers": [{"speaker_idx": 8, "role": "Workshop Lead"}],
                     "recordings": [],
@@ -649,10 +659,10 @@ def build_event_data(speakers, auditoriums, colleges):
             ],
             "breaks": [
                 {
-                    "title": "Networking Break",
-                    "description": "Grab a coffee, swap GitHub handles, and discuss the morning sessions.",
+                    "title": "Lunch & Lab Reset",
+                    "description": "Refuel and reset your lab VMs for the afternoon CTF challenge.",
                     "duration_minutes": 30,
-                    "start_offset_hours": 11.75,
+                    "start_offset_hours": 12,
                     "order": 2,
                 },
             ],
@@ -1435,7 +1445,7 @@ def seed():
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     warnings.filterwarnings("ignore", message=".*LegacyAPIWarning.*")
     args = parse_args()
-    base_url = args.base_url or f"http://127.0.0.1:{args.port}"
+    base_url = args.base_url or f"https://127.0.0.1:{args.port}"
 
     print()
     print("=" * 48)
@@ -1473,7 +1483,7 @@ def seed():
         process_pending_feedback()
         db = SessionLocal()
         pending_count = db.query(Feedback).filter(
-            Feedback.rating == None, Feedback.dismissed == False  # noqa: E711
+            Feedback.submitted_at == None, Feedback.dismissed == False  # noqa: E711
         ).count()
         db.close()
         print(f"    Created {pending_count} pending feedback entry(ies) — popup will show on login")

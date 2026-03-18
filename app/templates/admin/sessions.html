@@ -37,6 +37,7 @@
         {% if user.is_admin %}
         <td data-label="Actions" class="actions-cell">
           <a href="/admin/sessions/{{ item.session.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
+          <a href="/admin/sessions/{{ item.session.id }}/polls" class="btn btn-sm btn-outline">Polls</a>
           <a href="/admin/sessions/{{ item.session.id }}/recordings" class="btn btn-sm btn-outline">Recordings</a>
           <form method="post" action="/admin/sessions/{{ item.session.id }}/delete" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

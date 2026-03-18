@@ -5192,6 +5192,26 @@ tr:last-child td { border-bottom:none }
   80%     { transform:translateX(4px) }
 }
 
+/* ── Session Rating Rows (feedback form) ───────────────────────────────────── */
+.session-rating-list {
+  display:flex; flex-direction:column; gap:0;
+}
+.session-rating-row {
+  display:flex; align-items:center; justify-content:space-between;
+  gap:1rem; padding:.75rem .5rem;
+  border-bottom:1px solid var(--border, rgba(255,255,255,.08));
+  transition:background .15s;
+}
+.session-rating-row:last-child { border-bottom:none; }
+.session-rating-row:hover { background:var(--bg-elevated, rgba(255,255,255,.03)); }
+.session-rating-info { flex:1; min-width:0; }
+.session-rating-title {
+  font-size:.92rem; font-weight:500;
+  white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+.session-rating-speaker { font-size:.8rem; }
+.sr-stars { flex-shrink:0; }
+
 /* ── Certificate Feedback Page ─────────────────────────────────────────────── */
 
 .cert-fb-hero {
@@ -5669,5 +5689,48 @@ tr:last-child td { border-bottom:none }
   background:var(--bg-void, #0d0d1a);
   border:1px solid var(--border, rgba(255,255,255,.08));
   border-radius:var(--radius-lg, 8px);
+  position:relative;
 }
+.question-block.is-dragging {
+  position:fixed; z-index:9999; pointer-events:none;
+  box-shadow:0 12px 36px rgba(0,0,0,.45), 0 0 0 2px var(--primary);
+  transform:scale(1.02); opacity:.95;
+  border-color:var(--primary);
+}
+.question-block .drag-handle {
+  cursor:grab; display:flex; align-items:center; justify-content:center;
+  width:24px; min-width:24px; color:var(--text-muted, #888);
+  font-size:1.1rem; user-select:none; align-self:stretch; margin-right:.25rem;
+  transition:color .15s;
+}
+.question-block .drag-handle:active { cursor:grabbing; }
+.question-block .drag-handle:hover { color:var(--primary); }
+
+.drag-placeholder {
+  border:2px dashed var(--primary);
+  border-radius:var(--radius-lg, 8px);
+  background:rgba(99,102,241,.06);
+  margin-bottom:.75rem;
+  transition:height .15s ease;
+}
+
+/* ── MC Option Rows (admin template editor) ── */
+.mc-option-row {
+  display:flex; align-items:center; gap:.5rem;
+  margin-bottom:.4rem;
+}
+.mc-option-bullet {
+  color:var(--text-muted, #888); font-size:.9rem;
+  flex-shrink:0; width:18px; text-align:center;
+}
+.mc-option-input {
+  flex:1; padding:.35rem .6rem !important; font-size:.85rem !important;
+}
+.mc-option-row .btn-xs { flex-shrink:0; }
+.mc-add-option {
+  background:none; border:none; color:var(--primary);
+  font-size:.82rem; font-weight:500; cursor:pointer;
+  padding:.35rem 0; margin-top:.15rem; display:inline-block;
+}
+.mc-add-option:hover { text-decoration:underline; }
 

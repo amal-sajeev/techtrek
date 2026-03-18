@@ -24,7 +24,7 @@ from app.models.testimonial import Testimonial, NewsletterSubscriber
 from app.models.session_recording import SessionRecording
 from app.models.seat_type import SeatType
 from app.models.event import Event
-from app.models.feedback import Feedback
+from app.models.feedback import Feedback, SessionRating
 from app.models.gallery_image import GalleryImage
 from app.models.uploaded_image import UploadedImage
 from app.models.user import User
@@ -993,13 +993,15 @@ def feedback_form(request: Request, event_id: int, db: DbSession = Depends(get_d
     existing = db.query(Feedback).filter(
         Feedback.user_id == user_id, Feedback.event_id == event_id
     ).first()
-    if existing and existing.rating is not None:
+    if existing and existing.submitted_at is not None:
         flash(request, "You have already submitted feedback for this event.", "info")
         return RedirectResponse("/booking/my", status_code=303)
 
     fb_template = None
     if event.feedback_template_id:
         fb_template = db.query(FeedbackTemplate).get(event.feedback_template_id)
+
+    sessions = list(event.sessions) if event.sessions else []
 
     return templates.TemplateResponse(
         "public/feedback_form.html",
@@ -1009,6 +1011,7 @@ def feedback_form(request: Request, event_id: int, db: DbSession = Depends(get_d
             auditorium=auditorium,
             existing=existing,
             fb_template=fb_template,
+            sessions=sessions,
         ),
     )
 
@@ -1024,20 +1027,30 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
         return templates.TemplateResponse("errors/404.html", template_ctx(request), status_code=404)
 
     form = await request.form()
-    rating_raw = form.get("rating", "")
     comment = form.get("comment", "").strip()
     allow_public = "allow_public" in form
 
-    try:
-        rating = int(rating_raw)
-        if rating < 1 or rating > 5:
-            rating = None
-    except (ValueError, TypeError):
-        rating = None
+    fb_template = None
+    if event.feedback_template_id:
+        fb_template = db.query(FeedbackTemplate).get(event.feedback_template_id)
 
-    if not rating:
-        flash(request, "Please select a rating.", "danger")
-        return RedirectResponse(f"/feedback/{event_id}", status_code=303)
+    # Collect session ratings
+    session_ratings = {}
+    if fb_template and fb_template.session_ratings_enabled and event.sessions:
+        for s in event.sessions:
+            raw = form.get(f"session_rating_{s.id}", "")
+            try:
+                val = int(raw)
+                if 1 <= val <= 5:
+                    session_ratings[s.id] = val
+            except (ValueError, TypeError):
+                pass
+        if fb_template.session_ratings_required and len(session_ratings) < len(event.sessions):
+            flash(request, "Please rate all sessions.", "danger")
+            return RedirectResponse(f"/feedback/{event_id}", status_code=303)
+
+    # Compute overall rating as average of session ratings
+    rating = round(sum(session_ratings.values()) / len(session_ratings)) if session_ratings else None
 
     existing = db.query(Feedback).filter(
         Feedback.user_id == user_id, Feedback.event_id == event_id
@@ -1048,6 +1061,11 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
         existing.comment = comment or None
         existing.allow_public = allow_public
         existing.dismissed = False
+        existing.submitted_at = now_ist()
+        db.query(SessionRating).filter(SessionRating.feedback_id == existing.id).delete()
+        db.flush()
+        for sid, val in session_ratings.items():
+            db.add(SessionRating(feedback_id=existing.id, session_id=sid, rating=val))
     else:
         fb = Feedback(
             user_id=user_id,
@@ -1055,12 +1073,12 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
             rating=rating,
             comment=comment or None,
             allow_public=allow_public,
+            submitted_at=now_ist(),
         )
         db.add(fb)
-
-    fb_template = None
-    if event.feedback_template_id:
-        fb_template = db.query(FeedbackTemplate).get(event.feedback_template_id)
+        db.flush()
+        for sid, val in session_ratings.items():
+            db.add(SessionRating(feedback_id=fb.id, session_id=sid, rating=val))
 
     if fb_template:
         fr = FeedbackResponse(
@@ -1118,24 +1136,88 @@ async def feedback_dismiss(request: Request, event_id: int, db: DbSession = Depe
 
 
 def _poll_results(db: DbSession, poll):
-    total_votes = db.query(func.count(PollVote.id)).filter(PollVote.poll_id == poll.id).scalar() or 0
-    options = []
-    for opt in poll.options:
-        count = db.query(func.count(PollVote.id)).filter(PollVote.option_id == opt.id).scalar() or 0
-        options.append({
-            "id": opt.id,
-            "text": opt.option_text,
-            "votes": count,
-            "pct": round(count / total_votes * 100, 1) if total_votes else 0,
-        })
-    return {
+    base = {
         "poll_id": poll.id,
         "question": poll.question,
+        "poll_type": poll.poll_type or "multiple_choice",
         "is_active": poll.is_active,
         "allow_multiple": poll.allow_multiple,
-        "total_votes": total_votes,
-        "options": options,
     }
+    ptype = poll.poll_type or "multiple_choice"
+
+    if ptype in ("multiple_choice", "yes_no"):
+        total_votes = db.query(func.count(PollVote.id)).filter(
+            PollVote.poll_id == poll.id, PollVote.option_id.isnot(None)
+        ).scalar() or 0
+        options = []
+        for opt in poll.options:
+            count = db.query(func.count(PollVote.id)).filter(PollVote.option_id == opt.id).scalar() or 0
+            options.append({
+                "id": opt.id, "text": opt.option_text,
+                "votes": count, "pct": round(count / total_votes * 100, 1) if total_votes else 0,
+            })
+        base.update(total_votes=total_votes, options=options)
+
+    elif ptype == "rating":
+        votes = db.query(PollVote).filter(
+            PollVote.poll_id == poll.id, PollVote.rating_value.isnot(None)
+        ).all()
+        total = len(votes)
+        avg = round(sum(v.rating_value for v in votes) / total, 1) if total else 0
+        dist = {s: 0 for s in range(1, 6)}
+        for v in votes:
+            dist[v.rating_value] = dist.get(v.rating_value, 0) + 1
+        base.update(total_votes=total, average=avg, distribution=dist)
+
+    elif ptype == "text":
+        total = db.query(func.count(PollVote.id)).filter(
+            PollVote.poll_id == poll.id, PollVote.text_answer.isnot(None)
+        ).scalar() or 0
+        responses = db.query(PollVote.text_answer).filter(
+            PollVote.poll_id == poll.id, PollVote.text_answer.isnot(None)
+        ).order_by(PollVote.voted_at.desc()).limit(50).all()
+        base.update(total_votes=total, responses=[r[0] for r in responses])
+
+    return base
+
+
+def _event_attendee_user_ids(db: DbSession, poll) -> list:
+    """Return list of user_ids with a paid ticket for the poll's event."""
+    session_obj = poll.session if hasattr(poll, "session") and poll.session else db.query(Session).get(poll.session_id)
+    if not session_obj or not session_obj.event_id:
+        return []
+    return [
+        r[0] for r in
+        db.query(Booking.user_id).filter(
+            Booking.event_id == session_obj.event_id,
+            Booking.payment_status == "paid",
+        ).distinct().all()
+    ]
+
+
+def _notify_event_attendees_of_poll(db: DbSession, poll, poll_results: dict):
+    """Notify all users with a paid ticket for the poll's event that a live poll is open."""
+    from app.services.poll_events import publish_to_users
+    user_ids = _event_attendee_user_ids(db, poll)
+    if not user_ids:
+        return
+    session_obj = poll.session if hasattr(poll, "session") and poll.session else db.query(Session).get(poll.session_id)
+    payload = {
+        **poll_results,
+        "session_id": poll.session_id,
+        "session_title": session_obj.title if session_obj else "",
+        "event_id": session_obj.event_id if session_obj else None,
+    }
+    publish_to_users(user_ids, payload)
+
+
+def _notify_event_attendees_poll_closed(db: DbSession, poll):
+    """Notify attendees that the poll was closed so the popup can close."""
+    from app.services.poll_events import publish_to_users
+    user_ids = _event_attendee_user_ids(db, poll)
+    if not user_ids:
+        return
+    publish_to_users(user_ids, {"poll_id": poll.id, "is_active": False, "closed": True})
 
 
 @router.get("/sessions/{session_id}/polls/active")
@@ -1147,15 +1229,15 @@ def active_poll(request: Request, session_id: int, db: DbSession = Depends(get_d
         return JSONResponse({"poll": None})
 
     user_id = request.session.get("user_id")
-    voted_option = None
+    results = _poll_results(db, poll)
     if user_id:
         existing = db.query(PollVote).filter(
             PollVote.poll_id == poll.id, PollVote.user_id == user_id
         ).first()
-        voted_option = existing.option_id if existing else None
-
-    results = _poll_results(db, poll)
-    results["voted_option"] = voted_option
+        if existing:
+            results["voted_option"] = existing.option_id
+            results["voted_rating"] = existing.rating_value
+            results["voted_text"] = existing.text_answer
     return JSONResponse({"poll": results})
 
 
@@ -1176,34 +1258,59 @@ async def vote_poll(request: Request, session_id: int, poll_id: int, db: DbSessi
     except Exception:
         return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
 
-    option_id = body.get("option_id")
-    if not option_id:
-        return JSONResponse({"ok": False, "error": "No option selected."}, status_code=400)
-
-    option = db.query(PollOption).filter(
-        PollOption.id == option_id, PollOption.poll_id == poll_id
-    ).first()
-    if not option:
-        return JSONResponse({"ok": False, "error": "Invalid option."}, status_code=400)
+    ptype = poll.poll_type or "multiple_choice"
 
     existing = db.query(PollVote).filter(
         PollVote.poll_id == poll_id, PollVote.user_id == user_id
     ).first()
 
-    if existing:
-        existing.option_id = option_id
+    if ptype in ("multiple_choice", "yes_no"):
+        option_id = body.get("option_id")
+        if not option_id:
+            return JSONResponse({"ok": False, "error": "No option selected."}, status_code=400)
+        option = db.query(PollOption).filter(
+            PollOption.id == option_id, PollOption.poll_id == poll_id
+        ).first()
+        if not option:
+            return JSONResponse({"ok": False, "error": "Invalid option."}, status_code=400)
+        if existing:
+            existing.option_id = option_id
+        else:
+            db.add(PollVote(poll_id=poll_id, option_id=option_id, user_id=user_id))
+
+    elif ptype == "rating":
+        try:
+            val = int(body.get("rating", 0))
+        except (ValueError, TypeError):
+            val = 0
+        if val < 1 or val > 5:
+            return JSONResponse({"ok": False, "error": "Rating must be 1-5."}, status_code=400)
+        if existing:
+            existing.rating_value = val
+        else:
+            db.add(PollVote(poll_id=poll_id, rating_value=val, user_id=user_id))
+
+    elif ptype == "text":
+        text = (body.get("text", "") or "").strip()
+        if not text:
+            return JSONResponse({"ok": False, "error": "Please enter a response."}, status_code=400)
+        if existing:
+            existing.text_answer = text
+        else:
+            db.add(PollVote(poll_id=poll_id, text_answer=text, user_id=user_id))
+
     else:
-        vote = PollVote(
-            poll_id=poll_id,
-            option_id=option_id,
-            user_id=user_id,
-        )
-        db.add(vote)
+        return JSONResponse({"ok": False, "error": "Unknown poll type."}, status_code=400)
 
     db.commit()
 
     results = _poll_results(db, poll)
-    results["voted_option"] = option_id
+    if ptype in ("multiple_choice", "yes_no"):
+        results["voted_option"] = body.get("option_id")
+    elif ptype == "rating":
+        results["voted_rating"] = int(body.get("rating", 0))
+    elif ptype == "text":
+        results["voted_text"] = (body.get("text", "") or "").strip()
 
     from app.services.poll_events import publish
     asyncio.ensure_future(publish(session_id, results))
@@ -1230,6 +1337,41 @@ async def poll_stream(request: Request, session_id: int):
             pass
         finally:
             unsubscribe(session_id, queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.get("/user/poll-notifications/stream")
+async def user_poll_notifications_stream(request: Request):
+    from app.services.poll_events import subscribe_user, unsubscribe_user
+
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return JSONResponse({"error": "Login required."}, status_code=401)
+
+    queue = subscribe_user(user_id)
+
+    async def event_generator():
+        try:
+            yield "data: {\"type\":\"connected\"}\n\n"
+            while True:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {msg}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            unsubscribe_user(user_id, queue)
 
     return StreamingResponse(
         event_generator(),

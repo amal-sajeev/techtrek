@@ -22,27 +22,58 @@
   </div>
 
   <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-      <h3 style="margin:0;font-size:1.1rem">Star Rating</h3>
-      <span class="badge badge-info">Always included</span>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem">
+      <h3 style="margin:0;font-size:1.1rem">Session Ratings</h3>
     </div>
-    <p class="text-muted" style="font-size:.85rem;margin:0">
-      A 1-5 star rating is always collected as the first question. You can add additional custom questions below.
+    <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem;">
+      When enabled, the feedback form automatically lists every session from the event with its speaker, and lets attendees rate each one with stars.
     </p>
+    <div style="display:flex;flex-direction:column;gap:.65rem;">
+      <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+        <input type="checkbox" name="session_ratings_enabled" value="1" id="sr-enabled"
+               {% if not template or template.session_ratings_enabled %}checked{% endif %}
+               onchange="document.getElementById('sr-required-wrap').style.display=this.checked?'':'none'">
+        <span style="font-size:.9rem;">Include session ratings page</span>
+      </label>
+      <div id="sr-required-wrap" style="margin-left:1.5rem;{% if template and not template.session_ratings_enabled %}display:none{% endif %}">
+        <label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;">
+          <input type="checkbox" name="session_ratings_required" value="1"
+                 {% if template and template.session_ratings_required %}checked{% endif %}>
+          <span style="font-size:.9rem;">Require rating all sessions</span>
+        </label>
+      </div>
+    </div>
   </div>
 
   <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
       <h3 style="margin:0;font-size:1.1rem">Custom Questions</h3>
-      <button type="button" class="btn btn-outline btn-sm" onclick="addQuestion()">+ Add Question</button>
+      <div style="display:flex;gap:.5rem">
+        <button type="button" class="btn btn-outline btn-sm" onclick="addPageBreak()">+ Page Break</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="addQuestion()">+ Add Question</button>
+      </div>
     </div>
 
     <div id="questions-container">
       {% if template and template.questions %}
+        {% set ns = namespace(last_page=1) %}
         {% for q in template.questions %}
+          {% if q.page != ns.last_page and loop.index0 > 0 %}
+          <div class="page-break-divider">
+            <div style="display:flex;align-items:center;gap:.75rem;margin:1.25rem 0;">
+              <div style="flex:1;height:2px;background:var(--primary);opacity:.3;border-radius:1px"></div>
+              <span class="page-break-label" style="font-size:.8rem;font-weight:600;color:var(--primary);white-space:nowrap;letter-spacing:.03em">PAGE <span class="page-num">{{ q.page }}</span></span>
+              <div style="flex:1;height:2px;background:var(--primary);opacity:.3;border-radius:1px"></div>
+              <button type="button" class="btn btn-xs btn-danger" onclick="removePageBreak(this)" title="Remove page break">&#10005;</button>
+            </div>
+          </div>
+          {% set ns.last_page = q.page %}
+          {% endif %}
         <div class="question-block" data-idx="{{ loop.index0 }}">
           <input type="hidden" name="q_idx" value="{{ loop.index0 }}">
+          <input type="hidden" name="q_page_{{ loop.index0 }}" class="q-page-input" value="{{ q.page or 1 }}">
           <div style="display:flex;gap:.75rem;align-items:flex-start;margin-bottom:.75rem">
+            <div class="drag-handle" title="Drag to reorder">&#8942;&#8942;</div>
             <div style="flex:1">
               <label class="form-label">Question Text *</label>
               <input type="text" name="q_text_{{ loop.index0 }}" class="form-input" value="{{ q.question_text }}" required>
@@ -67,9 +98,21 @@
             </div>
           </div>
           <div class="mc-options-wrap" id="mc-options-{{ loop.index0 }}" style="{% if q.question_type != 'multiple_choice' %}display:none{% endif %}">
-            <label class="form-label">Options (one per line)</label>
-            <textarea name="q_options_{{ loop.index0 }}" class="form-input" rows="3" placeholder="Option A&#10;Option B&#10;Option C">{% if q.options_json %}{% for opt in q.options_json %}{{ opt }}{% if not loop.last %}
+            <label class="form-label">Options</label>
+            <textarea name="q_options_{{ loop.index0 }}" class="mc-options-hidden" style="display:none">{% if q.options_json %}{% for opt in q.options_json %}{{ opt }}{% if not loop.last %}
 {% endif %}{% endfor %}{% endif %}</textarea>
+            <div class="mc-options-list">
+              {% if q.options_json %}
+              {% for opt in q.options_json %}
+              <div class="mc-option-row">
+                <span class="mc-option-bullet">&#9675;</span>
+                <input type="text" class="form-input mc-option-input" value="{{ opt }}" placeholder="Option text...">
+                <button type="button" class="btn btn-xs btn-danger" onclick="removeMcOption(this)" title="Remove option">&#10005;</button>
+              </div>
+              {% endfor %}
+              {% endif %}
+            </div>
+            <button type="button" class="mc-add-option" onclick="addMcOption(this)">+ Add option</button>
           </div>
         </div>
         {% endfor %}
@@ -93,12 +136,20 @@
 <script>
 var qIdx = {{ (template.questions|length) if template and template.questions else 0 }};
 
+function currentPage() {
+  var breaks = document.querySelectorAll('#questions-container .page-break-divider');
+  return breaks.length + 1;
+}
+
 function addQuestion() {
   var c = document.getElementById('questions-container');
   var idx = qIdx++;
+  var page = currentPage();
   var html = '<div class="question-block" data-idx="' + idx + '">' +
     '<input type="hidden" name="q_idx" value="' + idx + '">' +
+    '<input type="hidden" name="q_page_' + idx + '" class="q-page-input" value="' + page + '">' +
     '<div style="display:flex;gap:.75rem;align-items:flex-start;margin-bottom:.75rem">' +
+      '<div class="drag-handle" title="Drag to reorder">&#8942;&#8942;</div>' +
       '<div style="flex:1"><label class="form-label">Question Text *</label>' +
         '<input type="text" name="q_text_' + idx + '" class="form-input" required placeholder="Enter your question..."></div>' +
       '<div style="min-width:160px"><label class="form-label">Type</label>' +
@@ -111,23 +162,217 @@ function addQuestion() {
       '<div style="padding-top:1.6rem"><button type="button" class="btn btn-xs btn-danger" onclick="removeQuestion(this)">&#10005;</button></div>' +
     '</div>' +
     '<div class="mc-options-wrap" id="mc-options-' + idx + '" style="display:none">' +
-      '<label class="form-label">Options (one per line)</label>' +
-      '<textarea name="q_options_' + idx + '" class="form-input" rows="3" placeholder="Option A&#10;Option B&#10;Option C"></textarea>' +
+      '<label class="form-label">Options</label>' +
+      '<textarea name="q_options_' + idx + '" class="mc-options-hidden" style="display:none"></textarea>' +
+      '<div class="mc-options-list"></div>' +
+      '<button type="button" class="mc-add-option" onclick="addMcOption(this)">+ Add option</button>' +
     '</div></div>';
   c.insertAdjacentHTML('beforeend', html);
+  initDragHandle(c.lastElementChild);
   document.getElementById('no-questions').style.display = 'none';
+}
+
+function addPageBreak() {
+  var c = document.getElementById('questions-container');
+  if (!c.querySelector('.question-block')) return;
+  var breaks = c.querySelectorAll('.page-break-divider');
+  var pageNum = breaks.length + 2;
+  var html = '<div class="page-break-divider">' +
+    '<div style="display:flex;align-items:center;gap:.75rem;margin:1.25rem 0;">' +
+      '<div style="flex:1;height:2px;background:var(--primary);opacity:.3;border-radius:1px"></div>' +
+      '<span class="page-break-label" style="font-size:.8rem;font-weight:600;color:var(--primary);white-space:nowrap;letter-spacing:.03em">PAGE <span class="page-num">' + pageNum + '</span></span>' +
+      '<div style="flex:1;height:2px;background:var(--primary);opacity:.3;border-radius:1px"></div>' +
+      '<button type="button" class="btn btn-xs btn-danger" onclick="removePageBreak(this)" title="Remove page break">&#10005;</button>' +
+    '</div></div>';
+  c.insertAdjacentHTML('beforeend', html);
+  recalcPages();
+}
+
+function removePageBreak(btn) {
+  btn.closest('.page-break-divider').remove();
+  recalcPages();
 }
 
 function removeQuestion(btn) {
   btn.closest('.question-block').remove();
+  recalcPages();
   if (!document.querySelector('.question-block')) {
     document.getElementById('no-questions').style.display = 'block';
   }
 }
 
+function recalcPages() {
+  var c = document.getElementById('questions-container');
+  var children = c.children;
+  var page = 1;
+  var breakNum = 2;
+  for (var i = 0; i < children.length; i++) {
+    var el = children[i];
+    if (el.classList.contains('page-break-divider')) {
+      page++;
+      var numSpan = el.querySelector('.page-num');
+      if (numSpan) numSpan.textContent = page;
+      breakNum++;
+    } else if (el.classList.contains('question-block')) {
+      var inp = el.querySelector('.q-page-input');
+      if (inp) inp.value = page;
+    }
+  }
+}
+
 function toggleOptions(sel, idx) {
   var wrap = document.getElementById('mc-options-' + idx);
-  if (wrap) wrap.style.display = sel.value === 'multiple_choice' ? '' : 'none';
+  if (!wrap) return;
+  var show = sel.value === 'multiple_choice';
+  wrap.style.display = show ? '' : 'none';
+  if (show && wrap.querySelectorAll('.mc-option-row').length === 0) {
+    var addBtn = wrap.querySelector('.mc-add-option');
+    addMcOption(addBtn);
+    addMcOption(addBtn);
+  }
 }
+
+function addMcOption(btn) {
+  var list = btn.closest('.mc-options-wrap').querySelector('.mc-options-list');
+  var row = document.createElement('div');
+  row.className = 'mc-option-row';
+  row.innerHTML =
+    '<span class="mc-option-bullet">&#9675;</span>' +
+    '<input type="text" class="form-input mc-option-input" placeholder="Option text...">' +
+    '<button type="button" class="btn btn-xs btn-danger" onclick="removeMcOption(this)" title="Remove option">&#10005;</button>';
+  list.appendChild(row);
+  row.querySelector('.mc-option-input').focus();
+}
+
+function removeMcOption(btn) {
+  var row = btn.closest('.mc-option-row');
+  var list = row.parentNode;
+  if (list.querySelectorAll('.mc-option-row').length <= 1) return;
+  row.remove();
+}
+
+function syncMcOptions() {
+  document.querySelectorAll('.mc-options-wrap').forEach(function(wrap) {
+    var hidden = wrap.querySelector('.mc-options-hidden');
+    if (!hidden) return;
+    var vals = [];
+    wrap.querySelectorAll('.mc-option-input').forEach(function(inp) {
+      var v = inp.value.trim();
+      if (v) vals.push(v);
+    });
+    hidden.value = vals.join('\n');
+  });
+}
+
+document.querySelector('form').addEventListener('submit', syncMcOptions);
+
+// ── Pointer-based Drag & Drop ──
+var drag = null;
+var SCROLL_ZONE = 48, SCROLL_SPEED = 8;
+
+function initDragHandle(block) {
+  var handle = block.querySelector('.drag-handle');
+  if (!handle) return;
+  handle.addEventListener('mousedown', function(e) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    startDrag(block, e);
+  });
+}
+
+function startDrag(block, e) {
+  var container = document.getElementById('questions-container');
+  var rect = block.getBoundingClientRect();
+
+  var placeholder = document.createElement('div');
+  placeholder.className = 'drag-placeholder';
+  placeholder.style.height = rect.height + 'px';
+  container.insertBefore(placeholder, block);
+
+  // Move to body so position:fixed isn't broken by parent transforms
+  document.body.appendChild(block);
+  block.classList.add('is-dragging');
+  block.style.top = rect.top + 'px';
+  block.style.left = rect.left + 'px';
+  block.style.width = rect.width + 'px';
+
+  drag = {
+    block: block,
+    placeholder: placeholder,
+    container: container,
+    offsetY: e.clientY - rect.top,
+    scrollTimer: null
+  };
+
+  document.addEventListener('mousemove', onDragMove);
+  document.addEventListener('mouseup', onDragEnd);
+  document.body.style.userSelect = 'none';
+  document.body.style.cursor = 'grabbing';
+}
+
+function onDragMove(e) {
+  if (!drag) return;
+  drag.block.style.top = (e.clientY - drag.offsetY) + 'px';
+
+  var siblings = [];
+  for (var i = 0; i < drag.container.children.length; i++) {
+    var ch = drag.container.children[i];
+    if (ch !== drag.block && ch !== drag.placeholder) siblings.push(ch);
+  }
+
+  var insertRef = null;
+  for (var j = 0; j < siblings.length; j++) {
+    var r = siblings[j].getBoundingClientRect();
+    if (e.clientY < r.top + r.height / 2) { insertRef = siblings[j]; break; }
+  }
+
+  if (insertRef) {
+    if (drag.placeholder.nextSibling !== insertRef)
+      drag.container.insertBefore(drag.placeholder, insertRef);
+  } else {
+    if (drag.placeholder !== drag.container.lastElementChild)
+      drag.container.appendChild(drag.placeholder);
+  }
+
+  // auto-scroll near viewport edges
+  var vy = 0;
+  if (e.clientY < SCROLL_ZONE) vy = -SCROLL_SPEED;
+  else if (e.clientY > window.innerHeight - SCROLL_ZONE) vy = SCROLL_SPEED;
+  if (vy && !drag.scrollTimer) {
+    drag.scrollTimer = setInterval(function() { window.scrollBy(0, vy); }, 16);
+  } else if (!vy && drag.scrollTimer) {
+    clearInterval(drag.scrollTimer);
+    drag.scrollTimer = null;
+  }
+}
+
+function onDragEnd() {
+  if (!drag) return;
+  if (drag.scrollTimer) clearInterval(drag.scrollTimer);
+
+  drag.container.insertBefore(drag.block, drag.placeholder);
+  drag.placeholder.remove();
+
+  drag.block.classList.remove('is-dragging');
+  drag.block.style.position = '';
+  drag.block.style.top = '';
+  drag.block.style.left = '';
+  drag.block.style.width = '';
+  drag.block.style.zIndex = '';
+  drag.block.style.pointerEvents = '';
+
+  document.removeEventListener('mousemove', onDragMove);
+  document.removeEventListener('mouseup', onDragEnd);
+  document.body.style.userSelect = '';
+  document.body.style.cursor = '';
+
+  recalcPages();
+  drag = null;
+}
+
+(function() {
+  document.getElementById('questions-container')
+    .querySelectorAll('.question-block').forEach(initDragHandle);
+})();
 </script>
 {% endblock %}

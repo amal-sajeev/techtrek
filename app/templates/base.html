@@ -189,6 +189,28 @@
   </div>
 </div>
 
+<!-- Live poll popup (for attendees with a ticket) -->
+{% if user %}
+<div class="modal-wrapper" id="poll-popup-modal" style="display:none;">
+  <div class="modal-backdrop" id="poll-popup-backdrop"></div>
+  <div class="modal-dialog" style="max-width:420px;">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;">
+      <span style="font-size:1.25rem;">&#128202;</span>
+      <h3 style="margin:0;font-size:1.1rem;">Live poll</h3>
+    </div>
+    <p id="poll-popup-session" class="text-muted" style="font-size:.85rem;margin:0 0 .5rem;"></p>
+    <div id="poll-popup-question" style="font-weight:600;font-size:1rem;margin-bottom:1rem;"></div>
+    <div id="poll-popup-body"></div>
+    <div id="poll-popup-total" style="font-size:.85rem;color:var(--text-muted);margin-top:.75rem;"></div>
+    <div class="modal-footer" style="margin-top:1rem;flex-wrap:wrap;gap:.5rem;">
+      <button type="button" class="btn btn-primary" id="poll-popup-vote-btn" style="display:none;">Submit vote</button>
+      <button type="button" class="btn btn-outline" id="poll-popup-dismiss">Dismiss</button>
+      <a id="poll-popup-view-session" href="#" class="btn btn-ghost" style="font-size:.85rem;">View session</a>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <script>
 // ---- STARFIELD / LIGHT SPARKLES ----
 (function(){
@@ -548,6 +570,213 @@ function dismissFeedback(eventId, dontAsk) {
   fetch('/feedback/' + eventId + '/dismiss', { method: 'POST', body: fd });
 }
 window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFeedback: dismissFeedback };
+
+{% if user %}
+(function pollPopup() {
+  var modal = document.getElementById('poll-popup-modal');
+  if (!modal) return;
+  var backdrop = document.getElementById('poll-popup-backdrop');
+  var sessionEl = document.getElementById('poll-popup-session');
+  var questionEl = document.getElementById('poll-popup-question');
+  var bodyEl = document.getElementById('poll-popup-body');
+  var totalEl = document.getElementById('poll-popup-total');
+  var voteBtn = document.getElementById('poll-popup-vote-btn');
+  var dismissBtn = document.getElementById('poll-popup-dismiss');
+  var viewLink = document.getElementById('poll-popup-view-session');
+  var currentSessionId = null;
+  var currentPollId = null;
+  var currentPollType = 'multiple_choice';
+  var votedOption = null;
+  var votedRating = null;
+  var votedText = null;
+
+  function closePollModal() {
+    modal.style.display = 'none';
+  }
+  function openPollModal() {
+    modal.style.display = 'flex';
+  }
+
+  function hasVoted(data) {
+    return (data.voted_option !== undefined && data.voted_option !== null) ||
+      (data.voted_rating !== undefined && data.voted_rating !== null) ||
+      (data.voted_text !== undefined && data.voted_text !== null && data.voted_text !== '');
+  }
+
+  function renderPollBody(data) {
+    if (!data || !data.question) return;
+    currentSessionId = data.session_id;
+    currentPollId = data.poll_id;
+    currentPollType = data.poll_type || 'multiple_choice';
+    if (data.voted_option !== undefined && data.voted_option !== null) votedOption = data.voted_option;
+    if (data.voted_rating !== undefined && data.voted_rating !== null) votedRating = data.voted_rating;
+    if (data.voted_text !== undefined && data.voted_text !== null) votedText = data.voted_text;
+    var readOnly = hasVoted(data);
+    sessionEl.textContent = data.session_title ? 'From: ' + data.session_title : '';
+    viewLink.href = currentSessionId ? '/sessions/' + currentSessionId : '#';
+    questionEl.textContent = data.question;
+    voteBtn.style.display = 'none';
+    var html = '';
+    var ptype = data.poll_type || 'multiple_choice';
+
+    if (ptype === 'multiple_choice' || ptype === 'yes_no') {
+      totalEl.textContent = (data.total_votes || 0) + ' vote' + (data.total_votes !== 1 ? 's' : '');
+      if (readOnly) {
+        var chosen = (data.options || []).find(function(opt) { return opt.id === votedOption; });
+        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08);color:var(--text-primary)">' +
+          '<span style="color:var(--cyan)">&#10003; Your answer: </span>' + (chosen ? chosen.text.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '') + '</div>';
+        if ((data.options || []).length) {
+          html += '<div style="margin-top:.75rem;font-size:.85rem;color:var(--text-muted)">All options:</div>';
+          (data.options || []).forEach(function(opt) {
+            var isVoted = votedOption === opt.id;
+            html += '<div style="margin-top:.25rem;padding:.35rem .5rem;border-radius:4px;' + (isVoted ? 'background:rgba(0,212,255,.06)' : '') + '">' +
+              (isVoted ? '&#10003; ' : '') + opt.text.replace(/</g,'&lt;').replace(/>/g,'&gt;') + ' <span style="opacity:.8">(' + opt.votes + ', ' + opt.pct + '%)</span></div>';
+          });
+        }
+      } else {
+        (data.options || []).forEach(function(opt) {
+          var isVoted = votedOption === opt.id;
+          html += '<div style="margin-bottom:.5rem"><label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.5rem .6rem;border-radius:6px;border:1px solid var(--border,rgba(255,255,255,.12));' + (isVoted ? 'border-color:var(--cyan);background:rgba(0,212,255,.08)' : '') + '">' +
+            '<input type="radio" name="poll-opt" value="' + opt.id + '" ' + (isVoted ? 'checked' : '') + ' style="flex-shrink:0">' +
+            '<span style="flex:1">' + (isVoted ? '&#10003; ' : '') + opt.text + '</span>' +
+            '<span style="font-size:.8rem;color:var(--text-muted)">' + opt.votes + ' (' + opt.pct + '%)</span></label></div>';
+        });
+        voteBtn.style.display = '';
+      }
+    } else if (ptype === 'rating') {
+      var avg = data.average || 0;
+      totalEl.textContent = (data.total_votes || 0) + ' rating' + (data.total_votes !== 1 ? 's' : '') + ' · avg ' + avg + '/5';
+      if (readOnly) {
+        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08);margin-bottom:.5rem">' +
+          '<span style="color:var(--cyan)">&#10003; Your rating: </span>' + (votedRating || 0) + '/5</div>';
+        html += '<div style="display:flex;justify-content:center;gap:.25rem;margin:.5rem 0">';
+        for (var s = 1; s <= 5; s++) {
+          var active = votedRating && s <= votedRating;
+          html += '<span style="font-size:1.8rem;color:' + (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '">&#9733;</span>';
+        }
+        html += '</div>';
+      } else {
+        html += '<div style="display:flex;justify-content:center;gap:.25rem;margin:.5rem 0" id="poll-popup-stars">';
+        for (var s = 1; s <= 5; s++) {
+          var active = votedRating && s <= votedRating;
+          html += '<span class="poll-popup-star" data-val="' + s + '" style="font-size:1.8rem;cursor:pointer;color:' + (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '">&#9733;</span>';
+        }
+        html += '</div>';
+        voteBtn.style.display = '';
+      }
+    } else if (ptype === 'text') {
+      totalEl.textContent = (data.total_votes || 0) + ' response' + (data.total_votes !== 1 ? 's' : '');
+      if (readOnly) {
+        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08)">' +
+          '<span style="color:var(--cyan)">&#10003; Your answer: </span>' + (votedText || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+        if (data.responses && data.responses.length) {
+          html += '<div style="margin-top:.75rem;font-size:.85rem;color:var(--text-muted)">Other responses:</div>';
+          data.responses.slice(0, 5).forEach(function(r) {
+            html += '<div style="padding:.35rem .5rem;background:var(--bg-void,#0d0d1a);border-radius:4px;margin-top:.25rem;font-size:.85rem">' + r.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+          });
+        }
+      } else {
+        html += '<input type="text" id="poll-popup-text-inp" class="form-input" placeholder="Type your answer..." value="' + (votedText || '').replace(/"/g, '&quot;') + '" style="margin-bottom:.5rem">';
+        voteBtn.style.display = '';
+        if (data.responses && data.responses.length) {
+          html += '<div style="max-height:120px;overflow-y:auto;font-size:.85rem">';
+          data.responses.slice(0, 5).forEach(function(r) {
+            html += '<div style="padding:.35rem .5rem;background:var(--bg-void,#0d0d1a);border-radius:4px;margin-bottom:.25rem">' + r.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+          });
+          html += '</div>';
+        }
+      }
+    }
+    bodyEl.innerHTML = html;
+    if (!readOnly && ptype === 'rating') {
+      bodyEl.querySelectorAll('.poll-popup-star').forEach(function(star) {
+        star.addEventListener('click', function() {
+          var val = parseInt(star.dataset.val, 10);
+          votedRating = val;
+          bodyEl.querySelectorAll('.poll-popup-star').forEach(function(s) {
+            s.style.color = parseInt(s.dataset.val) <= val ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))';
+          });
+          submitPollVote({ rating: val });
+        });
+      });
+    }
+    if (!readOnly) {
+      bodyEl.querySelectorAll('input[name="poll-opt"]').forEach(function(radio) {
+        radio.addEventListener('change', function() { votedOption = parseInt(this.value, 10); });
+      });
+    }
+  }
+
+  function submitPollVote(extra) {
+    if (!currentSessionId || !currentPollId) return;
+    var body = extra || {};
+    if (currentPollType === 'multiple_choice' || currentPollType === 'yes_no') {
+      if (votedOption == null) return;
+      body.option_id = votedOption;
+    } else if (currentPollType === 'text') {
+      var inp = document.getElementById('poll-popup-text-inp');
+      var text = (inp && inp.value) ? inp.value.trim() : '';
+      if (!text) return;
+      body.text = text;
+    }
+    voteBtn.disabled = true;
+    fetch('/sessions/' + currentSessionId + '/polls/' + currentPollId + '/vote', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function(r) { return r.json(); }).then(function(res) {
+      voteBtn.disabled = false;
+      if (res.ok && res.poll) {
+        votedOption = res.poll.voted_option;
+        votedRating = res.poll.voted_rating;
+        votedText = res.poll.voted_text;
+        renderPollBody(res.poll);
+        if (window.TechTrek && window.TechTrek.showToast) window.TechTrek.showToast('Vote recorded.', 'success', 3000);
+      }
+    }).catch(function() { voteBtn.disabled = false; });
+  }
+
+  voteBtn.addEventListener('click', function() {
+    if (currentPollType === 'text') {
+      var inp = document.getElementById('poll-popup-text-inp');
+      if (inp && inp.value.trim()) submitPollVote({ text: inp.value.trim() });
+    } else if (currentPollType === 'multiple_choice' || currentPollType === 'yes_no') {
+      if (votedOption != null) submitPollVote({ option_id: votedOption });
+    }
+  });
+  dismissBtn.addEventListener('click', closePollModal);
+  if (backdrop) backdrop.addEventListener('click', closePollModal);
+
+  var evtSource = new EventSource('/user/poll-notifications/stream');
+  evtSource.onmessage = function(e) {
+    try {
+      var data = JSON.parse(e.data);
+      if (data.type === 'connected') return;
+      if (data.closed || data.is_active === false) {
+        closePollModal();
+        return;
+      }
+      if (data.poll_id && data.question) {
+        if (data.session_id && window.location.pathname === '/sessions/' + data.session_id) return;
+        openPollModal();
+        if (data.session_id) {
+          fetch('/sessions/' + data.session_id + '/polls/active').then(function(r) { return r.json(); }).then(function(res) {
+            if (res.poll) {
+              res.poll.session_id = data.session_id;
+              res.poll.session_title = data.session_title;
+              renderPollBody(res.poll);
+            } else {
+              renderPollBody(data);
+            }
+          }).catch(function() { renderPollBody(data); });
+        } else {
+          renderPollBody(data);
+        }
+      }
+    } catch (err) {}
+  };
+})();
+{% endif %}
 
 </script>
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/js/tom-select.complete.min.js"></script>

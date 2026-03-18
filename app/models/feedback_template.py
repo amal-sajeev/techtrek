@@ -13,13 +13,15 @@ class FeedbackTemplate(Base):
     name = Column(String(300), nullable=False)
     description = Column(Text, nullable=True)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    session_ratings_enabled = Column(Boolean, default=True)
+    session_ratings_required = Column(Boolean, default=False)
     created_at = Column(DateTime, default=now_ist)
 
     questions = relationship(
         "TemplateQuestion",
         back_populates="template",
         cascade="all, delete-orphan",
-        order_by="TemplateQuestion.order",
+        order_by="TemplateQuestion.page, TemplateQuestion.order",
     )
     events = relationship("Event", back_populates="feedback_template")
 
@@ -29,6 +31,7 @@ class TemplateQuestion(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     template_id = Column(Integer, ForeignKey("feedback_templates.id", ondelete="CASCADE"), nullable=False)
+    page = Column(Integer, default=1)
     order = Column(Integer, default=0)
     question_text = Column(Text, nullable=False)
     question_type = Column(String(30), nullable=False, default="text")

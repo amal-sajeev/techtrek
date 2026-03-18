@@ -3,7 +3,17 @@
 {% block title %}Feedback — {{ event.name }}{% endblock %}
 
 {% set has_template = fb_template and fb_template.questions and fb_template.questions|length > 0 %}
-{% set total_steps = 3 if has_template else 2 %}
+{% set has_sessions = fb_template and fb_template.session_ratings_enabled and sessions and sessions|length > 0 %}
+{% set sessions_required = fb_template and fb_template.session_ratings_required %}
+{% if has_template %}
+  {% set pages = fb_template.questions | groupby('page') | list %}
+  {% set num_pages = pages | length %}
+{% else %}
+  {% set pages = [] %}
+  {% set num_pages = 0 %}
+{% endif %}
+{% set step_offset = 1 if has_sessions else 0 %}
+{% set total_steps = step_offset + num_pages + 1 %}
 
 {% block content %}
 <section class="section">
@@ -17,59 +27,77 @@
       </p>
 
       {# ── Progress indicator ── #}
+      {% if total_steps > 1 %}
       <div class="fb-progress" data-total="{{ total_steps }}">
-        <div class="fb-progress-step active" data-for="1">
-          <span class="fb-dot">1</span>
-          <span class="fb-dot-label">Rating</span>
-        </div>
-        {% if has_template %}
-        <div class="fb-progress-line"></div>
-        <div class="fb-progress-step" data-for="2">
-          <span class="fb-dot">2</span>
-          <span class="fb-dot-label">Questions</span>
-        </div>
-        <div class="fb-progress-line"></div>
-        <div class="fb-progress-step" data-for="{{ total_steps }}">
-          <span class="fb-dot">3</span>
-          <span class="fb-dot-label">Finish</span>
-        </div>
-        {% else %}
-        <div class="fb-progress-line"></div>
-        <div class="fb-progress-step" data-for="2">
-          <span class="fb-dot">2</span>
-          <span class="fb-dot-label">Finish</span>
-        </div>
+        {% set dot_num = namespace(n=0) %}
+        {% if has_sessions %}
+          {% set dot_num.n = 1 %}
+          <div class="fb-progress-step active" data-for="1">
+            <span class="fb-dot">1</span>
+            <span class="fb-dot-label">Sessions</span>
+          </div>
         {% endif %}
+        {% if has_template %}
+          {% for page_group in pages %}
+          {% if dot_num.n > 0 %}<div class="fb-progress-line"></div>{% endif %}
+          {% set dot_num.n = dot_num.n + 1 %}
+          <div class="fb-progress-step{% if dot_num.n == 1 %} active{% endif %}" data-for="{{ step_offset + loop.index }}">
+            <span class="fb-dot">{{ step_offset + loop.index }}</span>
+            <span class="fb-dot-label">{% if num_pages == 1 %}Questions{% else %}Page {{ loop.index }}{% endif %}</span>
+          </div>
+          {% endfor %}
+        {% endif %}
+        <div class="fb-progress-line"></div>
+        <div class="fb-progress-step{% if total_steps == 1 %} active{% endif %}" data-for="{{ total_steps }}">
+          <span class="fb-dot">{{ total_steps }}</span>
+          <span class="fb-dot-label">Finish</span>
+        </div>
       </div>
+      {% endif %}
 
       <form method="post" action="/feedback/{{ event.id }}" id="feedback-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-        {# ── Step 1: Overall Rating ── #}
+        {% if has_sessions %}
+        {# ── Step 1: Session Ratings ── #}
         <div class="fb-step active" data-step="1">
-          <h3 class="fb-step-title">How would you rate this event overall?</h3>
-          <div class="form-group" style="margin-bottom:1.5rem;text-align:center;">
-            <div class="star-rating" id="star-rating" style="display:inline-flex;gap:.25rem;">
-              {% for i in range(1, 6) %}
-              <label class="star-label" data-value="{{ i }}">
-                <input type="radio" name="rating" value="{{ i }}" {% if existing and existing.rating == i %}checked{% endif %} style="display:none;">
-                <span class="star" style="font-size:2.6rem;cursor:pointer;transition:color .15s;color:var(--border);">&#9733;</span>
-              </label>
-              {% endfor %}
+          <h3 class="fb-step-title">Rate the sessions{% if sessions_required %} <span style="color:#ef4444">*</span>{% endif %}</h3>
+          <p class="text-muted" style="font-size:.85rem;margin-bottom:1.25rem;">
+            {% if sessions_required %}Please rate every session before continuing.{% else %}Rate any sessions you'd like — or skip ahead.{% endif %}
+          </p>
+          <div class="session-rating-list">
+            {% for s in sessions %}
+            <div class="session-rating-row" data-sid="{{ s.id }}">
+              <div class="session-rating-info">
+                <div class="session-rating-title">{{ s.title }}</div>
+                <div class="session-rating-speaker text-muted">{{ s.speaker_name }}</div>
+              </div>
+              <div class="star-rating sr-stars" data-sid="{{ s.id }}" style="display:inline-flex;gap:.15rem;">
+                {% for i in range(1, 6) %}
+                <label class="star-label" data-value="{{ i }}">
+                  <input type="radio" name="session_rating_{{ s.id }}" value="{{ i }}" style="display:none;">
+                  <span class="star" style="font-size:1.6rem;cursor:pointer;transition:color .15s;color:var(--border);">&#9733;</span>
+                </label>
+                {% endfor %}
+              </div>
             </div>
-            <div class="fb-validation-msg" id="rating-error" style="display:none;">Please select a star rating to continue</div>
+            {% endfor %}
           </div>
+          <div class="fb-validation-msg" id="sessions-error" style="display:none;">Please rate all sessions to continue</div>
           <div class="fb-step-actions">
             <a href="/booking/my" class="btn btn-outline">Cancel</a>
-            <button type="button" class="btn btn-primary fb-next-btn" data-next="{{ 2 }}">Next &rarr;</button>
+            <button type="button" class="btn btn-primary fb-next-btn" data-next="2">Next &rarr;</button>
           </div>
         </div>
+        {% endif %}
 
         {% if has_template %}
-        {# ── Step 2: Template Questions ── #}
-        <div class="fb-step" data-step="2">
-          <h3 class="fb-step-title">A few more questions</h3>
-          {% for q in fb_template.questions %}
+        {# ── Question page steps ── #}
+        {% for page_group in pages %}
+        {% set step_num = step_offset + loop.index %}
+        <div class="fb-step{% if not has_sessions and loop.first %} active{% endif %}" data-step="{{ step_num }}">
+          <h3 class="fb-step-title">{% if num_pages == 1 %}A few more questions{% else %}Questions — Page {{ loop.index }}{% endif %}</h3>
+          {% for q in page_group.list %}
           <div class="form-group" style="margin-bottom:1.25rem;">
             <label class="form-label" for="question_{{ q.id }}">
               {{ q.question_text }}{% if q.is_required %} <span style="color:#ef4444">*</span>{% endif %}
@@ -99,14 +127,19 @@
           </div>
           {% endfor %}
           <div class="fb-step-actions">
-            <button type="button" class="btn btn-outline fb-back-btn" data-back="1">&larr; Back</button>
-            <button type="button" class="btn btn-primary fb-next-btn" data-next="{{ total_steps }}">Next &rarr;</button>
+            {% if step_num > 1 %}
+            <button type="button" class="btn btn-outline fb-back-btn" data-back="{{ step_num - 1 }}">&larr; Back</button>
+            {% else %}
+            <a href="/booking/my" class="btn btn-outline">Cancel</a>
+            {% endif %}
+            <button type="button" class="btn btn-primary fb-next-btn" data-next="{{ step_num + 1 }}">Next &rarr;</button>
           </div>
         </div>
+        {% endfor %}
         {% endif %}
 
         {# ── Final Step: Comments + Submit ── #}
-        <div class="fb-step" data-step="{{ total_steps }}">
+        <div class="fb-step{% if not has_sessions and not has_template %} active{% endif %}" data-step="{{ total_steps }}">
           <h3 class="fb-step-title">Any final thoughts?</h3>
           <div class="form-group" style="margin-bottom:1.5rem;">
             <label class="form-label" for="comment">Comments <span class="text-muted">(optional)</span></label>
@@ -124,7 +157,11 @@
           </div>
 
           <div class="fb-step-actions">
+            {% if total_steps > 1 %}
             <button type="button" class="btn btn-outline fb-back-btn" data-back="{{ total_steps - 1 }}">&larr; Back</button>
+            {% else %}
+            <a href="/booking/my" class="btn btn-outline">Cancel</a>
+            {% endif %}
             <button type="submit" class="btn btn-primary">Submit Feedback</button>
           </div>
         </div>
@@ -140,6 +177,8 @@
 (function(){
   var goldColor = 'var(--yellow, #f59e0b)';
   var dimColor = 'var(--border)';
+  var sessionsRequired = {{ 'true' if sessions_required else 'false' }};
+  var hasSessionsStep = {{ 'true' if has_sessions else 'false' }};
 
   function initStarGroup(container) {
     var stars = container.querySelectorAll('.star-label');
@@ -163,13 +202,16 @@
     });
   }
 
-  initStarGroup(document.getElementById('star-rating'));
-  document.querySelectorAll('.q-star-rating').forEach(function(el) {
-    initStarGroup(el);
-  });
+  document.querySelectorAll('.sr-stars').forEach(function(el) { initStarGroup(el); });
+  document.querySelectorAll('.q-star-rating').forEach(function(el) { initStarGroup(el); });
 
   // ── Step wizard ──
-  var currentStep = 1;
+  var firstStep = 1;
+  if (!hasSessionsStep) {
+    var firstActive = document.querySelector('.fb-step.active');
+    if (firstActive) firstStep = parseInt(firstActive.dataset.step);
+  }
+  var currentStep = firstStep;
 
   function showStep(n, direction) {
     var steps = document.querySelectorAll('.fb-step');
@@ -211,17 +253,30 @@
     var step = document.querySelector('.fb-step[data-step="' + stepNum + '"]');
     if (!step) return true;
 
-    if (stepNum === 1) {
-      var checked = step.querySelector('input[name="rating"]:checked');
-      var err = document.getElementById('rating-error');
-      if (!checked) {
+    // Session ratings step validation
+    if (hasSessionsStep && stepNum === 1 && sessionsRequired) {
+      var rows = step.querySelectorAll('.session-rating-row');
+      var allRated = true;
+      rows.forEach(function(row) {
+        var sid = row.dataset.sid;
+        var checked = step.querySelector('input[name="session_rating_' + sid + '"]:checked');
+        if (!checked) {
+          allRated = false;
+          row.classList.add('fb-field-error');
+          setTimeout(function() { row.classList.remove('fb-field-error'); }, 2000);
+        }
+      });
+      if (!allRated) {
+        var err = document.getElementById('sessions-error');
         if (err) err.style.display = 'block';
         return false;
       }
-      if (err) err.style.display = 'none';
+      var err2 = document.getElementById('sessions-error');
+      if (err2) err2.style.display = 'none';
       return true;
     }
 
+    // Generic required field validation for question steps
     var requiredFields = step.querySelectorAll('[required]');
     for (var i = 0; i < requiredFields.length; i++) {
       var field = requiredFields[i];
@@ -231,7 +286,6 @@
         var any = false;
         group.forEach(function(r) { if (r.checked) any = true; });
         if (!any) {
-          var label = step.querySelector('label[for="' + name + '"]');
           field.closest('.form-group').classList.add('fb-field-error');
           setTimeout(function() {
             field.closest('.form-group').classList.remove('fb-field-error');
@@ -261,15 +315,6 @@
   document.querySelectorAll('.fb-back-btn').forEach(function(btn) {
     btn.addEventListener('click', function() {
       showStep(parseInt(btn.dataset.back), 'back');
-    });
-  });
-
-  // Auto-advance on star click for step 1
-  var mainStars = document.querySelectorAll('#star-rating .star-label');
-  mainStars.forEach(function(s) {
-    s.addEventListener('click', function() {
-      var err = document.getElementById('rating-error');
-      if (err) err.style.display = 'none';
     });
   });
 

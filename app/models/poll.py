@@ -4,6 +4,8 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 from app.utils import now_ist
 
+POLL_TYPES = ("multiple_choice", "yes_no", "rating", "text")
+
 
 class Poll(Base):
     __tablename__ = "polls"
@@ -11,6 +13,7 @@ class Poll(Base):
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
     question = Column(Text, nullable=False)
+    poll_type = Column(String(30), nullable=False, default="multiple_choice")
     is_active = Column(Boolean, default=False)
     allow_multiple = Column(Boolean, default=False)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -39,8 +42,10 @@ class PollVote(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     poll_id = Column(Integer, ForeignKey("polls.id", ondelete="CASCADE"), nullable=False)
-    option_id = Column(Integer, ForeignKey("poll_options.id", ondelete="CASCADE"), nullable=False)
+    option_id = Column(Integer, ForeignKey("poll_options.id", ondelete="CASCADE"), nullable=True)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    rating_value = Column(Integer, nullable=True)
+    text_answer = Column(Text, nullable=True)
     voted_at = Column(DateTime, default=now_ist)
 
     __table_args__ = (

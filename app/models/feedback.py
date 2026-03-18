@@ -18,6 +18,7 @@ class Feedback(Base):
     dismissed = Column(Boolean, default=False)
     email_sent = Column(Boolean, default=False)
     email_sent_at = Column(DateTime, nullable=True)
+    submitted_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=now_ist)
 
     __table_args__ = (
@@ -26,3 +27,16 @@ class Feedback(Base):
 
     user = relationship("User", backref="feedback_entries")
     event = relationship("Event", backref="feedback_entries")
+    session_ratings = relationship("SessionRating", back_populates="feedback", cascade="all, delete-orphan")
+
+
+class SessionRating(Base):
+    __tablename__ = "session_ratings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    feedback_id = Column(Integer, ForeignKey("feedback.id", ondelete="CASCADE"), nullable=False)
+    session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    rating = Column(Integer, nullable=False)
+
+    feedback = relationship("Feedback", back_populates="session_ratings")
+    session = relationship("Session")

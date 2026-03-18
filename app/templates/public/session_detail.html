@@ -646,6 +646,9 @@
   var pollTotalEl = document.getElementById('poll-total');
   var currentPollId = null;
   var votedOption = null;
+  var votedRating = null;
+  var votedText = null;
+  var currentPollType = 'multiple_choice';
 
   function renderPoll(data) {
     if (!data || !data.is_active) {
@@ -655,25 +658,74 @@
     }
     pollSection.style.display = '';
     currentPollId = data.poll_id;
+    currentPollType = data.poll_type || 'multiple_choice';
     pollQuestionEl.textContent = data.question;
-    pollTotalEl.textContent = data.total_votes + ' vote' + (data.total_votes !== 1 ? 's' : '');
     if (data.voted_option !== undefined && data.voted_option !== null) votedOption = data.voted_option;
+    if (data.voted_rating !== undefined && data.voted_rating !== null) votedRating = data.voted_rating;
+    if (data.voted_text !== undefined && data.voted_text !== null) votedText = data.voted_text;
 
     var html = '';
-    (data.options || []).forEach(function(opt) {
-      var isVoted = votedOption === opt.id;
-      html += '<div style="cursor:pointer" onclick="castVote(' + opt.id + ')" data-opt-id="' + opt.id + '">' +
-        '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
-          '<span style="font-size:.9rem;' + (isVoted ? 'font-weight:700;color:var(--cyan,#00d4ff)' : '') + '">' +
-            (isVoted ? '&#10003; ' : '') + opt.text + '</span>' +
-          '<span style="font-size:.85rem;color:var(--text-muted)">' + opt.votes + ' (' + opt.pct + '%)</span>' +
-        '</div>' +
-        '<div style="background:var(--bg-void,#0d0d1a);border-radius:4px;height:28px;overflow:hidden;border:' +
-          (isVoted ? '2px solid var(--cyan,#00d4ff)' : '1px solid var(--border,rgba(255,255,255,.08))') + '">' +
-          '<div style="height:100%;background:' + (isVoted ? 'var(--cyan,#00d4ff)' : 'rgba(0,212,255,.3)') +
-            ';width:' + opt.pct + '%;transition:width .4s ease;border-radius:3px"></div>' +
-        '</div></div>';
-    });
+    var ptype = data.poll_type || 'multiple_choice';
+
+    if (ptype === 'multiple_choice' || ptype === 'yes_no') {
+      pollTotalEl.textContent = data.total_votes + ' vote' + (data.total_votes !== 1 ? 's' : '');
+      (data.options || []).forEach(function(opt) {
+        var isVoted = votedOption === opt.id;
+        html += '<div style="cursor:pointer" onclick="castVote(' + opt.id + ')" data-opt-id="' + opt.id + '">' +
+          '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
+            '<span style="font-size:.9rem;' + (isVoted ? 'font-weight:700;color:var(--cyan,#00d4ff)' : '') + '">' +
+              (isVoted ? '&#10003; ' : '') + opt.text + '</span>' +
+            '<span style="font-size:.85rem;color:var(--text-muted)">' + opt.votes + ' (' + opt.pct + '%)</span>' +
+          '</div>' +
+          '<div style="background:var(--bg-void,#0d0d1a);border-radius:4px;height:28px;overflow:hidden;border:' +
+            (isVoted ? '2px solid var(--cyan,#00d4ff)' : '1px solid var(--border,rgba(255,255,255,.08))') + '">' +
+            '<div style="height:100%;background:' + (isVoted ? 'var(--cyan,#00d4ff)' : 'rgba(0,212,255,.3)') +
+              ';width:' + opt.pct + '%;transition:width .4s ease;border-radius:3px"></div>' +
+          '</div></div>';
+      });
+
+    } else if (ptype === 'rating') {
+      var avg = data.average || 0;
+      pollTotalEl.textContent = data.total_votes + ' rating' + (data.total_votes !== 1 ? 's' : '') + ' · avg ' + avg + '/5';
+      html += '<div style="display:flex;justify-content:center;gap:.35rem;margin:.5rem 0 1rem" id="poll-stars">';
+      for (var s = 1; s <= 5; s++) {
+        var active = votedRating && s <= votedRating;
+        html += '<span class="poll-star" data-val="' + s + '" onclick="castRating(' + s + ')" ' +
+          'style="font-size:2.2rem;cursor:pointer;transition:color .15s;color:' +
+          (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '">&#9733;</span>';
+      }
+      html += '</div>';
+      if (data.distribution) {
+        for (var st = 5; st >= 1; st--) {
+          var cnt = data.distribution[st] || 0;
+          var pct = data.total_votes ? Math.round(cnt / data.total_votes * 1000) / 10 : 0;
+          html += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.25rem">' +
+            '<span style="min-width:22px;font-size:.8rem;text-align:right">' + st + '&#9733;</span>' +
+            '<div style="flex:1;background:var(--bg-void,#0d0d1a);border-radius:4px;height:16px;overflow:hidden">' +
+              '<div style="height:100%;background:#fbbf24;border-radius:4px;width:' + pct + '%;transition:width .3s"></div>' +
+            '</div>' +
+            '<span style="min-width:30px;text-align:right;font-size:.75rem;color:var(--text-muted)">' + cnt + '</span></div>';
+        }
+      }
+
+    } else if (ptype === 'text') {
+      pollTotalEl.textContent = data.total_votes + ' response' + (data.total_votes !== 1 ? 's' : '');
+      var existing = votedText || '';
+      html += '<div style="display:flex;gap:.5rem;margin-bottom:.75rem">' +
+        '<input type="text" id="poll-text-input" class="form-input" placeholder="Type your answer..." ' +
+          'value="' + existing.replace(/"/g, '&quot;') + '" style="flex:1">' +
+        '<button onclick="castText()" class="btn btn-primary btn-sm">Send</button></div>';
+      if (data.responses && data.responses.length) {
+        html += '<div style="max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:.4rem">';
+        data.responses.forEach(function(r) {
+          html += '<div style="padding:.45rem .65rem;background:var(--bg-void,#0d0d1a);border-radius:6px;' +
+            'font-size:.85rem;border:1px solid var(--border,rgba(255,255,255,.08))">' +
+            r.replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+        });
+        html += '</div>';
+      }
+    }
+
     pollOptionsEl.innerHTML = html;
   }
 
@@ -693,6 +745,46 @@
     });
   };
 
+  window.castRating = function(val) {
+    if (!currentPollId) return;
+    votedRating = val;
+    var stars = document.querySelectorAll('#poll-stars .poll-star');
+    stars.forEach(function(el) {
+      el.style.color = parseInt(el.dataset.val) <= val ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))';
+    });
+    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({rating: val})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok && data.poll) {
+        votedRating = data.poll.voted_rating;
+        renderPoll(data.poll);
+      }
+    });
+  };
+
+  window.castText = function() {
+    if (!currentPollId) return;
+    var inp = document.getElementById('poll-text-input');
+    var text = (inp ? inp.value : '').trim();
+    if (!text) return;
+    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: text})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok && data.poll) {
+        votedText = data.poll.voted_text;
+        renderPoll(data.poll);
+      }
+    });
+  };
+
   fetch('/sessions/' + sessionId + '/polls/active')
     .then(function(r) { return r.json(); })
     .then(function(data) { if (data.poll) renderPoll(data.poll); });
@@ -707,7 +799,14 @@
         currentPollId = null;
         return;
       }
-      renderPoll(data);
+      var isNewPoll = currentPollId !== data.poll_id;
+      if (isNewPoll && typeof window.TechTrek !== 'undefined' && window.TechTrek.showToast) {
+        window.TechTrek.showToast('Live poll: ' + (data.question || 'New poll'), 'info', 6000);
+        renderPoll(data);
+        pollSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        renderPoll(data);
+      }
     } catch (ex) {}
   };
 

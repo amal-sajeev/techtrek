@@ -2731,12 +2731,28 @@ def admin_session_polls(request: Request, session_id: int, db: Session = Depends
     polls = db.query(Poll).filter(Poll.session_id == session_id).order_by(Poll.created_at.desc()).all()
     polls_enriched = []
     for p in polls:
-        total = sum(len(o.votes) for o in p.options)
-        opts = []
-        for o in p.options:
-            count = len(o.votes)
-            opts.append({"option": o, "votes": count, "pct": round(count / total * 100, 1) if total else 0})
-        polls_enriched.append({"poll": p, "total_votes": total, "options": opts})
+        enriched: dict = {"poll": p}
+        if p.poll_type in ("multiple_choice", "yes_no"):
+            total = sum(len(o.votes) for o in p.options)
+            opts = []
+            for o in p.options:
+                count = len(o.votes)
+                opts.append({"option": o, "votes": count, "pct": round(count / total * 100, 1) if total else 0})
+            enriched.update(total_votes=total, options=opts)
+        elif p.poll_type == "rating":
+            votes = [v for v in p.votes if v.rating_value is not None]
+            total = len(votes)
+            avg = round(sum(v.rating_value for v in votes) / total, 1) if total else 0
+            dist = {s: 0 for s in range(1, 6)}
+            for v in votes:
+                dist[v.rating_value] = dist.get(v.rating_value, 0) + 1
+            enriched.update(total_votes=total, average=avg, distribution=dist)
+        elif p.poll_type == "text":
+            votes = [v for v in p.votes if v.text_answer]
+            enriched.update(total_votes=len(votes), text_responses=[v.text_answer for v in votes])
+        else:
+            enriched.update(total_votes=0, options=[])
+        polls_enriched.append(enriched)
     return templates.TemplateResponse(
         "admin/session_polls.html",
         _admin_ctx(request, active_page="events", session=session_obj, polls=polls_enriched),
@@ -2756,16 +2772,28 @@ async def admin_create_poll(request: Request, session_id: int, db: Session = Dep
     except Exception:
         return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
     question = (body.get("question") or "").strip()
+    poll_type = body.get("poll_type", "multiple_choice")
+    if poll_type not in ("multiple_choice", "yes_no", "rating", "text"):
+        poll_type = "multiple_choice"
     options_list = body.get("options", [])
-    if not question or len(options_list) < 2:
-        return JSONResponse({"ok": False, "error": "Provide a question and at least 2 options."}, status_code=400)
-    poll = Poll(session_id=session_id, question=question, allow_multiple=bool(body.get("allow_multiple")), created_by=admin.id)
+    if not question:
+        return JSONResponse({"ok": False, "error": "Provide a question."}, status_code=400)
+    if poll_type == "multiple_choice" and len(options_list) < 2:
+        return JSONResponse({"ok": False, "error": "Provide at least 2 options."}, status_code=400)
+    poll = Poll(
+        session_id=session_id, question=question, poll_type=poll_type,
+        allow_multiple=bool(body.get("allow_multiple")), created_by=admin.id,
+    )
     db.add(poll)
     db.flush()
-    for i, opt_text in enumerate(options_list):
-        opt_text = (opt_text or "").strip()
-        if opt_text:
-            db.add(PollOption(poll_id=poll.id, option_text=opt_text, order=i))
+    if poll_type == "yes_no":
+        db.add(PollOption(poll_id=poll.id, option_text="Yes", order=0))
+        db.add(PollOption(poll_id=poll.id, option_text="No", order=1))
+    elif poll_type == "multiple_choice":
+        for i, opt_text in enumerate(options_list):
+            opt_text = (opt_text or "").strip()
+            if opt_text:
+                db.add(PollOption(poll_id=poll.id, option_text=opt_text, order=i))
     log_activity(db, category="admin", action="create", description=f"Created poll for session '{session_obj.title}'", request=request, user_id=admin.id, target_type="poll", target_id=poll.id)
     db.commit()
     return JSONResponse({"ok": True, "poll_id": poll.id})
@@ -2787,12 +2815,14 @@ async def admin_toggle_poll(request: Request, poll_id: int, db: Session = Depend
     db.commit()
     import asyncio
     from app.services.poll_events import publish
+    from app.routers.public import _poll_results, _notify_event_attendees_of_poll, _notify_event_attendees_poll_closed
     if poll.is_active:
-        from app.routers.public import _poll_results
         results = _poll_results(db, poll)
         asyncio.ensure_future(publish(poll.session_id, results))
+        _notify_event_attendees_of_poll(db, poll, results)
     else:
         asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+        _notify_event_attendees_poll_closed(db, poll)
     return JSONResponse({"ok": True, "is_active": poll.is_active})
 
 
@@ -2809,7 +2839,9 @@ async def admin_close_poll(request: Request, poll_id: int, db: Session = Depends
     db.commit()
     import asyncio
     from app.services.poll_events import publish
+    from app.routers.public import _notify_event_attendees_poll_closed
     asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+    _notify_event_attendees_poll_closed(db, poll)
     return JSONResponse({"ok": True})
 
 
@@ -2865,6 +2897,8 @@ async def feedback_template_create(request: Request, db: Session = Depends(get_d
         name=form.get("name", "").strip(),
         description=form.get("description", "").strip() or None,
         created_by=admin.id,
+        session_ratings_enabled="session_ratings_enabled" in form,
+        session_ratings_required="session_ratings_required" in form,
     )
     db.add(tpl)
     db.flush()
@@ -2879,9 +2913,11 @@ async def feedback_template_create(request: Request, db: Session = Depends(get_d
         if q_type == "multiple_choice":
             raw = form.get(f"q_options_{idx}", "").strip()
             options = [o.strip() for o in raw.splitlines() if o.strip()] if raw else None
+        page = int(form.get(f"q_page_{idx}", "1") or "1")
         tq = TemplateQuestion(
             template_id=tpl.id,
             order=idx,
+            page=page,
             question_text=text,
             question_type=q_type,
             options_json=options,
@@ -2923,6 +2959,8 @@ async def feedback_template_update(request: Request, template_id: int, db: Sessi
     form = await _form(request)
     tpl.name = form.get("name", "").strip()
     tpl.description = form.get("description", "").strip() or None
+    tpl.session_ratings_enabled = "session_ratings_enabled" in form
+    tpl.session_ratings_required = "session_ratings_required" in form
 
     db.query(TemplateQuestion).filter(TemplateQuestion.template_id == tpl.id).delete()
     for idx_str in form.getlist("q_idx"):
@@ -2935,9 +2973,11 @@ async def feedback_template_update(request: Request, template_id: int, db: Sessi
         if q_type == "multiple_choice":
             raw = form.get(f"q_options_{idx}", "").strip()
             options = [o.strip() for o in raw.splitlines() if o.strip()] if raw else None
+        page = int(form.get(f"q_page_{idx}", "1") or "1")
         tq = TemplateQuestion(
             template_id=tpl.id,
             order=idx,
+            page=page,
             question_text=text,
             question_type=q_type,
             options_json=options,

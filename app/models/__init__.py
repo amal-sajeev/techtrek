@@ -17,7 +17,7 @@ from app.models.session_recording import SessionRecording
 from app.models.site_setting import SiteSetting
 from app.models.event import Event
 from app.models.coupon import Coupon
-from app.models.feedback import Feedback
+from app.models.feedback import Feedback, SessionRating
 from app.models.session_feedback import SessionFeedback
 from app.models.newsletter import Newsletter
 from app.models.uploaded_image import UploadedImage
@@ -33,7 +33,7 @@ __all__ = [
     "Session", "SessionSpeaker", "Booking", "Waitlist", "Testimonial",
     "NewsletterSubscriber", "SeatType", "ActivityLog", "WebhookLog",
     "SessionRecording", "SiteSetting", "Event", "Coupon", "Feedback",
-    "SessionFeedback", "Newsletter", "UploadedImage", "GalleryImage",
+    "SessionFeedback", "SessionRating", "Newsletter", "UploadedImage", "GalleryImage",
     "EventBreak", "EventAddOn", "BookingAddOn", "TicketShare",
     "FeedbackTemplate", "TemplateQuestion", "FeedbackResponse", "QuestionResponse",
     "Poll", "PollOption", "PollVote",
