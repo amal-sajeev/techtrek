@@ -1,3 +1,4 @@
+import asyncio
 import io
 import re
 from collections import defaultdict
@@ -27,6 +28,12 @@ from app.models.feedback import Feedback
 from app.models.gallery_image import GalleryImage
 from app.models.uploaded_image import UploadedImage
 from app.models.user import User
+from app.models.event_break import EventBreak
+from app.models.event_addon import BookingAddOn, EventAddOn
+from app.models.session_feedback import SessionFeedback
+from app.models.ticket_share import TicketShare
+from app.models.feedback_template import FeedbackTemplate, FeedbackResponse, QuestionResponse
+from app.models.poll import Poll, PollOption, PollVote
 
 router = APIRouter(tags=["public"], dependencies=[Depends(csrf_protection)])
 
@@ -369,6 +376,14 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
     ).order_by(GalleryImage.position).all()
     gallery_urls = [f"/uploads/{gi.image_id}" for gi in session_gallery]
 
+    avg_rating_row = (
+        db.query(func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
+        .filter(SessionFeedback.session_id == session_id, SessionFeedback.rating != None)
+        .first()
+    )
+    avg_rating = round(float(avg_rating_row[0]), 1) if avg_rating_row[0] else None
+    rating_count = avg_rating_row[1] if avg_rating_row else 0
+
     return templates.TemplateResponse(
         "public/session_detail.html",
         template_ctx(
@@ -384,6 +399,8 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
             sibling_sessions=sibling_sessions,
             total_sessions=(len(sibling_sessions) + 1) if event else 1,
             gallery_urls=gallery_urls,
+            avg_rating=avg_rating,
+            rating_count=rating_count,
         ),
     )
 
@@ -485,6 +502,31 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
             "speaker_obj": speaker,
         })
 
+    breaks = (
+        db.query(EventBreak)
+        .filter(EventBreak.event_id == event_id)
+        .order_by(EventBreak.order, EventBreak.start_time)
+        .all()
+    )
+
+    agenda_items = []
+    for item in sessions_info:
+        agenda_items.append({
+            "type": "session",
+            "session": item["session"],
+            "speaker_obj": item["speaker_obj"],
+            "order": item["session"].order or 0,
+            "start_time": item["session"].start_time,
+        })
+    for brk in breaks:
+        agenda_items.append({
+            "type": "break",
+            "break": brk,
+            "order": brk.order or 0,
+            "start_time": brk.start_time,
+        })
+    agenda_items.sort(key=lambda x: (x["order"], x["start_time"] or datetime.min))
+
     user_id = request.session.get("user_id")
     on_waitlist = False
     if user_id:
@@ -501,6 +543,10 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
     ).order_by(GalleryImage.position).all()
     gallery_urls = [f"/uploads/{gi.image_id}" for gi in event_gallery]
 
+    event_addons = db.query(EventAddOn).filter(
+        EventAddOn.event_id == event_id, EventAddOn.is_active == True
+    ).all()
+
     return templates.TemplateResponse(
         "public/event_detail.html",
         template_ctx(
@@ -508,11 +554,13 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
             event=ev,
             auditorium=auditorium,
             sessions=sessions_info,
+            agenda_items=agenda_items,
             stats=stats,
             availability=availability,
             event_status=_public_event_status(ev, stats),
             on_waitlist=on_waitlist,
             gallery_urls=gallery_urls,
+            event_addons=event_addons,
         ),
     )
 
@@ -793,6 +841,13 @@ def public_ticket(request: Request, ticket_id: str, db: DbSession = Depends(get_
             .all()
         )
 
+    purchased_addons = []
+    if booking.booking_group:
+        addon_rows = db.query(BookingAddOn).filter(BookingAddOn.booking_group == booking.booking_group).all()
+        if addon_rows:
+            addon_ids = [r.addon_id for r in addon_rows]
+            purchased_addons = db.query(EventAddOn).filter(EventAddOn.id.in_(addon_ids)).all()
+
     return templates.TemplateResponse(
         "public/ticket.html",
         template_ctx(
@@ -803,8 +858,56 @@ def public_ticket(request: Request, ticket_id: str, db: DbSession = Depends(get_
             seat=seat,
             ticket_user=user,
             group_bookings=group_bookings,
+            purchased_addons=purchased_addons,
         ),
     )
+
+
+@router.post("/ticket/{ticket_id}/share")
+async def share_ticket(request: Request, ticket_id: str, db: DbSession = Depends(get_db)):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return JSONResponse({"ok": False, "error": "Please log in."}, status_code=401)
+
+    booking = (
+        db.query(Booking)
+        .filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
+        .first()
+    )
+    if not booking:
+        return JSONResponse({"ok": False, "error": "Ticket not found."}, status_code=404)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
+
+    name = (body.get("name") or "").strip()
+    email = (body.get("email") or "").strip()
+    if not name or not email or "@" not in email:
+        return JSONResponse({"ok": False, "error": "Name and valid email are required."}, status_code=400)
+
+    sender = db.query(User).filter(User.id == user_id).first()
+    sender_name = (sender.full_name or sender.username) if sender else "Someone"
+    event = db.query(Event).get(booking.event_id) if booking.event_id else None
+    event_name = event.name if event else "TechTrek Event"
+
+    share = TicketShare(
+        ticket_id=ticket_id,
+        recipient_name=name,
+        recipient_email=email,
+        shared_by=user_id,
+    )
+    db.add(share)
+    db.commit()
+
+    base_url = str(request.base_url).rstrip("/")
+    ticket_url = f"{base_url}/ticket/{ticket_id}"
+
+    from app.services.email import send_ticket_share
+    send_ticket_share(email, name, sender_name, event_name, ticket_url)
+
+    return JSONResponse({"ok": True, "message": "Ticket shared successfully!"})
 
 
 @router.get("/tickets/group/{group_id}")
@@ -846,6 +949,12 @@ def public_ticket_group(request: Request, group_id: str, db: DbSession = Depends
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     group_qr_data = _generate_qr_base64(f"GROUP-{group_id}") if len(bookings) > 1 else None
 
+    addon_rows = db.query(BookingAddOn).filter(BookingAddOn.booking_group == group_id).all()
+    purchased_addons = []
+    if addon_rows:
+        addon_ids = [r.addon_id for r in addon_rows]
+        purchased_addons = db.query(EventAddOn).filter(EventAddOn.id.in_(addon_ids)).all()
+
     return templates.TemplateResponse(
         "public/ticket_group.html",
         template_ctx(
@@ -857,6 +966,7 @@ def public_ticket_group(request: Request, group_id: str, db: DbSession = Depends
             ticket_user=user,
             group_id=group_id,
             group_qr_data=group_qr_data,
+            purchased_addons=purchased_addons,
         ),
     )
 
@@ -887,6 +997,10 @@ def feedback_form(request: Request, event_id: int, db: DbSession = Depends(get_d
         flash(request, "You have already submitted feedback for this event.", "info")
         return RedirectResponse("/booking/my", status_code=303)
 
+    fb_template = None
+    if event.feedback_template_id:
+        fb_template = db.query(FeedbackTemplate).get(event.feedback_template_id)
+
     return templates.TemplateResponse(
         "public/feedback_form.html",
         template_ctx(
@@ -894,6 +1008,7 @@ def feedback_form(request: Request, event_id: int, db: DbSession = Depends(get_d
             event=event,
             auditorium=auditorium,
             existing=existing,
+            fb_template=fb_template,
         ),
     )
 
@@ -943,6 +1058,30 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
         )
         db.add(fb)
 
+    fb_template = None
+    if event.feedback_template_id:
+        fb_template = db.query(FeedbackTemplate).get(event.feedback_template_id)
+
+    if fb_template:
+        fr = FeedbackResponse(
+            user_id=user_id,
+            event_id=event_id,
+            template_id=fb_template.id,
+            overall_rating=rating,
+            comment=comment or None,
+        )
+        db.add(fr)
+        db.flush()
+        for q in fb_template.questions:
+            answer = form.get(f"question_{q.id}", "").strip()
+            if answer:
+                qr = QuestionResponse(
+                    response_id=fr.id,
+                    question_id=q.id,
+                    answer_text=answer,
+                )
+                db.add(qr)
+
     db.commit()
     flash(request, "Thank you for your feedback!", "success")
     return RedirectResponse("/booking/my", status_code=303)
@@ -973,6 +1112,134 @@ async def feedback_dismiss(request: Request, event_id: int, db: DbSession = Depe
 
     db.commit()
     return JSONResponse({"ok": True})
+
+
+# --- Live Polls ---
+
+
+def _poll_results(db: DbSession, poll):
+    total_votes = db.query(func.count(PollVote.id)).filter(PollVote.poll_id == poll.id).scalar() or 0
+    options = []
+    for opt in poll.options:
+        count = db.query(func.count(PollVote.id)).filter(PollVote.option_id == opt.id).scalar() or 0
+        options.append({
+            "id": opt.id,
+            "text": opt.option_text,
+            "votes": count,
+            "pct": round(count / total_votes * 100, 1) if total_votes else 0,
+        })
+    return {
+        "poll_id": poll.id,
+        "question": poll.question,
+        "is_active": poll.is_active,
+        "allow_multiple": poll.allow_multiple,
+        "total_votes": total_votes,
+        "options": options,
+    }
+
+
+@router.get("/sessions/{session_id}/polls/active")
+def active_poll(request: Request, session_id: int, db: DbSession = Depends(get_db)):
+    poll = db.query(Poll).filter(
+        Poll.session_id == session_id, Poll.is_active == True
+    ).first()
+    if not poll:
+        return JSONResponse({"poll": None})
+
+    user_id = request.session.get("user_id")
+    voted_option = None
+    if user_id:
+        existing = db.query(PollVote).filter(
+            PollVote.poll_id == poll.id, PollVote.user_id == user_id
+        ).first()
+        voted_option = existing.option_id if existing else None
+
+    results = _poll_results(db, poll)
+    results["voted_option"] = voted_option
+    return JSONResponse({"poll": results})
+
+
+@router.post("/sessions/{session_id}/polls/{poll_id}/vote")
+async def vote_poll(request: Request, session_id: int, poll_id: int, db: DbSession = Depends(get_db)):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return JSONResponse({"ok": False, "error": "Please log in to vote."}, status_code=401)
+
+    poll = db.query(Poll).filter(
+        Poll.id == poll_id, Poll.session_id == session_id, Poll.is_active == True
+    ).first()
+    if not poll:
+        return JSONResponse({"ok": False, "error": "Poll not found or closed."}, status_code=404)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
+
+    option_id = body.get("option_id")
+    if not option_id:
+        return JSONResponse({"ok": False, "error": "No option selected."}, status_code=400)
+
+    option = db.query(PollOption).filter(
+        PollOption.id == option_id, PollOption.poll_id == poll_id
+    ).first()
+    if not option:
+        return JSONResponse({"ok": False, "error": "Invalid option."}, status_code=400)
+
+    existing = db.query(PollVote).filter(
+        PollVote.poll_id == poll_id, PollVote.user_id == user_id
+    ).first()
+
+    if existing:
+        existing.option_id = option_id
+    else:
+        vote = PollVote(
+            poll_id=poll_id,
+            option_id=option_id,
+            user_id=user_id,
+        )
+        db.add(vote)
+
+    db.commit()
+
+    results = _poll_results(db, poll)
+    results["voted_option"] = option_id
+
+    from app.services.poll_events import publish
+    asyncio.ensure_future(publish(session_id, results))
+
+    return JSONResponse({"ok": True, "poll": results})
+
+
+@router.get("/sessions/{session_id}/polls/stream")
+async def poll_stream(request: Request, session_id: int):
+    from app.services.poll_events import subscribe, unsubscribe
+
+    queue = subscribe(session_id)
+
+    async def event_generator():
+        try:
+            yield "data: {\"type\":\"connected\"}\n\n"
+            while True:
+                try:
+                    msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield f"data: {msg}\n\n"
+                except asyncio.TimeoutError:
+                    yield ": keepalive\n\n"
+        except asyncio.CancelledError:
+            pass
+        finally:
+            unsubscribe(session_id, queue)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # --- Newsletter Unsubscribe ---

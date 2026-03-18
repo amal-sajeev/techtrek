@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     smtp_from_email: str = "noreply@techtrek.in"
     smtp_from_name: str = "TechTrek"
 
+    base_url: str = "https://192.168.10.82:8000"
+
     google_client_id: str = ""
     google_client_secret: str = ""
 

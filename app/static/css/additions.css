@@ -2202,6 +2202,35 @@
   display: block;
 }
 
+/* College logo watermark — darkest top corner of event hero images */
+.college-logo-watermark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  pointer-events: none;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.4) 45%, transparent 70%);
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.college-logo-watermark img {
+  max-width: 100px;
+  max-height: 48px;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  opacity: 0.92;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.5));
+}
+[data-theme="light"] .college-logo-watermark {
+  background: linear-gradient(135deg, rgba(0,0,0,0.6) 0%, rgba(0,0,0,0.25) 45%, transparent 70%);
+}
+[data-theme="light"] .college-logo-watermark img {
+  opacity: 0.9;
+}
+
 /* Bottom gradient: photo fades into page background */
 .ed-hero-gradient {
   position: absolute;
@@ -3923,4 +3952,46 @@
 }
 [data-theme="light"] .btn-google:hover {
   background: #f1f3f4;
+}
+
+/* ── Event Break Cards ─────────────────────────────────────────── */
+.ed-break-card {
+  display: flex;
+  gap: 0;
+  border-radius: var(--radius-lg);
+  border: 1px dashed rgba(245,158,11,0.4);
+  background: rgba(245,158,11,0.04);
+  overflow: hidden;
+  align-items: center;
+}
+.ed-break-icon {
+  flex-shrink: 0;
+  width: 80px;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  background: rgba(245,158,11,0.08);
+}
+.ed-break-card .ed-sc-body {
+  padding: 1rem 1.25rem;
+}
+.ed-break-card .ed-sc-title {
+  font-size: 1rem;
+  color: var(--amber);
+}
+[data-theme="light"] .ed-break-card {
+  border-color: rgba(180,130,20,0.3);
+  background: rgba(245,200,80,0.06);
+}
+[data-theme="light"] .ed-break-icon {
+  background: rgba(245,200,80,0.12);
+}
+[data-theme="light"] .ed-break-card .ed-sc-title {
+  color: #9a6e00;
+}
+@media (max-width: 480px) {
+  .ed-break-icon { width: 56px; min-height: 56px; font-size: 1.5rem; }
+  .ed-break-card .ed-sc-body { padding: 0.75rem 1rem; }
 }

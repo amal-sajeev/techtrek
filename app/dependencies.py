@@ -108,6 +108,14 @@ def template_ctx(request: Request, **kwargs) -> dict:
                         })
         finally:
             db.close()
+    # Count of published events (for nav: show Home/Events only when more than one)
+    from sqlalchemy import func
+    from app.models.event import Event
+    db = SessionLocal()
+    try:
+        total_events = db.query(func.count(Event.id)).filter(Event.status == "published").scalar() or 0
+    finally:
+        db.close()
     ctx = {
         "request": request,
         "user": user,
@@ -116,6 +124,7 @@ def template_ctx(request: Request, **kwargs) -> dict:
         "flashes": get_flashes(request),
         "csrf_token": get_csrf_token(request),
         "google_sso": bool(settings.google_client_id),
+        "total_events": total_events,
     }
     ctx.update(kwargs)
     return ctx

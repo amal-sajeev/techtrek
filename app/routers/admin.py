@@ -38,6 +38,10 @@ from app.models.newsletter import Newsletter
 from app.models.testimonial import NewsletterSubscriber
 from app.models.gallery_image import GalleryImage
 from app.models.uploaded_image import UploadedImage
+from app.models.event_break import EventBreak
+from app.models.event_addon import EventAddOn
+from app.models.feedback_template import FeedbackTemplate, TemplateQuestion, FeedbackResponse, QuestionResponse
+from app.models.poll import Poll, PollOption, PollVote
 from app.config import settings
 
 
@@ -352,6 +356,7 @@ async def college_create(request: Request, db: Session = Depends(get_db)):
         name=form.get("name", "").strip(),
         city_id=int(form.get("city_id")),
         address=form.get("address", "").strip() or None,
+        logo_url=form.get("logo_url", "").strip() or None,
         is_active="is_active" in form,
     )
     db.add(col)
@@ -390,6 +395,7 @@ async def college_update(request: Request, college_id: int, db: Session = Depend
     col.name = form.get("name", col.name).strip()
     col.city_id = int(form.get("city_id", col.city_id))
     col.address = form.get("address", "").strip() or None
+    col.logo_url = form.get("logo_url", "").strip() or None
     col.is_active = "is_active" in form
     log_activity(db, category="admin", action="update", description=f"Updated college '{col.name}'", request=request, user_id=admin.id, target_type="college", target_id=college_id)
     db.commit()
@@ -1157,6 +1163,57 @@ def _save_agenda_items(db: Session, form, session_id: int):
     db.commit()
 
 
+def _save_event_breaks(db: Session, form, event_id: int):
+    db.query(EventBreak).filter(EventBreak.event_id == event_id).delete()
+    idx = 0
+    while True:
+        title = form.get(f"break_title_{idx}")
+        if title is None:
+            break
+        title = title.strip()
+        if title:
+            start_raw = form.get(f"break_start_time_{idx}", "").strip()
+            start_time = None
+            if start_raw:
+                try:
+                    start_time = datetime.fromisoformat(start_raw)
+                except ValueError:
+                    pass
+            brk = EventBreak(
+                event_id=event_id,
+                order=int(form.get(f"break_order_{idx}", idx) or idx),
+                title=title,
+                description=form.get(f"break_desc_{idx}", "").strip() or None,
+                duration_minutes=int(form.get(f"break_duration_{idx}", 15) or 15),
+                start_time=start_time,
+            )
+            db.add(brk)
+        idx += 1
+    db.commit()
+
+
+def _save_event_addons(db: Session, form, event_id: int):
+    db.query(EventAddOn).filter(EventAddOn.event_id == event_id).delete()
+    idx = 0
+    while True:
+        title = form.get(f"addon_title_{idx}")
+        if title is None:
+            break
+        title = title.strip()
+        if title:
+            addon = EventAddOn(
+                event_id=event_id,
+                title=title,
+                description=form.get(f"addon_desc_{idx}", "").strip() or None,
+                price=float(form.get(f"addon_price_{idx}", 0) or 0),
+                max_quantity=int(form.get(f"addon_max_qty_{idx}") or 0) or None,
+                is_active=True,
+            )
+            db.add(addon)
+        idx += 1
+    db.commit()
+
+
 def _save_session_speakers(db: Session, form, session_id: int):
     db.query(SessionSpeaker).filter(SessionSpeaker.session_id == session_id).delete()
     idx = 0
@@ -1493,6 +1550,13 @@ def bookings_list(
     )
 
 
+def _csv_safe(val, default=""):
+    if val is None:
+        return default
+    s = str(val).replace("\r", " ").replace("\n", " ").replace('"', '""')
+    return s
+
+
 @router.get("/bookings/export")
 def bookings_csv(
     request: Request,
@@ -1500,54 +1564,81 @@ def bookings_csv(
     q: str = Query("", alias="q"),
     status_filter: str = Query("", alias="status"),
     event_filter: str = Query("", alias="event_id"),
+    use_filters: str = Query("0", alias="use_filters"),
 ):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
     query = db.query(Booking)
-    if status_filter:
-        query = query.filter(Booking.payment_status == status_filter)
+    apply_filters = use_filters.strip().lower() in ("1", "true", "yes")
+    if apply_filters:
+        if status_filter:
+            query = query.filter(Booking.payment_status == status_filter)
+        else:
+            query = query.filter(Booking.payment_status.in_(["paid", "hold", "refunded"]))
+        if event_filter:
+            try:
+                query = query.filter(Booking.event_id == int(event_filter))
+            except ValueError:
+                pass
     else:
         query = query.filter(Booking.payment_status.in_(["paid", "hold", "refunded"]))
 
-    if event_filter:
-        try:
-            query = query.filter(Booking.event_id == int(event_filter))
-        except ValueError:
-            pass
-
     bookings = query.order_by(Booking.booked_at.desc()).all()
 
+    header = [
+        "Booking Ref", "Ticket ID", "Event", "Seat", "Status", "Amount Paid", "Refund Amount",
+        "Booked At", "Checked In", "Refund Status",
+        "user_id", "user_email", "user_username", "user_full_name", "user_phone",
+        "user_college", "user_discipline", "user_domain", "user_year_of_study",
+        "user_is_admin", "user_is_supervisor", "user_supervisor_college", "user_created_at",
+        "user_oauth_provider", "user_oauth_id",
+    ]
     output = io.StringIO()
     writer = csv.writer(output)
-    writer.writerow(["Booking Ref", "Ticket ID", "User", "Email", "Event", "Seat", "Status", "Amount Paid", "Refund", "Booked At", "Checked In"])
+    writer.writerow(header)
     for b in bookings:
         u = db.query(User).get(b.user_id)
         event = db.query(Event).get(b.event_id) if b.event_id else None
         seat = db.query(Seat).get(b.seat_id)
-        if q:
+        if apply_filters and q:
             search = q.lower()
             match = (
-                (u and (search in u.username.lower() or search in u.email.lower() or (u.full_name and search in u.full_name.lower())))
+                (u and (search in (u.username or "").lower() or search in (u.email or "").lower() or (u.full_name and search in u.full_name.lower())))
                 or (event and search in event.name.lower())
                 or (b.booking_ref and search in b.booking_ref.lower())
                 or (b.ticket_id and search in b.ticket_id.lower())
             )
             if not match:
                 continue
+        sup_college = (u.supervised_college.name if u and u.supervised_college else "") or ""
         writer.writerow([
-            b.booking_ref,
+            b.booking_ref or "",
             b.ticket_id or "",
-            u.username if u else "",
-            u.email if u else "",
             event.name if event else "",
             seat.label if seat else "",
-            b.payment_status,
-            b.amount_paid or "",
-            b.refund_amount or "",
+            b.payment_status or "",
+            b.amount_paid if b.amount_paid is not None else "",
+            b.refund_amount if b.refund_amount is not None else "",
             b.booked_at.strftime("%Y-%m-%d %H:%M") if b.booked_at else "",
             "Yes" if b.checked_in else "No",
+            b.refund_status or "",
+            u.id if u else "",
+            _csv_safe(u.email if u else None),
+            _csv_safe(u.username if u else None),
+            _csv_safe(u.full_name if u else None),
+            _csv_safe(u.phone if u else None),
+            _csv_safe(u.college if u else None),
+            _csv_safe(u.discipline if u else None),
+            _csv_safe(u.domain if u else None),
+            u.year_of_study if u and u.year_of_study is not None else "",
+            "1" if u and u.is_admin else "0",
+            "1" if u and u.is_supervisor else "0",
+            sup_college,
+            u.created_at.strftime("%Y-%m-%d %H:%M:%S") if u and u.created_at else "",
+            _csv_safe(u.oauth_provider if u else None),
+            _csv_safe(u.oauth_id if u else None),
         ])
 
     output.seek(0)
@@ -1889,6 +1980,70 @@ def users_list(request: Request, db: Session = Depends(get_db), q: str = Query("
     )
 
 
+@router.get("/users/export")
+def users_csv(
+    request: Request,
+    db: Session = Depends(get_db),
+    q: str = Query("", alias="q"),
+    use_filters: str = Query("0", alias="use_filters"),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    query = db.query(User)
+    apply_filters = use_filters.strip().lower() in ("1", "true", "yes")
+    if apply_filters and q.strip():
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            User.username.ilike(like)
+            | User.email.ilike(like)
+            | User.full_name.ilike(like)
+            | User.college.ilike(like)
+        )
+    users = query.order_by(User.created_at.desc()).all()
+
+    def _safe(u, attr, default=""):
+        v = getattr(u, attr, None)
+        if v is None:
+            return default
+        return str(v).replace("\r", " ").replace("\n", " ").replace('"', '""')
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "id", "email", "username", "full_name", "phone", "college", "discipline", "domain",
+        "year_of_study", "is_admin", "is_supervisor", "supervisor_college", "created_at",
+        "oauth_provider", "oauth_id",
+    ])
+    for u in users:
+        sup_college = ""
+        if u.supervised_college:
+            sup_college = u.supervised_college.name or ""
+        writer.writerow([
+            u.id,
+            _safe(u, "email"),
+            _safe(u, "username"),
+            _safe(u, "full_name"),
+            _safe(u, "phone"),
+            _safe(u, "college"),
+            _safe(u, "discipline"),
+            _safe(u, "domain"),
+            u.year_of_study if u.year_of_study is not None else "",
+            "1" if u.is_admin else "0",
+            "1" if u.is_supervisor else "0",
+            sup_college,
+            u.created_at.strftime("%Y-%m-%d %H:%M:%S") if u.created_at else "",
+            _safe(u, "oauth_provider"),
+            _safe(u, "oauth_id"),
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=techtrek_users.csv"},
+    )
+
+
 @router.post("/users/{user_id}/toggle-admin")
 def toggle_admin(request: Request, user_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
@@ -2166,11 +2321,13 @@ def event_new_form(request: Request, db: Session = Depends(get_db)):
     speakers = db.query(Speaker).order_by(Speaker.name).all()
     aud_seat_types = _auditorium_seat_types(db)
     ct_map = _custom_types_map(db)
+    fb_templates = db.query(FeedbackTemplate).order_by(FeedbackTemplate.name).all()
     return templates.TemplateResponse(
         "admin/event_form.html",
         _admin_ctx(request, active_page="events", event=None, colleges=colleges,
                    auditoriums=auditoriums, all_sessions=all_sessions, speakers=speakers,
-                   aud_seat_types=aud_seat_types, custom_types_map=ct_map),
+                   aud_seat_types=aud_seat_types, custom_types_map=ct_map,
+                   fb_templates=fb_templates),
     )
 
 
@@ -2207,6 +2364,7 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
         cert_bg_url=form.get("cert_bg_url", "").strip() or None,
         cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
         cert_style=form.get("cert_style", "").strip() or None,
+        feedback_template_id=int(form["feedback_template_id"]) if form.get("feedback_template_id", "").strip() else None,
     )
     db.add(ev)
     db.flush()
@@ -2238,6 +2396,9 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
         sess.order = int(form.get(f"sess_order_{idx}", 0) or 0)
         linked += 1
 
+    _save_event_breaks(db, form, ev.id)
+    _save_event_addons(db, form, ev.id)
+
     log_activity(db, category="admin", action="create", description=f"Created event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
     db.commit()
     msg = f"Event '{ev.name}' created"
@@ -2268,13 +2429,17 @@ def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_d
     gallery = db.query(GalleryImage).filter(
         GalleryImage.owner_type == "event", GalleryImage.owner_id == event_id
     ).order_by(GalleryImage.position).all()
+    event_breaks = db.query(EventBreak).filter(EventBreak.event_id == event_id).order_by(EventBreak.order, EventBreak.start_time).all()
+    event_addons = db.query(EventAddOn).filter(EventAddOn.event_id == event_id).all()
+    fb_templates = db.query(FeedbackTemplate).order_by(FeedbackTemplate.name).all()
     return templates.TemplateResponse(
         "admin/event_form.html",
         _admin_ctx(request, active_page="events", event=ev, colleges=colleges, auditoriums=auditoriums,
                    event_sessions=sessions, event_coupons=coupons,
                    all_sessions=all_sessions, speakers=speakers,
                    aud_seat_types=aud_seat_types, custom_types_map=ct_map,
-                   gallery_images=gallery),
+                   gallery_images=gallery, event_breaks=event_breaks,
+                   event_addons=event_addons, fb_templates=fb_templates),
     )
 
 
@@ -2319,6 +2484,7 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     ev.cert_bg_url = form.get("cert_bg_url", "").strip() or ev.cert_bg_url
     ev.cert_color_scheme = form.get("cert_color_scheme", "").strip() or ev.cert_color_scheme
     ev.cert_style = form.get("cert_style", "").strip() or ev.cert_style
+    ev.feedback_template_id = int(form["feedback_template_id"]) if form.get("feedback_template_id", "").strip() else None
 
     sess_indices = form.getlist("sess_idx")
     linked = 0
@@ -2346,6 +2512,8 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
         linked += 1
 
     _save_gallery_images(db, form, "event", ev.id)
+    _save_event_breaks(db, form, ev.id)
+    _save_event_addons(db, form, ev.id)
 
     log_activity(db, category="admin", action="update", description=f"Updated event '{ev.name}'", request=request, user_id=admin.id, target_type="event", target_id=ev.id)
     db.commit()
@@ -2546,6 +2714,256 @@ def feedback_toggle_featured(request: Request, feedback_id: int, db: Session = D
         db.commit()
         flash(request, f"Feedback #{fb.id} is now {status}.", "success")
     return RedirectResponse("/admin/feedback", status_code=303)
+
+
+# ─── Admin Poll Management ───
+
+
+@router.get("/sessions/{session_id}/polls")
+def admin_session_polls(request: Request, session_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    session_obj = db.query(SessionModel).get(session_id)
+    if not session_obj:
+        flash(request, "Session not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+    polls = db.query(Poll).filter(Poll.session_id == session_id).order_by(Poll.created_at.desc()).all()
+    polls_enriched = []
+    for p in polls:
+        total = sum(len(o.votes) for o in p.options)
+        opts = []
+        for o in p.options:
+            count = len(o.votes)
+            opts.append({"option": o, "votes": count, "pct": round(count / total * 100, 1) if total else 0})
+        polls_enriched.append({"poll": p, "total_votes": total, "options": opts})
+    return templates.TemplateResponse(
+        "admin/session_polls.html",
+        _admin_ctx(request, active_page="events", session=session_obj, polls=polls_enriched),
+    )
+
+
+@router.post("/sessions/{session_id}/polls")
+async def admin_create_poll(request: Request, session_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"ok": False}, status_code=403)
+    session_obj = db.query(SessionModel).get(session_id)
+    if not session_obj:
+        return JSONResponse({"ok": False, "error": "Session not found."}, status_code=404)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
+    question = (body.get("question") or "").strip()
+    options_list = body.get("options", [])
+    if not question or len(options_list) < 2:
+        return JSONResponse({"ok": False, "error": "Provide a question and at least 2 options."}, status_code=400)
+    poll = Poll(session_id=session_id, question=question, allow_multiple=bool(body.get("allow_multiple")), created_by=admin.id)
+    db.add(poll)
+    db.flush()
+    for i, opt_text in enumerate(options_list):
+        opt_text = (opt_text or "").strip()
+        if opt_text:
+            db.add(PollOption(poll_id=poll.id, option_text=opt_text, order=i))
+    log_activity(db, category="admin", action="create", description=f"Created poll for session '{session_obj.title}'", request=request, user_id=admin.id, target_type="poll", target_id=poll.id)
+    db.commit()
+    return JSONResponse({"ok": True, "poll_id": poll.id})
+
+
+@router.post("/polls/{poll_id}/toggle")
+async def admin_toggle_poll(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"ok": False}, status_code=403)
+    poll = db.query(Poll).get(poll_id)
+    if not poll:
+        return JSONResponse({"ok": False, "error": "Poll not found."}, status_code=404)
+    if not poll.is_active:
+        db.query(Poll).filter(Poll.session_id == poll.session_id, Poll.is_active == True).update({Poll.is_active: False})
+        poll.is_active = True
+    else:
+        poll.is_active = False
+    db.commit()
+    import asyncio
+    from app.services.poll_events import publish
+    if poll.is_active:
+        from app.routers.public import _poll_results
+        results = _poll_results(db, poll)
+        asyncio.ensure_future(publish(poll.session_id, results))
+    else:
+        asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+    return JSONResponse({"ok": True, "is_active": poll.is_active})
+
+
+@router.post("/polls/{poll_id}/close")
+async def admin_close_poll(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"ok": False}, status_code=403)
+    poll = db.query(Poll).get(poll_id)
+    if not poll:
+        return JSONResponse({"ok": False, "error": "Poll not found."}, status_code=404)
+    poll.is_active = False
+    poll.closed_at = now_ist()
+    db.commit()
+    import asyncio
+    from app.services.poll_events import publish
+    asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+    return JSONResponse({"ok": True})
+
+
+@router.post("/polls/{poll_id}/delete")
+def admin_delete_poll(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    poll = db.query(Poll).get(poll_id)
+    if not poll:
+        flash(request, "Poll not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+    sid = poll.session_id
+    db.delete(poll)
+    db.commit()
+    flash(request, "Poll deleted.", "success")
+    return RedirectResponse(f"/admin/sessions/{sid}/polls", status_code=303)
+
+
+# ─── Feedback Templates ───
+
+
+@router.get("/feedback-templates")
+def feedback_template_list(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    tpls = db.query(FeedbackTemplate).order_by(FeedbackTemplate.created_at.desc()).all()
+    return templates.TemplateResponse(
+        "admin/feedback_template_list.html",
+        _admin_ctx(request, active_page="feedback-templates", templates_list=tpls),
+    )
+
+
+@router.get("/feedback-templates/new")
+def feedback_template_new(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    return templates.TemplateResponse(
+        "admin/feedback_template_form.html",
+        _admin_ctx(request, active_page="feedback-templates", template=None),
+    )
+
+
+@router.post("/feedback-templates/new")
+async def feedback_template_create(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    form = await _form(request)
+    tpl = FeedbackTemplate(
+        name=form.get("name", "").strip(),
+        description=form.get("description", "").strip() or None,
+        created_by=admin.id,
+    )
+    db.add(tpl)
+    db.flush()
+
+    for idx_str in form.getlist("q_idx"):
+        idx = int(idx_str)
+        text = form.get(f"q_text_{idx}", "").strip()
+        if not text:
+            continue
+        q_type = form.get(f"q_type_{idx}", "text")
+        options = None
+        if q_type == "multiple_choice":
+            raw = form.get(f"q_options_{idx}", "").strip()
+            options = [o.strip() for o in raw.splitlines() if o.strip()] if raw else None
+        tq = TemplateQuestion(
+            template_id=tpl.id,
+            order=idx,
+            question_text=text,
+            question_type=q_type,
+            options_json=options,
+            is_required=f"q_required_{idx}" in form,
+        )
+        db.add(tq)
+
+    log_activity(db, category="admin", action="create", description=f"Created feedback template '{tpl.name}'", request=request, user_id=admin.id, target_type="feedback_template", target_id=tpl.id)
+    db.commit()
+    flash(request, f"Template '{tpl.name}' created.", "success")
+    return RedirectResponse("/admin/feedback-templates", status_code=303)
+
+
+@router.get("/feedback-templates/{template_id}/edit")
+def feedback_template_edit(request: Request, template_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    tpl = db.query(FeedbackTemplate).get(template_id)
+    if not tpl:
+        flash(request, "Template not found.", "danger")
+        return RedirectResponse("/admin/feedback-templates", status_code=303)
+    return templates.TemplateResponse(
+        "admin/feedback_template_form.html",
+        _admin_ctx(request, active_page="feedback-templates", template=tpl),
+    )
+
+
+@router.post("/feedback-templates/{template_id}/edit")
+async def feedback_template_update(request: Request, template_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    tpl = db.query(FeedbackTemplate).get(template_id)
+    if not tpl:
+        flash(request, "Template not found.", "danger")
+        return RedirectResponse("/admin/feedback-templates", status_code=303)
+
+    form = await _form(request)
+    tpl.name = form.get("name", "").strip()
+    tpl.description = form.get("description", "").strip() or None
+
+    db.query(TemplateQuestion).filter(TemplateQuestion.template_id == tpl.id).delete()
+    for idx_str in form.getlist("q_idx"):
+        idx = int(idx_str)
+        text = form.get(f"q_text_{idx}", "").strip()
+        if not text:
+            continue
+        q_type = form.get(f"q_type_{idx}", "text")
+        options = None
+        if q_type == "multiple_choice":
+            raw = form.get(f"q_options_{idx}", "").strip()
+            options = [o.strip() for o in raw.splitlines() if o.strip()] if raw else None
+        tq = TemplateQuestion(
+            template_id=tpl.id,
+            order=idx,
+            question_text=text,
+            question_type=q_type,
+            options_json=options,
+            is_required=f"q_required_{idx}" in form,
+        )
+        db.add(tq)
+
+    log_activity(db, category="admin", action="update", description=f"Updated feedback template '{tpl.name}'", request=request, user_id=admin.id, target_type="feedback_template", target_id=tpl.id)
+    db.commit()
+    flash(request, f"Template '{tpl.name}' updated.", "success")
+    return RedirectResponse("/admin/feedback-templates", status_code=303)
+
+
+@router.post("/feedback-templates/{template_id}/delete")
+def feedback_template_delete(request: Request, template_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    tpl = db.query(FeedbackTemplate).get(template_id)
+    if tpl:
+        db.query(Event).filter(Event.feedback_template_id == tpl.id).update({Event.feedback_template_id: None})
+        log_activity(db, category="admin", action="delete", description=f"Deleted feedback template '{tpl.name}'", request=request, user_id=admin.id, target_type="feedback_template", target_id=tpl.id)
+        db.delete(tpl)
+        db.commit()
+        flash(request, "Template deleted.", "success")
+    return RedirectResponse("/admin/feedback-templates", status_code=303)
 
 
 # ─── Newsletter Campaigns ───

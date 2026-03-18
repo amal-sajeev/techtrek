@@ -363,6 +363,36 @@ def send_speaker_invite(email: str, speaker_name: str, invite_url: str):
     return _send(email, "You're Invited to TechTrek as a Speaker!", html)
 
 
+def send_ticket_share(to_email: str, recipient_name: str, sender_name: str, event_name: str, ticket_url: str):
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="background:#0e7490;padding:28px 32px;">
+          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">A Ticket Has Been Shared With You!</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#cffafe;">{sender_name} shared a ticket for {event_name}</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
+          <p style="margin:0 0 16px;">Hi <strong>{recipient_name}</strong>,</p>
+          <p style="margin:0 0 16px;"><strong>{sender_name}</strong> has shared a TechTrek ticket with you for <strong>{event_name}</strong>.</p>
+          <p style="margin:0 0 24px;">Click the button below to view the ticket details and QR code:</p>
+          <p style="margin:0 0 24px;">
+            <a href="{ticket_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">View Ticket &rarr;</a>
+          </p>
+          <p style="margin:0;font-size:13px;color:#64748b;">You may need a TechTrek account to view the full ticket details.</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because someone shared a TechTrek ticket with you.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return _send(to_email, f"{sender_name} shared a ticket for {event_name}", html)
+
+
 def send_password_reset(email: str, username: str, reset_url: str):
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>

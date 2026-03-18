@@ -44,10 +44,9 @@
     </a>
 
     <div class="navbar-links" id="navbar-links">
+      {% if total_events > 1 %}
       <a href="/" class="nav-link">{{ _('Home') }}</a>
       <a href="/events" class="nav-link">{{ _('Events') }}</a>
-      {% if user %}
-      <a href="/recordings" class="nav-link">{{ _('Recordings') }}</a>
       {% endif %}
       {% if user %}
           <a href="/booking/my" class="nav-link">{{ _('Bookings') }}</a>
@@ -87,10 +86,9 @@
 <div class="nav-overlay" id="nav-overlay"></div>
 <div class="nav-drawer" id="nav-drawer">
   <div class="nav-drawer-header">&#9889; TECHTREK</div>
+  {% if total_events > 1 %}
   <a href="/" class="nav-drawer-link">{{ _('Home') }}</a>
   <a href="/events" class="nav-drawer-link">{{ _('Events') }}</a>
-  {% if user %}
-  <a href="/recordings" class="nav-drawer-link">{{ _('Recordings') }}</a>
   {% endif %}
   {% if user %}
       <a href="/booking/my" class="nav-drawer-link">{{ _('Bookings') }}</a>
@@ -137,8 +135,11 @@
     <p class="footer-tagline"><span style="color:var(--cyan);opacity:.5">// </span>industry summits, live at campuses across India.</p>
   </div>
   <div class="footer-links">
+    {% if total_events > 1 %}
     <a href="/">Home</a>
     <a href="/events">Events</a>
+    {% endif %}
+    <a href="/terms">Terms &amp; Conditions</a>
     <a href="/auth/login">Login</a>
   </div>
   <div class="footer-bottom">&copy; 2026 TechTrek. Empowering India's tech future.</div>

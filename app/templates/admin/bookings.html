@@ -4,7 +4,16 @@
 {% block admin_content %}
 <div class="admin-header">
   <h1 class="admin-page-title">Bookings</h1>
-  <a href="/admin/bookings/export" class="btn btn-outline">Export CSV</a>
+  <form method="get" action="/admin/bookings/export" class="export-form" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+    <input type="hidden" name="q" value="{{ q or '' }}">
+    <input type="hidden" name="status" value="{{ status_filter or '' }}">
+    <input type="hidden" name="event_id" value="{{ session_filter or '' }}">
+    <label class="form-label-inline" style="display:flex;align-items:center;gap:.4rem;white-space:nowrap">
+      <input type="checkbox" name="use_filters" value="1" checked>
+      Apply filters to export
+    </label>
+    <button type="submit" class="btn btn-outline">Export CSV</button>
+  </form>
 </div>
 
 <!-- Search & Filter -->

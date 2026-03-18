@@ -4,6 +4,14 @@
 {% block admin_content %}
 <div class="admin-header">
   <h1 class="admin-page-title">Users</h1>
+  <form method="get" action="/admin/users/export" class="export-form" style="display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+    <label class="form-label-inline" style="display:flex;align-items:center;gap:.4rem;white-space:nowrap">
+      <input type="checkbox" name="use_filters" value="1" checked>
+      Apply current filters to export
+    </label>
+    <input type="hidden" name="q" value="{{ q or '' }}">
+    <button type="submit" class="btn btn-outline">Export CSV</button>
+  </form>
 </div>
 
 <div class="form-card mb-3">

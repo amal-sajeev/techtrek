@@ -1,0 +1,137 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Polls — {{ session.title }} — Admin{% endblock %}
+
+{% block admin_content %}
+<div class="page-header-block" style="margin-bottom:1.5rem">
+  <h1 class="page-title">Live Polls</h1>
+  <p class="text-muted">{{ session.title }}{% if session.event %} &mdash; {{ session.event.name }}{% endif %}</p>
+</div>
+
+<div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+  <h3 style="margin:0 0 1rem;font-size:1rem">Create New Poll</h3>
+  <div class="form-group" style="margin-bottom:.75rem">
+    <label class="form-label">Question</label>
+    <input type="text" id="poll-question" class="form-input" placeholder="e.g. What topic should we cover next?">
+  </div>
+  <div id="poll-options-container">
+    <label class="form-label">Options</label>
+    <div style="display:flex;flex-direction:column;gap:.5rem" id="poll-options-list">
+      <input type="text" class="form-input poll-option-input" placeholder="Option 1">
+      <input type="text" class="form-input poll-option-input" placeholder="Option 2">
+    </div>
+  </div>
+  <div style="display:flex;gap:.75rem;align-items:center;margin-top:.75rem">
+    <button type="button" class="btn btn-outline btn-sm" onclick="addPollOption()">+ Add Option</button>
+    <span style="flex:1"></span>
+    <button type="button" class="btn btn-primary btn-sm" id="create-poll-btn" onclick="createPoll()">Create Poll</button>
+  </div>
+  <div id="create-poll-error" style="color:#ef4444;font-size:.85rem;margin-top:.5rem;display:none"></div>
+</div>
+
+{% if polls %}
+{% for p in polls %}
+<div class="card" style="padding:1.5rem;margin-bottom:1rem">
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.75rem">
+    <div>
+      <h3 style="margin:0;font-size:1rem">{{ p.poll.question }}</h3>
+      <p class="text-muted" style="font-size:.8rem;margin:.25rem 0 0">
+        {{ p.total_votes }} vote{{ 's' if p.total_votes != 1 else '' }}
+        {% if p.poll.closed_at %}&middot; Closed{% elif p.poll.is_active %}&middot; <span style="color:#10b981">Active</span>{% else %}&middot; Inactive{% endif %}
+      </p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-shrink:0">
+      {% if not p.poll.closed_at %}
+      <button class="btn btn-xs {% if p.poll.is_active %}btn-outline{% else %}btn-primary{% endif %}" onclick="togglePoll({{ p.poll.id }}, this)">
+        {{ 'Deactivate' if p.poll.is_active else 'Activate' }}
+      </button>
+      {% if p.poll.is_active %}
+      <button class="btn btn-xs btn-outline" onclick="closePoll({{ p.poll.id }})">Close</button>
+      {% endif %}
+      {% endif %}
+      <form method="post" action="/admin/polls/{{ p.poll.id }}/delete" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="button" class="btn btn-xs btn-danger" data-confirm="Delete this poll?" data-confirm-label="Delete">Delete</button>
+      </form>
+    </div>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:.5rem">
+    {% for o in p.options %}
+    <div style="display:flex;align-items:center;gap:.75rem">
+      <span style="min-width:120px;font-size:.9rem">{{ o.option.option_text }}</span>
+      <div style="flex:1;background:var(--bg-void,#0d0d1a);border-radius:4px;height:24px;position:relative;overflow:hidden">
+        <div style="height:100%;background:var(--cyan,#00d4ff);border-radius:4px;width:{{ o.pct }}%;transition:width .3s"></div>
+      </div>
+      <span style="min-width:60px;text-align:right;font-size:.85rem;color:var(--text-muted)">{{ o.votes }} ({{ o.pct }}%)</span>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="empty-state">
+  <p>No polls for this session yet.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+var sessionId = {{ session.id }};
+
+function addPollOption() {
+  var list = document.getElementById('poll-options-list');
+  var count = list.querySelectorAll('.poll-option-input').length;
+  var inp = document.createElement('input');
+  inp.type = 'text';
+  inp.className = 'form-input poll-option-input';
+  inp.placeholder = 'Option ' + (count + 1);
+  list.appendChild(inp);
+}
+
+function createPoll() {
+  var question = document.getElementById('poll-question').value.trim();
+  var inputs = document.querySelectorAll('.poll-option-input');
+  var options = [];
+  inputs.forEach(function(inp) { if (inp.value.trim()) options.push(inp.value.trim()); });
+  var errEl = document.getElementById('create-poll-error');
+
+  if (!question || options.length < 2) {
+    errEl.textContent = 'Enter a question and at least 2 options.';
+    errEl.style.display = 'block';
+    return;
+  }
+  errEl.style.display = 'none';
+  var btn = document.getElementById('create-poll-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+
+  fetch('/admin/sessions/' + sessionId + '/polls', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({question: question, options: options})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) { location.reload(); }
+    else { errEl.textContent = data.error || 'Failed.'; errEl.style.display = 'block'; }
+  })
+  .catch(function() { errEl.textContent = 'Network error.'; errEl.style.display = 'block'; })
+  .finally(function() { btn.disabled = false; btn.textContent = 'Create Poll'; });
+}
+
+function togglePoll(pollId, btn) {
+  btn.disabled = true;
+  fetch('/admin/polls/' + pollId + '/toggle', {method:'POST', headers:{'Content-Type':'application/json'}})
+  .then(function(r) { return r.json(); })
+  .then(function(data) { if (data.ok) location.reload(); })
+  .finally(function() { btn.disabled = false; });
+}
+
+function closePoll(pollId) {
+  fetch('/admin/polls/' + pollId + '/close', {method:'POST', headers:{'Content-Type':'application/json'}})
+  .then(function(r) { return r.json(); })
+  .then(function() { location.reload(); });
+}
+</script>
+{% endblock %}

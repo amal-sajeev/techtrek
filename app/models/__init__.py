@@ -22,6 +22,11 @@ from app.models.session_feedback import SessionFeedback
 from app.models.newsletter import Newsletter
 from app.models.uploaded_image import UploadedImage
 from app.models.gallery_image import GalleryImage
+from app.models.event_break import EventBreak
+from app.models.event_addon import EventAddOn, BookingAddOn
+from app.models.ticket_share import TicketShare
+from app.models.feedback_template import FeedbackTemplate, TemplateQuestion, FeedbackResponse, QuestionResponse
+from app.models.poll import Poll, PollOption, PollVote
 
 __all__ = [
     "User", "City", "College", "Auditorium", "Seat", "Speaker", "AgendaItem",
@@ -29,4 +34,7 @@ __all__ = [
     "NewsletterSubscriber", "SeatType", "ActivityLog", "WebhookLog",
     "SessionRecording", "SiteSetting", "Event", "Coupon", "Feedback",
     "SessionFeedback", "Newsletter", "UploadedImage", "GalleryImage",
+    "EventBreak", "EventAddOn", "BookingAddOn", "TicketShare",
+    "FeedbackTemplate", "TemplateQuestion", "FeedbackResponse", "QuestionResponse",
+    "Poll", "PollOption", "PollVote",
 ]

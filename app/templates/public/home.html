@@ -67,6 +67,11 @@
     <img class="hero-session-img"
       src="{% if fev.banner_url %}{{ fev.banner_url }}{% else %}https://images.unsplash.com/{{ hero_img_id }}?w=1200&auto=format&fit=crop&q=80{% endif %}"
       alt="{{ fev.name }}" loading="eager">
+    {% if fev.college and fev.college.logo_url %}
+    <div class="college-logo-watermark">
+      <img src="{{ fev.college.logo_url }}" alt="">
+    </div>
+    {% endif %}
     <div class="hero-session-fade"></div>
     <div class="hero-session-overlay">
       <div class="hsess-top">
@@ -105,10 +110,10 @@
             {{ fev.start_date.strftime('%b %d, %Y') }}
           </span>
           {% endif %}
-          {% if featured.auditorium %}
+          {% if fev.college or featured.city %}
           <span class="hsess-meta-chip">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
-            {{ featured.auditorium.name }}
+            {% if fev.college %}{{ fev.college.name }}{% endif %}{% if fev.college and featured.city %}, {% endif %}{% if featured.city %}{{ featured.city.name }}{% endif %}
           </span>
           {% endif %}
         </div>
@@ -145,7 +150,7 @@
               <div class="lm-bt-logo">TechTrek</div>
             </div>
             <hr class="lm-bt-rule-h">
-            <div class="lm-bt-sub">Est. 2022 &middot; Viksit Bharat Initiative</div>
+            <div class="lm-bt-sub"> Viksit Bharat Initiative</div>
           </div>
           <h1 class="lm-headline">
             What industry is building <em>right now.</em>
@@ -156,7 +161,7 @@
           </p>
           <div class="lm-cta-group">
             <a href="/events" class="btn lm-btn-accent lm-btn-lg">Explore Events &rarr;</a>
-            {% if not user %}<a href="/auth/register" class="lm-link-secondary">Create account</a>{% else %}<a href="/sessions" class="lm-link-secondary">View full program</a>{% endif %}
+            {% if not user %}<a href="/auth/register" class="lm-link-secondary">Create account</a>{% endif %}
           </div>
           <div class="lm-dispatch">
             <span class="lm-dispatch-count">{{ total_events }} event{{ 's' if total_events != 1 else '' }} this season</span>
@@ -205,6 +210,11 @@
           ] %}
           <img src="{{ fev.banner_url or 'https://images.unsplash.com/' + hero_img_pool[fev.id % 4] + '?w=900&auto=format&fit=crop&q=80' }}"
                alt="{{ fev.name }}" loading="eager">
+          {% if fev.college and fev.college.logo_url %}
+          <div class="college-logo-watermark">
+            <img src="{{ fev.college.logo_url }}" alt="">
+          </div>
+          {% endif %}
           <div class="lm-featured-content">
             <span class="lm-featured-eyebrow">&#9679;
               {% if featured.days_until > 0 %}in {{ featured.days_until }}d {{ featured.hours_until }}h
@@ -214,7 +224,7 @@
             <div class="lm-featured-title">{{ fev.name }}</div>
             <div class="lm-featured-meta">
               {% if fev.start_date %}<span>{{ fev.start_date.strftime('%b %d, %Y') }}</span>{% endif %}
-              {% if featured.auditorium %}<span>{{ featured.auditorium.name }}</span>{% endif %}
+              {% if fev.college %}<span>{{ fev.college.name }}{% if featured.city %}, {{ featured.city.name }}{% endif %}</span>{% endif %}
             </div>
             <div class="lm-featured-cta">View event details &rarr;</div>
           </div>
@@ -333,6 +343,7 @@
 </section>
 
 <!-- WHAT: Featured Events -->
+{% if events and events|length > 3 %}
 <section class="section phase-summit">
   <div class="container">
     <h2 class="section-title"><span class="dark-only">Featured Events</span><span class="light-only-inline">Upcoming Events</span></h2>
@@ -350,7 +361,6 @@
       'photo-1560439513-4e7cfb21b3f4'
     ] %}
 
-    {% if events %}
     <div class="carousel-wrap" id="talks-carousel-wrap">
       <button class="carousel-btn carousel-prev" id="talks-prev" aria-label="Previous">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
@@ -390,7 +400,7 @@
               </div>
             </div>
             <div class="card-footer">
-              <span class="card-detail" style="font-size:.78rem;color:var(--text-muted)">{% if ev.price == 0 %}Free{% else %}₹{{ '{:,.0f}'.format(ev.price) }}{% endif %}</span>
+              <span class="card-detail" style="font-size:.78rem;color:var(--text-muted)">{% if ev.price == 0 %}Free{% else %}&#8377;{{ '{:,.0f}'.format(ev.price) }}{% endif %}</span>
               <span class="card-cta-hint">Details &rarr;</span>
             </div>
           </a>
@@ -403,80 +413,10 @@
     </div>
     <div style="text-align:center;margin-top:2rem">
       <a href="/events" class="btn btn-primary">View All Events &rarr;</a>
-      <a href="/sessions" class="btn btn-outline" style="margin-left:.75rem">Full Program &rarr;</a>
-    </div>
-    {% else %}
-    <div class="empty-state reveal" style="margin-top:2rem">
-      <h3>Events Coming Soon</h3>
-      <p>We're preparing an amazing lineup of industry summits. Subscribe below to stay updated!</p>
-    </div>
-    {% endif %}
-  </div>
-</section>
-
-{% if sessions %}
-
-<!-- WHAT: Featured Sessions -->
-<section class="section phase-sessions" style="padding-top:1rem;">
-  <div class="container">
-    <h2 class="section-title"><span class="dark-only">Featured Sessions</span><span class="light-only-inline">Upcoming Talks</span></h2>
-    <p class="section-subtitle">Browse individual talks by industry experts &mdash; each session is part of a TechTrek event.</p>
-
-    <div class="carousel-wrap" id="sessions-carousel-wrap">
-      <button class="carousel-btn carousel-prev" id="sessions-prev" aria-label="Previous">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-      </button>
-      <div class="carousel-track-outer">
-        <div class="carousel-track" id="sessions-track">
-          {% for item in sessions %}
-          {% set s = item.session %}
-          {% set ev = item.event %}
-          {% set s_img_id = img_pool[s.id % 8] %}
-          <a href="/sessions/{{ s.id }}" class="card card-hover carousel-card carousel-card-sm">
-            <div class="card-image card-image-sm">
-              {% set s_gallery_img = first_gallery.get('session:' ~ s.id|string) if first_gallery else None %}
-              {% if s.banner_url %}
-              <img src="{{ s.banner_url }}" alt="{{ s.title }}" loading="lazy">
-              {% elif s_gallery_img %}
-              <img src="{{ s_gallery_img }}" alt="{{ s.title }}" loading="lazy">
-              {% else %}
-              <img src="https://images.unsplash.com/{{ s_img_id }}?w=400&auto=format&fit=crop&q=80"
-                   alt="{{ s.title }}" loading="lazy">
-              {% endif %}
-            </div>
-            <div class="card-body card-body-sm">
-              <h3 class="card-title card-title-sm">{{ s.title }}</h3>
-              <p class="card-meta" style="font-size:.75rem">{{ s.speaker_name }}</p>
-              {% if s.description %}
-              <p class="card-desc" style="font-size:.72rem;margin-top:.25rem;line-height:1.45;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden">{{ s.description|truncate(90, True, '...') }}</p>
-              {% endif %}
-              <div class="card-details" style="font-size:.72rem;margin-top:.3rem">
-                {% if s.start_time %}
-                <span class="card-detail">&#128197; {{ s.start_time.strftime('%b %d, %Y') }}</span>
-                {% elif ev and ev.start_date %}
-                <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') }}</span>
-                {% endif %}
-              </div>
-            </div>
-            <div class="card-footer card-footer-sm">
-              <span class="card-detail" style="font-size:.68rem;color:var(--text-muted)">{{ ev.name }}</span>
-              <span class="card-cta-hint" style="font-size:.72rem">View &rarr;</span>
-            </div>
-          </a>
-          {% endfor %}
-        </div>
-      </div>
-      <button class="carousel-btn carousel-next" id="sessions-next" aria-label="Next">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-      </button>
-    </div>
-    <div style="text-align:center;margin-top:2rem">
-      <a href="/sessions" class="btn btn-primary">View All Sessions &rarr;</a>
     </div>
   </div>
 </section>
 {% endif %}
-
 
 <!-- HOW: How It Works -->
 <section class="section how-it-works" style="padding-top:2.5rem;padding-bottom:2rem">
@@ -499,9 +439,11 @@
         <p>Confirm your booking, get your QR ticket, and show up inspired.</p>
       </div>
     </div>
+    {% if events and events|length > 3 %}
     <div style="text-align:center;margin-top:2.5rem">
       <a href="/events" class="btn btn-primary btn-lg">Browse Events &rarr;</a>
     </div>
+    {% endif %}
   </div>
 </section>
 

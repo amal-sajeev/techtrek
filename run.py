@@ -13,14 +13,19 @@ if __name__ == "__main__":
 
     kwargs: dict = dict(host="0.0.0.0", port=8000, reload=True)
 
+    use_http = os.environ.get("USE_HTTP", "").strip().lower() in ("1", "true", "yes")
     cert_dir = pathlib.Path(__file__).parent / "certs"
     cert_file = cert_dir / "cert.pem"
     key_file = cert_dir / "key.pem"
-    if cert_file.exists() and key_file.exists():
+
+    if use_http:
+        print(f"  [HTTP] USE_HTTP=1 — plain HTTP only. From other devices use:  http://<this-PC-IP>:8000  (not https://)")
+    elif cert_file.exists() and key_file.exists():
         kwargs["ssl_certfile"] = str(cert_file)
         kwargs["ssl_keyfile"] = str(key_file)
-        print(f"  [HTTPS] enabled -- https://0.0.0.0:8000")
+        print(f"  [HTTPS] enabled — https://localhost:8000")
+        print(f"           From other devices: https://<this-PC-IP>:8000 (run: python scripts/gen_cert.py to include LAN IP in cert)")
     else:
-        print(f"  ⚠  No certs found at {cert_dir} — running plain HTTP")
+        print(f"  [HTTP] No certs at {cert_dir} — running plain HTTP")
 
     uvicorn.run("app.main:app", **kwargs)

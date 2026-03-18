@@ -75,6 +75,12 @@
     {% endfor %}
   </div>
 
+  {% if event.college and event.college.logo_url %}
+  <div class="college-logo-watermark">
+    <img src="{{ event.college.logo_url }}" alt="">
+  </div>
+  {% endif %}
+
   {# Bottom gradient: photo fades seamlessly into page background #}
   <div class="ed-hero-gradient"></div>
 
@@ -151,7 +157,7 @@
       </div>
 
       {# Right: carousel (same images as dark-mode hero) #}
-      <div class="lm-ed-img-wrap">
+      <div class="lm-ed-img-wrap" style="position:relative">
         <div class="lm-ed-carousel" id="lm-ed-carousel">
           <div class="lm-ed-slide active">
             <img src="{{ hero_img }}" alt="{{ event.name }}" loading="eager">
@@ -176,6 +182,11 @@
             {% endif %}
           {% endfor %}
         </div>
+        {% if event.college and event.college.logo_url %}
+        <div class="college-logo-watermark">
+          <img src="{{ event.college.logo_url }}" alt="">
+        </div>
+        {% endif %}
       </div>
 
     </div>
@@ -196,12 +207,14 @@
         <p class="ed-section-sub">Your event ticket covers all sessions below &mdash; book once, attend everything.</p>
       </div>
 
-      {% if sessions %}
+      {% if agenda_items %}
       {% set is_sold_out = availability == 'sold-out' %}
       {% set is_filling = availability == 'filling-up' %}
 
         <div class="ed-session-list">
-          {% for item in sessions %}
+          {% for item in agenda_items %}
+
+          {% if item.type == 'session' %}
           {% set s = item.session %}
           {% set img_id = img_pool[s.id % 8] %}
 
@@ -236,6 +249,28 @@
             </div>
 
           </a>
+
+          {% elif item.type == 'break' %}
+          {% set brk = item.break %}
+
+          <div class="ed-break-card reveal-{{ 'left' if loop.index is odd else 'right' }}"
+               style="transition-delay:{{ (loop.index0 * 0.12)|round(2) }}s;">
+            <div class="ed-break-icon">&#9749;</div>
+            <div class="ed-sc-body">
+              <h3 class="ed-sc-title">{{ brk.title }}</h3>
+              {% if brk.description %}
+              <p class="ed-sc-desc">{{ brk.description|truncate(120, True, '...') }}</p>
+              {% endif %}
+              <div class="ed-sc-meta">
+                {% if brk.start_time %}
+                <span>&#128336; {{ brk.start_time.strftime('%I:%M %p') }}</span>
+                {% endif %}
+                {% if brk.duration_minutes %}<span class="meta-duration">&#9200; {{ brk.duration_minutes }} min</span>{% endif %}
+              </div>
+            </div>
+          </div>
+
+          {% endif %}
           {% endfor %}
         </div>
 
@@ -253,18 +288,9 @@
       <div class="ed-booking-panel reveal-scale" id="booking-panel">
 
         <div class="ed-bp-header">
-          <h3 class="ed-bp-title">Event Package</h3>
+          <h3 class="ed-bp-title">{{ event.name }}</h3>
           <p class="ed-bp-sub">{{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }} &mdash; one ticket</p>
         </div>
-
-        <ul class="ed-booking-checklist" id="booking-checklist">
-          {% for item in sessions %}
-          <li class="ed-bcl-item" data-session-id="{{ item.session.id }}">
-            <span class="ed-bcl-icon">✓</span>
-            <span class="ed-bcl-text">{{ item.session.title }}</span>
-          </li>
-          {% endfor %}
-        </ul>
 
         {% if event.start_date or venue %}
         <div class="ed-bp-meta" style="display:flex;flex-direction:column;gap:.4rem;">
@@ -320,6 +346,21 @@
           </div>
           {% endif %}
         </div>
+
+        {% if event_addons %}
+        <div class="ed-bp-addons" style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border, #e5e7eb);">
+          <p style="font-weight:600;font-size:.85rem;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary, #6b7280);">Optional Add-Ons</p>
+          {% for addon in event_addons %}
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:.5rem 0;{% if not loop.last %}border-bottom:1px dashed var(--border, #e5e7eb);{% endif %}">
+            <div style="flex:1;">
+              <span style="font-weight:500;">{{ addon.title }}</span>
+              {% if addon.description %}<p style="font-size:.8rem;color:var(--text-secondary, #6b7280);margin:.15rem 0 0;">{{ addon.description }}</p>{% endif %}
+            </div>
+            <span style="font-weight:600;white-space:nowrap;margin-left:.75rem;">{% if addon.price > 0 %}&#8377;{{ '{:,.0f}'.format(addon.price) }}{% else %}Free{% endif %}</span>
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
 
         <div class="ed-bp-actions">
           {% if user %}
@@ -392,76 +433,6 @@
           'perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0px)';
       });
     });
-  }
-
-  /* 4 — Cross-highlight card ↔ checklist + scroll-sync */
-  var checklist = document.getElementById('booking-checklist');
-  var userScrolling = false;
-  var userScrollTimer = null;
-
-  if (checklist) {
-    checklist.addEventListener('wheel', function () {
-      userScrolling = true;
-      clearTimeout(userScrollTimer);
-      userScrollTimer = setTimeout(function () { userScrolling = false; }, 2000);
-    }, { passive: true });
-    checklist.addEventListener('touchstart', function () {
-      userScrolling = true;
-      clearTimeout(userScrollTimer);
-    }, { passive: true });
-    checklist.addEventListener('touchend', function () {
-      clearTimeout(userScrollTimer);
-      userScrollTimer = setTimeout(function () { userScrolling = false; }, 2000);
-    }, { passive: true });
-  }
-
-  document.querySelectorAll('.ed-session-card').forEach(function (card) {
-    var id = card.dataset.sessionId;
-    var li = document.querySelector('.ed-bcl-item[data-session-id="' + id + '"]');
-    if (!li) return;
-    card.addEventListener('mouseenter', function () { li.classList.add('highlighted'); });
-    card.addEventListener('mouseleave', function () { li.classList.remove('highlighted'); });
-  });
-
-  /* Scroll-sync: as session cards enter the viewport on the left,
-     auto-scroll the booking checklist to keep the matching item visible */
-  if (checklist) {
-    var allCards = Array.prototype.slice.call(document.querySelectorAll('.ed-session-card'));
-    var allItems = Array.prototype.slice.call(checklist.querySelectorAll('.ed-bcl-item'));
-
-    function syncChecklist() {
-      if (userScrolling || !allCards.length) return;
-      var vpMid = window.innerHeight * 0.45;
-      var best = null;
-      var bestDist = Infinity;
-      allCards.forEach(function (card) {
-        var r = card.getBoundingClientRect();
-        var cardMid = r.top + r.height / 2;
-        var dist = Math.abs(cardMid - vpMid);
-        if (r.bottom > 0 && r.top < window.innerHeight && dist < bestDist) {
-          bestDist = dist;
-          best = card;
-        }
-      });
-      if (!best) return;
-      var id = best.dataset.sessionId;
-      var li = checklist.querySelector('.ed-bcl-item[data-session-id="' + id + '"]');
-      if (li) {
-        var clRect = checklist.getBoundingClientRect();
-        var liRect = li.getBoundingClientRect();
-        var liTop = liRect.top - clRect.top + checklist.scrollTop;
-        var targetScroll = liTop - (clRect.height / 2) + (liRect.height / 2);
-        checklist.scrollTop = Math.max(0, Math.min(targetScroll, checklist.scrollHeight - clRect.height));
-      }
-    }
-
-    var scrollTick = false;
-    window.addEventListener('scroll', function () {
-      if (!scrollTick) {
-        requestAnimationFrame(function () { syncChecklist(); scrollTick = false; });
-        scrollTick = true;
-      }
-    }, { passive: true });
   }
 
   /* 5 — Scroll progress bar */

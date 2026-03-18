@@ -36,6 +36,15 @@
             <option value="cancelled" {% if event and event.status == 'cancelled' %}selected{% endif %}>Cancelled</option>
           </select>
         </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label" for="ev-fb-template">Feedback Template</label>
+          <select name="feedback_template_id" id="ev-fb-template" class="form-input">
+            <option value="">— Default (star rating + comment) —</option>
+            {% for ft in fb_templates|default([]) %}
+            <option value="{{ ft.id }}" {% if event and event.feedback_template_id == ft.id %}selected{% endif %}>{{ ft.name }} ({{ ft.questions|length }} questions)</option>
+            {% endfor %}
+          </select>
+        </div>
       </div>
       <div class="form-row">
         <div class="form-group" style="flex:1">
@@ -141,6 +150,97 @@
 
       <div id="inline-sessions-list"></div>
       <button type="button" class="btn btn-outline btn-sm" id="add-inline-session" style="margin-top:.75rem">+ Add Session</button>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
+
+      <h4 style="margin-bottom:.5rem">Breaks</h4>
+      <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Add breaks (lunch, networking, Q&amp;A) that appear in the event agenda alongside sessions.</p>
+
+      {% if event and event_breaks %}
+      <div class="table-responsive mt-2 mb-3">
+        <table class="table">
+          <thead><tr><th>Title</th><th>Start Time</th><th>Duration</th></tr></thead>
+          <tbody>
+            {% for brk in event_breaks %}
+            <tr>
+              <td>{{ brk.title }}</td>
+              <td>{{ brk.start_time.strftime('%b %d, %I:%M %p') if brk.start_time else "—" }}</td>
+              <td>{{ brk.duration_minutes }} min</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% endif %}
+
+      <div id="inline-breaks-list">
+        {% if event and event_breaks %}
+        {% for brk in event_breaks %}
+        <div class="break-row form-card" style="padding:.75rem;margin-bottom:.5rem;position:relative;" data-break-idx="{{ loop.index0 }}">
+          <button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest('.break-row').remove()">&#10005;</button>
+          <div class="form-row">
+            <div class="form-group" style="flex:2">
+              <label class="form-label">Title</label>
+              <input type="text" name="break_title_{{ loop.index0 }}" class="form-input" value="{{ brk.title }}" required>
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Duration (min)</label>
+              <input type="number" name="break_duration_{{ loop.index0 }}" class="form-input" value="{{ brk.duration_minutes }}" min="1">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Order</label>
+              <input type="number" name="break_order_{{ loop.index0 }}" class="form-input" value="{{ brk.order }}">
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Start Time</label>
+              <input type="datetime-local" name="break_start_time_{{ loop.index0 }}" class="form-input" value="{{ brk.start_time.strftime('%Y-%m-%dT%H:%M') if brk.start_time else '' }}">
+            </div>
+            <div class="form-group" style="flex:2">
+              <label class="form-label">Description</label>
+              <input type="text" name="break_desc_{{ loop.index0 }}" class="form-input" value="{{ brk.description or '' }}" placeholder="Optional description">
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" id="add-break-item" style="margin-top:.5rem">+ Add Break</button>
+
+      <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
+
+      <h4 style="margin-bottom:.5rem">Add-Ons</h4>
+      <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Optional extras attendees can purchase during checkout (e.g. workshops, meals, merch).</p>
+
+      <div id="inline-addons-list">
+        {% if event and event_addons %}
+        {% for addon in event_addons %}
+        <div class="addon-row form-card" style="padding:.75rem;margin-bottom:.5rem;position:relative;" data-addon-idx="{{ loop.index0 }}">
+          <button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest('.addon-row').remove()">&#10005;</button>
+          <div class="form-row">
+            <div class="form-group" style="flex:2">
+              <label class="form-label">Title</label>
+              <input type="text" name="addon_title_{{ loop.index0 }}" class="form-input" value="{{ addon.title }}" required>
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Price (&#8377;)</label>
+              <input type="number" name="addon_price_{{ loop.index0 }}" class="form-input" value="{{ addon.price }}" min="0" step="0.01">
+            </div>
+            <div class="form-group" style="flex:1">
+              <label class="form-label">Max Qty</label>
+              <input type="number" name="addon_max_qty_{{ loop.index0 }}" class="form-input" value="{{ addon.max_quantity or '' }}" min="0" placeholder="Unlimited">
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Description</label>
+            <input type="text" name="addon_desc_{{ loop.index0 }}" class="form-input" value="{{ addon.description or '' }}" placeholder="Optional description">
+          </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+      </div>
+      <button type="button" class="btn btn-outline btn-sm" id="add-addon-item" style="margin-top:.5rem">+ Add Add-On</button>
 
       <div class="wizard-nav">
         <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
@@ -1019,6 +1119,47 @@ window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
     div.className = 'inline-session-entry editing';
     container.appendChild(div);
     expandEntry(div, i, '', '', '');
+  });
+})();
+
+(function() {
+  var breakContainer = document.getElementById('inline-breaks-list');
+  var breakIdx = breakContainer ? breakContainer.querySelectorAll('.break-row').length : 0;
+
+  document.getElementById('add-break-item').addEventListener('click', function() {
+    var i = breakIdx++;
+    var div = document.createElement('div');
+    div.className = 'break-row form-card';
+    div.style.cssText = 'padding:.75rem;margin-bottom:.5rem;position:relative;';
+    div.innerHTML = '<button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest(\'.break-row\').remove()">&#10005;</button>'
+      + '<div class="form-row">'
+      + '<div class="form-group" style="flex:2"><label class="form-label">Title</label><input type="text" name="break_title_' + i + '" class="form-input" required placeholder="e.g. Lunch Break"></div>'
+      + '<div class="form-group" style="flex:1"><label class="form-label">Duration (min)</label><input type="number" name="break_duration_' + i + '" class="form-input" value="15" min="1"></div>'
+      + '<div class="form-group" style="flex:1"><label class="form-label">Order</label><input type="number" name="break_order_' + i + '" class="form-input" value="' + i + '"></div>'
+      + '</div>'
+      + '<div class="form-row">'
+      + '<div class="form-group" style="flex:1"><label class="form-label">Start Time</label><input type="datetime-local" name="break_start_time_' + i + '" class="form-input"></div>'
+      + '<div class="form-group" style="flex:2"><label class="form-label">Description</label><input type="text" name="break_desc_' + i + '" class="form-input" placeholder="Optional description"></div>'
+      + '</div>';
+    breakContainer.appendChild(div);
+  });
+
+  var addonContainer = document.getElementById('inline-addons-list');
+  var addonIdx = addonContainer ? addonContainer.querySelectorAll('.addon-row').length : 0;
+
+  document.getElementById('add-addon-item').addEventListener('click', function() {
+    var i = addonIdx++;
+    var div = document.createElement('div');
+    div.className = 'addon-row form-card';
+    div.style.cssText = 'padding:.75rem;margin-bottom:.5rem;position:relative;';
+    div.innerHTML = '<button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest(\'.addon-row\').remove()">&#10005;</button>'
+      + '<div class="form-row">'
+      + '<div class="form-group" style="flex:2"><label class="form-label">Title</label><input type="text" name="addon_title_' + i + '" class="form-input" required placeholder="e.g. Workshop Pass"></div>'
+      + '<div class="form-group" style="flex:1"><label class="form-label">Price (\u20B9)</label><input type="number" name="addon_price_' + i + '" class="form-input" value="0" min="0" step="0.01"></div>'
+      + '<div class="form-group" style="flex:1"><label class="form-label">Max Qty</label><input type="number" name="addon_max_qty_' + i + '" class="form-input" min="0" placeholder="Unlimited"></div>'
+      + '</div>'
+      + '<div class="form-group"><label class="form-label">Description</label><input type="text" name="addon_desc_' + i + '" class="form-input" placeholder="Optional description"></div>';
+    addonContainer.appendChild(div);
   });
 })();
 </script>

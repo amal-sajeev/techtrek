@@ -532,12 +532,10 @@
 [data-theme="light"] .lm-featured-card img {
   width: 100%; height: 100%;
   object-fit: cover;
-  opacity: 0.55;
-  filter: saturate(0.65);
-  transition: opacity 0.3s, transform 0.5s ease;
+  transition: transform 0.5s ease;
   display: block;
 }
-[data-theme="light"] .lm-featured-card:hover img { opacity: 0.68; transform: scale(1.03); }
+[data-theme="light"] .lm-featured-card:hover img { transform: scale(1.03); }
 [data-theme="light"] .lm-featured-content {
   position: absolute;
   inset: 0;

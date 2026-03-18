@@ -2,7 +2,7 @@ import json
 import io
 import uuid
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -33,10 +33,36 @@ from app.models.feedback import Feedback
 from app.models.session import Session as SessionModel
 from app.models.session_feedback import SessionFeedback
 from app.services.invoice import generate_invoice_pdf
+from app.models.event_addon import BookingAddOn, EventAddOn
 from app.services.razorpay import create_order as rz_create_order
 from app.services.razorpay import verify_payment as rz_verify_payment
 
 router = APIRouter(prefix="/booking", tags=["booking"], dependencies=[Depends(csrf_protection)])
+
+
+def _get_booking_addons(db: Session, booking_group: str):
+    """Return list of EventAddOn objects purchased for a booking group."""
+    if not booking_group:
+        return []
+    rows = db.query(BookingAddOn).filter(BookingAddOn.booking_group == booking_group).all()
+    if not rows:
+        return []
+    addon_ids = [r.addon_id for r in rows]
+    return db.query(EventAddOn).filter(EventAddOn.id.in_(addon_ids)).all()
+
+
+def _save_booking_addons(db: Session, request: Request, event_id: int, booking_group: str):
+    selected_addon_ids = set(request.session.get("selected_addons", []))
+    if not selected_addon_ids:
+        return
+    addons = db.query(EventAddOn).filter(
+        EventAddOn.id.in_(selected_addon_ids),
+        EventAddOn.event_id == event_id,
+        EventAddOn.is_active == True,
+    ).all()
+    for addon in addons:
+        db.add(BookingAddOn(booking_group=booking_group, addon_id=addon.id, quantity=1))
+    request.session.pop("selected_addons", None)
 
 
 def _seat_price(event, seat_type: str, db=None) -> float:
@@ -191,24 +217,36 @@ def event_checkout(request: Request, event_id: int, db: Session = Depends(get_db
 
     base_total = sum(item["price"] for item in seat_items)
     fee_pct = float(ev.processing_fee_pct) if ev.processing_fee_pct else 0
-    processing_fee = round(base_total * fee_pct / 100, 2)
-    total = base_total + processing_fee
 
     held = holds[0].held_until
     time_left = int((held - now).total_seconds())
 
     coupon_code = request.session.get("applied_coupon_code")
     coupon_discount = 0
+    discounted_total = base_total
     if coupon_code:
         coupon, err = validate_coupon(db, coupon_code, event_id)
         if coupon:
             discounted_total = sum(apply_coupon_to_price(item["price"], coupon) for item in seat_items)
             coupon_discount = base_total - discounted_total
-            processing_fee = round(discounted_total * fee_pct / 100, 2)
-            total = discounted_total + processing_fee
         else:
             request.session.pop("applied_coupon_code", None)
             coupon_code = None
+
+    available_addons = db.query(EventAddOn).filter(
+        EventAddOn.event_id == event_id, EventAddOn.is_active == True
+    ).all()
+    selected_addon_ids = set(request.session.get("selected_addons", []))
+    addon_items = []
+    addon_total = 0
+    for ao in available_addons:
+        selected = ao.id in selected_addon_ids
+        addon_items.append({"addon": ao, "selected": selected})
+        if selected:
+            addon_total += float(ao.price)
+
+    processing_fee = round((discounted_total + addon_total) * fee_pct / 100, 2)
+    total = discounted_total + addon_total + processing_fee
 
     return templates.TemplateResponse(
         "booking/event_checkout.html",
@@ -227,6 +265,8 @@ def event_checkout(request: Request, event_id: int, db: Session = Depends(get_db
             razorpay_key_id=settings.razorpay_key_id,
             user_email=user.email if user else "",
             custom_types_map=custom_types_map,
+            addon_items=addon_items,
+            addon_total=addon_total,
         ),
     )
 
@@ -255,6 +295,34 @@ async def apply_coupon(request: Request, event_id: int, db: Session = Depends(ge
         discount_desc = f"₹{coupon.discount_amount} off"
 
     return JSONResponse({"ok": True, "discount": discount_desc, "code": coupon.code})
+
+
+@router.post("/event/{event_id}/toggle-addon")
+async def toggle_addon(request: Request, event_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return JSONResponse({"error": "Not authenticated"}, status_code=401)
+
+    body = await request.json()
+    addon_id = body.get("addon_id")
+    if not addon_id:
+        return JSONResponse({"error": "Missing addon_id"}, status_code=400)
+
+    addon = db.query(EventAddOn).filter(
+        EventAddOn.id == addon_id, EventAddOn.event_id == event_id, EventAddOn.is_active == True
+    ).first()
+    if not addon:
+        return JSONResponse({"error": "Add-on not found"}, status_code=404)
+
+    selected = set(request.session.get("selected_addons", []))
+    if addon_id in selected:
+        selected.discard(addon_id)
+        toggled = False
+    else:
+        selected.add(addon_id)
+        toggled = True
+    request.session["selected_addons"] = list(selected)
+    return JSONResponse({"ok": True, "selected": toggled, "addon_id": addon_id})
 
 
 @router.post("/event/{event_id}/create-order")
@@ -298,8 +366,18 @@ def event_create_order(request: Request, event_id: int, db: Session = Depends(ge
             price = apply_coupon_to_price(price, coupon)
         base += price
 
+    selected_addon_ids = set(request.session.get("selected_addons", []))
+    addon_total = 0
+    if selected_addon_ids:
+        addons = db.query(EventAddOn).filter(
+            EventAddOn.id.in_(selected_addon_ids),
+            EventAddOn.event_id == event_id,
+            EventAddOn.is_active == True,
+        ).all()
+        addon_total = sum(float(a.price) for a in addons)
+
     fee_pct = float(ev.processing_fee_pct) if ev.processing_fee_pct else 0
-    total_paise = int(round(base * (1 + fee_pct / 100), 2) * 100)
+    total_paise = int(round((base + addon_total) * (1 + fee_pct / 100), 2) * 100)
     receipt = f"event{event_id}_user{user.id}"
 
     try:
@@ -363,6 +441,8 @@ async def event_verify_payment(request: Request, event_id: int, db: Session = De
         b.razorpay_payment_id = payment_id
         b.razorpay_signature = signature
 
+    _save_booking_addons(db, request, event_id, group_id)
+
     log_activity(
         db, category="booking", action="event_payment",
         description=f"Payment verified for {len(confirmed)} seat(s), event #{event_id}",
@@ -371,10 +451,12 @@ async def event_verify_payment(request: Request, event_id: int, db: Session = De
     )
     db.commit()
 
+    group_id = request.session.get("event_booking_group")
     request.session.pop("event_booking_group", None)
     request.session.pop("applied_coupon_code", None)
     flash(request, f"Booking confirmed! {len(confirmed)} seat(s) booked.", "success")
-    return JSONResponse({"redirect": f"/booking/event/{event_id}/confirmation"})
+    url = f"/booking/event/{event_id}/confirmation?group_id={group_id}" if group_id else f"/booking/event/{event_id}/confirmation"
+    return JSONResponse({"redirect": url})
 
 
 @router.post("/event/{event_id}/pay")
@@ -410,6 +492,8 @@ async def event_pay_free(request: Request, event_id: int, db: Session = Depends(
 
     confirmed = confirm_payment(db, user.id, event_id, coupon=coupon)
 
+    _save_booking_addons(db, request, event_id, group_id)
+
     log_activity(
         db, category="booking", action="event_payment",
         description=f"Free booking confirmed for {len(confirmed)} seat(s), event #{event_id}",
@@ -419,12 +503,19 @@ async def event_pay_free(request: Request, event_id: int, db: Session = Depends(
 
     request.session.pop("event_booking_group", None)
     request.session.pop("applied_coupon_code", None)
+    request.session.pop("selected_addons", None)
     flash(request, f"Booking confirmed! {len(confirmed)} seat(s) booked.", "success")
-    return RedirectResponse(f"/booking/event/{event_id}/confirmation", status_code=303)
+    url = f"/booking/event/{event_id}/confirmation?group_id={group_id}" if group_id else f"/booking/event/{event_id}/confirmation"
+    return RedirectResponse(url, status_code=303)
 
 
 @router.get("/event/{event_id}/confirmation")
-def event_confirmation(request: Request, event_id: int, db: Session = Depends(get_db)):
+def event_confirmation(
+    request: Request,
+    event_id: int,
+    db: Session = Depends(get_db),
+    group_id: str = Query("", alias="group_id"),
+):
     user = _require_user(request, db)
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
@@ -433,25 +524,36 @@ def event_confirmation(request: Request, event_id: int, db: Session = Depends(ge
     if not ev:
         return RedirectResponse("/events", status_code=303)
 
-    bookings = (
+    base_query = (
         db.query(Booking)
         .filter(
             Booking.user_id == user.id,
             Booking.event_id == event_id,
             Booking.payment_status == "paid",
         )
-        .order_by(Booking.booked_at.desc())
-        .all()
     )
+    if group_id and group_id.strip():
+        bookings = base_query.filter(Booking.booking_group == group_id.strip()).order_by(Booking.id).all()
+    else:
+        all_paid = base_query.order_by(Booking.booked_at.desc()).all()
+        if not all_paid:
+            bookings = []
+        else:
+            first_group = all_paid[0].booking_group
+            if first_group:
+                bookings = [b for b in all_paid if b.booking_group == first_group]
+            else:
+                bookings = [all_paid[0]]
     if not bookings:
-        return RedirectResponse(f"/events/{event_id}", status_code=303)
+        return RedirectResponse(f"/booking/my", status_code=303)
 
     auditorium = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     total = sum(b.amount_paid or 0 for b in bookings)
-    group_id = bookings[0].booking_group if bookings and len(bookings) > 1 else None
-    group_qr = _generate_qr_base64(f"GROUP-{group_id}") if group_id else None
+    group_id_out = bookings[0].booking_group if bookings else None
+    group_qr = _generate_qr_base64(f"GROUP-{group_id_out}") if group_id_out else None
     custom_types_map = {f"custom_{st.id}": st.name for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
+    purchased_addons = _get_booking_addons(db, bookings[0].booking_group) if bookings else []
 
     return templates.TemplateResponse(
         "booking/event_confirmation.html",
@@ -462,8 +564,10 @@ def event_confirmation(request: Request, event_id: int, db: Session = Depends(ge
             bookings=bookings,
             seats=seats,
             group_qr=group_qr,
+            group_id_out=group_id_out,
             total=total,
             custom_types_map=custom_types_map,
+            purchased_addons=purchased_addons,
         ),
     )
 
@@ -506,6 +610,11 @@ def my_bookings(request: Request, db: Session = Depends(get_db)):
             if first.booking_group
             else f"/booking/detail/{first.id}"
         )
+        invoice_url = (
+            f"/booking/invoice/group/{first.booking_group}"
+            if first.booking_group
+            else f"/booking/invoice/booking/{first.id}"
+        )
 
         grouped.append({
             "bookings": group_bookings,
@@ -517,6 +626,7 @@ def my_bookings(request: Request, db: Session = Depends(get_db)):
             "group_qr_data": first.group_qr_data,
             "status": status,
             "detail_url": detail_url,
+            "invoice_url": invoice_url,
             "booked_at": first.booked_at,
             "all_checked_in": all(b.checked_in for b in paid_bookings) if paid_bookings else False,
         })
@@ -596,6 +706,8 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
     # with the booking_group field (avoids stale group_qr_data from earlier sessions).
     group_qr_data = _generate_qr_base64(f"GROUP-{group_id}") if group_id else None
 
+    purchased_addons = _get_booking_addons(db, first.booking_group)
+
     return templates.TemplateResponse(
         "booking/booking_detail.html",
         template_ctx(
@@ -610,6 +722,7 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
             is_group=len(bookings) > 1,
             has_cancellable=len(paid_bookings) > 0,
             custom_types_map=custom_types_map,
+            purchased_addons=purchased_addons,
         ),
     )
 
@@ -815,25 +928,123 @@ def certificate_download(request: Request, booking_id: int, db: Session = Depend
     )
 
 
+def _invoice_bookings_response(request: Request, db: Session, bookings: list, user_id: int):
+    """Generate and return invoice PDF for the given bookings (single transaction)."""
+    if not bookings:
+        flash(request, "No bookings found.", "warning")
+        return RedirectResponse("/booking/my", status_code=303), None
+    first = bookings[0]
+    event = db.query(Event).get(first.event_id) if first.event_id else None
+    auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
+    if not event or not auditorium:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/booking/my", status_code=303), None
+    user = db.query(User).get(user_id)
+    seats = [db.query(Seat).get(b.seat_id) for b in bookings]
+    custom_types_map = {f"custom_{st.id}": st for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
+    purchased_addons = _get_booking_addons(db, first.booking_group) if first.booking_group else []
+    pdf_bytes = generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_map, db=db, addons=purchased_addons)
+    ref = first.booking_ref or "invoice"
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="invoice-{ref}.pdf"'},
+    ), ref
+
+
+@router.get("/invoice/group/{group_id}")
+def download_invoice_group(request: Request, group_id: str, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=303)
+    bookings = (
+        db.query(Booking)
+        .filter(
+            Booking.booking_group == group_id,
+            Booking.user_id == user.id,
+            Booking.payment_status.in_(["paid", "refunded"]),
+        )
+        .order_by(Booking.id)
+        .all()
+    )
+    resp, _ = _invoice_bookings_response(request, db, bookings, user.id)
+    return resp if isinstance(resp, StreamingResponse) else resp
+
+
+@router.get("/invoice/booking/{booking_id}")
+def download_invoice_booking(request: Request, booking_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse("/auth/login", status_code=303)
+    booking = (
+        db.query(Booking)
+        .filter(
+            Booking.id == booking_id,
+            Booking.user_id == user.id,
+            Booking.payment_status.in_(["paid", "refunded"]),
+        )
+        .first()
+    )
+    if not booking:
+        flash(request, "Booking not found.", "danger")
+        return RedirectResponse("/booking/my", status_code=303)
+    if booking.booking_group:
+        bookings = (
+            db.query(Booking)
+            .filter(
+                Booking.booking_group == booking.booking_group,
+                Booking.user_id == user.id,
+                Booking.payment_status.in_(["paid", "refunded"]),
+            )
+            .order_by(Booking.id)
+            .all()
+        )
+    else:
+        bookings = [booking]
+    resp, _ = _invoice_bookings_response(request, db, bookings, user.id)
+    return resp if isinstance(resp, StreamingResponse) else resp
+
+
 @router.get("/invoice/{event_id}")
-def download_invoice(request: Request, event_id: int, db: Session = Depends(get_db)):
+def download_invoice(
+    request: Request,
+    event_id: int,
+    db: Session = Depends(get_db),
+    group_id: str = Query("", alias="group_id"),
+):
     user = _require_user(request, db)
     if not user:
         return RedirectResponse("/auth/login", status_code=303)
 
-    bookings = (
+    base_query = (
         db.query(Booking)
         .filter(
             Booking.user_id == user.id,
             Booking.event_id == event_id,
             Booking.payment_status.in_(["paid", "refunded"]),
         )
-        .order_by(Booking.booked_at.desc())
-        .all()
     )
-    if not bookings:
-        flash(request, "No bookings found for this event.", "warning")
-        return RedirectResponse("/booking/my", status_code=303)
+    if group_id and group_id.strip():
+        bookings = base_query.filter(Booking.booking_group == group_id.strip()).order_by(Booking.id).all()
+        if not bookings:
+            flash(request, "No bookings found for this transaction.", "warning")
+            return RedirectResponse("/booking/my", status_code=303)
+    else:
+        all_bookings = base_query.order_by(Booking.booked_at.desc()).all()
+        if not all_bookings:
+            flash(request, "No bookings found for this event.", "warning")
+            return RedirectResponse("/booking/my", status_code=303)
+        groups_seen = set()
+        first_group = None
+        for b in all_bookings:
+            g = b.booking_group or f"solo-{b.id}"
+            if first_group is None:
+                first_group = g
+            groups_seen.add(g)
+        if len(groups_seen) > 1:
+            flash(request, "You have multiple bookings for this event. Use My Bookings to download each invoice.", "info")
+            return RedirectResponse("/booking/my", status_code=303)
+        bookings = [b for b in all_bookings if (b.booking_group or f"solo-{b.id}") == first_group]
 
     event = db.query(Event).get(event_id)
     auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
@@ -843,7 +1054,8 @@ def download_invoice(request: Request, event_id: int, db: Session = Depends(get_
 
     seats = [db.query(Seat).get(b.seat_id) for b in bookings]
     custom_types_map = {f"custom_{st.id}": st for st in db.query(SeatType).filter(SeatType.is_custom == True).all()}
-    pdf_bytes = generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_map, db=db)
+    purchased_addons = _get_booking_addons(db, bookings[0].booking_group) if bookings else []
+    pdf_bytes = generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_map, db=db, addons=purchased_addons)
     ref = bookings[0].booking_ref or "invoice"
     return StreamingResponse(
         io.BytesIO(pdf_bytes),

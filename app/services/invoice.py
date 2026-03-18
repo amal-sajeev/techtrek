@@ -80,7 +80,7 @@ def _get_logo_image(logo_url: str, max_h_mm: float = 14):
         return None
 
 
-def generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_map=None, db=None) -> bytes:
+def generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_map=None, db=None, addons=None) -> bytes:
     _register_fonts()
     font = "Arial" if _FONT_REGISTERED else "Helvetica"
     font_bold = "Arial-Bold" if _FONT_REGISTERED else "Helvetica-Bold"
@@ -220,6 +220,25 @@ def generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_
             f"{gst_amount:,.2f}",
             f"{amount:,.2f}",
         ])
+
+    addon_total = 0.0
+    if addons:
+        for addon in addons:
+            row_num = len(table_data)
+            amount = float(addon.price or 0)
+            base_price = amount / (1 + gst_rate / 100)
+            gst_amount = amount - base_price
+            subtotal += base_price
+            gst_total += gst_amount
+            addon_total += amount
+            table_data.append([
+                str(row_num),
+                Paragraph(f"<i>Add-On</i>", styles["Normal"]),
+                addon.title,
+                f"{base_price:,.2f}",
+                f"{gst_amount:,.2f}",
+                f"{amount:,.2f}",
+            ])
 
     grand_total = subtotal + gst_total
 

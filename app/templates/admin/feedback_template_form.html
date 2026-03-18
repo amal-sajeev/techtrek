@@ -1,0 +1,133 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{{ 'Edit' if template else 'New' }} Feedback Template — Admin{% endblock %}
+
+{% block admin_content %}
+<div class="page-header-block">
+  <a href="/admin/feedback-templates" class="btn btn-outline btn-sm" style="margin-right:1rem">&#8592; Templates</a>
+  <h1 class="page-title">{{ 'Edit' if template else 'New' }} Feedback Template</h1>
+</div>
+
+<form method="post" action="{{ '/admin/feedback-templates/' ~ template.id ~ '/edit' if template else '/admin/feedback-templates/new' }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+  <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
+    <div class="form-group" style="margin-bottom:1rem">
+      <label class="form-label" for="ft-name">Template Name *</label>
+      <input type="text" id="ft-name" name="name" class="form-input" value="{{ template.name if template else '' }}" required placeholder="e.g. Post-Event Survey">
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="ft-desc">Description <span class="text-muted">(optional)</span></label>
+      <textarea id="ft-desc" name="description" class="form-input" rows="2" placeholder="Brief description of this template...">{{ template.description if template and template.description else '' }}</textarea>
+    </div>
+  </div>
+
+  <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <h3 style="margin:0;font-size:1.1rem">Star Rating</h3>
+      <span class="badge badge-info">Always included</span>
+    </div>
+    <p class="text-muted" style="font-size:.85rem;margin:0">
+      A 1-5 star rating is always collected as the first question. You can add additional custom questions below.
+    </p>
+  </div>
+
+  <div class="card" style="padding:1.5rem;margin-bottom:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+      <h3 style="margin:0;font-size:1.1rem">Custom Questions</h3>
+      <button type="button" class="btn btn-outline btn-sm" onclick="addQuestion()">+ Add Question</button>
+    </div>
+
+    <div id="questions-container">
+      {% if template and template.questions %}
+        {% for q in template.questions %}
+        <div class="question-block" data-idx="{{ loop.index0 }}">
+          <input type="hidden" name="q_idx" value="{{ loop.index0 }}">
+          <div style="display:flex;gap:.75rem;align-items:flex-start;margin-bottom:.75rem">
+            <div style="flex:1">
+              <label class="form-label">Question Text *</label>
+              <input type="text" name="q_text_{{ loop.index0 }}" class="form-input" value="{{ q.question_text }}" required>
+            </div>
+            <div style="min-width:160px">
+              <label class="form-label">Type</label>
+              <select name="q_type_{{ loop.index0 }}" class="form-input" onchange="toggleOptions(this, {{ loop.index0 }})">
+                <option value="text" {% if q.question_type == 'text' %}selected{% endif %}>Text</option>
+                <option value="multiple_choice" {% if q.question_type == 'multiple_choice' %}selected{% endif %}>Multiple Choice</option>
+                <option value="rating_scale" {% if q.question_type == 'rating_scale' %}selected{% endif %}>Rating Scale (1-5)</option>
+              </select>
+            </div>
+            <div style="min-width:90px">
+              <label class="form-label">Required</label>
+              <label style="display:flex;align-items:center;gap:.35rem;cursor:pointer;margin-top:.35rem">
+                <input type="checkbox" name="q_required_{{ loop.index0 }}" value="1" {% if q.is_required %}checked{% endif %}>
+                <span style="font-size:.85rem">Yes</span>
+              </label>
+            </div>
+            <div style="padding-top:1.6rem">
+              <button type="button" class="btn btn-xs btn-danger" onclick="removeQuestion(this)">&#10005;</button>
+            </div>
+          </div>
+          <div class="mc-options-wrap" id="mc-options-{{ loop.index0 }}" style="{% if q.question_type != 'multiple_choice' %}display:none{% endif %}">
+            <label class="form-label">Options (one per line)</label>
+            <textarea name="q_options_{{ loop.index0 }}" class="form-input" rows="3" placeholder="Option A&#10;Option B&#10;Option C">{% if q.options_json %}{% for opt in q.options_json %}{{ opt }}{% if not loop.last %}
+{% endif %}{% endfor %}{% endif %}</textarea>
+          </div>
+        </div>
+        {% endfor %}
+      {% endif %}
+    </div>
+
+    <div id="no-questions" class="text-muted" style="text-align:center;padding:1rem;{% if template and template.questions %}display:none{% endif %}">
+      No custom questions yet. Click "Add Question" to get started.
+    </div>
+  </div>
+
+  <div style="display:flex;gap:1rem;justify-content:flex-end;">
+    <a href="/admin/feedback-templates" class="btn btn-outline">Cancel</a>
+    <button type="submit" class="btn btn-primary">{{ 'Update Template' if template else 'Create Template' }}</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+var qIdx = {{ (template.questions|length) if template and template.questions else 0 }};
+
+function addQuestion() {
+  var c = document.getElementById('questions-container');
+  var idx = qIdx++;
+  var html = '<div class="question-block" data-idx="' + idx + '">' +
+    '<input type="hidden" name="q_idx" value="' + idx + '">' +
+    '<div style="display:flex;gap:.75rem;align-items:flex-start;margin-bottom:.75rem">' +
+      '<div style="flex:1"><label class="form-label">Question Text *</label>' +
+        '<input type="text" name="q_text_' + idx + '" class="form-input" required placeholder="Enter your question..."></div>' +
+      '<div style="min-width:160px"><label class="form-label">Type</label>' +
+        '<select name="q_type_' + idx + '" class="form-input" onchange="toggleOptions(this,' + idx + ')">' +
+          '<option value="text">Text</option><option value="multiple_choice">Multiple Choice</option><option value="rating_scale">Rating Scale (1-5)</option>' +
+        '</select></div>' +
+      '<div style="min-width:90px"><label class="form-label">Required</label>' +
+        '<label style="display:flex;align-items:center;gap:.35rem;cursor:pointer;margin-top:.35rem">' +
+          '<input type="checkbox" name="q_required_' + idx + '" value="1"><span style="font-size:.85rem">Yes</span></label></div>' +
+      '<div style="padding-top:1.6rem"><button type="button" class="btn btn-xs btn-danger" onclick="removeQuestion(this)">&#10005;</button></div>' +
+    '</div>' +
+    '<div class="mc-options-wrap" id="mc-options-' + idx + '" style="display:none">' +
+      '<label class="form-label">Options (one per line)</label>' +
+      '<textarea name="q_options_' + idx + '" class="form-input" rows="3" placeholder="Option A&#10;Option B&#10;Option C"></textarea>' +
+    '</div></div>';
+  c.insertAdjacentHTML('beforeend', html);
+  document.getElementById('no-questions').style.display = 'none';
+}
+
+function removeQuestion(btn) {
+  btn.closest('.question-block').remove();
+  if (!document.querySelector('.question-block')) {
+    document.getElementById('no-questions').style.display = 'block';
+  }
+}
+
+function toggleOptions(sel, idx) {
+  var wrap = document.getElementById('mc-options-' + idx);
+  if (wrap) wrap.style.display = sel.value === 'multiple_choice' ? '' : 'none';
+}
+</script>
+{% endblock %}

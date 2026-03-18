@@ -42,7 +42,10 @@ from app.models.activity_log import ActivityLog
 from app.models.webhook_log import WebhookLog
 from app.models.site_setting import SiteSetting
 from app.models.event import Event
+from app.models.event_break import EventBreak
+from app.models.event_addon import EventAddOn
 from app.models.coupon import Coupon
+from app.models.feedback_template import FeedbackTemplate, TemplateQuestion
 from app.crypto import hash_lookup
 from app.config import settings
 
@@ -186,7 +189,6 @@ def _make_user(**kwargs) -> User:
 
 def phase1_db_seed(force: bool):
     """Create foundational entities directly in the database."""
-    # Ensure schema is up to date (adds missing columns/tables)
     import logging
     for name in ("alembic", "alembic.runtime.migration"):
         logging.getLogger(name).setLevel(logging.ERROR)
@@ -208,7 +210,6 @@ def phase1_db_seed(force: bool):
     if force and db.query(User).count() > 0:
         print("  --force: dropping and recreating all tables ...")
         db.close()
-        # Drop legacy tables that may still exist (event-centric refactor removed them)
         with engine.connect() as conn:
             for tbl in ("event_showings", "showings"):
                 try:
@@ -299,7 +300,6 @@ def phase1_db_seed(force: bool):
         db.refresh(c)
     print(f"  Created {len(colleges)} colleges")
 
-    # Link supervisor to first college
     supervisor.supervisor_college_id = colleges[0].id
     db.commit()
 
@@ -438,12 +438,47 @@ def phase1_db_seed(force: bool):
     db.commit()
     print(f"  Created {len(site_settings)} site settings")
 
-    # Snapshot IDs into plain dicts so they survive after db.close()
+    # ── Feedback template ────────────────────────────────────────────
+    fb_template = FeedbackTemplate(
+        name="Workshop Feedback",
+        description="Post-workshop feedback form with session-specific and overall questions.",
+        created_by=admin.id,
+    )
+    db.add(fb_template)
+    db.flush()
+    template_questions = [
+        TemplateQuestion(
+            template_id=fb_template.id, order=0,
+            question_text="Which session was the most valuable to you and why?",
+            question_type="text", is_required=True,
+        ),
+        TemplateQuestion(
+            template_id=fb_template.id, order=1,
+            question_text="How would you rate the hands-on exercises?",
+            question_type="rating_scale", is_required=True,
+        ),
+        TemplateQuestion(
+            template_id=fb_template.id, order=2,
+            question_text="What is your experience level with cloud-native technologies?",
+            question_type="multiple_choice", is_required=False,
+            options_json=["Complete beginner", "Some exposure", "Intermediate", "Advanced"],
+        ),
+        TemplateQuestion(
+            template_id=fb_template.id, order=3,
+            question_text="What topics would you like covered in a future workshop?",
+            question_type="text", is_required=False,
+        ),
+    ]
+    db.add_all(template_questions)
+    db.commit()
+    print(f"  Created feedback template '{fb_template.name}' with {len(template_questions)} questions")
+
     refs = {
         "speakers": [{"id": s.id, "name": s.name} for s in speakers],
         "auditoriums": [{"id": a.id, "name": a.name, "college_id": a.college_id}
                         for a in auditoriums],
         "colleges": [{"id": c.id, "name": c.name} for c in colleges],
+        "feedback_template_id": fb_template.id,
     }
     db.close()
     return refs
@@ -453,21 +488,15 @@ def _create_seats(db, auditoriums, seat_types):
     """Generate seat grids for every auditorium."""
     aud_main, aud_lab, aud_seminar, aud_lecture, aud_micro = auditoriums
 
-    # Main Hall 10×15 – center aisle at col 8, VIP rows 1-2, accessible edges
     for r in range(1, 11):
         for c in range(1, 16):
             if c == 8:
                 stype, label, active = "aisle", "", False
-            elif r <= 2:
-                stype, label, active = "vip", f"{chr(64+r)}{c}", True
-            elif c in (1, 15):
-                stype, label, active = "accessible", f"{chr(64+r)}{c}", True
             else:
                 stype, label, active = "standard", f"{chr(64+r)}{c}", True
             db.add(Seat(auditorium_id=aud_main.id, row_num=r, col_num=c,
                         label=label, seat_type=stype, is_active=active))
 
-    # Innovation Lab 6×10 – aisle at col 5
     for r in range(1, 7):
         for c in range(1, 11):
             if c == 5:
@@ -477,29 +506,18 @@ def _create_seats(db, auditoriums, seat_types):
             db.add(Seat(auditorium_id=aud_lab.id, row_num=r, col_num=c,
                         label=label, seat_type=stype, is_active=active))
 
-    # Seminar Hall A 8×10 – VIP first row
     for r in range(1, 9):
         for c in range(1, 11):
-            stype = "vip" if r == 1 else "standard"
             db.add(Seat(auditorium_id=aud_seminar.id, row_num=r, col_num=c,
-                        label=f"{chr(64+r)}{c}", seat_type=stype,
+                        label=f"{chr(64+r)}{c}", seat_type="standard",
                         is_active=True))
 
-    # Lecture Theatre B 10×10 – custom "Premium" in first 2 rows
-    custom_name = f"custom_{seat_types[0].id}"
     for r in range(1, 11):
         for c in range(1, 11):
-            if r <= 2:
-                stype = custom_name
-            elif c in (1, 10):
-                stype = "accessible"
-            else:
-                stype = "standard"
             db.add(Seat(auditorium_id=aud_lecture.id, row_num=r, col_num=c,
-                        label=f"{chr(64+r)}{c}", seat_type=stype,
+                        label=f"{chr(64+r)}{c}", seat_type="standard",
                         is_active=True))
 
-    # Micro Hall 3×3 – all standard (tiny, for sold-out testing)
     for r in range(1, 4):
         for c in range(1, 4):
             db.add(Seat(auditorium_id=aud_micro.id, row_num=r, col_num=c,
@@ -514,531 +532,138 @@ def _create_seats(db, auditoriums, seat_types):
 # ═══════════════════════════════════════════════════════════════════════
 
 def build_event_data(speakers, auditoriums, colleges):
-    """Return a list of event dicts with sessions and coupons, ready for the API.
+    """Return a list of event dicts with sessions, breaks, and coupons.
 
-    `speakers`, `auditoriums`, and `colleges` are plain dicts with at least an "id" key,
-    as returned by phase1_db_seed.
+    Single event: TechTrek AI & Future Tech Summit 2026 at KSR College.
+    Data sourced from the official session spreadsheet.
+    Speakers 0=Sarah 1=James 2=Maria 3=Alex 4=Priya 5=Michael 6=Anika 7=Rahul 8=Amal
     """
-    # Indices: speakers 0=Sarah 1=James 2=Maria 3=Alex 4=Priya 5=Michael 6=Anika 7=Rahul 8=Amal
-    # auditoriums: 0=Main Hall 1=Innovation Lab 2=Seminar Hall A 3=Lecture Theatre B 4=Micro Hall
-    # colleges: 0=KSR 1=Anna 2=DTU 3=IIT 4=IIIT 5=BITS
+
+    yesterday = -1
 
     return [
-        # ── Event 1: KSR TechFest 2026 ──────────────────────────────────
+        # ── Past completed event (for feedback / certificate demo) ──
         {
-            "name": "KSR TechFest 2026",
+            "name": "TechTrek Cloud-Native Engineering Workshop 2026",
             "description": (
-                "A multi-day technology festival at KSR College featuring AI, APIs, "
-                "WebAssembly, and developer experience talks from top industry speakers."
+                "An intensive hands-on workshop covering cloud-native architecture, "
+                "containerisation with Docker and Kubernetes, CI/CD pipelines, and "
+                "observability. Attendees built and deployed a microservice from "
+                "scratch and left with a production-grade starter template."
             ),
-            "banner_url": "https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&h=400&fit=crop",
-            "college_idx": 0,
-            "aud_idx": 0,
-            "start_offset_days": 3,
-            "end_offset_days": 4,
-            "price": 299,
-            "price_vip": 599,
-            "price_accessible": 149,
-            "processing_fee_pct": 2.5,
-            "status": "published",
+            "banner_url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&h=400&fit=crop",
+            "college_idx": 1,   # Anna University
+            "aud_idx": 3,       # Lecture Theatre B
+            "start_offset_days": yesterday,
+            "end_offset_days": yesterday,
+            "price": 0,
+            "price_vip": None,
+            "price_accessible": None,
+            "processing_fee_pct": None,
+            "status": "published",  # changed to completed after amalsajeev books in phase3
+            "link_feedback_template": True,
+            "cert": {
+                "cert_title": "Certificate of Completion",
+                "cert_subtitle": "TechTrek Cloud-Native Engineering Workshop 2026",
+                "cert_footer": "Issued by TechTrek Pvt Ltd & Anna University",
+                "cert_signer_name": "James Kowalski",
+                "cert_signer_designation": "Staff Engineer, Fastly",
+                "cert_color_scheme": "blue",
+            },
             "sessions": [
                 {
-                    "title": "The Future of AI Agents",
-                    "speaker_id": speakers[0]["id"],
-                    "speaker_name": "Dr. Sarah Chen",
-                    "description": (
-                        "Explore how autonomous AI agents are reshaping software development, "
-                        "from code generation to infrastructure management. We'll examine the "
-                        "latest breakthroughs in multi-agent collaboration, tool-use patterns, "
-                        "and the emerging safety frameworks that keep agents aligned with human intent."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&h=400&fit=crop",
-                    "duration_minutes": 60,
-                    "start_offset_hours": 10,
-                    "agenda": [
-                        {"title": "Introduction to AI Agents", "speaker_idx": 0, "dur": 10, "desc": "What defines an agent vs. a chatbot."},
-                        {"title": "Autonomous Code Generation", "speaker_idx": 0, "dur": 20, "desc": "Real-world code-gen pipelines at DeepMind."},
-                        {"title": "Live Demo: Agent-in-the-Loop", "speaker_idx": 0, "dur": 15, "desc": "Watching an agent debug a production issue in real time."},
-                        {"title": "Q&A Session", "speaker_idx": None, "dur": 15, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 0, "role": "Keynote"}],
-                    "cert": {
-                        "cert_title": "Certificate of Attendance",
-                        "cert_subtitle": "The Future of AI Agents – TechTrek 2026",
-                        "cert_footer": "Issued by TechTrek Pvt Ltd",
-                        "cert_signer_name": "Dr. Sarah Chen",
-                        "cert_signer_designation": "VP of AI Research, DeepMind",
-                        "cert_color_scheme": "blue",
-                    },
-                    "recordings": [],
-                },
-                {
-                    "title": "WebAssembly Beyond the Browser",
+                    "title": "Containers from First Principles",
                     "speaker_id": speakers[1]["id"],
                     "speaker_name": "James Kowalski",
                     "description": (
-                        "Discover how Wasm is being used for serverless functions, edge computing, "
-                        "and plugin systems far from the browser. We'll build a Wasm-based plugin "
-                        "host live on stage and benchmark it against native code."
+                        "What happens when you type docker run? This session peels "
+                        "back namespaces, cgroups, and overlay filesystems to show "
+                        "exactly how containers work under the hood — then builds "
+                        "one from scratch using only shell commands."
                     ),
                     "banner_url": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&h=400&fit=crop",
-                    "duration_minutes": 50,
-                    "start_offset_hours": 14,
-                    "agenda": [
-                        {"title": "Wasm Fundamentals Refresher", "speaker_idx": 1, "dur": 10, "desc": "Linear memory, modules, and the component model."},
-                        {"title": "Wasm on the Edge", "speaker_idx": 1, "dur": 20, "desc": "Running Wasm at 200+ PoPs with Fastly Compute."},
-                        {"title": "Building a Wasm Plugin System", "speaker_idx": 1, "dur": 15, "desc": "Live coding a host with wasmtime."},
-                        {"title": "Q&A", "speaker_idx": None, "dur": 5, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 1, "role": "Keynote"}],
-                    "cert": {},
-                    "recordings": [],
-                },
-                {
-                    "title": "Building Production-Ready APIs: Design, Security, and Scale",
-                    "speaker_id": speakers[8]["id"],
-                    "speaker_name": "Amal Sajeev",
-                    "description": (
-                        "A deep dive into designing REST and GraphQL APIs that are secure, "
-                        "versioned, and built to scale. We cover authentication (OAuth2, JWT), "
-                        "rate limiting, idempotency, error contracts, and observability."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=1200&h=400&fit=crop",
-                    "duration_minutes": 90,
+                    "duration_minutes": 40,
                     "start_offset_hours": 10,
+                    "order": 0,
                     "agenda": [
-                        {"title": "API Design Principles & Versioning", "speaker_idx": 8, "dur": 20, "desc": "Resource naming, pagination, HATEOAS vs. pragmatism."},
-                        {"title": "Auth, Rate Limits, Idempotency", "speaker_idx": 8, "dur": 25, "desc": "OAuth2 flows, sliding-window rate limiters, idempotency keys."},
-                        {"title": "Error Contracts & Observability", "speaker_idx": 8, "dur": 20, "desc": "RFC 7807 problem details, structured logging, OpenTelemetry."},
-                        {"title": "Checklist & Q&A", "speaker_idx": 8, "dur": 25, "desc": "Production readiness review you can adopt."},
+                        {"title": "Linux Namespaces & Cgroups", "speaker_idx": 1, "dur": 15,
+                         "desc": "The kernel primitives that make containers possible."},
+                        {"title": "Building a Container by Hand", "speaker_idx": 1, "dur": 15,
+                         "desc": "Using unshare, chroot, and pivot_root to build a container from scratch."},
+                        {"title": "Docker Architecture Walkthrough", "speaker_idx": 1, "dur": 10,
+                         "desc": "From Dockerfile to running container — every layer explained."},
                     ],
-                    "session_speakers": [{"speaker_idx": 8, "role": "Keynote"}, {"speaker_idx": 3, "role": "Panelist"}],
-                    "cert": {
-                        "cert_title": "Certificate of Attendance",
-                        "cert_subtitle": "Building Production-Ready APIs – TechTrek 2026",
-                        "cert_footer": "Issued by TechTrek Pvt Ltd",
-                        "cert_signer_name": "Amal Sajeev",
-                        "cert_signer_designation": "Principal Engineer",
-                        "cert_color_scheme": "green",
-                    },
+                    "session_speakers": [{"speaker_idx": 1, "role": "Workshop Lead"}],
                     "recordings": [],
                 },
                 {
-                    "title": "Developer Experience: Building Tools and Docs That Engineers Love",
-                    "speaker_id": speakers[8]["id"],
-                    "speaker_name": "Amal Sajeev",
+                    "title": "Kubernetes in Production: Patterns That Scale",
+                    "speaker_id": speakers[3]["id"],
+                    "speaker_name": "Alex Petrov",
                     "description": (
-                        "Why great DX leads to faster adoption and fewer support tickets. "
-                        "We cover CLI design, SDK ergonomics, API documentation (OpenAPI, "
-                        "guides, examples), internal platforms, and measuring developer happiness."
+                        "Moving beyond kubectl apply. This session covers production "
+                        "patterns: health probes, resource budgets, HPA, network "
+                        "policies, and secrets management — with live demos on a "
+                        "real cluster."
                     ),
                     "banner_url": "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=1200&h=400&fit=crop",
-                    "duration_minutes": 90,
-                    "start_offset_hours": 14,
+                    "duration_minutes": 40,
+                    "start_offset_hours": 11,
+                    "order": 1,
                     "agenda": [
-                        {"title": "Why DX Matters: Metrics and Outcomes", "speaker_idx": 8, "dur": 15, "desc": "DORA metrics and developer satisfaction surveys."},
-                        {"title": "CLIs, SDKs, and API Docs", "speaker_idx": 8, "dur": 30, "desc": "Designing Stripe-quality developer tools."},
-                        {"title": "Internal Platforms & Measuring Happiness", "speaker_idx": 8, "dur": 25, "desc": "Platform engineering done right."},
-                        {"title": "Q&A", "speaker_idx": None, "dur": 20, "desc": ""},
+                        {"title": "Health Probes & Resource Budgets", "speaker_idx": 3, "dur": 15,
+                         "desc": "Liveness, readiness, startup probes and how they prevent outages."},
+                        {"title": "Autoscaling & Network Policies", "speaker_idx": 3, "dur": 15,
+                         "desc": "HPA, VPA, and zero-trust networking inside a cluster."},
+                        {"title": "Secrets & Config Management", "speaker_idx": 3, "dur": 10,
+                         "desc": "External Secrets Operator, sealed secrets, and config reload patterns."},
                     ],
-                    "session_speakers": [{"speaker_idx": 8, "role": "Keynote"}, {"speaker_idx": 1, "role": "Panelist"}],
-                    "cert": {},
-                    "recordings": [],
-                },
-            ],
-            "coupons": [
-                {"code": "KSFEST10", "discount_pct": 10, "max_uses": 50},
-            ],
-        },
-
-        # ── Event 2: IIIT Bangalore Workshop Series ────────────────────
-        {
-            "name": "IIIT Bangalore Workshop Series",
-            "description": (
-                "Intensive hands-on workshops on Rust, PostgreSQL, payments, and "
-                "clean code practices at IIIT Bangalore."
-            ),
-            "banner_url": "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?w=1200&h=400&fit=crop",
-            "college_idx": 4,
-            "aud_idx": 2,
-            "start_offset_days": 6,
-            "end_offset_days": 8,
-            "price": 499,
-            "price_vip": 899,
-            "price_accessible": 249,
-            "processing_fee_pct": 2.5,
-            "status": "published",
-            "sessions": [
-                {
-                    "title": "Hands-on Rust for Systems Programming",
-                    "speaker_id": speakers[2]["id"],
-                    "speaker_name": "Maria Gonzalez",
-                    "description": (
-                        "A hands-on workshop covering Rust fundamentals through building a "
-                        "concurrent file processor. You'll write safe, fearless code with "
-                        "ownership, lifetimes, and async Rust – no prior Rust experience needed."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1623479322729-28b25c16b011?w=1200&h=400&fit=crop",
-                    "duration_minutes": 90,
-                    "start_offset_hours": 10,
-                    "agenda": [
-                        {"title": "Rust Setup & Ownership Basics", "speaker_idx": 2, "dur": 25, "desc": "Getting Cargo running, understanding move semantics."},
-                        {"title": "Structs, Enums & Pattern Matching", "speaker_idx": 2, "dur": 25, "desc": "Modelling data the Rust way."},
-                        {"title": "Concurrency with Tokio", "speaker_idx": 2, "dur": 25, "desc": "Async file processing pipeline."},
-                        {"title": "Wrap-up & Q&A", "speaker_idx": None, "dur": 15, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 2, "role": "Workshop Lead"}],
-                    "cert": {
-                        "cert_title": "Workshop Completion Certificate",
-                        "cert_subtitle": "Hands-on Rust for Systems Programming",
-                        "cert_footer": "TechTrek 2026 Workshop Series",
-                        "cert_signer_name": "Maria Gonzalez",
-                        "cert_signer_designation": "Rust Core Team",
-                        "cert_color_scheme": "orange",
-                    },
+                    "session_speakers": [{"speaker_idx": 3, "role": "Workshop Lead"}],
                     "recordings": [],
                 },
                 {
-                    "title": "Scaling PostgreSQL to 10 Million Users",
-                    "speaker_id": speakers[3]["id"],
-                    "speaker_name": "Alex Petrov",
-                    "description": (
-                        "Real-world strategies for partitioning, connection pooling, and "
-                        "query optimization at scale. Alex shares war stories from Neon's "
-                        "serverless Postgres and shows you the tooling that makes 10M-user "
-                        "databases manageable."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1544383835-bda2bc66a55d?w=1200&h=400&fit=crop",
-                    "duration_minutes": 60,
-                    "start_offset_hours": 9,
-                    "agenda": [
-                        {"title": "PostgreSQL Internals Overview", "speaker_idx": 3, "dur": 10, "desc": "MVCC, WAL, and the query planner."},
-                        {"title": "Partitioning Strategies", "speaker_idx": 3, "dur": 15, "desc": "Range, list, and hash partitioning in practice."},
-                        {"title": "Connection Pooling Deep Dive", "speaker_idx": 3, "dur": 15, "desc": "PgBouncer vs. built-in pooling."},
-                        {"title": "Query Optimization Workshop", "speaker_idx": 3, "dur": 20, "desc": "EXPLAIN ANALYZE walkthrough on real queries."},
-                    ],
-                    "session_speakers": [{"speaker_idx": 3, "role": "Keynote"}],
-                    "cert": {},
-                    "recordings": [],
-                },
-                {
-                    "title": "Building India's Payment Infrastructure",
-                    "speaker_id": speakers[6]["id"],
-                    "speaker_name": "Anika Desai",
-                    "description": (
-                        "How Razorpay scaled to process billions in payments with reliability "
-                        "and security. Anika covers UPI internals, distributed transaction "
-                        "patterns, and what it takes to keep a payment gateway available at "
-                        "99.999% uptime."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&h=400&fit=crop",
-                    "duration_minutes": 55,
-                    "start_offset_hours": 10,
-                    "agenda": [
-                        {"title": "UPI Under the Hood", "speaker_idx": 6, "dur": 15, "desc": "NPCI architecture and settlement flows."},
-                        {"title": "Distributed Transactions", "speaker_idx": 6, "dur": 15, "desc": "Saga pattern at Razorpay scale."},
-                        {"title": "Five 9s Uptime", "speaker_idx": 6, "dur": 15, "desc": "Chaos engineering and graceful degradation."},
-                        {"title": "Q&A", "speaker_idx": None, "dur": 10, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 6, "role": "Keynote"}],
-                    "cert": {},
-                    "recordings": [],
-                },
-                {
-                    "title": "Clean Code in the Real World: Readability, Tests, and Refactoring",
+                    "title": "Observability: Logs, Metrics, and Traces",
                     "speaker_id": speakers[8]["id"],
                     "speaker_name": "Amal Sajeev",
                     "description": (
-                        "Principles from Clean Code and beyond applied to everyday codebases. "
-                        "We focus on naming, small functions, testability, and safe refactoring "
-                        "techniques. Includes live refactoring of sample code to show before/after."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?w=1200&h=400&fit=crop",
-                    "duration_minutes": 90,
-                    "start_offset_hours": 9,
-                    "agenda": [
-                        {"title": "Naming and Small Functions", "speaker_idx": 8, "dur": 20, "desc": "Why good names eliminate comments."},
-                        {"title": "Testability and Dependency Injection", "speaker_idx": 8, "dur": 25, "desc": "Designing code that's easy to test."},
-                        {"title": "Live Refactoring Demo", "speaker_idx": 8, "dur": 35, "desc": "Transforming messy code step by step."},
-                        {"title": "Q&A", "speaker_idx": 8, "dur": 10, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 8, "role": "Workshop Lead"}],
-                    "cert": {
-                        "cert_title": "Workshop Completion Certificate",
-                        "cert_subtitle": "Clean Code in the Real World",
-                        "cert_footer": "TechTrek 2026 Workshop Series",
-                        "cert_signer_name": "Amal Sajeev",
-                        "cert_signer_designation": "Principal Engineer",
-                        "cert_color_scheme": "purple",
-                    },
-                    "recordings": [],
-                },
-            ],
-            "coupons": [
-                {"code": "IIIT15", "discount_pct": 15, "max_uses": 30},
-            ],
-        },
-
-        # ── Event 3: DTU Innovation Day ─────────────────────────────────
-        {
-            "name": "DTU Innovation Day 2026",
-            "description": (
-                "A full day of innovation at Delhi Technological University covering "
-                "Rust, accessibility, and microservices architecture."
-            ),
-            "banner_url": "https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=1200&h=400&fit=crop",
-            "college_idx": 2,
-            "aud_idx": 1,
-            "start_offset_days": 5,
-            "end_offset_days": 5,
-            "price": 0,
-            "price_vip": None,
-            "price_accessible": None,
-            "processing_fee_pct": None,
-            "status": "published",
-            "sessions": [
-                {
-                    "title": "Designing for Accessibility",
-                    "speaker_id": speakers[4]["id"],
-                    "speaker_name": "Priya Sharma",
-                    "description": (
-                        "Learn WCAG 2.2 guidelines and practical techniques for building "
-                        "inclusive web experiences. Priya demos Google's internal accessibility "
-                        "audit tool and shows you how to integrate a11y testing into CI."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&h=400&fit=crop",
-                    "duration_minutes": 45,
-                    "start_offset_hours": 15,
-                    "agenda": [
-                        {"title": "Why Accessibility Matters", "speaker_idx": 4, "dur": 10, "desc": "The business and ethical case."},
-                        {"title": "WCAG 2.2 Crash Course", "speaker_idx": 4, "dur": 15, "desc": "Perceivable, Operable, Understandable, Robust."},
-                        {"title": "Live Audit Demo", "speaker_idx": 4, "dur": 15, "desc": "Auditing a real site with Lighthouse and axe."},
-                        {"title": "Q&A", "speaker_idx": None, "dur": 5, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 4, "role": "Keynote"}, {"speaker_idx": 0, "role": "Panelist"}],
-                    "cert": {},
-                    "recordings": [],
-                },
-                {
-                    "title": "From Monolith to Microservices: A Practical Migration Guide",
-                    "speaker_id": speakers[8]["id"],
-                    "speaker_name": "Amal Sajeev",
-                    "description": (
-                        "Real-world strategies for incrementally breaking down a monolith "
-                        "without big-bang rewrites. We discuss bounded contexts, strangler-fig "
-                        "pattern, shared databases vs events, and how to keep teams unblocked "
-                        "during the transition."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&h=400&fit=crop",
-                    "duration_minutes": 90,
-                    "start_offset_hours": 14,
-                    "agenda": [
-                        {"title": "Bounded Contexts & Migration Strategies", "speaker_idx": 8, "dur": 25, "desc": "Identifying seams in your monolith."},
-                        {"title": "Strangler Fig & Incremental Extraction", "speaker_idx": 8, "dur": 25, "desc": "Routing traffic through the new service."},
-                        {"title": "Data and Events During Transition", "speaker_idx": 8, "dur": 20, "desc": "Change-data-capture vs. dual writes."},
-                        {"title": "Q&A and War Stories", "speaker_idx": 8, "dur": 20, "desc": "Lessons from high-traffic migrations."},
-                    ],
-                    "session_speakers": [{"speaker_idx": 8, "role": "Keynote"}],
-                    "cert": {},
-                    "recordings": [],
-                },
-            ],
-            "coupons": [
-                {"code": "DTU5", "discount_pct": 5, "max_uses": 20},
-            ],
-        },
-
-        # ── Event 4: Anna University API Deep Dive ─────────────────────
-        {
-            "name": "Anna University API Deep Dive",
-            "description": (
-                "An intensive single-session event focused on building production-ready "
-                "APIs, hosted at Anna University's Lecture Theatre."
-            ),
-            "banner_url": "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=1200&h=400&fit=crop",
-            "college_idx": 1,
-            "aud_idx": 3,
-            "start_offset_days": 9,
-            "end_offset_days": 9,
-            "price": 199,
-            "price_vip": 399,
-            "price_accessible": 99,
-            "processing_fee_pct": 2.5,
-            "status": "published",
-            "sessions": [
-                {
-                    "title": "Building Production-Ready APIs: Design, Security, and Scale",
-                    "speaker_id": speakers[8]["id"],
-                    "speaker_name": "Amal Sajeev",
-                    "description": (
-                        "A deep dive into designing REST and GraphQL APIs that are secure, "
-                        "versioned, and built to scale. We cover authentication (OAuth2, JWT), "
-                        "rate limiting, idempotency, error contracts, and observability."
+                        "You can't fix what you can't see. This session introduces "
+                        "the three pillars of observability — structured logging with "
+                        "Loki, metrics with Prometheus/Grafana, and distributed tracing "
+                        "with OpenTelemetry — wired into the microservice built earlier."
                     ),
                     "banner_url": "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=1200&h=400&fit=crop",
-                    "duration_minutes": 90,
-                    "start_offset_hours": 10,
+                    "duration_minutes": 40,
+                    "start_offset_hours": 12.25,
+                    "order": 3,
                     "agenda": [
-                        {"title": "API Design Principles & Versioning", "speaker_idx": 8, "dur": 20, "desc": "Resource naming, pagination, HATEOAS vs. pragmatism."},
-                        {"title": "Auth, Rate Limits, Idempotency", "speaker_idx": 8, "dur": 25, "desc": "OAuth2 flows, sliding-window rate limiters, idempotency keys."},
-                        {"title": "Error Contracts & Observability", "speaker_idx": 8, "dur": 20, "desc": "RFC 7807 problem details, structured logging, OpenTelemetry."},
-                        {"title": "Checklist & Q&A", "speaker_idx": 8, "dur": 25, "desc": "Production readiness review you can adopt."},
+                        {"title": "Structured Logging with Loki", "speaker_idx": 8, "dur": 12,
+                         "desc": "Moving beyond print statements to queryable, structured logs."},
+                        {"title": "Metrics & Dashboards with Prometheus", "speaker_idx": 8, "dur": 14,
+                         "desc": "RED metrics, custom counters, and building a Grafana dashboard."},
+                        {"title": "Distributed Tracing with OpenTelemetry", "speaker_idx": 8, "dur": 14,
+                         "desc": "Propagating trace context across services to debug latency."},
                     ],
-                    "session_speakers": [{"speaker_idx": 8, "role": "Keynote"}, {"speaker_idx": 3, "role": "Panelist"}],
-                    "cert": {
-                        "cert_title": "Certificate of Attendance",
-                        "cert_subtitle": "Building Production-Ready APIs – TechTrek 2026",
-                        "cert_footer": "Issued by TechTrek Pvt Ltd",
-                        "cert_signer_name": "Amal Sajeev",
-                        "cert_signer_designation": "Principal Engineer",
-                        "cert_color_scheme": "green",
-                    },
+                    "session_speakers": [{"speaker_idx": 8, "role": "Workshop Lead"}],
                     "recordings": [],
                 },
             ],
-            "coupons": [],
-        },
-
-        # ── Event 5: KSR Lightning Sessions (Micro Hall – past + future, sold-out testing) ─
-        {
-            "name": "KSR Lightning Sessions",
-            "description": (
-                "Quick-fire talks and demos in the intimate Micro Hall. "
-                "Limited seats — book early!"
-            ),
-            "banner_url": "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?w=1200&h=400&fit=crop",
-            "college_idx": 0,
-            "aud_idx": 4,
-            "start_offset_days": -5,
-            "end_offset_days": 5,
-            "price": 0,
-            "price_vip": None,
-            "price_accessible": None,
-            "processing_fee_pct": None,
-            "status": "published",
-            "sessions": [
+            "breaks": [
                 {
-                    "title": "Introduction to Cloud-Native Development",
-                    "speaker_id": speakers[3]["id"],
-                    "speaker_name": "Alex Petrov",
-                    "description": (
-                        "A beginner-friendly introduction to containers, Kubernetes, and "
-                        "12-factor apps. This session has already happened and has recordings "
-                        "and feedback data seeded."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1451187580459-43490279c0fa?w=1200&h=400&fit=crop",
-                    "duration_minutes": 45,
-                    "start_offset_hours": 10,
-                    "agenda": [
-                        {"title": "Containers 101", "speaker_idx": 3, "dur": 15, "desc": "Docker, OCI images, and runtimes."},
-                        {"title": "Kubernetes Essentials", "speaker_idx": 3, "dur": 15, "desc": "Pods, services, and deployments."},
-                        {"title": "12-Factor Walkthrough", "speaker_idx": 3, "dur": 15, "desc": "Config, logging, and disposability."},
-                    ],
-                    "session_speakers": [{"speaker_idx": 3, "role": "Keynote"}, {"speaker_idx": 8, "role": "Moderator"}],
-                    "cert": {},
-                    "recordings": [
-                        {"url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ", "title": "Full Session Recording", "is_public": True},
-                        {"url": "https://www.youtube.com/watch?v=J---aiyznGQ", "title": "Q&A Highlights", "is_public": False},
-                    ],
-                },
-                {
-                    "title": "Lightning Talk: The Art of Code Review",
-                    "speaker_id": speakers[4]["id"],
-                    "speaker_name": "Priya Sharma",
-                    "description": (
-                        "A short, punchy talk on giving and receiving code reviews "
-                        "effectively. Held in the tiny Micro Hall – perfect for testing "
-                        "sold-out scenarios."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
+                    "title": "Networking Break",
+                    "description": "Grab a coffee, swap GitHub handles, and discuss the morning sessions.",
                     "duration_minutes": 30,
-                    "start_offset_hours": 16,
-                    "agenda": [
-                        {"title": "What Makes a Great Review", "speaker_idx": 4, "dur": 10, "desc": "Empathy, specificity, and scope."},
-                        {"title": "Common Anti-Patterns", "speaker_idx": 4, "dur": 10, "desc": "Nit-picking vs. architectural feedback."},
-                        {"title": "Q&A", "speaker_idx": None, "dur": 10, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 4, "role": "Keynote"}],
-                    "cert": {},
-                    "recordings": [],
+                    "start_offset_hours": 11.75,
+                    "order": 2,
                 },
             ],
+            "addons": [],
             "coupons": [],
         },
-
-        # ── Event 6: National TechTrek Tour (draft) ───────────────────
-        {
-            "name": "National TechTrek Tour 2026",
-            "description": (
-                "The flagship nationwide tour bringing TechTrek's best sessions to "
-                "colleges across India. This draft event is being planned for Q3."
-            ),
-            "banner_url": "https://images.unsplash.com/photo-1492538368677-f6e0afe31dcc?w=1200&h=400&fit=crop",
-            "college_idx": None,
-            "aud_idx": 0,
-            "start_offset_days": 14,
-            "end_offset_days": 16,
-            "price": 749,
-            "price_vip": 1499,
-            "price_accessible": 399,
-            "processing_fee_pct": 2.5,
-            "status": "draft",
-            "sessions": [
-                {
-                    "title": "Zero Trust Architecture in Practice",
-                    "speaker_id": speakers[5]["id"],
-                    "speaker_name": "Michael Torres",
-                    "description": (
-                        "Implementing zero-trust security patterns in cloud-native applications. "
-                        "Michael walks through BeyondCorp at CrowdStrike, mTLS service meshes, "
-                        "and identity-aware proxies you can adopt today."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=1200&h=400&fit=crop",
-                    "duration_minutes": 50,
-                    "start_offset_hours": 10,
-                    "agenda": [
-                        {"title": "The Zero Trust Model", "speaker_idx": 5, "dur": 15, "desc": "Never trust, always verify."},
-                        {"title": "mTLS & Service Meshes", "speaker_idx": 5, "dur": 15, "desc": "Istio and Linkerd in production."},
-                        {"title": "Identity-Aware Proxies", "speaker_idx": 5, "dur": 15, "desc": "BeyondCorp for your org."},
-                        {"title": "Q&A", "speaker_idx": None, "dur": 5, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 5, "role": "Keynote"}],
-                    "cert": {},
-                    "recordings": [],
-                },
-                {
-                    "title": "Quantum Computing for ML Engineers",
-                    "speaker_id": speakers[7]["id"],
-                    "speaker_name": "Rahul Mehta",
-                    "description": (
-                        "A practical introduction to quantum machine learning – what works "
-                        "today and what's hype. Rahul demos Qiskit circuits on real IBM "
-                        "hardware and benchmarks quantum kernels vs. classical SVMs."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1200&h=400&fit=crop",
-                    "duration_minutes": 60,
-                    "start_offset_hours": 11,
-                    "agenda": [
-                        {"title": "Qubits & Gates 101", "speaker_idx": 7, "dur": 15, "desc": "Superposition, entanglement, and measurement."},
-                        {"title": "Quantum Kernels for ML", "speaker_idx": 7, "dur": 20, "desc": "Variational circuits as feature maps."},
-                        {"title": "Live: Running on IBM Hardware", "speaker_idx": 7, "dur": 15, "desc": "Qiskit runtime demo."},
-                        {"title": "Q&A", "speaker_idx": None, "dur": 10, "desc": ""},
-                    ],
-                    "session_speakers": [{"speaker_idx": 7, "role": "Keynote"}],
-                    "cert": {},
-                    "recordings": [],
-                },
-            ],
-            "coupons": [
-                {"code": "TOUR20", "discount_pct": 20, "max_uses": 100},
-            ],
-        },
-
-        # ── Event 7: TechTrek AI & Future Tech Summit ────────────────
+        # ── Future event (main event) ──
         {
             "name": "TechTrek AI & Future Tech Summit 2026",
             "description": (
-                "A full-day summit exploring AI's impact on careers, technology, and society. "
+                "A full-day summit exploring AI\u2019s impact on careers, technology, and society. "
                 "From designing human-centric AI futures to quantum computing breakthroughs, "
                 "this event equips students with the knowledge and action plans to thrive in "
                 "an AI-accelerated world."
@@ -1048,11 +673,19 @@ def build_event_data(speakers, auditoriums, colleges):
             "aud_idx": 0,
             "start_offset_days": 10,
             "end_offset_days": 10,
-            "price": 349,
-            "price_vip": 699,
-            "price_accessible": 179,
+            "price": 500,
+            "price_vip": None,
+            "price_accessible": None,
             "processing_fee_pct": 2.5,
             "status": "published",
+            "cert": {
+                "cert_title": "Certificate of Attendance",
+                "cert_subtitle": "TechTrek AI & Future Tech Summit 2026",
+                "cert_footer": "Issued by TechTrek Pvt Ltd",
+                "cert_signer_name": "Dr. Sarah Chen",
+                "cert_signer_designation": "VP of AI Research, DeepMind",
+                "cert_color_scheme": "purple",
+            },
             "sessions": [
                 {
                     "title": "Designing a Human-Centric AI Future",
@@ -1061,13 +694,14 @@ def build_event_data(speakers, auditoriums, colleges):
                     "description": (
                         "AI doesn\u2019t arrive in a vacuum\u2014it lands inside geopolitics, regulation, "
                         "culture, and power. Using the \u2018Good Future\u2019 lens, this talk explores how "
-                        "nations can shape AI toward human-centered outcomes: trust, democracy, "
-                        "sustainability, and shared prosperity instead of surveillance, manipulation, "
-                        "or inequality."
+                        "nations (especially India, as referenced) can shape AI toward human-centered "
+                        "outcomes: trust, democracy, sustainability, and shared prosperity instead of "
+                        "surveillance, manipulation, or inequality."
                     ),
                     "banner_url": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 10,
+                    "order": 0,
                     "agenda": [
                         {"title": "Geopolitics & AI Policy", "speaker_idx": 0, "dur": 10,
                          "desc": "How geopolitics and policy influence AI development and deployment."},
@@ -1077,14 +711,6 @@ def build_event_data(speakers, auditoriums, colleges):
                          "desc": "What you build, who it benefits, and what it risks."},
                     ],
                     "session_speakers": [{"speaker_idx": 0, "role": "Keynote"}],
-                    "cert": {
-                        "cert_title": "Certificate of Attendance",
-                        "cert_subtitle": "Designing a Human-Centric AI Future \u2013 TechTrek 2026",
-                        "cert_footer": "Issued by TechTrek Pvt Ltd",
-                        "cert_signer_name": "Dr. Sarah Chen",
-                        "cert_signer_designation": "VP of AI Research, DeepMind",
-                        "cert_color_scheme": "blue",
-                    },
                     "recordings": [],
                 },
                 {
@@ -1093,13 +719,14 @@ def build_event_data(speakers, auditoriums, colleges):
                     "speaker_name": "Michael Torres",
                     "description": (
                         "\u2018AI Tsunami\u2019 is a blunt metaphor for scale and speed: capabilities arrive "
-                        "faster than institutions can adapt. This session unpacks near-term AI progress, "
+                        "faster than institutions can adapt. This session unpacks near\u2011term AI progress, "
                         "societal readiness gaps, and why safety, alignment, and governance become "
                         "engineering problems\u2014not just philosophy."
                     ),
                     "banner_url": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 10.75,
+                    "order": 1,
                     "agenda": [
                         {"title": "The AI Tsunami Argument", "speaker_idx": 5, "dur": 10,
                          "desc": "Summarizing the readiness challenges as capabilities outpace institutions."},
@@ -1109,7 +736,6 @@ def build_event_data(speakers, auditoriums, colleges):
                          "desc": "Skills to learn, communities to join, and questions to research."},
                     ],
                     "session_speakers": [{"speaker_idx": 5, "role": "Keynote"}],
-                    "cert": {},
                     "recordings": [],
                 },
                 {
@@ -1126,6 +752,7 @@ def build_event_data(speakers, auditoriums, colleges):
                     "banner_url": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 11.5,
+                    "order": 2,
                     "agenda": [
                         {"title": "AI Agents vs Chatbots", "speaker_idx": 1, "dur": 10,
                          "desc": "What an AI computer/agent is and how it differs from a normal chatbot."},
@@ -1135,7 +762,6 @@ def build_event_data(speakers, auditoriums, colleges):
                          "desc": "Judgment, problem framing, and showcasing collaboration with AI tools."},
                     ],
                     "session_speakers": [{"speaker_idx": 1, "role": "Keynote"}],
-                    "cert": {},
                     "recordings": [],
                 },
                 {
@@ -1152,6 +778,7 @@ def build_event_data(speakers, auditoriums, colleges):
                     "banner_url": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 12.25,
+                    "order": 3,
                     "agenda": [
                         {"title": "Labor vs Ownership Income", "speaker_idx": 6, "dur": 10,
                          "desc": "The difference between income-from-labor and income-from-ownership."},
@@ -1161,38 +788,13 @@ def build_event_data(speakers, auditoriums, colleges):
                          "desc": "Moving from consumer of AI to builder with AI: projects, distribution, community."},
                     ],
                     "session_speakers": [{"speaker_idx": 6, "role": "Keynote"}],
-                    "cert": {},
                     "recordings": [],
                 },
-                {
-                    "title": "Lunch Break",
-                    "speaker_id": speakers[8]["id"],
-                    "speaker_name": "Amal Sajeev",
-                    "description": (
-                        "A purposeful pause to reset attention and energy. Use this slot to reflect "
-                        "on the morning sessions, capture 5 key ideas, and convert them into questions "
-                        "you want answered in the afternoon\u2014because your next question shapes your "
-                        "learning path."
-                    ),
-                    "banner_url": "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=1200&h=400&fit=crop",
-                    "duration_minutes": 45,
-                    "start_offset_hours": 13,
-                    "agenda": [
-                        {"title": "Morning Takeaway Summary", "speaker_idx": 8, "dur": 15,
-                         "desc": "Consolidate notes into a 5-point summary of the morning."},
-                        {"title": "Peer Learning & Question Crafting", "speaker_idx": 8, "dur": 15,
-                         "desc": "Generate 3 high-quality questions and explain one idea to a friend in 60 seconds."},
-                        {"title": "Deeper Exploration", "speaker_idx": None, "dur": 15,
-                         "desc": "Identify one concept to explore deeper after the event."},
-                    ],
-                    "session_speakers": [{"speaker_idx": 8, "role": "Moderator"}],
-                    "cert": {},
-                    "recordings": [],
-                },
+                # Session order 4 is the Lunch Break – handled as EventBreak below
                 {
                     "title": "Building AI Projects That Employers Notice",
-                    "speaker_id": speakers[8]["id"],
-                    "speaker_name": "Amal Sajeev",
+                    "speaker_id": speakers[2]["id"],
+                    "speaker_name": "Maria Gonzalez",
                     "description": (
                         "Hiring signals have changed: recruiters want proof you can build, ship, "
                         "and explain. This talk breaks down portfolio-ready project ideas that "
@@ -1202,23 +804,16 @@ def build_event_data(speakers, auditoriums, colleges):
                     "banner_url": "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 13.75,
+                    "order": 5,
                     "agenda": [
-                        {"title": "Project Archetypes That Land Jobs", "speaker_idx": 8, "dur": 10,
+                        {"title": "Project Archetypes That Land Jobs", "speaker_idx": 2, "dur": 10,
                          "desc": "Five project types employers recognize as job-relevant."},
-                        {"title": "Defining \u2018Done\u2019 for AI Projects", "speaker_idx": 8, "dur": 10,
+                        {"title": "Defining \u2018Done\u2019 for AI Projects", "speaker_idx": 2, "dur": 10,
                          "desc": "Problem, data, metrics, demo, documentation, and evaluation mindset."},
-                        {"title": "Portfolio Checklist for Recruiters", "speaker_idx": 8, "dur": 10,
+                        {"title": "Portfolio Checklist for Recruiters", "speaker_idx": 2, "dur": 10,
                          "desc": "A GitHub/portfolio checklist that communicates impact clearly."},
                     ],
-                    "session_speakers": [{"speaker_idx": 8, "role": "Keynote"}],
-                    "cert": {
-                        "cert_title": "Certificate of Attendance",
-                        "cert_subtitle": "Building AI Projects That Employers Notice \u2013 TechTrek 2026",
-                        "cert_footer": "Issued by TechTrek Pvt Ltd",
-                        "cert_signer_name": "Amal Sajeev",
-                        "cert_signer_designation": "Principal Engineer & Tech Speaker",
-                        "cert_color_scheme": "green",
-                    },
+                    "session_speakers": [{"speaker_idx": 2, "role": "Keynote"}],
                     "recordings": [],
                 },
                 {
@@ -1234,6 +829,7 @@ def build_event_data(speakers, auditoriums, colleges):
                     "banner_url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 14.5,
+                    "order": 6,
                     "agenda": [
                         {"title": "Job Replacement vs Task Automation", "speaker_idx": 4, "dur": 10,
                          "desc": "Distinguishing the two with real-world examples."},
@@ -1243,7 +839,6 @@ def build_event_data(speakers, auditoriums, colleges):
                          "desc": "Career strategies: adaptability, domain depth, tool fluency, and skill upgrades."},
                     ],
                     "session_speakers": [{"speaker_idx": 4, "role": "Keynote"}],
-                    "cert": {},
                     "recordings": [],
                 },
                 {
@@ -1260,6 +855,7 @@ def build_event_data(speakers, auditoriums, colleges):
                     "banner_url": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 15.25,
+                    "order": 7,
                     "agenda": [
                         {"title": "Quantum Computing Demystified", "speaker_idx": 7, "dur": 10,
                          "desc": "What quantum computing is and is not\u2014in plain language."},
@@ -1269,7 +865,6 @@ def build_event_data(speakers, auditoriums, colleges):
                          "desc": "Prerequisites, tools (simulators), and mini-experiments to get started."},
                     ],
                     "session_speakers": [{"speaker_idx": 7, "role": "Keynote"}],
-                    "cert": {},
                     "recordings": [],
                 },
                 {
@@ -1285,6 +880,7 @@ def build_event_data(speakers, auditoriums, colleges):
                     "banner_url": "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 16,
+                    "order": 8,
                     "agenda": [
                         {"title": "Why GenAI Projects Fail", "speaker_idx": 3, "dur": 10,
                          "desc": "Top reasons AI prototypes die after a promising demo."},
@@ -1294,40 +890,33 @@ def build_event_data(speakers, auditoriums, colleges):
                          "desc": "Rewriting a cool demo idea into a production-ready problem statement with constraints."},
                     ],
                     "session_speakers": [{"speaker_idx": 3, "role": "Keynote"}],
-                    "cert": {},
                     "recordings": [],
                 },
+            ],
+            "breaks": [
+                {
+                    "title": "Lunch Break",
+                    "description": (
+                        "A purposeful pause to reset attention and energy. Use this slot to reflect "
+                        "on the morning sessions, capture 5 key ideas, and convert them into questions "
+                        "you want answered in the afternoon\u2014because your next question shapes your "
+                        "learning path."
+                    ),
+                    "duration_minutes": 45,
+                    "start_offset_hours": 13,
+                    "order": 4,
+                },
+            ],
+            "addons": [
                 {
                     "title": "Student Voices: Open Forum and Career Guidance",
-                    "speaker_id": speakers[8]["id"],
-                    "speaker_name": "Amal Sajeev",
                     "description": (
                         "An interactive forum where students drive the agenda: doubts, career paths, "
                         "higher studies, projects, internships, and AI ethics. The goal is to convert "
                         "uncertainty into clarity\u2014through honest questions, peer stories, and concrete "
                         "next steps."
                     ),
-                    "banner_url": "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?w=1200&h=400&fit=crop",
-                    "duration_minutes": 30,
-                    "start_offset_hours": 16.75,
-                    "agenda": [
-                        {"title": "Asking Sharper Questions", "speaker_idx": 8, "dur": 10,
-                         "desc": "Describe your goal, constraints, and current skill level."},
-                        {"title": "Career Pathways & Portfolio Feedback", "speaker_idx": 8, "dur": 10,
-                         "desc": "3 actionable pathways with required skills, plus 1-minute narrative reviews."},
-                        {"title": "Commit to One Next Step", "speaker_idx": None, "dur": 10,
-                         "desc": "One concrete action to execute within 7 days after TechTrek."},
-                    ],
-                    "session_speakers": [{"speaker_idx": 8, "role": "Moderator"}, {"speaker_idx": 0, "role": "Panelist"}],
-                    "cert": {
-                        "cert_title": "Certificate of Attendance",
-                        "cert_subtitle": "TechTrek AI & Future Tech Summit 2026",
-                        "cert_footer": "Issued by TechTrek Pvt Ltd",
-                        "cert_signer_name": "Amal Sajeev",
-                        "cert_signer_designation": "Principal Engineer & Tech Speaker",
-                        "cert_color_scheme": "purple",
-                    },
-                    "recordings": [],
+                    "price": 100,
                 },
             ],
             "coupons": [
@@ -1342,7 +931,7 @@ def build_event_data(speakers, auditoriums, colleges):
 # ═══════════════════════════════════════════════════════════════════════
 
 def phase2_api_admin(api: ApiClient, refs: dict):
-    """Create events, sessions, coupons, and recordings via the admin web UI."""
+    """Create events, sessions, breaks, coupons, and recordings via the admin web UI."""
     speakers = refs["speakers"]
     auditoriums = refs["auditoriums"]
     colleges = refs["colleges"]
@@ -1351,13 +940,12 @@ def phase2_api_admin(api: ApiClient, refs: dict):
 
     api.login("admin", "admin123")
     api.get("/admin/")
-    api.get("/admin/events/new")  # Load event form to get CSRF
+    api.get("/admin/events/new")
 
     now = datetime.utcnow()
     created_events = []
 
     for ev_idx, evd in enumerate(event_data):
-        # Resolve college and auditorium IDs
         college_id = colleges[evd["college_idx"]]["id"] if evd["college_idx"] is not None else None
         aud_id = auditoriums[evd["aud_idx"]]["id"] if evd["aud_idx"] is not None else None
 
@@ -1379,6 +967,12 @@ def phase2_api_admin(api: ApiClient, refs: dict):
             "status": evd.get("status", "draft"),
         }
 
+        for k, v in evd.get("cert", {}).items():
+            event_form[k] = v
+
+        if evd.get("link_feedback_template") and refs.get("feedback_template_id"):
+            event_form["feedback_template_id"] = str(refs["feedback_template_id"])
+
         api.post_form("/admin/events/new", event_form)
 
         db = SessionLocal()
@@ -1390,12 +984,37 @@ def phase2_api_admin(api: ApiClient, refs: dict):
 
         created_events.append(ev)
 
-        # Create sessions for this event
+        event_midnight = datetime.combine(start_d, datetime.min.time())
+
+        for bi, brk in enumerate(evd.get("breaks", [])):
+            brk_start = None
+            if brk.get("start_offset_hours") is not None:
+                brk_start = event_midnight + timedelta(
+                    hours=brk["start_offset_hours"],
+                )
+            db.add(EventBreak(
+                event_id=ev.id,
+                title=brk["title"],
+                description=brk.get("description"),
+                duration_minutes=brk.get("duration_minutes", 15),
+                start_time=brk_start,
+                order=brk.get("order", bi),
+            ))
+        for ao in evd.get("addons", []):
+            db.add(EventAddOn(
+                event_id=ev.id,
+                title=ao["title"],
+                description=ao.get("description"),
+                price=ao.get("price", 0),
+                max_quantity=ao.get("max_quantity"),
+                is_active=True,
+            ))
+        db.commit()
+
         for ord_idx, sd in enumerate(evd.get("sessions", [])):
             session_start = None
             if sd.get("start_offset_hours") is not None:
-                session_start = now + timedelta(
-                    days=evd["start_offset_days"],
+                session_start = event_midnight + timedelta(
                     hours=sd["start_offset_hours"],
                 )
 
@@ -1408,11 +1027,8 @@ def phase2_api_admin(api: ApiClient, refs: dict):
                 "banner_url": sd.get("banner_url", ""),
                 "duration_minutes": str(sd.get("duration_minutes", 30)),
                 "start_time": session_start.isoformat() if session_start else "",
-                "order": str(ord_idx),
+                "order": str(sd.get("order", ord_idx)),
             }
-
-            for k, v in sd.get("cert", {}).items():
-                session_form[k] = v
 
             for ai, item in enumerate(sd.get("agenda", [])):
                 session_form[f"agenda_title_{ai}"] = item["title"]
@@ -1439,7 +1055,6 @@ def phase2_api_admin(api: ApiClient, refs: dict):
                         rec_data["is_public"] = "on"
                     api.post_form(f"/admin/sessions/{sess.id}/recordings", rec_data)
 
-        # Create coupons for this event
         for coup in evd.get("coupons", []):
             coup_form = {
                 "code": coup["code"],
@@ -1451,13 +1066,15 @@ def phase2_api_admin(api: ApiClient, refs: dict):
             api.post_form(f"/admin/events/{ev.id}/coupons/new", coup_form)
 
         db.close()
-        print(f"    [{ev_idx+1}/{len(event_data)}] {evd['name']} ({len(evd.get('sessions', []))} sessions)")
+        print(f"    [{ev_idx+1}/{len(event_data)}] {evd['name']} ({len(evd.get('sessions', []))} sessions, {len(evd.get('breaks', []))} breaks, {len(evd.get('addons', []))} add-ons)")
 
     db = SessionLocal()
     actual_sessions = db.query(SessionModel).count()
     actual_coupons = db.query(Coupon).count()
+    actual_breaks = db.query(EventBreak).count()
+    actual_addons = db.query(EventAddOn).count()
     db.close()
-    print(f"  Created {len(created_events)} events, {actual_sessions} sessions, {actual_coupons} coupons")
+    print(f"  Created {len(created_events)} events, {actual_sessions} sessions, {actual_breaks} breaks, {actual_addons} add-ons, {actual_coupons} coupons")
 
     return {"events": created_events}
 
@@ -1472,19 +1089,17 @@ def phase3_user_flows(api: ApiClient, refs: dict):
 
     today = datetime.utcnow().date()
 
-    # Get published events
     published = (
         db.query(Event)
-        .filter(Event.status == "published")
+        .filter(Event.status.in_(["published", "completed"]))
         .order_by(Event.start_date)
         .all()
     )
     if not published:
-        print("  No published events – skipping user flows.")
+        print("  No published/completed events – skipping user flows.")
         db.close()
         return
 
-    # Separate past and future events by start_date
     future_events = [e for e in published if e.start_date and e.start_date >= today]
     past_events = [e for e in published if e.start_date and e.start_date < today]
 
@@ -1494,7 +1109,7 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     feedbacks_created = 0
     checkins = 0
 
-    # ── Book seats for alice (2-3 future events) ───────────────────────
+    # ── Book seats for alice ───────────────────────────────────────────
     api.logout()
     api.login("alice", "user123")
     for ev in future_events[:3]:
@@ -1505,12 +1120,12 @@ def phase3_user_flows(api: ApiClient, refs: dict):
                 bookings_made += ok
     print(f"    alice: booked {bookings_made} seat(s)")
 
-    # ── Book seats for bob (2 events, cancel one later) ────────────────
+    # ── Book seats for bob (cancel one later) ──────────────────────────
     api.logout()
     api.login("bob", "user123")
     bob_bookings_count = 0
     bob_cancel_booking_id = None
-    for ev in future_events[1:3]:
+    for ev in future_events[:2]:
         seats = _get_available_seats(db, ev.id, count=1)
         if seats:
             ok = _book_free(api, db, ev.id, seats)
@@ -1532,17 +1147,16 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     bookings_made += bob_bookings_count
     print(f"    bob: booked {bob_bookings_count} seat(s)")
 
-    # Cancel one of bob's bookings
     if bob_cancel_booking_id:
         api.post_form(f"/booking/cancel/{bob_cancel_booking_id}", {})
         cancellations += 1
         print(f"    bob: cancelled booking #{bob_cancel_booking_id}")
 
-    # ── Book seats for charlie + waitlist ───────────────────────────────
+    # ── Book seats for charlie ─────────────────────────────────────────
     api.logout()
     api.login("charlie", "user123")
     charlie_count = 0
-    for ev in future_events[2:4]:
+    for ev in future_events[:1]:
         seats = _get_available_seats(db, ev.id, count=1)
         if seats:
             ok = _book_free(api, db, ev.id, seats)
@@ -1551,32 +1165,14 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     bookings_made += charlie_count
     print(f"    charlie: booked {charlie_count} seat(s)")
 
-    # Find the Micro Hall event (tiny venue) for waitlist
-    micro_events = [
-        e for e in future_events
-        if e.auditorium_id and db.query(Auditorium).get(e.auditorium_id).name == "Micro Hall"
-    ]
-    if micro_events:
-        api.post_form(f"/booking/waitlist/{micro_events[0].id}", {})
-        waitlists += 1
-        print(f"    charlie: joined waitlist for event #{micro_events[0].id}")
-
-    # ── diana: book the Micro Hall event (sell it out) ───────────────────
+    # ── diana: book seats ──────────────────────────────────────────────
     api.logout()
     api.login("diana", "user123")
     diana_count = 0
-    if micro_events:
-        micro_ev = micro_events[0]
-        all_micro_seats = _get_available_seats(db, micro_ev.id, count=9)
-        if all_micro_seats:
-            ok = _book_free(api, db, micro_ev.id, all_micro_seats)
-            if ok:
-                diana_count += ok
-    # Also book a regular event
-    if len(future_events) > 4:
-        seats = _get_available_seats(db, future_events[4].id, count=2)
+    for ev in future_events[:1]:
+        seats = _get_available_seats(db, ev.id, count=2)
         if seats:
-            ok = _book_free(api, db, future_events[4].id, seats)
+            ok = _book_free(api, db, ev.id, seats)
             if ok:
                 diana_count += ok
     bookings_made += diana_count
@@ -1587,7 +1183,6 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     api.login("admin", "admin123")
     api.get("/admin/")
 
-    # Mark some past-event bookings as checked in via DB
     for ev in past_events:
         past_bookings = (
             db.query(Booking)
@@ -1596,15 +1191,14 @@ def phase3_user_flows(api: ApiClient, refs: dict):
         )
         ev_start = ev.start_date
         if ev_start:
-            from datetime import time
-            checkin_time = datetime.combine(ev_start, time(10, 5))
+            from datetime import time as time_cls
+            checkin_time = datetime.combine(ev_start, time_cls(10, 5))
             for b in past_bookings:
                 b.checked_in = True
                 b.checked_in_at = checkin_time
                 checkins += 1
     db.commit()
 
-    # Also check in a few future bookings for testing
     if future_events:
         first_future = (
             db.query(Booking)
@@ -1652,7 +1246,6 @@ def phase3_user_flows(api: ApiClient, refs: dict):
                 ))
                 feedbacks_created += 1
                 fi += 1
-    # Also add feedback from known users for past events
     for ev in past_events:
         for user in users[:3]:
             if fi >= len(feedback_comments):
@@ -1671,6 +1264,53 @@ def phase3_user_flows(api: ApiClient, refs: dict):
                 fi += 1
     db.commit()
     print(f"    Created {feedbacks_created} feedback entries")
+
+    # ── Book amalsajeev into the past event (feedback + cert demo) ──
+    past_published = [
+        e for e in published
+        if e.start_date and e.start_date < today and e.status == "published"
+    ]
+    if past_published:
+        api.logout()
+        api.login("amalsajeev", "speaker123")
+        amal_count = 0
+        for ev in past_published:
+            seats = _get_available_seats(db, ev.id, count=1)
+            if seats:
+                ok = _book_free(api, db, ev.id, seats)
+                if ok:
+                    amal_count += ok
+                    bookings_made += ok
+        api.logout()
+        print(f"    amalsajeev: booked {amal_count} seat(s) in past event(s)")
+
+        amal_hash = hash_lookup("amalsajeev", settings.field_encryption_key)
+        amal_user = db.query(User).filter(User.username_hash == amal_hash).first()
+        if amal_user:
+            amal_bookings = (
+                db.query(Booking)
+                .filter(
+                    Booking.user_id == amal_user.id,
+                    Booking.payment_status == "paid",
+                    Booking.event_id.in_([e.id for e in past_published]),
+                )
+                .all()
+            )
+            from datetime import time as time_cls
+            for b in amal_bookings:
+                ev_obj = db.query(Event).get(b.event_id)
+                if ev_obj and ev_obj.start_date:
+                    b.checked_in = True
+                    b.checked_in_at = datetime.combine(ev_obj.start_date, time_cls(10, 5))
+                    checkins += 1
+            db.commit()
+            print(f"    amalsajeev: checked in {len(amal_bookings)} booking(s)")
+
+        for ev in past_published:
+            db.expire(ev)
+            ev.status = "completed"
+        db.commit()
+        print(f"    Marked {len(past_published)} past event(s) as completed — ready for feedback + certificate flow")
 
     db.close()
 
@@ -1713,7 +1353,6 @@ def _book_free(api: ApiClient, db, event_id: int, seat_ids: list[int]) -> int:
     api.post_form(f"/booking/event/{event_id}/hold", {"seat_ids": seat_str})
     api.post_form(f"/booking/event/{event_id}/pay", {})
 
-    # Verify
     db.expire_all()
     confirmed = (
         db.query(Booking)
@@ -1743,6 +1382,8 @@ def phase4_summary():
         "Seat Types (custom)": db.query(SeatType).filter(SeatType.is_custom == True).count(),
         "Speakers": db.query(Speaker).count(),
         "Sessions": db.query(SessionModel).count(),
+        "Event Breaks": db.query(EventBreak).count(),
+        "Event Add-Ons": db.query(EventAddOn).count(),
         "Events": db.query(Event).count(),
         "Coupons": db.query(Coupon).count(),
         "Bookings (paid)": db.query(Booking).filter(Booking.payment_status == "paid").count(),
@@ -1756,29 +1397,7 @@ def phase4_summary():
         "Site settings": db.query(SiteSetting).count(),
     }
 
-    # Sold-out events (Micro Hall)
-    micro_aud = db.query(Auditorium).filter(Auditorium.name == "Micro Hall").first()
-    sold_out_ids = []
-    if micro_aud:
-        micro_events = db.query(Event).filter(
-            Event.auditorium_id == micro_aud.id,
-            Event.status == "published",
-        ).all()
-        total_seats = db.query(Seat).filter(
-            Seat.auditorium_id == micro_aud.id,
-            Seat.is_active == True,
-            Seat.seat_type != "aisle",
-        ).count()
-        for ev in micro_events:
-            booked = db.query(Booking).filter(
-                Booking.event_id == ev.id,
-                Booking.payment_status.in_(["hold", "paid"]),
-            ).count()
-            if booked >= total_seats:
-                sold_out_ids.append(ev.id)
-
     events = db.query(Event).all()
-
     db.close()
 
     print("\n" + "=" * 60)
@@ -1799,16 +1418,12 @@ def phase4_summary():
     print("  Speakers:    sarah, james, maria, amalsajeev / speaker123")
     print()
 
-    print("  Notable test scenarios:")
+    print("  Events:")
     print("  " + "-" * 45)
-    if sold_out_ids:
-        print(f"  Sold-out events (Micro Hall):  IDs {sold_out_ids}")
-        print("    -> charlie is on the waitlist for these")
     for ev in events:
-        status = ev.status
-        print(f"  Event: '{ev.name}' (id={ev.id}, status={status})")
+        print(f"  Event: '{ev.name}' (id={ev.id}, status={ev.status})")
     print("  bob has a cancelled booking -> test refund view")
-    print("  Past events have feedback + recordings -> test those pages")
+    print("  amalsajeev attended completed event -> feedback popup + certificate email")
     print()
 
 
@@ -1843,13 +1458,25 @@ def seed():
     try:
         # ── Phase 2: Admin API ─────────────────────────────────────────
         print()
-        print("[Phase 2] Creating events, sessions, and coupons via admin API ...")
+        print("[Phase 2] Creating events, sessions, breaks, and coupons via admin API ...")
         api_refs = phase2_api_admin(api, refs)
 
         # ── Phase 3: User flows ────────────────────────────────────────
         print()
-        print("[Phase 3] Simulating user flows (bookings, waitlist, feedback) ...")
+        print("[Phase 3] Simulating user flows (bookings, feedback) ...")
         phase3_user_flows(api, refs)
+
+        # ── Process pending feedback (creates Feedback rows + sends cert emails) ──
+        print()
+        print("[Phase 3b] Processing pending feedback for completed events ...")
+        from app.services.feedback import process_pending_feedback
+        process_pending_feedback()
+        db = SessionLocal()
+        pending_count = db.query(Feedback).filter(
+            Feedback.rating == None, Feedback.dismissed == False  # noqa: E711
+        ).count()
+        db.close()
+        print(f"    Created {pending_count} pending feedback entry(ies) — popup will show on login")
 
     finally:
         api.close()

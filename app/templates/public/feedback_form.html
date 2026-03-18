@@ -1,51 +1,134 @@
 {% extends "base.html" %}
+{% set pending_feedback = [] %}
 {% block title %}Feedback — {{ event.name }}{% endblock %}
+
+{% set has_template = fb_template and fb_template.questions and fb_template.questions|length > 0 %}
+{% set total_steps = 3 if has_template else 2 %}
 
 {% block content %}
 <section class="section">
   <div class="container" style="max-width:640px;">
     <div class="card" style="padding:2rem;">
       <h1 class="section-title" style="font-size:1.5rem;margin-bottom:.25rem;">How was the event?</h1>
-      <p class="text-muted" style="margin-bottom:1.5rem;">
+      <p class="text-muted" style="margin-bottom:1.25rem;">
         <strong>{{ event.name }}</strong><br>
         {% if event.start_date %}{{ event.start_date.strftime('%A, %d %b %Y') }}{% endif %}
         {% if auditorium %} &mdash; {{ auditorium.name }}, {{ auditorium.location }}{% endif %}
       </p>
 
-      <form method="post" action="/feedback/{{ event.id }}">
+      {# ── Progress indicator ── #}
+      <div class="fb-progress" data-total="{{ total_steps }}">
+        <div class="fb-progress-step active" data-for="1">
+          <span class="fb-dot">1</span>
+          <span class="fb-dot-label">Rating</span>
+        </div>
+        {% if has_template %}
+        <div class="fb-progress-line"></div>
+        <div class="fb-progress-step" data-for="2">
+          <span class="fb-dot">2</span>
+          <span class="fb-dot-label">Questions</span>
+        </div>
+        <div class="fb-progress-line"></div>
+        <div class="fb-progress-step" data-for="{{ total_steps }}">
+          <span class="fb-dot">3</span>
+          <span class="fb-dot-label">Finish</span>
+        </div>
+        {% else %}
+        <div class="fb-progress-line"></div>
+        <div class="fb-progress-step" data-for="2">
+          <span class="fb-dot">2</span>
+          <span class="fb-dot-label">Finish</span>
+        </div>
+        {% endif %}
+      </div>
+
+      <form method="post" action="/feedback/{{ event.id }}" id="feedback-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
-        <div class="form-group" style="margin-bottom:1.5rem;">
-          <label class="form-label">Rating</label>
-          <div class="star-rating" id="star-rating">
-            {% for i in range(1, 6) %}
-            <label class="star-label" data-value="{{ i }}">
-              <input type="radio" name="rating" value="{{ i }}" {% if existing and existing.rating == i %}checked{% endif %} style="display:none;">
-              <span class="star" style="font-size:2.2rem;cursor:pointer;transition:color .15s;color:var(--border);">&#9733;</span>
-            </label>
-            {% endfor %}
+        {# ── Step 1: Overall Rating ── #}
+        <div class="fb-step active" data-step="1">
+          <h3 class="fb-step-title">How would you rate this event overall?</h3>
+          <div class="form-group" style="margin-bottom:1.5rem;text-align:center;">
+            <div class="star-rating" id="star-rating" style="display:inline-flex;gap:.25rem;">
+              {% for i in range(1, 6) %}
+              <label class="star-label" data-value="{{ i }}">
+                <input type="radio" name="rating" value="{{ i }}" {% if existing and existing.rating == i %}checked{% endif %} style="display:none;">
+                <span class="star" style="font-size:2.6rem;cursor:pointer;transition:color .15s;color:var(--border);">&#9733;</span>
+              </label>
+              {% endfor %}
+            </div>
+            <div class="fb-validation-msg" id="rating-error" style="display:none;">Please select a star rating to continue</div>
+          </div>
+          <div class="fb-step-actions">
+            <a href="/booking/my" class="btn btn-outline">Cancel</a>
+            <button type="button" class="btn btn-primary fb-next-btn" data-next="{{ 2 }}">Next &rarr;</button>
           </div>
         </div>
 
-        <div class="form-group" style="margin-bottom:1.5rem;">
-          <label class="form-label" for="comment">Comments <span class="text-muted">(optional)</span></label>
-          <textarea id="comment" name="comment" class="form-control" rows="4"
-                    placeholder="Tell us what you liked or what could be improved...">{{ existing.comment if existing and existing.comment else '' }}</textarea>
+        {% if has_template %}
+        {# ── Step 2: Template Questions ── #}
+        <div class="fb-step" data-step="2">
+          <h3 class="fb-step-title">A few more questions</h3>
+          {% for q in fb_template.questions %}
+          <div class="form-group" style="margin-bottom:1.25rem;">
+            <label class="form-label" for="question_{{ q.id }}">
+              {{ q.question_text }}{% if q.is_required %} <span style="color:#ef4444">*</span>{% endif %}
+            </label>
+            {% if q.question_type == 'text' %}
+            <textarea id="question_{{ q.id }}" name="question_{{ q.id }}" class="form-input" rows="3"
+                      placeholder="Your answer..."{% if q.is_required %} required{% endif %}></textarea>
+            {% elif q.question_type == 'multiple_choice' and q.options_json %}
+            <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.25rem">
+              {% for opt in q.options_json %}
+              <label class="fb-radio-label">
+                <input type="radio" name="question_{{ q.id }}" value="{{ opt }}"{% if q.is_required %} required{% endif %}>
+                <span>{{ opt }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            {% elif q.question_type == 'rating_scale' %}
+            <div class="star-rating q-star-rating" data-qid="{{ q.id }}" style="display:inline-flex;gap:.25rem;">
+              {% for i in range(1, 6) %}
+              <label class="star-label" data-value="{{ i }}">
+                <input type="radio" name="question_{{ q.id }}" value="{{ i }}"{% if q.is_required %} required{% endif %} style="display:none;">
+                <span class="star" style="font-size:1.8rem;cursor:pointer;transition:color .15s;color:var(--border);">&#9733;</span>
+              </label>
+              {% endfor %}
+            </div>
+            {% endif %}
+          </div>
+          {% endfor %}
+          <div class="fb-step-actions">
+            <button type="button" class="btn btn-outline fb-back-btn" data-back="1">&larr; Back</button>
+            <button type="button" class="btn btn-primary fb-next-btn" data-next="{{ total_steps }}">Next &rarr;</button>
+          </div>
+        </div>
+        {% endif %}
+
+        {# ── Final Step: Comments + Submit ── #}
+        <div class="fb-step" data-step="{{ total_steps }}">
+          <h3 class="fb-step-title">Any final thoughts?</h3>
+          <div class="form-group" style="margin-bottom:1.5rem;">
+            <label class="form-label" for="comment">Comments <span class="text-muted">(optional)</span></label>
+            <textarea id="comment" name="comment" class="form-input" rows="4"
+                      placeholder="Tell us what you liked or what could be improved...">{{ existing.comment if existing and existing.comment else '' }}</textarea>
+          </div>
+
+          <div class="form-group" style="margin-bottom:1.5rem;">
+            <label class="form-check-label" style="display:flex;align-items:flex-start;gap:.5rem;cursor:pointer;">
+              <input type="checkbox" name="allow_public" value="1" class="form-check-input"
+                     {% if existing and existing.allow_public %}checked{% endif %}
+                     style="margin-top:.2rem;">
+              <span>I consent to my feedback being displayed publicly on the TechTrek website (your name and college will be shown).</span>
+            </label>
+          </div>
+
+          <div class="fb-step-actions">
+            <button type="button" class="btn btn-outline fb-back-btn" data-back="{{ total_steps - 1 }}">&larr; Back</button>
+            <button type="submit" class="btn btn-primary">Submit Feedback</button>
+          </div>
         </div>
 
-        <div class="form-group" style="margin-bottom:1.5rem;">
-          <label class="form-check-label" style="display:flex;align-items:flex-start;gap:.5rem;cursor:pointer;">
-            <input type="checkbox" name="allow_public" value="1" class="form-check-input"
-                   {% if existing and existing.allow_public %}checked{% endif %}
-                   style="margin-top:.2rem;">
-            <span>I consent to my feedback being displayed publicly on the TechTrek website (your name and college will be shown).</span>
-          </label>
-        </div>
-
-        <div style="display:flex;gap:1rem;justify-content:flex-end;">
-          <a href="/booking/my" class="btn btn-outline">Cancel</a>
-          <button type="submit" class="btn btn-primary">Submit Feedback</button>
-        </div>
       </form>
     </div>
   </div>
@@ -55,27 +138,141 @@
 {% block scripts %}
 <script>
 (function(){
-  var stars = document.querySelectorAll('#star-rating .star-label');
   var goldColor = 'var(--yellow, #f59e0b)';
   var dimColor = 'var(--border)';
-  function highlight(n) {
-    stars.forEach(function(s, i) {
-      s.querySelector('.star').style.color = i < n ? goldColor : dimColor;
+
+  function initStarGroup(container) {
+    var stars = container.querySelectorAll('.star-label');
+    function highlight(n) {
+      stars.forEach(function(s, i) {
+        s.querySelector('.star').style.color = i < n ? goldColor : dimColor;
+      });
+    }
+    var checked = container.querySelector('input:checked');
+    if (checked) highlight(parseInt(checked.value));
+    stars.forEach(function(s) {
+      s.addEventListener('mouseenter', function() { highlight(parseInt(s.dataset.value)); });
+      s.addEventListener('click', function() {
+        s.querySelector('input').checked = true;
+        highlight(parseInt(s.dataset.value));
+      });
+    });
+    container.addEventListener('mouseleave', function() {
+      var c = container.querySelector('input:checked');
+      highlight(c ? parseInt(c.value) : 0);
     });
   }
-  var checked = document.querySelector('#star-rating input:checked');
-  if (checked) highlight(parseInt(checked.value));
-  stars.forEach(function(s) {
-    s.addEventListener('mouseenter', function() { highlight(parseInt(s.dataset.value)); });
-    s.addEventListener('click', function() {
-      s.querySelector('input').checked = true;
-      highlight(parseInt(s.dataset.value));
+
+  initStarGroup(document.getElementById('star-rating'));
+  document.querySelectorAll('.q-star-rating').forEach(function(el) {
+    initStarGroup(el);
+  });
+
+  // ── Step wizard ──
+  var currentStep = 1;
+
+  function showStep(n, direction) {
+    var steps = document.querySelectorAll('.fb-step');
+    steps.forEach(function(s) {
+      if (s.classList.contains('active')) {
+        s.classList.remove('active');
+        s.classList.add(direction === 'forward' ? 'exit-left' : 'exit-right');
+        setTimeout(function() {
+          s.classList.remove('exit-left', 'exit-right');
+        }, 300);
+      }
+    });
+
+    var target = document.querySelector('.fb-step[data-step="' + n + '"]');
+    if (target) {
+      target.classList.add(direction === 'forward' ? 'enter-right' : 'enter-left');
+      requestAnimationFrame(function() {
+        requestAnimationFrame(function() {
+          target.classList.add('active');
+          target.classList.remove('enter-right', 'enter-left');
+        });
+      });
+    }
+
+    document.querySelectorAll('.fb-progress-step').forEach(function(dot) {
+      var forStep = parseInt(dot.dataset.for);
+      dot.classList.toggle('active', forStep <= n);
+    });
+    document.querySelectorAll('.fb-progress-line').forEach(function(line, i) {
+      line.classList.toggle('active', i < n - 1);
+    });
+
+    currentStep = n;
+    var card = document.querySelector('.card');
+    if (card) card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function validateStep(stepNum) {
+    var step = document.querySelector('.fb-step[data-step="' + stepNum + '"]');
+    if (!step) return true;
+
+    if (stepNum === 1) {
+      var checked = step.querySelector('input[name="rating"]:checked');
+      var err = document.getElementById('rating-error');
+      if (!checked) {
+        if (err) err.style.display = 'block';
+        return false;
+      }
+      if (err) err.style.display = 'none';
+      return true;
+    }
+
+    var requiredFields = step.querySelectorAll('[required]');
+    for (var i = 0; i < requiredFields.length; i++) {
+      var field = requiredFields[i];
+      if (field.type === 'radio') {
+        var name = field.name;
+        var group = step.querySelectorAll('input[name="' + name + '"]');
+        var any = false;
+        group.forEach(function(r) { if (r.checked) any = true; });
+        if (!any) {
+          var label = step.querySelector('label[for="' + name + '"]');
+          field.closest('.form-group').classList.add('fb-field-error');
+          setTimeout(function() {
+            field.closest('.form-group').classList.remove('fb-field-error');
+          }, 2000);
+          return false;
+        }
+      } else if (field.tagName === 'TEXTAREA' || field.tagName === 'INPUT') {
+        if (!field.value.trim()) {
+          field.classList.add('input-error');
+          field.focus();
+          setTimeout(function() { field.classList.remove('input-error'); }, 2000);
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  document.querySelectorAll('.fb-next-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      if (validateStep(currentStep)) {
+        showStep(parseInt(btn.dataset.next), 'forward');
+      }
     });
   });
-  document.getElementById('star-rating').addEventListener('mouseleave', function() {
-    var c = document.querySelector('#star-rating input:checked');
-    highlight(c ? parseInt(c.value) : 0);
+
+  document.querySelectorAll('.fb-back-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      showStep(parseInt(btn.dataset.back), 'back');
+    });
   });
+
+  // Auto-advance on star click for step 1
+  var mainStars = document.querySelectorAll('#star-rating .star-label');
+  mainStars.forEach(function(s) {
+    s.addEventListener('click', function() {
+      var err = document.getElementById('rating-error');
+      if (err) err.style.display = 'none';
+    });
+  });
+
 })();
 </script>
 {% endblock %}

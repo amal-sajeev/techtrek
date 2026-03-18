@@ -27,6 +27,11 @@
       <textarea name="address" id="college-address" class="form-input" rows="2">{{ college.address if college and college.address else '' }}</textarea>
     </div>
     <div class="form-group">
+      <label class="form-label" for="college-logo">College Logo</label>
+      <input type="text" name="logo_url" id="college-logo" class="form-input" value="{{ college.logo_url if college and college.logo_url else '' }}" placeholder="URL or upload image below">
+      <p class="text-muted" style="font-size:.85rem;margin-top:.25rem">Shown as a watermark on event hero images when this college hosts the event.</p>
+    </div>
+    <div class="form-group">
       <label class="form-label">
         <input type="checkbox" name="is_active" {% if not college or college.is_active %}checked{% endif %}> Active
       </label>
@@ -37,4 +42,9 @@
     </div>
   </form>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', path='js/image-upload.js') }}"></script>
+<script>initImageUpload('college-logo', '/admin/upload-image');</script>
 {% endblock %}

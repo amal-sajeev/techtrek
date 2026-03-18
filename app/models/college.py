@@ -14,6 +14,7 @@ class College(Base):
     name = Column(String(300), nullable=False)
     city_id = Column(Integer, ForeignKey("cities.id"), nullable=False)
     address = Column(String(500), nullable=True)
+    logo_url = Column(String(500), nullable=True)
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=now_ist)
 

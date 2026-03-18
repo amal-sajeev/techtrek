@@ -48,6 +48,22 @@
           </div>
         </div>
 
+        {% if addon_items %}
+        <div class="checkout-addons" style="margin-bottom:1rem">
+          <h4 class="checkout-seats-label">Add-Ons</h4>
+          {% for item in addon_items %}
+          <label class="checkout-addon-row" style="display:flex;align-items:flex-start;gap:.5rem;padding:.5rem 0;cursor:pointer;{% if not loop.last %}border-bottom:1px dashed var(--border, #e5e7eb);{% endif %}">
+            <input type="checkbox" class="addon-checkbox" data-addon-id="{{ item.addon.id }}" data-addon-price="{{ item.addon.price }}" {% if item.selected %}checked{% endif %} style="margin-top:.25rem">
+            <div style="flex:1">
+              <span style="font-weight:500">{{ item.addon.title }}</span>
+              {% if item.addon.description %}<p style="font-size:.8rem;color:var(--text-secondary, #6b7280);margin:.1rem 0 0">{{ item.addon.description }}</p>{% endif %}
+            </div>
+            <span style="font-weight:600;white-space:nowrap">{% if item.addon.price > 0 %}&#8377;{{ "%.0f"|format(item.addon.price) }}{% else %}Free{% endif %}</span>
+          </label>
+          {% endfor %}
+        </div>
+        {% endif %}
+
         <div class="checkout-summary">
           <div class="checkout-seat-lines">
             {% for item in seat_items %}
@@ -57,6 +73,12 @@
             </div>
             {% endfor %}
           </div>
+          {% if addon_total > 0 %}
+          <div class="checkout-line">
+            <span>Add-ons</span>
+            <span>&#8377;{{ "%.0f"|format(addon_total) }}</span>
+          </div>
+          {% endif %}
           {% if coupon_discount and coupon_discount > 0 %}
           <div class="checkout-line" style="color:var(--green)">
             <span>Coupon discount</span>
@@ -192,6 +214,20 @@
 
   window.addEventListener('beforeunload', function(e) {
     if (verifying) { e.preventDefault(); e.returnValue = ''; }
+  });
+
+  // Add-on toggles
+  document.querySelectorAll('.addon-checkbox').forEach(function(cb) {
+    cb.addEventListener('change', function() {
+      var addonId = parseInt(this.dataset.addonId);
+      fetch('/booking/event/' + eventId + '/toggle-addon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ addon_id: addonId })
+      })
+      .then(function() { window.location.reload(); })
+      .catch(function() { window.location.reload(); });
+    });
   });
 
   // Coupon apply

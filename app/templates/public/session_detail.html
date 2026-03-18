@@ -112,6 +112,22 @@
         {% endif %}
       </div>
 
+      {% if avg_rating %}
+      <div class="star-rating-display" style="margin-top:.75rem">
+        {% for i in range(1, 6) %}
+          {% if avg_rating >= i %}
+          <span class="star filled">&#9733;</span>
+          {% elif avg_rating >= i - 0.5 %}
+          <span class="star half">&#9733;</span>
+          {% else %}
+          <span class="star">&#9734;</span>
+          {% endif %}
+        {% endfor %}
+        <span class="star-rating-value">{{ avg_rating }}</span>
+        <span class="star-rating-count">({{ rating_count }} rating{{ 's' if rating_count != 1 else '' }})</span>
+      </div>
+      {% endif %}
+
       {% if event %}
       <div class="sd-hero-cta">
         {% if user %}
@@ -173,6 +189,21 @@
           <span class="lm-ed-chip">&#128205; {{ venue }}</span>
           {% endif %}
         </div>
+        {% if avg_rating %}
+        <div class="star-rating-display" style="margin-top:.5rem">
+          {% for i in range(1, 6) %}
+            {% if avg_rating >= i %}
+            <span class="star filled">&#9733;</span>
+            {% elif avg_rating >= i - 0.5 %}
+            <span class="star half">&#9733;</span>
+            {% else %}
+            <span class="star">&#9734;</span>
+            {% endif %}
+          {% endfor %}
+          <span class="star-rating-value">{{ avg_rating }}</span>
+          <span class="star-rating-count">({{ rating_count }} rating{{ 's' if rating_count != 1 else '' }})</span>
+        </div>
+        {% endif %}
         {% if event %}
           {% if user %}
             {% if availability != 'sold-out' %}
@@ -363,6 +394,19 @@
           </div>
         </div>
         {% endif %}
+
+        {# Live Poll #}
+        <div class="sd-section" id="live-poll-section" style="display:none">
+          <div class="sd-sec-head">
+            <span class="sd-sec-label">&#128202; Live Poll</span>
+            <div class="sd-sec-line"></div>
+          </div>
+          <div id="live-poll-content">
+            <div id="poll-question-text" style="font-weight:600;font-size:1.05rem;margin-bottom:1rem"></div>
+            <div id="poll-options" style="display:flex;flex-direction:column;gap:.6rem"></div>
+            <div id="poll-total" style="margin-top:.75rem;font-size:.85rem;color:var(--text-muted)"></div>
+          </div>
+        </div>
 
       </div>
 
@@ -593,6 +637,79 @@
     });
   }
 }());
+
+  /* ── Live Polling ───────────────────────────────────── */
+  var sessionId = {{ session.id }};
+  var pollSection = document.getElementById('live-poll-section');
+  var pollQuestionEl = document.getElementById('poll-question-text');
+  var pollOptionsEl = document.getElementById('poll-options');
+  var pollTotalEl = document.getElementById('poll-total');
+  var currentPollId = null;
+  var votedOption = null;
+
+  function renderPoll(data) {
+    if (!data || !data.is_active) {
+      pollSection.style.display = 'none';
+      currentPollId = null;
+      return;
+    }
+    pollSection.style.display = '';
+    currentPollId = data.poll_id;
+    pollQuestionEl.textContent = data.question;
+    pollTotalEl.textContent = data.total_votes + ' vote' + (data.total_votes !== 1 ? 's' : '');
+    if (data.voted_option !== undefined && data.voted_option !== null) votedOption = data.voted_option;
+
+    var html = '';
+    (data.options || []).forEach(function(opt) {
+      var isVoted = votedOption === opt.id;
+      html += '<div style="cursor:pointer" onclick="castVote(' + opt.id + ')" data-opt-id="' + opt.id + '">' +
+        '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
+          '<span style="font-size:.9rem;' + (isVoted ? 'font-weight:700;color:var(--cyan,#00d4ff)' : '') + '">' +
+            (isVoted ? '&#10003; ' : '') + opt.text + '</span>' +
+          '<span style="font-size:.85rem;color:var(--text-muted)">' + opt.votes + ' (' + opt.pct + '%)</span>' +
+        '</div>' +
+        '<div style="background:var(--bg-void,#0d0d1a);border-radius:4px;height:28px;overflow:hidden;border:' +
+          (isVoted ? '2px solid var(--cyan,#00d4ff)' : '1px solid var(--border,rgba(255,255,255,.08))') + '">' +
+          '<div style="height:100%;background:' + (isVoted ? 'var(--cyan,#00d4ff)' : 'rgba(0,212,255,.3)') +
+            ';width:' + opt.pct + '%;transition:width .4s ease;border-radius:3px"></div>' +
+        '</div></div>';
+    });
+    pollOptionsEl.innerHTML = html;
+  }
+
+  window.castVote = function(optionId) {
+    if (!currentPollId) return;
+    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({option_id: optionId})
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.ok && data.poll) {
+        votedOption = data.poll.voted_option;
+        renderPoll(data.poll);
+      }
+    });
+  };
+
+  fetch('/sessions/' + sessionId + '/polls/active')
+    .then(function(r) { return r.json(); })
+    .then(function(data) { if (data.poll) renderPoll(data.poll); });
+
+  var evtSource = new EventSource('/sessions/' + sessionId + '/polls/stream');
+  evtSource.onmessage = function(e) {
+    try {
+      var data = JSON.parse(e.data);
+      if (data.type === 'connected') return;
+      if (data.closed || data.is_active === false) {
+        pollSection.style.display = 'none';
+        currentPollId = null;
+        return;
+      }
+      renderPoll(data);
+    } catch (ex) {}
+  };
 
 /* Session hero slideshow (dark mode) */
 (function () {

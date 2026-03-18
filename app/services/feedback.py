@@ -8,6 +8,7 @@ from app.models.booking import Booking
 from app.models.feedback import Feedback
 from app.models.event import Event
 from app.models.user import User
+from app.config import settings
 from app.services.email import send_certificate_ready
 from app.utils import now_ist
 
@@ -16,8 +17,10 @@ logger = logging.getLogger(__name__)
 FEEDBACK_CHECK_INTERVAL = 15 * 60  # 15 minutes
 
 
-def process_pending_feedback(base_url: str = "https://techtrek.in"):
+def process_pending_feedback(base_url: str | None = None):
     """Find ended events and email certificate links to checked-in attendees."""
+    if not base_url:
+        base_url = settings.base_url
     db: DBSession = SessionLocal()
     try:
         now = now_ist()
@@ -105,11 +108,11 @@ def process_pending_feedback(base_url: str = "https://techtrek.in"):
         db.close()
 
 
-async def feedback_task_loop(base_url: str = "https://techtrek.in"):
+async def feedback_task_loop():
     """Background loop that periodically checks for feedback to send."""
     while True:
         try:
-            process_pending_feedback(base_url)
+            process_pending_feedback()
         except Exception:
             logger.exception("Feedback task loop error")
         await asyncio.sleep(FEEDBACK_CHECK_INTERVAL)

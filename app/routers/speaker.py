@@ -20,6 +20,7 @@ from app.models.speaker import Speaker
 from app.models.gallery_image import GalleryImage
 from app.models.uploaded_image import UploadedImage
 from app.models.user import User
+from app.models.poll import Poll, PollOption, PollVote
 
 router = APIRouter(prefix="/speaker", tags=["speaker"], dependencies=[Depends(csrf_protection)])
 
@@ -394,6 +395,133 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
     db.commit()
     flash(request, f"Session '{session_obj.title}' updated.", "success")
     return RedirectResponse("/speaker/sessions", status_code=303)
+
+
+@router.get("/sessions/{session_id}/polls")
+def session_polls(request: Request, session_id: int, db: Session = Depends(get_db)):
+    user, speaker = _require_speaker(request, db)
+    session_obj = db.query(SessionModel).get(session_id)
+    if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
+        flash(request, "Session not found or access denied.", "danger")
+        return RedirectResponse("/speaker/", status_code=303)
+    polls = db.query(Poll).filter(Poll.session_id == session_id).order_by(Poll.created_at.desc()).all()
+    polls_enriched = []
+    for p in polls:
+        total = sum(len(o.votes) for o in p.options)
+        opts = []
+        for o in p.options:
+            count = len(o.votes)
+            opts.append({"option": o, "votes": count, "pct": round(count / total * 100, 1) if total else 0})
+        polls_enriched.append({"poll": p, "total_votes": total, "options": opts})
+    return templates.TemplateResponse(
+        "speaker/session_polls.html",
+        _speaker_ctx(request, speaker=speaker, session=session_obj, polls=polls_enriched),
+    )
+
+
+@router.post("/sessions/{session_id}/polls")
+async def create_poll(request: Request, session_id: int, db: Session = Depends(get_db)):
+    user, speaker = _require_speaker(request, db)
+    session_obj = db.query(SessionModel).get(session_id)
+    if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
+        return JSONResponse({"ok": False, "error": "Access denied."}, status_code=403)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
+    question = (body.get("question") or "").strip()
+    options_list = body.get("options", [])
+    if not question or len(options_list) < 2:
+        return JSONResponse({"ok": False, "error": "Provide a question and at least 2 options."}, status_code=400)
+
+    poll = Poll(
+        session_id=session_id,
+        question=question,
+        allow_multiple=bool(body.get("allow_multiple")),
+        created_by=user.id,
+        is_active=False,
+    )
+    db.add(poll)
+    db.flush()
+    for i, opt_text in enumerate(options_list):
+        opt_text = (opt_text or "").strip()
+        if opt_text:
+            db.add(PollOption(poll_id=poll.id, option_text=opt_text, order=i))
+
+    log_activity(db, category="speaker", action="create", description=f"Speaker '{speaker.name}' created poll for session '{session_obj.title}'", request=request, user_id=user.id, target_type="poll", target_id=poll.id)
+    db.commit()
+    return JSONResponse({"ok": True, "poll_id": poll.id})
+
+
+@router.post("/polls/{poll_id}/toggle")
+async def toggle_poll(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    user, speaker = _require_speaker(request, db)
+    poll = db.query(Poll).get(poll_id)
+    if not poll:
+        return JSONResponse({"ok": False, "error": "Poll not found."}, status_code=404)
+    session_obj = db.query(SessionModel).get(poll.session_id)
+    if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
+        return JSONResponse({"ok": False, "error": "Access denied."}, status_code=403)
+
+    if not poll.is_active:
+        db.query(Poll).filter(
+            Poll.session_id == poll.session_id, Poll.is_active == True
+        ).update({Poll.is_active: False})
+        poll.is_active = True
+    else:
+        poll.is_active = False
+
+    db.commit()
+
+    import asyncio
+    from app.services.poll_events import publish
+    if poll.is_active:
+        from app.routers.public import _poll_results
+        results = _poll_results(db, poll)
+        asyncio.ensure_future(publish(poll.session_id, results))
+    else:
+        asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+
+    return JSONResponse({"ok": True, "is_active": poll.is_active})
+
+
+@router.post("/polls/{poll_id}/close")
+async def close_poll(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    user, speaker = _require_speaker(request, db)
+    poll = db.query(Poll).get(poll_id)
+    if not poll:
+        return JSONResponse({"ok": False, "error": "Poll not found."}, status_code=404)
+    session_obj = db.query(SessionModel).get(poll.session_id)
+    if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
+        return JSONResponse({"ok": False, "error": "Access denied."}, status_code=403)
+
+    poll.is_active = False
+    poll.closed_at = now_ist()
+    db.commit()
+
+    import asyncio
+    from app.services.poll_events import publish
+    asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+
+    return JSONResponse({"ok": True})
+
+
+@router.post("/polls/{poll_id}/delete")
+def delete_poll(request: Request, poll_id: int, db: Session = Depends(get_db)):
+    user, speaker = _require_speaker(request, db)
+    poll = db.query(Poll).get(poll_id)
+    if not poll:
+        flash(request, "Poll not found.", "danger")
+        return RedirectResponse("/speaker/", status_code=303)
+    session_obj = db.query(SessionModel).get(poll.session_id)
+    if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
+        flash(request, "Access denied.", "danger")
+        return RedirectResponse("/speaker/", status_code=303)
+    sid = poll.session_id
+    db.delete(poll)
+    db.commit()
+    flash(request, "Poll deleted.", "success")
+    return RedirectResponse(f"/speaker/sessions/{sid}/polls", status_code=303)
 
 
 @router.get("/profile")

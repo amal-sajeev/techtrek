@@ -1,6 +1,14 @@
 {% extends "base.html" %}
 {% block title %}Booking Details — TechTrek{% endblock %}
 
+{% block head_extra %}
+<style>
+.booking-agenda-toggle { display:flex; align-items:center; justify-content:space-between; width:100%; padding:.5rem 0; background:none; border:none; font-size:1rem; font-weight:600; color:inherit; cursor:pointer; text-align:left; }
+.booking-agenda-toggle:hover { opacity:.9; }
+.booking-agenda-toggle-icon { display:inline-block; transition:transform .2s ease; }
+</style>
+{% endblock %}
+
 {% block content %}
 <section class="section">
   <div class="container">
@@ -48,22 +56,42 @@
           </div>
           {% endif %}
 
+          {% if purchased_addons %}
+          <div class="detail-group">
+            <h4>Add-Ons</h4>
+            {% for addon in purchased_addons %}
+            <div style="display:flex;justify-content:space-between;padding:.4rem 0;{% if not loop.last %}border-bottom:1px dashed var(--border, #e5e7eb);{% endif %}">
+              <div>
+                <span style="font-weight:500">{{ addon.title }}</span>
+                {% if addon.description %}<p style="font-size:.8rem;color:var(--text-muted);margin:.1rem 0 0">{{ addon.description }}</p>{% endif %}
+              </div>
+              <span style="font-weight:600;white-space:nowrap;margin-left:.75rem">{% if addon.price > 0 %}&#8377;{{ "%.0f"|format(addon.price) }}{% else %}Free{% endif %}</span>
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
           {% if event and event.sessions %}
           <div class="detail-group">
-            <h4>Event Agenda ({{ event.sessions|length }} session{{ 's' if event.sessions|length != 1 else '' }})</h4>
-            <div style="display:flex;flex-direction:column;gap:.5rem;">
-              {% for s in event.sessions|sort(attribute='order') %}
-              <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .75rem;background:var(--bg-surface);border:1px solid var(--border,rgba(255,255,255,.07));border-radius:var(--radius-lg,8px);">
-                <div style="flex:1;min-width:0;">
-                  <div style="font-weight:600;font-size:.9rem;">{{ s.title }}</div>
-                  <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.25rem;font-size:.8rem;color:var(--text-muted);">
-                    {% if s.speaker_name %}<span>{{ s.speaker_name }}</span>{% endif %}
-                    {% if s.start_time %}<span>&#128336; {{ s.start_time.strftime('%I:%M %p') }}</span>{% endif %}
-                    {% if s.duration_minutes %}<span>{{ s.duration_minutes }} min</span>{% endif %}
+            <button type="button" class="booking-agenda-toggle" id="booking-agenda-toggle" aria-expanded="false" aria-controls="booking-agenda-body">
+              <span class="booking-agenda-toggle-text">Event Agenda ({{ event.sessions|length }} session{{ 's' if event.sessions|length != 1 else '' }})</span>
+              <span class="booking-agenda-toggle-icon" aria-hidden="true">&#9660;</span>
+            </button>
+            <div id="booking-agenda-body" class="booking-agenda-body" hidden style="display:none;">
+              <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem;">
+                {% for s in event.sessions|sort(attribute='order') %}
+                <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .75rem;background:var(--bg-surface);border:1px solid var(--border,rgba(255,255,255,.07));border-radius:var(--radius-lg,8px);">
+                  <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;font-size:.9rem;">{{ s.title }}</div>
+                    <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.25rem;font-size:.8rem;color:var(--text-muted);">
+                      {% if s.speaker_name %}<span>{{ s.speaker_name }}</span>{% endif %}
+                      {% if s.start_time %}<span>&#128336; {{ s.start_time.strftime('%I:%M %p') }}</span>{% endif %}
+                      {% if s.duration_minutes %}<span>{{ s.duration_minutes }} min</span>{% endif %}
+                    </div>
                   </div>
                 </div>
+                {% endfor %}
               </div>
-              {% endfor %}
             </div>
           </div>
           {% endif %}
@@ -90,7 +118,7 @@
                     <span class="booking-detail-icon">&#127915;</span>
                     <span class="ticket-id">{{ b.ticket_id }}</span>
                     {% if b.payment_status == 'paid' %}
-                    <button type="button" class="btn btn-xs btn-outline" onclick="copyLink('/ticket/{{ b.ticket_id }}', this)">&#128279; Share</button>
+                    <button type="button" class="btn btn-xs btn-outline" onclick="openShareModal('{{ b.ticket_id }}')">&#128279; Share</button>
                     {% endif %}
                   </div>
                   <div class="booking-detail-row">
@@ -143,9 +171,40 @@
           </div>
         </div>
 
+        <div class="share-modal-overlay" id="shareModalOverlay" style="display:none">
+          <div class="share-modal">
+            <div class="share-modal-header">
+              <h3>Share Ticket</h3>
+              <button type="button" class="share-modal-close" onclick="closeShareModal()">&times;</button>
+            </div>
+            <div class="share-modal-body">
+              <p style="margin:0 0 1rem;color:var(--text-muted,#94a3b8);font-size:.9rem">
+                Enter the recipient's details. They'll receive an email with a link to this ticket.
+              </p>
+              <div class="form-group" style="margin-bottom:1rem">
+                <label for="share-name" style="display:block;margin-bottom:.35rem;font-weight:600;font-size:.9rem">Recipient Name</label>
+                <input type="text" id="share-name" class="form-control" placeholder="e.g. John Doe" required>
+              </div>
+              <div class="form-group" style="margin-bottom:1rem">
+                <label for="share-email" style="display:block;margin-bottom:.35rem;font-weight:600;font-size:.9rem">Recipient Email</label>
+                <input type="email" id="share-email" class="form-control" placeholder="e.g. john@example.com" required>
+              </div>
+              <div id="share-error" style="color:#ef4444;font-size:.85rem;margin-bottom:.75rem;display:none"></div>
+            </div>
+            <div class="share-modal-footer">
+              <button type="button" class="btn btn-outline" onclick="closeShareModal()">Cancel</button>
+              <button type="button" class="btn btn-primary" id="share-submit-btn" onclick="submitShare()">Send &amp; Copy Link</button>
+            </div>
+          </div>
+        </div>
+
         <div class="confirmation-actions">
           {% if event %}
-          <a href="/booking/invoice/{{ event.id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          {% if group_id %}
+          <a href="/booking/invoice/group/{{ group_id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          {% else %}
+          <a href="/booking/invoice/booking/{{ bookings[0].id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          {% endif %}
           {% if event.start_date %}
           <a href="https://www.google.com/calendar/render?action=TEMPLATE&text={{ event.name|urlencode }}&dates={{ event.start_date.strftime('%Y%m%d') }}/{{ (event.end_date or event.start_date).strftime('%Y%m%d') }}{% if auditorium %}&location={{ (auditorium.name ~ ', ' ~ (auditorium.location or ''))|urlencode }}{% endif %}" target="_blank" rel="noopener" class="btn btn-outline">&#128197; Add to Calendar</a>
           {% endif %}
@@ -155,7 +214,6 @@
           <a href="/booking/certificate/{{ b.id }}" class="btn btn-outline">&#127891; Certificate{% if cert_bookings|length > 1 %} ({{ b.booking_ref }}){% endif %}</a>
           {% endfor %}
           <a href="/booking/my" class="btn btn-primary">Back to My Bookings</a>
-          <a href="/events" class="btn btn-outline">Browse Events</a>
           {% if is_group and group_id and bookings|selectattr('payment_status', 'equalto', 'paid')|list|length > 1 %}
           <form method="post" action="/booking/cancel-group/{{ group_id }}" style="display:inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -173,14 +231,86 @@
 
 {% block scripts %}
 <script>
-function copyLink(path, btn) {
-  var url = window.location.origin + path;
-  navigator.clipboard.writeText(url).then(function() {
-    var orig = btn.innerHTML;
-    btn.innerHTML = '&#10003; Copied!';
-    btn.classList.add('btn-success');
-    setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('btn-success'); }, 2000);
+var currentShareTicketId = '';
+
+function openShareModal(ticketId) {
+  currentShareTicketId = ticketId;
+  document.getElementById('shareModalOverlay').style.display = 'flex';
+  document.getElementById('share-name').focus();
+}
+
+function closeShareModal() {
+  document.getElementById('shareModalOverlay').style.display = 'none';
+  document.getElementById('share-error').style.display = 'none';
+  document.getElementById('share-name').value = '';
+  document.getElementById('share-email').value = '';
+}
+
+function submitShare() {
+  var name = document.getElementById('share-name').value.trim();
+  var email = document.getElementById('share-email').value.trim();
+  var errEl = document.getElementById('share-error');
+  var btn = document.getElementById('share-submit-btn');
+
+  if (!name || !email || email.indexOf('@') === -1) {
+    errEl.textContent = 'Please enter a valid name and email.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  fetch('/ticket/' + currentShareTicketId + '/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, email: email })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      navigator.clipboard.writeText(window.location.origin + '/ticket/' + currentShareTicketId).catch(function() {});
+      closeShareModal();
+      if (typeof showToast === 'function') {
+        showToast('Ticket shared and link copied!', 'success');
+      }
+    } else {
+      errEl.textContent = data.error || 'Something went wrong.';
+      errEl.style.display = 'block';
+    }
+  })
+  .catch(function() {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.style.display = 'block';
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.textContent = 'Send & Copy Link';
   });
 }
+
+document.getElementById('shareModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeShareModal();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('shareModalOverlay').style.display !== 'none') {
+    closeShareModal();
+  }
+});
+(function() {
+  var toggle = document.getElementById('booking-agenda-toggle');
+  var body = document.getElementById('booking-agenda-body');
+  var icon = toggle && toggle.querySelector('.booking-agenda-toggle-icon');
+  if (!toggle || !body) return;
+  toggle.addEventListener('click', function() {
+    var isOpen = !body.hidden;
+    body.hidden = isOpen;
+    body.style.display = isOpen ? 'none' : 'block';
+    toggle.setAttribute('aria-expanded', isOpen ? 'false' : 'true');
+    if (icon) icon.style.transform = isOpen ? 'rotate(-90deg)' : '';
+  });
+  if (icon) icon.style.transform = 'rotate(-90deg)';
+})();
 </script>
 {% endblock %}

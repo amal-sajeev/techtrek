@@ -1,0 +1,49 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Feedback Templates — Admin{% endblock %}
+
+{% block admin_content %}
+<div class="page-header-block">
+  <h1 class="page-title">Feedback Templates</h1>
+  <a href="/admin/feedback-templates/new" class="btn btn-primary btn-sm">+ New Template</a>
+</div>
+
+{% if templates_list %}
+<div class="table-responsive">
+  <table class="data-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th>Questions</th>
+        <th>Used by Events</th>
+        <th>Created</th>
+        <th style="width:140px">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in templates_list %}
+      <tr>
+        <td><strong>{{ t.name }}</strong>{% if t.description %}<br><small class="text-muted">{{ t.description|truncate(60) }}</small>{% endif %}</td>
+        <td>{{ t.questions|length }}</td>
+        <td>{{ t.events|length }}</td>
+        <td>{{ t.created_at.strftime('%b %d, %Y') if t.created_at else '-' }}</td>
+        <td>
+          <div style="display:flex;gap:.5rem">
+            <a href="/admin/feedback-templates/{{ t.id }}/edit" class="btn btn-xs btn-outline">Edit</a>
+            <form method="post" action="/admin/feedback-templates/{{ t.id }}/delete" style="display:inline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="button" class="btn btn-xs btn-danger" data-confirm="Delete template '{{ t.name }}'?" data-confirm-label="Delete">Delete</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No feedback templates yet. Create one to start collecting structured feedback from attendees.</p>
+  <a href="/admin/feedback-templates/new" class="btn btn-primary">Create Template</a>
+</div>
+{% endif %}
+{% endblock %}
