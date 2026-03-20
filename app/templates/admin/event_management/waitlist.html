@@ -1,0 +1,68 @@
+{% extends "admin/event_management/base_hub.html" %}
+{% block title %}Waitlist — {{ hub_event.name }} — Admin{% endblock %}
+
+{% block hub_content %}
+<div style="margin-top:1.5rem">
+  <h3 class="panel-title">Waitlist</h3>
+</div>
+
+{% if entries %}
+<div class="filter-bar mb-3">
+  <input type="text" id="waitlist-search" class="form-input" placeholder="Search by user…" oninput="filterWL(this.value)" style="max-width:340px">
+  <span id="wl-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ entries|length }} entr{{ 'ies' if entries|length != 1 else 'y' }}</span>
+</div>
+<div class="table-responsive">
+  <table class="table table-cards-mobile" id="wl-table">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Joined</th>
+        <th>Notified</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in entries %}
+      <tr data-search="{{ (item.user.username if item.user else '')|lower }}">
+        <td data-label="User">
+          <strong>{{ item.user.username if item.user else '—' }}</strong>
+          {% if item.user and item.user.email %}<br><small class="text-muted">{{ item.user.email }}</small>{% endif %}
+        </td>
+        <td data-label="Joined">{{ item.entry.joined_at.strftime('%b %d, %Y %H:%M') }}</td>
+        <td data-label="Notified">
+          <span class="badge {% if item.entry.notified %}badge-success{% else %}badge-muted{% endif %}">
+            {{ 'Yes' if item.entry.notified else 'No' }}
+          </span>
+        </td>
+        <td data-label="Actions">
+          <form method="post" action="/admin/waitlist/{{ item.entry.id }}/delete" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Remove this entry?" data-confirm-label="Delete">Delete</button>
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<script>
+function filterWL(q) {
+  q = q.toLowerCase().trim();
+  var rows = document.querySelectorAll('#wl-table tbody tr');
+  var visible = 0;
+  rows.forEach(function(row) {
+    var match = !q || row.dataset.search.includes(q);
+    row.style.display = match ? '' : 'none';
+    if (match) visible++;
+  });
+  document.getElementById('wl-count').textContent = visible + (visible !== 1 ? ' entries' : ' entry') + (q ? ' found' : '');
+}
+</script>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">&#128221;</div>
+  <h3>No waitlist entries</h3>
+  <p>When this event sells out, users can join the waitlist.</p>
+</div>
+{% endif %}
+{% endblock %}

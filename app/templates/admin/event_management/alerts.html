@@ -1,0 +1,118 @@
+{% extends "admin/event_management/base_hub.html" %}
+{% block title %}Alerts — {{ hub_event.name }} — Admin{% endblock %}
+
+{% block hub_content %}
+<div style="margin-top:1.5rem">
+  <h3 class="panel-title">Send Alert to Attendees</h3>
+  <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">
+    Send a real-time notification to all users with a paid ticket for this event. They will see it as a popup on the site.
+  </p>
+</div>
+
+<div class="card" style="padding:1.5rem;margin-bottom:2rem">
+  <div class="form-group" style="margin-bottom:.75rem">
+    <label class="form-label">Alert Type</label>
+    <select id="alert-type" class="form-input" style="max-width:200px" data-no-tomselect>
+      <option value="info">Info</option>
+      <option value="warning">Warning</option>
+      <option value="urgent">Urgent</option>
+    </select>
+  </div>
+  <div class="form-group" style="margin-bottom:1rem">
+    <label class="form-label">Message</label>
+    <textarea id="alert-message" class="form-input" rows="3" placeholder="Type your alert message…" style="resize:vertical"></textarea>
+  </div>
+  <div style="display:flex;align-items:center;gap:1rem">
+    <button type="button" id="send-alert-btn" class="btn btn-primary" onclick="sendAlert()">Send Alert</button>
+    <span id="alert-status" class="text-muted" style="font-size:.85rem"></span>
+  </div>
+</div>
+
+<h3 class="panel-title">Alert History</h3>
+{% if alerts %}
+<div class="table-responsive">
+  <table class="table table-cards-mobile">
+    <thead>
+      <tr>
+        <th>Message</th>
+        <th>Type</th>
+        <th>Sent By</th>
+        <th>Date</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for a in alerts %}
+      <tr>
+        <td data-label="Message" style="max-width:400px">{{ a.alert.message }}</td>
+        <td data-label="Type">
+          {% if a.alert.alert_type == 'urgent' %}
+          <span class="badge badge-danger">Urgent</span>
+          {% elif a.alert.alert_type == 'warning' %}
+          <span class="badge badge-warning">Warning</span>
+          {% else %}
+          <span class="badge badge-info">Info</span>
+          {% endif %}
+        </td>
+        <td data-label="Sent By">{{ a.admin.username if a.admin else '—' }}</td>
+        <td data-label="Date">{{ a.alert.created_at.strftime('%b %d, %Y %H:%M') if a.alert.created_at else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-state-icon">&#128276;</div>
+  <h3>No alerts sent</h3>
+  <p>Alerts you send to event attendees will appear here.</p>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script>
+function sendAlert() {
+  var msg = document.getElementById('alert-message').value.trim();
+  var alertType = document.getElementById('alert-type').value;
+  var statusEl = document.getElementById('alert-status');
+  var btn = document.getElementById('send-alert-btn');
+
+  if (!msg) {
+    statusEl.textContent = 'Please enter a message.';
+    statusEl.style.color = '#ef4444';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+  statusEl.textContent = '';
+
+  fetch('/admin/event-management/{{ hub_event.id }}/alerts/send', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({message: msg, alert_type: alertType})
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      statusEl.textContent = 'Alert sent to ' + data.recipients + ' attendee(s).';
+      statusEl.style.color = '#10b981';
+      document.getElementById('alert-message').value = '';
+      setTimeout(function() { location.reload(); }, 1500);
+    } else {
+      statusEl.textContent = data.error || 'Failed to send alert.';
+      statusEl.style.color = '#ef4444';
+    }
+  })
+  .catch(function() {
+    statusEl.textContent = 'Network error.';
+    statusEl.style.color = '#ef4444';
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.textContent = 'Send Alert';
+  });
+}
+</script>
+{% endblock %}

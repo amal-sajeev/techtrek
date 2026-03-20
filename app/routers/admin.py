@@ -42,6 +42,7 @@ from app.models.event_break import EventBreak
 from app.models.event_addon import EventAddOn
 from app.models.feedback_template import FeedbackTemplate, TemplateQuestion, FeedbackResponse, QuestionResponse
 from app.models.poll import Poll, PollOption, PollVote
+from app.models.event_alert import EventAlert
 from app.config import settings
 
 
@@ -2720,7 +2721,7 @@ def feedback_toggle_featured(request: Request, feedback_id: int, db: Session = D
 
 
 @router.get("/sessions/{session_id}/polls")
-def admin_session_polls(request: Request, session_id: int, db: Session = Depends(get_db)):
+def admin_session_polls(request: Request, session_id: int, event_id: int = Query(default=0), db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
@@ -2728,7 +2729,11 @@ def admin_session_polls(request: Request, session_id: int, db: Session = Depends
     if not session_obj:
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/admin/events", status_code=303)
-    polls = db.query(Poll).filter(Poll.session_id == session_id).order_by(Poll.created_at.desc()).all()
+    eid = event_id or session_obj.event_id
+    filters = [Poll.session_id == session_id]
+    if eid:
+        filters.append(Poll.event_id == eid)
+    polls = db.query(Poll).filter(*filters).order_by(Poll.created_at.desc()).all()
     polls_enriched = []
     for p in polls:
         enriched: dict = {"poll": p}
@@ -2755,12 +2760,12 @@ def admin_session_polls(request: Request, session_id: int, db: Session = Depends
         polls_enriched.append(enriched)
     return templates.TemplateResponse(
         "admin/session_polls.html",
-        _admin_ctx(request, active_page="events", session=session_obj, polls=polls_enriched),
+        _admin_ctx(request, active_page="events", session=session_obj, polls=polls_enriched, poll_event_id=eid),
     )
 
 
 @router.post("/sessions/{session_id}/polls")
-async def admin_create_poll(request: Request, session_id: int, db: Session = Depends(get_db)):
+async def admin_create_poll(request: Request, session_id: int, event_id: int = Query(default=0), db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return JSONResponse({"ok": False}, status_code=403)
@@ -2780,8 +2785,11 @@ async def admin_create_poll(request: Request, session_id: int, db: Session = Dep
         return JSONResponse({"ok": False, "error": "Provide a question."}, status_code=400)
     if poll_type == "multiple_choice" and len(options_list) < 2:
         return JSONResponse({"ok": False, "error": "Provide at least 2 options."}, status_code=400)
+    eid = event_id or session_obj.event_id
+    if not eid:
+        return JSONResponse({"ok": False, "error": "No event associated with this session."}, status_code=400)
     poll = Poll(
-        session_id=session_id, question=question, poll_type=poll_type,
+        session_id=session_id, event_id=eid, question=question, poll_type=poll_type,
         allow_multiple=bool(body.get("allow_multiple")), created_by=admin.id,
     )
     db.add(poll)
@@ -2808,7 +2816,9 @@ async def admin_toggle_poll(request: Request, poll_id: int, db: Session = Depend
     if not poll:
         return JSONResponse({"ok": False, "error": "Poll not found."}, status_code=404)
     if not poll.is_active:
-        db.query(Poll).filter(Poll.session_id == poll.session_id, Poll.is_active == True).update({Poll.is_active: False})
+        db.query(Poll).filter(
+            Poll.session_id == poll.session_id, Poll.event_id == poll.event_id, Poll.is_active == True
+        ).update({Poll.is_active: False})
         poll.is_active = True
     else:
         poll.is_active = False
@@ -2818,10 +2828,10 @@ async def admin_toggle_poll(request: Request, poll_id: int, db: Session = Depend
     from app.routers.public import _poll_results, _notify_event_attendees_of_poll, _notify_event_attendees_poll_closed
     if poll.is_active:
         results = _poll_results(db, poll)
-        asyncio.ensure_future(publish(poll.session_id, results))
+        asyncio.ensure_future(publish(poll.session_id, poll.event_id, results))
         _notify_event_attendees_of_poll(db, poll, results)
     else:
-        asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+        asyncio.ensure_future(publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
         _notify_event_attendees_poll_closed(db, poll)
     return JSONResponse({"ok": True, "is_active": poll.is_active})
 
@@ -2840,7 +2850,7 @@ async def admin_close_poll(request: Request, poll_id: int, db: Session = Depends
     import asyncio
     from app.services.poll_events import publish
     from app.routers.public import _notify_event_attendees_poll_closed
-    asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+    asyncio.ensure_future(publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
     _notify_event_attendees_poll_closed(db, poll)
     return JSONResponse({"ok": True})
 
@@ -2855,10 +2865,11 @@ def admin_delete_poll(request: Request, poll_id: int, db: Session = Depends(get_
         flash(request, "Poll not found.", "danger")
         return RedirectResponse("/admin/events", status_code=303)
     sid = poll.session_id
+    eid = poll.event_id
     db.delete(poll)
     db.commit()
     flash(request, "Poll deleted.", "success")
-    return RedirectResponse(f"/admin/sessions/{sid}/polls", status_code=303)
+    return RedirectResponse(f"/admin/sessions/{sid}/polls?event_id={eid}", status_code=303)
 
 
 # ─── Feedback Templates ───
@@ -3236,3 +3247,478 @@ async def newsletter_upload_image(request: Request, db: Session = Depends(get_db
 
     url = f"/static/uploads/newsletters/{filename}"
     return JSONResponse({"url": url})
+
+
+# ---------------------------------------------------------------------------
+# Event Management Hub
+# ---------------------------------------------------------------------------
+
+def _hub_ctx(request: Request, event: Event, hub_tab: str, **kwargs):
+    ctx = _admin_ctx(request, active_page="event_mgmt", hub_event=event, hub_tab=hub_tab, **kwargs)
+    return ctx
+
+
+@router.get("/event-management")
+def event_management_landing(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login?next=/admin/event-management", status_code=303)
+    events = db.query(Event).order_by(Event.start_date.desc().nullslast(), Event.created_at.desc()).all()
+    enriched = []
+    for ev in events:
+        session_count = len(ev.sessions) if ev.sessions else 0
+        booking_count = db.query(func.count(Booking.id)).filter(
+            Booking.event_id == ev.id, Booking.payment_status == "paid"
+        ).scalar() or 0
+        checked_in = db.query(func.count(Booking.id)).filter(
+            Booking.event_id == ev.id, Booking.payment_status == "paid", Booking.checked_in == True
+        ).scalar() or 0
+        waitlist_count = db.query(func.count(Waitlist.id)).filter(Waitlist.event_id == ev.id).scalar() or 0
+        aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
+        enriched.append({
+            "event": ev, "session_count": session_count, "bookings": booking_count,
+            "checked_in": checked_in, "waitlist": waitlist_count, "auditorium": aud,
+        })
+    return templates.TemplateResponse(
+        "admin/event_management/landing.html",
+        _admin_ctx(request, active_page="event_mgmt", events=enriched),
+    )
+
+
+@router.get("/event-management/{event_id}")
+def event_management_overview(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    bookings_count = db.query(func.count(Booking.id)).filter(
+        Booking.event_id == event_id, Booking.payment_status == "paid"
+    ).scalar() or 0
+    revenue = db.query(func.sum(Booking.amount_paid)).filter(
+        Booking.event_id == event_id, Booking.payment_status == "paid"
+    ).scalar() or 0
+    checked_in = db.query(func.count(Booking.id)).filter(
+        Booking.event_id == event_id, Booking.payment_status == "paid", Booking.checked_in == True
+    ).scalar() or 0
+    checkin_pct = round(checked_in / bookings_count * 100) if bookings_count else 0
+    waitlist_count = db.query(func.count(Waitlist.id)).filter(Waitlist.event_id == event_id).scalar() or 0
+    active_polls = db.query(func.count(Poll.id)).filter(
+        Poll.event_id == event_id, Poll.is_active == True
+    ).scalar() or 0
+
+    stats = {
+        "bookings": bookings_count, "revenue": revenue, "checked_in": checked_in,
+        "checkin_pct": checkin_pct, "waitlist": waitlist_count, "active_polls": active_polls,
+    }
+
+    sessions_enriched = []
+    for s in (event.sessions or []):
+        speakers = [ss.speaker.name for ss in s.session_speakers if ss.speaker] if hasattr(s, "session_speakers") else []
+        poll_count = db.query(func.count(Poll.id)).filter(Poll.session_id == s.id, Poll.event_id == event_id).scalar() or 0
+        sessions_enriched.append({"session": s, "speakers": speakers, "poll_count": poll_count})
+
+    return templates.TemplateResponse(
+        "admin/event_management/overview.html",
+        _hub_ctx(request, event, "overview", stats=stats, sessions=sessions_enriched),
+    )
+
+
+@router.get("/event-management/{event_id}/bookings")
+def event_management_bookings(
+    request: Request, event_id: int, db: Session = Depends(get_db),
+    q: str = Query("", alias="q"),
+    status_filter: str = Query("", alias="status"),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    query = db.query(Booking).filter(Booking.event_id == event_id)
+    if status_filter:
+        query = query.filter(Booking.payment_status == status_filter)
+    else:
+        query = query.filter(Booking.payment_status.in_(["paid", "hold", "refunded"]))
+    bookings = query.order_by(Booking.booked_at.desc()).all()
+
+    enriched = []
+    for b in bookings:
+        u = db.query(User).get(b.user_id)
+        seat = db.query(Seat).get(b.seat_id)
+        if q:
+            search = q.lower()
+            match = (
+                (u and (search in u.username.lower() or search in u.email.lower() or (u.full_name and search in u.full_name.lower())))
+                or (b.booking_ref and search in b.booking_ref.lower())
+                or (b.ticket_id and search in b.ticket_id.lower())
+            )
+            if not match:
+                continue
+        enriched.append({"booking": b, "user": u, "seat": seat})
+
+    return templates.TemplateResponse(
+        "admin/event_management/bookings.html",
+        _hub_ctx(request, event, "bookings", bookings=enriched, q=q, status_filter=status_filter),
+    )
+
+
+@router.get("/event-management/{event_id}/checkin")
+def event_management_checkin_page(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    total = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid").scalar() or 0
+    ci = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid", Booking.checked_in == True).scalar() or 0
+    stats = {"total": total, "checked_in": ci, "pct": round(ci / total * 100) if total else 0}
+
+    return templates.TemplateResponse(
+        "admin/event_management/checkin.html",
+        _hub_ctx(request, event, "checkin", stats=stats, result=None),
+    )
+
+
+@router.post("/event-management/{event_id}/checkin")
+async def event_management_checkin_verify(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    form = await _form(request)
+    ticket_id = form.get("ticket_id", "").strip()
+
+    if not ticket_id:
+        total = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid").scalar() or 0
+        ci = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid", Booking.checked_in == True).scalar() or 0
+        stats = {"total": total, "checked_in": ci, "pct": round(ci / total * 100) if total else 0}
+        return templates.TemplateResponse(
+            "admin/event_management/checkin.html",
+            _hub_ctx(request, event, "checkin", stats=stats, result={"status": "error", "msg": "Please enter a ticket ID."}),
+        )
+
+    is_group = ticket_id.startswith("GROUP-")
+    result = None
+
+    if is_group:
+        group_id = ticket_id[6:]
+        all_group_any = db.query(Booking).filter(Booking.booking_group == group_id).all()
+        all_group = [b for b in all_group_any if b.payment_status == "paid" and b.event_id == event_id]
+        refunded_count = sum(1 for b in all_group_any if b.event_id == event_id and b.payment_status in ("refunded", "cancelled"))
+
+        if not all_group_any:
+            result = {"status": "error", "msg": f"Group '{group_id}' not found."}
+        elif not all_group:
+            result = {"status": "error", "msg": f"No valid tickets in this group for this event."}
+        else:
+            now = now_ist()
+            newly_checked, already_checked = [], []
+            for gb in all_group:
+                seat = db.query(Seat).get(gb.seat_id)
+                label = seat.label if seat else gb.ticket_id
+                if gb.checked_in:
+                    already_checked.append(label)
+                else:
+                    gb.checked_in = True
+                    gb.checked_in_at = now
+                    newly_checked.append(label)
+            db.commit()
+            user = db.query(User).get(all_group[0].user_id)
+            refunded_note = f" ({refunded_count} ticket(s) refunded/cancelled.)" if refunded_count else ""
+            if newly_checked and not already_checked:
+                msg = f"Check-in successful! {len(newly_checked)} ticket(s).{refunded_note}"
+                status = "success"
+            elif newly_checked:
+                msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in.{refunded_note}"
+                status = "success"
+            else:
+                msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in.{refunded_note}"
+                status = "reentry"
+            if newly_checked:
+                log_activity(db, category="admin", action="checkin", description=f"Group check-in: {len(newly_checked)} ticket(s) for '{event.name}'", request=request, user_id=admin.id, target_type="booking", target_id=all_group[0].id)
+            result = {
+                "status": status, "msg": msg, "is_group": True,
+                "user_name": user.full_name or user.username if user else "Unknown",
+                "user_email": user.email if user else "",
+                "event_name": event.name,
+                "newly_checked": newly_checked, "already_checked": already_checked,
+            }
+    else:
+        booking = db.query(Booking).filter(
+            Booking.ticket_id == ticket_id, Booking.payment_status == "paid", Booking.event_id == event_id
+        ).first()
+        if not booking:
+            result = {"status": "error", "msg": f"Ticket '{ticket_id}' not found or not valid for this event."}
+        elif booking.checked_in:
+            user = db.query(User).get(booking.user_id)
+            seat = db.query(Seat).get(booking.seat_id)
+            time_str = booking.checked_in_at.strftime('%I:%M %p') if booking.checked_in_at else 'earlier'
+            result = {
+                "status": "reentry", "msg": f"Re-entry — ticket valid. Originally checked in at {time_str}.",
+                "user_name": user.full_name or user.username if user else "Unknown",
+                "user_email": user.email if user else "",
+                "seat_label": seat.label if seat else "", "ticket_id": ticket_id,
+            }
+        else:
+            booking.checked_in = True
+            booking.checked_in_at = now_ist()
+            user = db.query(User).get(booking.user_id)
+            seat = db.query(Seat).get(booking.seat_id)
+            log_activity(db, category="admin", action="checkin", description=f"Checked in ticket '{ticket_id}' for '{event.name}'", request=request, user_id=admin.id, target_type="booking", target_id=booking.id)
+            db.commit()
+            result = {
+                "status": "success", "msg": "Check-in successful!",
+                "user_name": user.full_name or user.username if user else "Unknown",
+                "user_email": user.email if user else "",
+                "seat_label": seat.label if seat else "", "ticket_id": ticket_id,
+            }
+
+    total = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid").scalar() or 0
+    ci = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid", Booking.checked_in == True).scalar() or 0
+    stats = {"total": total, "checked_in": ci, "pct": round(ci / total * 100) if total else 0}
+
+    return templates.TemplateResponse(
+        "admin/event_management/checkin.html",
+        _hub_ctx(request, event, "checkin", stats=stats, result=result),
+    )
+
+
+@router.get("/event-management/{event_id}/waitlist")
+def event_management_waitlist(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    wl_entries = db.query(Waitlist).filter(Waitlist.event_id == event_id).order_by(Waitlist.joined_at.desc()).all()
+    enriched = []
+    for w in wl_entries:
+        u = db.query(User).get(w.user_id)
+        enriched.append({"entry": w, "user": u})
+
+    return templates.TemplateResponse(
+        "admin/event_management/waitlist.html",
+        _hub_ctx(request, event, "waitlist", entries=enriched),
+    )
+
+
+def _enrich_poll(p):
+    """Build display-ready dict for a single Poll object."""
+    enriched: dict = {"poll": p}
+    if p.poll_type in ("multiple_choice", "yes_no"):
+        total = sum(len(o.votes) for o in p.options)
+        opts = []
+        for o in p.options:
+            count = len(o.votes)
+            opts.append({"option": o, "votes": count, "pct": round(count / total * 100, 1) if total else 0})
+        enriched.update(total_votes=total, options=opts)
+    elif p.poll_type == "rating":
+        votes = [v for v in p.votes if v.rating_value is not None]
+        total = len(votes)
+        avg = round(sum(v.rating_value for v in votes) / total, 1) if total else 0
+        dist = {s: 0 for s in range(1, 6)}
+        for v in votes:
+            dist[v.rating_value] = dist.get(v.rating_value, 0) + 1
+        enriched.update(total_votes=total, average=avg, distribution=dist)
+    elif p.poll_type == "text":
+        votes = [v for v in p.votes if v.text_answer]
+        enriched.update(total_votes=len(votes), text_responses=[v.text_answer for v in votes])
+    else:
+        enriched.update(total_votes=0, options=[])
+    return enriched
+
+
+@router.get("/event-management/{event_id}/polls")
+def event_management_polls(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    polls = db.query(Poll).filter(Poll.event_id == event_id).order_by(Poll.created_at.desc()).all()
+
+    by_session: dict[int, list] = {}
+    for p in polls:
+        by_session.setdefault(p.session_id, []).append(_enrich_poll(p))
+
+    sessions = event.sessions or []
+    grouped = []
+    for s in sessions:
+        session_polls = by_session.pop(s.id, [])
+        grouped.append({"session": s, "polls": session_polls})
+    for sid, remaining in by_session.items():
+        orphan = db.query(SessionModel).get(sid)
+        grouped.append({"session": orphan, "polls": remaining})
+
+    return templates.TemplateResponse(
+        "admin/event_management/polls.html",
+        _hub_ctx(request, event, "polls", grouped=grouped, sessions=sessions, total_polls=len(polls)),
+    )
+
+
+@router.post("/event-management/{event_id}/polls")
+async def event_management_create_poll(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"ok": False}, status_code=403)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return JSONResponse({"ok": False, "error": "Event not found."}, status_code=404)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
+
+    session_id = body.get("session_id")
+    if not session_id:
+        return JSONResponse({"ok": False, "error": "Select a session."}, status_code=400)
+    session_obj = db.query(SessionModel).get(int(session_id))
+    if not session_obj:
+        return JSONResponse({"ok": False, "error": "Session not found."}, status_code=404)
+
+    question = (body.get("question") or "").strip()
+    poll_type = body.get("poll_type", "multiple_choice")
+    if poll_type not in ("multiple_choice", "yes_no", "rating", "text"):
+        poll_type = "multiple_choice"
+    options_list = body.get("options", [])
+    if not question:
+        return JSONResponse({"ok": False, "error": "Provide a question."}, status_code=400)
+    if poll_type == "multiple_choice" and len(options_list) < 2:
+        return JSONResponse({"ok": False, "error": "Provide at least 2 options."}, status_code=400)
+
+    poll = Poll(
+        session_id=int(session_id), event_id=event_id, question=question, poll_type=poll_type,
+        allow_multiple=bool(body.get("allow_multiple")), created_by=admin.id,
+    )
+    db.add(poll)
+    db.flush()
+    if poll_type == "yes_no":
+        db.add(PollOption(poll_id=poll.id, option_text="Yes", order=0))
+        db.add(PollOption(poll_id=poll.id, option_text="No", order=1))
+    elif poll_type == "multiple_choice":
+        for i, opt_text in enumerate(options_list):
+            opt_text = (opt_text or "").strip()
+            if opt_text:
+                db.add(PollOption(poll_id=poll.id, option_text=opt_text, order=i))
+    log_activity(db, category="admin", action="create", description=f"Created poll for session '{session_obj.title}' in event '{event.name}'", request=request, user_id=admin.id, target_type="poll", target_id=poll.id)
+    db.commit()
+    return JSONResponse({"ok": True, "poll_id": poll.id})
+
+
+@router.get("/event-management/{event_id}/feedback")
+def event_management_feedback(
+    request: Request, event_id: int, db: Session = Depends(get_db),
+    rating_filter: str = Query("", alias="rating"),
+    featured_filter: str = Query("", alias="featured"),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    query = db.query(Feedback).filter(Feedback.event_id == event_id)
+    if rating_filter:
+        try:
+            query = query.filter(Feedback.rating == int(rating_filter))
+        except ValueError:
+            pass
+    if featured_filter == "yes":
+        query = query.filter(Feedback.is_featured == True)
+    elif featured_filter == "no":
+        query = query.filter(Feedback.is_featured == False)
+
+    feedback_items = query.order_by(Feedback.created_at.desc()).all()
+    enriched = []
+    for fb in feedback_items:
+        user = db.query(User).get(fb.user_id)
+        enriched.append({"feedback": fb, "user": user})
+
+    return templates.TemplateResponse(
+        "admin/event_management/feedback.html",
+        _hub_ctx(request, event, "feedback", feedback_items=enriched,
+                 rating_filter=rating_filter, featured_filter=featured_filter),
+    )
+
+
+@router.get("/event-management/{event_id}/alerts")
+def event_management_alerts(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    alerts = db.query(EventAlert).filter(EventAlert.event_id == event_id).order_by(EventAlert.created_at.desc()).all()
+    enriched = []
+    for a in alerts:
+        admin_user = db.query(User).get(a.admin_id)
+        enriched.append({"alert": a, "admin": admin_user})
+
+    return templates.TemplateResponse(
+        "admin/event_management/alerts.html",
+        _hub_ctx(request, event, "alerts", alerts=enriched),
+    )
+
+
+@router.post("/event-management/{event_id}/alerts/send")
+async def event_management_send_alert(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"ok": False, "error": "Unauthorized"}, status_code=403)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return JSONResponse({"ok": False, "error": "Event not found"}, status_code=404)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid request"}, status_code=400)
+
+    message = (body.get("message") or "").strip()
+    alert_type = body.get("alert_type", "info")
+    if alert_type not in ("info", "warning", "urgent"):
+        alert_type = "info"
+    if not message:
+        return JSONResponse({"ok": False, "error": "Message is required"}, status_code=400)
+
+    alert = EventAlert(event_id=event_id, admin_id=admin.id, message=message, alert_type=alert_type)
+    db.add(alert)
+    db.commit()
+
+    user_ids = [
+        r[0] for r in
+        db.query(Booking.user_id).filter(
+            Booking.event_id == event_id, Booking.payment_status == "paid"
+        ).distinct().all()
+    ]
+
+    if user_ids:
+        from app.services.poll_events import publish_to_users
+        publish_to_users(user_ids, {
+            "type": "alert",
+            "message": message,
+            "alert_type": alert_type,
+            "event_name": event.name,
+            "event_id": event_id,
+        })
+
+    log_activity(db, category="admin", action="alert", description=f"Sent alert to {len(user_ids)} attendee(s) of '{event.name}'", request=request, user_id=admin.id, target_type="event", target_id=event_id)
+
+    return JSONResponse({"ok": True, "recipients": len(user_ids)})

@@ -12,6 +12,7 @@ class Poll(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=False)
     question = Column(Text, nullable=False)
     poll_type = Column(String(30), nullable=False, default="multiple_choice")
     is_active = Column(Boolean, default=False)
@@ -21,6 +22,7 @@ class Poll(Base):
     closed_at = Column(DateTime, nullable=True)
 
     session = relationship("Session", backref="polls")
+    event = relationship("Event")
     options = relationship("PollOption", back_populates="poll", cascade="all, delete-orphan", order_by="PollOption.order")
     creator = relationship("User", backref="created_polls")
 

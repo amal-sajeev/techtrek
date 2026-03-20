@@ -2,28 +2,30 @@ import asyncio
 import json
 from collections import defaultdict
 
-_listeners: dict[int, list[asyncio.Queue]] = defaultdict(list)
+_listeners: dict[tuple[int, int], list[asyncio.Queue]] = defaultdict(list)
 _user_listeners: dict[int, list[asyncio.Queue]] = defaultdict(list)
 
 
-def subscribe(session_id: int) -> asyncio.Queue:
+def subscribe(session_id: int, event_id: int) -> asyncio.Queue:
     q: asyncio.Queue = asyncio.Queue()
-    _listeners[session_id].append(q)
+    _listeners[(session_id, event_id)].append(q)
     return q
 
 
-def unsubscribe(session_id: int, q: asyncio.Queue):
+def unsubscribe(session_id: int, event_id: int, q: asyncio.Queue):
+    key = (session_id, event_id)
     try:
-        _listeners[session_id].remove(q)
+        _listeners[key].remove(q)
     except ValueError:
         pass
-    if not _listeners[session_id]:
-        del _listeners[session_id]
+    if not _listeners[key]:
+        del _listeners[key]
 
 
-async def publish(session_id: int, data: dict):
+async def publish(session_id: int, event_id: int, data: dict):
+    key = (session_id, event_id)
     msg = json.dumps(data)
-    for q in list(_listeners.get(session_id, [])):
+    for q in list(_listeners.get(key, [])):
         try:
             q.put_nowait(msg)
         except asyncio.QueueFull:

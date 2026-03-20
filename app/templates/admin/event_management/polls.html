@@ -1,56 +1,74 @@
-{% extends "base.html" %}
-{% block title %}Polls — {{ session.title }} — TechTrek{% endblock %}
+{% extends "admin/event_management/base_hub.html" %}
+{% block title %}Polls — {{ hub_event.name }} — Admin{% endblock %}
 
-{% block content %}
-<section class="section">
-  <div class="container" style="max-width:800px;">
-    <a href="/speaker/sessions" class="btn btn-outline btn-sm" style="margin-bottom:1rem">&#8592; Sessions</a>
+{% block hub_content %}
+<div style="margin-top:1.5rem">
+  <h3 class="panel-title">Event Polls</h3>
+  <p class="text-muted" style="font-size:.85rem;margin-bottom:1.25rem">
+    Polls for <strong>{{ hub_event.name }}</strong>, organised by session. {{ total_polls }} poll{{ 's' if total_polls != 1 else '' }} total.
+  </p>
+</div>
 
-    <div class="page-header-block" style="margin-bottom:1.5rem">
-      <h1 class="page-title">Live Polls</h1>
-      <p class="text-muted">{{ session.title }}</p>
+{% if sessions %}
+<div class="card" style="padding:1.5rem;margin-bottom:2rem">
+  <h3 style="margin:0 0 1rem;font-size:1rem">Create New Poll</h3>
+
+  <div class="form-group" style="margin-bottom:.75rem">
+    <label class="form-label">Session</label>
+    <select id="poll-session" class="form-input" data-no-tomselect>
+      <option value="">— Select session —</option>
+      {% for s in sessions %}
+      <option value="{{ s.id }}">{{ s.title }}</option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <div class="form-group" style="margin-bottom:.75rem">
+    <label class="form-label">Poll Type</label>
+    <select id="poll-type" class="form-input" onchange="onPollTypeChange()" data-no-tomselect>
+      <option value="multiple_choice">Multiple Choice</option>
+      <option value="yes_no">Yes / No</option>
+      <option value="rating">Star Rating (1-5)</option>
+      <option value="text">Text Input</option>
+    </select>
+  </div>
+
+  <div class="form-group" style="margin-bottom:.75rem">
+    <label class="form-label">Question</label>
+    <input type="text" id="poll-question" class="form-input" placeholder="e.g. What topic should we cover next?">
+  </div>
+
+  <div id="poll-options-container">
+    <label class="form-label">Options</label>
+    <div style="display:flex;flex-direction:column;gap:.5rem" id="poll-options-list">
+      <input type="text" class="form-input poll-option-input" placeholder="Option 1">
+      <input type="text" class="form-input poll-option-input" placeholder="Option 2">
     </div>
+    <button type="button" class="btn btn-outline btn-sm" style="margin-top:.5rem" onclick="addPollOption()">+ Add Option</button>
+  </div>
 
-    <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
-      <h3 style="margin:0 0 1rem;font-size:1rem">Create New Poll</h3>
+  <div style="display:flex;gap:.75rem;align-items:center;margin-top:1rem">
+    <span style="flex:1"></span>
+    <button type="button" class="btn btn-primary btn-sm" id="create-poll-btn" onclick="createPoll()">Create Poll</button>
+  </div>
+  <div id="create-poll-error" style="color:#ef4444;font-size:.85rem;margin-top:.5rem;display:none"></div>
+</div>
+{% endif %}
 
-      <div class="form-group" style="margin-bottom:.75rem">
-        <label class="form-label">Poll Type</label>
-        <select id="poll-type" class="form-input" onchange="onPollTypeChange()">
-          <option value="multiple_choice">Multiple Choice</option>
-          <option value="yes_no">Yes / No</option>
-          <option value="rating">Star Rating (1-5)</option>
-          <option value="text">Text Input</option>
-        </select>
-      </div>
-
-      <div class="form-group" style="margin-bottom:.75rem">
-        <label class="form-label">Question</label>
-        <input type="text" id="poll-question" class="form-input" placeholder="e.g. What topic should we cover next?">
-      </div>
-
-      <div id="poll-options-container">
-        <label class="form-label">Options</label>
-        <div style="display:flex;flex-direction:column;gap:.5rem" id="poll-options-list">
-          <input type="text" class="form-input poll-option-input" placeholder="Option 1">
-          <input type="text" class="form-input poll-option-input" placeholder="Option 2">
-        </div>
-        <button type="button" class="btn btn-outline btn-sm" style="margin-top:.5rem" onclick="addPollOption()">+ Add Option</button>
-      </div>
-
-      <div style="display:flex;gap:.75rem;align-items:center;margin-top:1rem">
-        <span style="flex:1"></span>
-        <button type="button" class="btn btn-primary btn-sm" id="create-poll-btn" onclick="createPoll()">Create Poll</button>
-      </div>
-      <div id="create-poll-error" style="color:#ef4444;font-size:.85rem;margin-top:.5rem;display:none"></div>
-    </div>
-
-    {% if polls %}
-    {% for p in polls %}
-    <div class="card" style="padding:1.5rem;margin-bottom:1rem" id="poll-card-{{ p.poll.id }}">
+{% for group in grouped %}
+{% if group.polls %}
+<div class="em-poll-session-group" style="margin-bottom:2rem">
+  <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;cursor:pointer" onclick="this.parentElement.classList.toggle('collapsed')">
+    <span class="em-poll-toggle-icon" style="font-size:.75rem;transition:transform .2s">&#9660;</span>
+    <h3 style="margin:0;font-size:1rem">{{ group.session.title if group.session else 'Unknown Session' }}</h3>
+    <span class="badge badge-draft" style="font-size:.7rem">{{ group.polls|length }} poll{{ 's' if group.polls|length != 1 else '' }}</span>
+  </div>
+  <div class="em-poll-session-body">
+    {% for p in group.polls %}
+    <div class="card" style="padding:1.25rem;margin-bottom:.75rem">
       <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:1rem;margin-bottom:.75rem">
         <div>
-          <h3 style="margin:0;font-size:1rem">{{ p.poll.question }}</h3>
+          <h4 style="margin:0;font-size:.95rem">{{ p.poll.question }}</h4>
           <p class="text-muted" style="font-size:.8rem;margin:.25rem 0 0">
             {% set type_labels = {"multiple_choice":"Multiple Choice","yes_no":"Yes / No","rating":"Star Rating","text":"Text Input"} %}
             {{ type_labels.get(p.poll.poll_type, "Poll") }}
@@ -67,7 +85,7 @@
           <button class="btn btn-xs btn-outline" onclick="closePoll({{ p.poll.id }})">Close</button>
           {% endif %}
           {% endif %}
-          <form method="post" action="/speaker/polls/{{ p.poll.id }}/delete" style="display:inline">
+          <form method="post" action="/admin/polls/{{ p.poll.id }}/delete" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-xs btn-danger" data-confirm="Delete this poll?" data-confirm-label="Delete">Delete</button>
           </form>
@@ -86,14 +104,11 @@
         </div>
         {% endfor %}
       </div>
-
       {% elif p.poll.poll_type == 'rating' %}
       <div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">
         <span style="font-size:2rem;font-weight:700;color:var(--cyan,#00d4ff)">{{ p.average }}</span>
         <div>
-          <div style="font-size:1.2rem;color:#fbbf24;">
-            {% for i in range(1, 6) %}&#9733;{% endfor %}
-          </div>
+          <div style="font-size:1.2rem;color:#fbbf24;">{% for i in range(1, 6) %}&#9733;{% endfor %}</div>
           <span class="text-muted" style="font-size:.8rem">{{ p.total_votes }} rating{{ 's' if p.total_votes != 1 else '' }}</span>
         </div>
       </div>
@@ -110,7 +125,6 @@
         </div>
         {% endfor %}
       </div>
-
       {% elif p.poll.poll_type == 'text' %}
       {% if p.text_responses %}
       <div style="max-height:300px;overflow-y:auto;display:flex;flex-direction:column;gap:.5rem">
@@ -126,25 +140,28 @@
       {% endif %}
     </div>
     {% endfor %}
-    {% else %}
-    <div class="empty-state">
-      <p>No polls yet. Create one above to engage your audience during the session.</p>
-    </div>
-    {% endif %}
   </div>
-</section>
+</div>
+{% endif %}
+{% endfor %}
+
+{% if total_polls == 0 %}
+<div class="empty-state">
+  <div class="empty-state-icon">&#128202;</div>
+  <h3>No polls yet</h3>
+  <p>{% if sessions %}Use the form above to create your first poll for this event.{% else %}Add sessions to this event first, then create polls.{% endif %}</p>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{{ super() }}
 <script>
-var sessionId = {{ session.id }};
-var eventId = {{ poll_event_id or session.event_id or 0 }};
-var pollQS = eventId ? '?event_id=' + eventId : '';
+var eventId = {{ hub_event.id }};
 
 function onPollTypeChange() {
   var type = document.getElementById('poll-type').value;
-  var optContainer = document.getElementById('poll-options-container');
-  optContainer.style.display = (type === 'multiple_choice') ? '' : 'none';
+  document.getElementById('poll-options-container').style.display = (type === 'multiple_choice') ? '' : 'none';
 }
 onPollTypeChange();
 
@@ -159,27 +176,21 @@ function addPollOption() {
 }
 
 function createPoll() {
+  var sessionId = document.getElementById('poll-session').value;
   var question = document.getElementById('poll-question').value.trim();
   var pollType = document.getElementById('poll-type').value;
   var errEl = document.getElementById('create-poll-error');
 
-  if (!question) {
-    errEl.textContent = 'Enter a question.';
-    errEl.style.display = 'block';
-    return;
-  }
+  if (!sessionId) { errEl.textContent = 'Select a session.'; errEl.style.display = 'block'; return; }
+  if (!question) { errEl.textContent = 'Enter a question.'; errEl.style.display = 'block'; return; }
 
-  var payload = {question: question, poll_type: pollType};
+  var payload = {session_id: parseInt(sessionId), question: question, poll_type: pollType};
 
   if (pollType === 'multiple_choice') {
     var inputs = document.querySelectorAll('.poll-option-input');
     var options = [];
     inputs.forEach(function(inp) { if (inp.value.trim()) options.push(inp.value.trim()); });
-    if (options.length < 2) {
-      errEl.textContent = 'Provide at least 2 options.';
-      errEl.style.display = 'block';
-      return;
-    }
+    if (options.length < 2) { errEl.textContent = 'Provide at least 2 options.'; errEl.style.display = 'block'; return; }
     payload.options = options;
   }
 
@@ -188,7 +199,7 @@ function createPoll() {
   btn.disabled = true;
   btn.textContent = 'Creating...';
 
-  fetch('/speaker/sessions/' + sessionId + '/polls' + pollQS, {
+  fetch('/admin/event-management/' + eventId + '/polls', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload)
@@ -204,16 +215,20 @@ function createPoll() {
 
 function togglePoll(pollId, btn) {
   btn.disabled = true;
-  fetch('/speaker/polls/' + pollId + '/toggle', {method:'POST', headers:{'Content-Type':'application/json'}})
+  fetch('/admin/polls/' + pollId + '/toggle', {method:'POST', headers:{'Content-Type':'application/json'}})
   .then(function(r) { return r.json(); })
   .then(function(data) { if (data.ok) location.reload(); })
   .finally(function() { btn.disabled = false; });
 }
 
 function closePoll(pollId) {
-  fetch('/speaker/polls/' + pollId + '/close', {method:'POST', headers:{'Content-Type':'application/json'}})
+  fetch('/admin/polls/' + pollId + '/close', {method:'POST', headers:{'Content-Type':'application/json'}})
   .then(function(r) { return r.json(); })
   .then(function() { location.reload(); });
 }
 </script>
+<style>
+.em-poll-session-group.collapsed .em-poll-session-body { display: none; }
+.em-poll-session-group.collapsed .em-poll-toggle-icon { transform: rotate(-90deg); }
+</style>
 {% endblock %}

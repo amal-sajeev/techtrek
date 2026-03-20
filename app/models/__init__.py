@@ -27,6 +27,7 @@ from app.models.event_addon import EventAddOn, BookingAddOn
 from app.models.ticket_share import TicketShare
 from app.models.feedback_template import FeedbackTemplate, TemplateQuestion, FeedbackResponse, QuestionResponse
 from app.models.poll import Poll, PollOption, PollVote
+from app.models.event_alert import EventAlert
 
 __all__ = [
     "User", "City", "College", "Auditorium", "Seat", "Speaker", "AgendaItem",
@@ -36,5 +37,5 @@ __all__ = [
     "SessionFeedback", "SessionRating", "Newsletter", "UploadedImage", "GalleryImage",
     "EventBreak", "EventAddOn", "BookingAddOn", "TicketShare",
     "FeedbackTemplate", "TemplateQuestion", "FeedbackResponse", "QuestionResponse",
-    "Poll", "PollOption", "PollVote",
+    "Poll", "PollOption", "PollVote", "EventAlert",
 ]

@@ -640,6 +640,8 @@
 
   /* ── Live Polling ───────────────────────────────────── */
   var sessionId = {{ session.id }};
+  var eventId = {{ event.id if event else 'null' }};
+  var pollQS = eventId ? '?event_id=' + eventId : '';
   var pollSection = document.getElementById('live-poll-section');
   var pollQuestionEl = document.getElementById('poll-question-text');
   var pollOptionsEl = document.getElementById('poll-options');
@@ -731,7 +733,7 @@
 
   window.castVote = function(optionId) {
     if (!currentPollId) return;
-    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote', {
+    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote' + pollQS, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({option_id: optionId})
@@ -752,7 +754,7 @@
     stars.forEach(function(el) {
       el.style.color = parseInt(el.dataset.val) <= val ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))';
     });
-    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote', {
+    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote' + pollQS, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({rating: val})
@@ -771,7 +773,7 @@
     var inp = document.getElementById('poll-text-input');
     var text = (inp ? inp.value : '').trim();
     if (!text) return;
-    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote', {
+    fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote' + pollQS, {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({text: text})
@@ -785,11 +787,11 @@
     });
   };
 
-  fetch('/sessions/' + sessionId + '/polls/active')
+  fetch('/sessions/' + sessionId + '/polls/active' + pollQS)
     .then(function(r) { return r.json(); })
     .then(function(data) { if (data.poll) renderPoll(data.poll); });
 
-  var evtSource = new EventSource('/sessions/' + sessionId + '/polls/stream');
+  var evtSource = new EventSource('/sessions/' + sessionId + '/polls/stream' + pollQS);
   evtSource.onmessage = function(e) {
     try {
       var data = JSON.parse(e.data);

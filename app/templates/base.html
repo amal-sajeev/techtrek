@@ -54,6 +54,7 @@
           <a href="/speaker/" class="nav-link nav-admin">Speaker</a>
         {% endif %}
         {% if user.is_admin %}
+          <a href="/admin/event-management" class="nav-link nav-admin">Event Mgmt</a>
           <a href="/admin/" class="nav-link nav-admin">Admin</a>
         {% elif user.is_supervisor %}
           <a href="/supervisor/" class="nav-link nav-admin">Supervisor</a>
@@ -97,6 +98,7 @@
       <a href="/speaker/" class="nav-drawer-link">Speaker Dashboard</a>
     {% endif %}
     {% if user.is_admin %}
+      <a href="/admin/event-management" class="nav-drawer-link">Event Mgmt</a>
       <a href="/admin/" class="nav-drawer-link">Admin Panel</a>
     {% elif user.is_supervisor %}
       <a href="/supervisor/" class="nav-drawer-link">Supervisor</a>
@@ -584,11 +586,16 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
   var dismissBtn = document.getElementById('poll-popup-dismiss');
   var viewLink = document.getElementById('poll-popup-view-session');
   var currentSessionId = null;
+  var currentEventId = null;
   var currentPollId = null;
   var currentPollType = 'multiple_choice';
   var votedOption = null;
   var votedRating = null;
   var votedText = null;
+
+  function pollQS() {
+    return currentEventId ? '?event_id=' + currentEventId : '';
+  }
 
   function closePollModal() {
     modal.style.display = 'none';
@@ -606,6 +613,7 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
   function renderPollBody(data) {
     if (!data || !data.question) return;
     currentSessionId = data.session_id;
+    currentEventId = data.event_id || null;
     currentPollId = data.poll_id;
     currentPollType = data.poll_type || 'multiple_choice';
     if (data.voted_option !== undefined && data.voted_option !== null) votedOption = data.voted_option;
@@ -720,7 +728,7 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
       body.text = text;
     }
     voteBtn.disabled = true;
-    fetch('/sessions/' + currentSessionId + '/polls/' + currentPollId + '/vote', {
+    fetch('/sessions/' + currentSessionId + '/polls/' + currentPollId + '/vote' + pollQS(), {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body)
@@ -752,6 +760,14 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
     try {
       var data = JSON.parse(e.data);
       if (data.type === 'connected') return;
+      if (data.type === 'alert') {
+        var toastType = data.alert_type === 'urgent' ? 'danger' : (data.alert_type === 'warning' ? 'warning' : 'info');
+        var prefix = data.event_name ? '[' + data.event_name + '] ' : '';
+        if (window.TechTrek && window.TechTrek.showToast) {
+          window.TechTrek.showToast(prefix + data.message, toastType, data.alert_type === 'urgent' ? 10000 : 6000);
+        }
+        return;
+      }
       if (data.closed || data.is_active === false) {
         closePollModal();
         return;
@@ -760,10 +776,12 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
         if (data.session_id && window.location.pathname === '/sessions/' + data.session_id) return;
         openPollModal();
         if (data.session_id) {
-          fetch('/sessions/' + data.session_id + '/polls/active').then(function(r) { return r.json(); }).then(function(res) {
+          var qs = data.event_id ? '?event_id=' + data.event_id : '';
+          fetch('/sessions/' + data.session_id + '/polls/active' + qs).then(function(r) { return r.json(); }).then(function(res) {
             if (res.poll) {
               res.poll.session_id = data.session_id;
               res.poll.session_title = data.session_title;
+              res.poll.event_id = data.event_id;
               renderPollBody(res.poll);
             } else {
               renderPollBody(data);

@@ -398,13 +398,17 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
 
 
 @router.get("/sessions/{session_id}/polls")
-def session_polls(request: Request, session_id: int, db: Session = Depends(get_db)):
+def session_polls(request: Request, session_id: int, event_id: int = Query(default=0), db: Session = Depends(get_db)):
     user, speaker = _require_speaker(request, db)
     session_obj = db.query(SessionModel).get(session_id)
     if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
         flash(request, "Session not found or access denied.", "danger")
         return RedirectResponse("/speaker/", status_code=303)
-    polls = db.query(Poll).filter(Poll.session_id == session_id).order_by(Poll.created_at.desc()).all()
+    eid = event_id or session_obj.event_id
+    filters = [Poll.session_id == session_id]
+    if eid:
+        filters.append(Poll.event_id == eid)
+    polls = db.query(Poll).filter(*filters).order_by(Poll.created_at.desc()).all()
     polls_enriched = []
     for p in polls:
         enriched: dict = {"poll": p}
@@ -431,12 +435,12 @@ def session_polls(request: Request, session_id: int, db: Session = Depends(get_d
         polls_enriched.append(enriched)
     return templates.TemplateResponse(
         "speaker/session_polls.html",
-        _speaker_ctx(request, speaker=speaker, session=session_obj, polls=polls_enriched),
+        _speaker_ctx(request, speaker=speaker, session=session_obj, polls=polls_enriched, poll_event_id=eid),
     )
 
 
 @router.post("/sessions/{session_id}/polls")
-async def create_poll(request: Request, session_id: int, db: Session = Depends(get_db)):
+async def create_poll(request: Request, session_id: int, event_id: int = Query(default=0), db: Session = Depends(get_db)):
     user, speaker = _require_speaker(request, db)
     session_obj = db.query(SessionModel).get(session_id)
     if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
@@ -455,8 +459,12 @@ async def create_poll(request: Request, session_id: int, db: Session = Depends(g
     if poll_type == "multiple_choice" and len(options_list) < 2:
         return JSONResponse({"ok": False, "error": "Provide at least 2 options."}, status_code=400)
 
+    eid = event_id or session_obj.event_id
+    if not eid:
+        return JSONResponse({"ok": False, "error": "No event associated with this session."}, status_code=400)
     poll = Poll(
         session_id=session_id,
+        event_id=eid,
         question=question,
         poll_type=poll_type,
         allow_multiple=bool(body.get("allow_multiple")),
@@ -491,7 +499,7 @@ async def toggle_poll(request: Request, poll_id: int, db: Session = Depends(get_
 
     if not poll.is_active:
         db.query(Poll).filter(
-            Poll.session_id == poll.session_id, Poll.is_active == True
+            Poll.session_id == poll.session_id, Poll.event_id == poll.event_id, Poll.is_active == True
         ).update({Poll.is_active: False})
         poll.is_active = True
     else:
@@ -504,11 +512,11 @@ async def toggle_poll(request: Request, poll_id: int, db: Session = Depends(get_
     if poll.is_active:
         from app.routers.public import _poll_results, _notify_event_attendees_of_poll
         results = _poll_results(db, poll)
-        asyncio.ensure_future(publish(poll.session_id, results))
+        asyncio.ensure_future(publish(poll.session_id, poll.event_id, results))
         _notify_event_attendees_of_poll(db, poll, results)
     else:
         from app.routers.public import _notify_event_attendees_poll_closed
-        asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+        asyncio.ensure_future(publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
         _notify_event_attendees_poll_closed(db, poll)
 
     return JSONResponse({"ok": True, "is_active": poll.is_active})
@@ -531,7 +539,7 @@ async def close_poll(request: Request, poll_id: int, db: Session = Depends(get_d
     import asyncio
     from app.services.poll_events import publish
     from app.routers.public import _notify_event_attendees_poll_closed
-    asyncio.ensure_future(publish(poll.session_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+    asyncio.ensure_future(publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
     _notify_event_attendees_poll_closed(db, poll)
     return JSONResponse({"ok": True})
 
@@ -548,10 +556,11 @@ def delete_poll(request: Request, poll_id: int, db: Session = Depends(get_db)):
         flash(request, "Access denied.", "danger")
         return RedirectResponse("/speaker/", status_code=303)
     sid = poll.session_id
+    eid = poll.event_id
     db.delete(poll)
     db.commit()
     flash(request, "Poll deleted.", "success")
-    return RedirectResponse(f"/speaker/sessions/{sid}/polls", status_code=303)
+    return RedirectResponse(f"/speaker/sessions/{sid}/polls?event_id={eid}", status_code=303)
 
 
 @router.get("/profile")

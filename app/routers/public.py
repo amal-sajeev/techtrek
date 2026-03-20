@@ -1183,13 +1183,12 @@ def _poll_results(db: DbSession, poll):
 
 def _event_attendee_user_ids(db: DbSession, poll) -> list:
     """Return list of user_ids with a paid ticket for the poll's event."""
-    session_obj = poll.session if hasattr(poll, "session") and poll.session else db.query(Session).get(poll.session_id)
-    if not session_obj or not session_obj.event_id:
+    if not poll.event_id:
         return []
     return [
         r[0] for r in
         db.query(Booking.user_id).filter(
-            Booking.event_id == session_obj.event_id,
+            Booking.event_id == poll.event_id,
             Booking.payment_status == "paid",
         ).distinct().all()
     ]
@@ -1206,7 +1205,7 @@ def _notify_event_attendees_of_poll(db: DbSession, poll, poll_results: dict):
         **poll_results,
         "session_id": poll.session_id,
         "session_title": session_obj.title if session_obj else "",
-        "event_id": session_obj.event_id if session_obj else None,
+        "event_id": poll.event_id,
     }
     publish_to_users(user_ids, payload)
 
@@ -1221,10 +1220,11 @@ def _notify_event_attendees_poll_closed(db: DbSession, poll):
 
 
 @router.get("/sessions/{session_id}/polls/active")
-def active_poll(request: Request, session_id: int, db: DbSession = Depends(get_db)):
-    poll = db.query(Poll).filter(
-        Poll.session_id == session_id, Poll.is_active == True
-    ).first()
+def active_poll(request: Request, session_id: int, event_id: int = Query(default=0), db: DbSession = Depends(get_db)):
+    filters = [Poll.session_id == session_id, Poll.is_active == True]
+    if event_id:
+        filters.append(Poll.event_id == event_id)
+    poll = db.query(Poll).filter(*filters).first()
     if not poll:
         return JSONResponse({"poll": None})
 
@@ -1242,14 +1242,15 @@ def active_poll(request: Request, session_id: int, db: DbSession = Depends(get_d
 
 
 @router.post("/sessions/{session_id}/polls/{poll_id}/vote")
-async def vote_poll(request: Request, session_id: int, poll_id: int, db: DbSession = Depends(get_db)):
+async def vote_poll(request: Request, session_id: int, poll_id: int, event_id: int = Query(default=0), db: DbSession = Depends(get_db)):
     user_id = request.session.get("user_id")
     if not user_id:
         return JSONResponse({"ok": False, "error": "Please log in to vote."}, status_code=401)
 
-    poll = db.query(Poll).filter(
-        Poll.id == poll_id, Poll.session_id == session_id, Poll.is_active == True
-    ).first()
+    filters = [Poll.id == poll_id, Poll.session_id == session_id, Poll.is_active == True]
+    if event_id:
+        filters.append(Poll.event_id == event_id)
+    poll = db.query(Poll).filter(*filters).first()
     if not poll:
         return JSONResponse({"ok": False, "error": "Poll not found or closed."}, status_code=404)
 
@@ -1313,16 +1314,16 @@ async def vote_poll(request: Request, session_id: int, poll_id: int, db: DbSessi
         results["voted_text"] = (body.get("text", "") or "").strip()
 
     from app.services.poll_events import publish
-    asyncio.ensure_future(publish(session_id, results))
+    asyncio.ensure_future(publish(poll.session_id, poll.event_id, results))
 
     return JSONResponse({"ok": True, "poll": results})
 
 
 @router.get("/sessions/{session_id}/polls/stream")
-async def poll_stream(request: Request, session_id: int):
+async def poll_stream(request: Request, session_id: int, event_id: int = Query(default=0)):
     from app.services.poll_events import subscribe, unsubscribe
 
-    queue = subscribe(session_id)
+    queue = subscribe(session_id, event_id)
 
     async def event_generator():
         try:
@@ -1336,7 +1337,7 @@ async def poll_stream(request: Request, session_id: int):
         except asyncio.CancelledError:
             pass
         finally:
-            unsubscribe(session_id, queue)
+            unsubscribe(session_id, event_id, queue)
 
     return StreamingResponse(
         event_generator(),

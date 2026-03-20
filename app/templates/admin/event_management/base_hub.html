@@ -1,0 +1,37 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<div class="admin-header" style="margin-bottom:0">
+  <div>
+    <a href="/admin/event-management" class="text-muted" style="font-size:.85rem;text-decoration:none">&larr; All Events</a>
+    <h1 class="admin-page-title" style="margin-top:.25rem">{{ hub_event.name }}</h1>
+    <div style="display:flex;gap:.5rem;align-items:center;margin-top:.25rem">
+      {% if hub_event.status == 'published' %}
+      <span class="badge badge-published">Published</span>
+      {% elif hub_event.status == 'completed' %}
+      <span class="badge badge-available">Completed</span>
+      {% elif hub_event.status == 'cancelled' %}
+      <span class="badge badge-danger">Cancelled</span>
+      {% else %}
+      <span class="badge badge-draft">Draft</span>
+      {% endif %}
+      {% if hub_event.start_date %}
+      <span class="text-muted" style="font-size:.85rem">{{ hub_event.start_date.strftime('%b %d, %Y') }}{% if hub_event.end_date and hub_event.end_date != hub_event.start_date %} &ndash; {{ hub_event.end_date.strftime('%b %d, %Y') }}{% endif %}</span>
+      {% endif %}
+    </div>
+  </div>
+  <a href="/admin/events/{{ hub_event.id }}/edit" class="btn btn-outline btn-sm">Edit Event</a>
+</div>
+
+<nav class="em-hub-tabs">
+  <a href="/admin/event-management/{{ hub_event.id }}" class="em-hub-tab {% if hub_tab == 'overview' %}active{% endif %}">Overview</a>
+  <a href="/admin/event-management/{{ hub_event.id }}/bookings" class="em-hub-tab {% if hub_tab == 'bookings' %}active{% endif %}">Bookings</a>
+  <a href="/admin/event-management/{{ hub_event.id }}/checkin" class="em-hub-tab {% if hub_tab == 'checkin' %}active{% endif %}">Check-in</a>
+  <a href="/admin/event-management/{{ hub_event.id }}/waitlist" class="em-hub-tab {% if hub_tab == 'waitlist' %}active{% endif %}">Waitlist</a>
+  <a href="/admin/event-management/{{ hub_event.id }}/polls" class="em-hub-tab {% if hub_tab == 'polls' %}active{% endif %}">Polls</a>
+  <a href="/admin/event-management/{{ hub_event.id }}/feedback" class="em-hub-tab {% if hub_tab == 'feedback' %}active{% endif %}">Feedback</a>
+  <a href="/admin/event-management/{{ hub_event.id }}/alerts" class="em-hub-tab {% if hub_tab == 'alerts' %}active{% endif %}">Alerts</a>
+</nav>
+
+{% block hub_content %}{% endblock %}
+{% endblock %}

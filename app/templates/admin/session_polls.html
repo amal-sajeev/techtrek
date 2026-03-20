@@ -133,6 +133,8 @@
 {{ super() }}
 <script>
 var sessionId = {{ session.id }};
+var eventId = {{ poll_event_id or session.event_id or 0 }};
+var pollQS = eventId ? '?event_id=' + eventId : '';
 
 function onPollTypeChange() {
   var type = document.getElementById('poll-type').value;
@@ -181,7 +183,7 @@ function createPoll() {
   btn.disabled = true;
   btn.textContent = 'Creating...';
 
-  fetch('/admin/sessions/' + sessionId + '/polls', {
+  fetch('/admin/sessions/' + sessionId + '/polls' + pollQS, {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify(payload)

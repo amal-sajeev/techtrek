@@ -1,0 +1,116 @@
+{% extends "admin/event_management/base_hub.html" %}
+{% block title %}Bookings — {{ hub_event.name }} — Admin{% endblock %}
+
+{% block hub_content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-top:1.5rem;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem">
+  <h3 class="panel-title" style="margin:0">Bookings</h3>
+  <form method="get" action="/admin/bookings/export" style="display:flex;align-items:center;gap:.5rem">
+    <input type="hidden" name="event_id" value="{{ hub_event.id }}">
+    <input type="hidden" name="use_filters" value="1">
+    <input type="hidden" name="q" value="{{ q or '' }}">
+    <input type="hidden" name="status" value="{{ status_filter or '' }}">
+    <button type="submit" class="btn btn-outline btn-sm">Export CSV</button>
+  </form>
+</div>
+
+<form method="get" action="/admin/event-management/{{ hub_event.id }}/bookings" class="filter-bar mb-3">
+  <input type="text" name="q" class="form-input" placeholder="Search by user, ref, ticket…" value="{{ q or '' }}" style="min-width:200px;flex:1">
+  <select name="status" class="form-input" style="min-width:140px">
+    <option value="">All Statuses</option>
+    {% for s in ['paid','hold','refunded','cancelled'] %}
+    <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
+    {% endfor %}
+  </select>
+  <button type="submit" class="btn btn-primary btn-sm">Filter</button>
+  {% if q or status_filter %}
+  <a href="/admin/event-management/{{ hub_event.id }}/bookings" class="btn btn-outline btn-sm">Clear</a>
+  {% endif %}
+</form>
+
+{% if bookings %}
+<div class="table-responsive">
+  <table class="table table-cards-mobile">
+    <thead>
+      <tr>
+        <th>Ref</th>
+        <th>Ticket</th>
+        <th>User</th>
+        <th>Seat</th>
+        <th>Status</th>
+        <th>Refund</th>
+        <th>Booked</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in bookings %}
+      <tr>
+        <td data-label="Ref"><code>{{ item.booking.booking_ref }}</code></td>
+        <td data-label="Ticket"><code>{{ item.booking.ticket_id or "—" }}</code></td>
+        <td data-label="User">
+          {{ item.user.username if item.user else "—" }}
+          {% if item.user and item.user.full_name %}<br><small class="text-muted">{{ item.user.full_name }}</small>{% endif %}
+        </td>
+        <td data-label="Seat">{{ item.seat.label if item.seat else "—" }}</td>
+        <td data-label="Status">
+          <span class="badge {% if item.booking.payment_status == 'paid' %}badge-success{% elif item.booking.payment_status == 'refunded' %}badge-muted{% elif item.booking.payment_status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">
+            {{ item.booking.payment_status }}
+          </span>
+          {% if item.booking.checked_in %}<br><small class="text-muted">&#10003; Checked in</small>{% endif %}
+        </td>
+        <td data-label="Refund">
+          {% if item.booking.refund_status %}
+            {% if item.booking.refund_status == 'completed' %}
+            <span class="badge badge-success">Completed</span>
+            {% elif item.booking.refund_status == 'failed' %}
+            <span class="badge badge-danger">Failed</span>
+            {% elif item.booking.refund_status == 'processing' %}
+            <span class="badge badge-warning">Processing</span>
+            {% elif item.booking.refund_status == 'initiated' %}
+            <span class="badge badge-info">Initiated</span>
+            {% else %}
+            <span class="badge badge-muted">{{ item.booking.refund_status|title }}</span>
+            {% endif %}
+          {% else %}
+          —
+          {% endif %}
+        </td>
+        <td data-label="Booked">{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
+        <td class="actions-cell">
+          {% if item.booking.payment_status in ['paid', 'refunded'] %}
+          <a href="/admin/bookings/{{ item.booking.id }}/invoice" class="btn btn-sm btn-outline" title="Download Invoice">&#128196;</a>
+          {% endif %}
+          {% if item.booking.payment_status == 'paid' %}
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-sm btn-outline" data-confirm="Refund this booking?" data-confirm-label="Refund" data-confirm-class="btn-primary">Refund</button>
+          </form>
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Cancel this booking?" data-confirm-label="Cancel">Cancel</button>
+          </form>
+          {% elif item.booking.refund_status == 'failed' %}
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-sm btn-outline" data-confirm="Retry refund?" data-confirm-label="Retry" data-confirm-class="btn-primary">Retry</button>
+          </form>
+          {% elif item.booking.payment_status == 'hold' %}
+          <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+          </form>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">{{ bookings|length }} booking(s).</p>
+{% else %}
+<div class="empty-state">
+  <h3>No bookings found</h3>
+  <p>{% if q or status_filter %}Try adjusting your filters.{% else %}No bookings for this event yet.{% endif %}</p>
+</div>
+{% endif %}
+{% endblock %}
