@@ -11,7 +11,7 @@ if __name__ == "__main__":
     except ImportError:
         sys.exit("uvicorn not installed. Run:  pip install -r requirements.txt")
 
-    kwargs: dict = dict(host="0.0.0.0", port=8000, reload=True)
+    kwargs: dict = dict(host="0.0.0.0", port=8000, reload=True, timeout_graceful_shutdown=3)
 
     use_http = os.environ.get("USE_HTTP", "").strip().lower() in ("1", "true", "yes")
     cert_dir = pathlib.Path(__file__).parent / "certs"

@@ -75,7 +75,8 @@ def supervisor_dashboard(request: Request, db: Session = Depends(get_db)):
         event_ids = [e.id for e in base_q.all()]
         if event_ids:
             total_bookings = db.query(func.count(Booking.id)).filter(
-                Booking.event_id.in_(event_ids), Booking.payment_status == "paid"
+                Booking.event_id.in_(event_ids), Booking.payment_status == "paid",
+                Booking.is_shared_ticket == False,
             ).scalar() or 0
             total_checked_in = db.query(func.count(Booking.id)).filter(
                 Booking.event_id.in_(event_ids), Booking.checked_in == True
@@ -102,7 +103,8 @@ def supervisor_dashboard(request: Request, db: Session = Depends(get_db)):
     for ev in upcoming_events_raw:
         aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
         booked = db.query(func.count(Booking.id)).filter(
-            Booking.event_id == ev.id, Booking.payment_status == "paid"
+            Booking.event_id == ev.id, Booking.payment_status == "paid",
+            Booking.is_shared_ticket == False,
         ).scalar() or 0
         checked = db.query(func.count(Booking.id)).filter(
             Booking.event_id == ev.id, Booking.checked_in == True
@@ -214,7 +216,8 @@ def supervisor_schedule(request: Request, db: Session = Depends(get_db)):
     for ev in events:
         aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
         booked = db.query(func.count(Booking.id)).filter(
-            Booking.event_id == ev.id, Booking.payment_status == "paid"
+            Booking.event_id == ev.id, Booking.payment_status == "paid",
+            Booking.is_shared_ticket == False,
         ).scalar() or 0
         date_key = ev.start_date.strftime("%Y-%m-%d") if ev.start_date else "TBD"
         grouped[date_key].append({

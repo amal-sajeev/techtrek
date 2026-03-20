@@ -43,6 +43,8 @@ class Booking(Base):
     coupon_id = Column(Integer, ForeignKey("coupons.id", ondelete="SET NULL"), nullable=True)
     held_until = Column(DateTime, nullable=True)
     booked_at = Column(DateTime, default=now_ist)
+    is_shared_ticket = Column(Boolean, default=False)
+    original_user_id = Column(Integer, nullable=True)
 
     user = relationship("User", back_populates="bookings")
     event = relationship("Event", back_populates="bookings")

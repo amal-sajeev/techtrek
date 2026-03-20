@@ -371,20 +371,26 @@ def send_ticket_share(to_email: str, recipient_name: str, sender_name: str, even
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
         <tr><td style="background:#0e7490;padding:28px 32px;">
-          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">A Ticket Has Been Shared With You!</h1>
+          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">You're Invited!</h1>
           <p style="margin:6px 0 0;font-size:14px;color:#cffafe;">{sender_name} shared a ticket for {event_name}</p>
         </td></tr>
         <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
           <p style="margin:0 0 16px;">Hi <strong>{recipient_name}</strong>,</p>
           <p style="margin:0 0 16px;"><strong>{sender_name}</strong> has shared a TechTrek ticket with you for <strong>{event_name}</strong>.</p>
-          <p style="margin:0 0 24px;">Click the button below to view the ticket details and QR code:</p>
+          <p style="margin:0 0 20px;">Claim the ticket to unlock:</p>
+          <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;font-size:14px;color:#334155;">
+            <tr><td style="padding:4px 10px 4px 0;">&#128202;</td><td style="padding:4px 0;">Participate in live polls</td></tr>
+            <tr><td style="padding:4px 10px 4px 0;">&#128172;</td><td style="padding:4px 0;">Ask questions in Q&amp;A sessions</td></tr>
+            <tr><td style="padding:4px 10px 4px 0;">&#11088;</td><td style="padding:4px 0;">Rate sessions &amp; give feedback</td></tr>
+            <tr><td style="padding:4px 10px 4px 0;">&#127903;</td><td style="padding:4px 0;">Get your own digital ticket &amp; QR code</td></tr>
+          </table>
           <p style="margin:0 0 24px;">
-            <a href="{ticket_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">View Ticket &rarr;</a>
+            <a href="{ticket_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">Claim Your Ticket &rarr;</a>
           </p>
-          <p style="margin:0;font-size:13px;color:#64748b;">You may need a TechTrek account to view the full ticket details.</p>
+          <p style="margin:0;font-size:13px;color:#64748b;">Sign in or create a free account to claim the ticket as your own.</p>
         </td></tr>
         <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
-          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because someone shared a TechTrek ticket with you.</p>
+          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because {sender_name} shared a TechTrek ticket with you.</p>
         </td></tr>
       </table>
     </td></tr>

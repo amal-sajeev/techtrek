@@ -796,8 +796,66 @@ def schedule_export_pdf(
 
 
 @router.get("/ticket/{ticket_id}")
-def public_ticket(request: Request, ticket_id: str, db: DbSession = Depends(get_db)):
+def public_ticket(request: Request, ticket_id: str, share: str = Query(default=""), db: DbSession = Depends(get_db)):
     viewer_id = request.session.get("user_id")
+    share_token = share.strip() if share else ""
+
+    # ── Shared-ticket flow ──────────────────────────────────────────────
+    if share_token:
+        share_row = db.query(TicketShare).filter(
+            TicketShare.share_token == share_token,
+            TicketShare.ticket_id == ticket_id,
+        ).first()
+        if not share_row:
+            flash(request, "This share link is invalid or has expired.", "danger")
+            return RedirectResponse("/", status_code=303)
+        if share_row.claimed_by is not None:
+            if viewer_id and share_row.claimed_by == viewer_id:
+                return RedirectResponse(f"/ticket/{ticket_id}", status_code=303)
+            flash(request, "This shared ticket has already been claimed.", "info")
+            return RedirectResponse("/", status_code=303)
+
+        booking = (
+            db.query(Booking)
+            .filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
+            .first()
+        )
+        if not booking:
+            return templates.TemplateResponse("errors/404.html", template_ctx(request), status_code=404)
+
+        # Logged-in user: claim the ticket immediately
+        if viewer_id:
+            share_row.claimed_by = viewer_id
+            share_row.claimed_at = now_ist()
+            booking.original_user_id = booking.original_user_id or booking.user_id
+            booking.user_id = viewer_id
+            booking.is_shared_ticket = True
+            db.commit()
+            flash(request, "Ticket claimed! It's now in your account.", "success")
+            return RedirectResponse(f"/ticket/{ticket_id}", status_code=303)
+
+        # Not logged in: show ticket read-only with claim popup
+        event = db.query(Event).get(booking.event_id) if booking.event_id else None
+        auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
+        seat = db.query(Seat).get(booking.seat_id)
+        return templates.TemplateResponse(
+            "public/ticket.html",
+            template_ctx(
+                request,
+                booking=booking,
+                event=event,
+                auditorium=auditorium,
+                seat=seat,
+                ticket_user=None,
+                group_bookings=[],
+                purchased_addons=[],
+                show_claim_popup=True,
+                share_token=share_token,
+                shared_by_name=share_row.recipient_name,
+            ),
+        )
+
+    # ── Normal (non-shared) flow ────────────────────────────────────────
     if not viewer_id:
         flash(request, "Please log in to view your ticket.", "info")
         return RedirectResponse(f"/auth/login?next=/ticket/{ticket_id}", status_code=303)
@@ -900,14 +958,71 @@ async def share_ticket(request: Request, ticket_id: str, db: DbSession = Depends
     )
     db.add(share)
     db.commit()
+    db.refresh(share)
 
     base_url = str(request.base_url).rstrip("/")
-    ticket_url = f"{base_url}/ticket/{ticket_id}"
+    ticket_url = f"{base_url}/ticket/{ticket_id}?share={share.share_token}"
 
     from app.services.email import send_ticket_share
     send_ticket_share(email, name, sender_name, event_name, ticket_url)
 
     return JSONResponse({"ok": True, "message": "Ticket shared successfully!"})
+
+
+@router.post("/ticket/{ticket_id}/claim")
+async def claim_shared_ticket(request: Request, ticket_id: str, db: DbSession = Depends(get_db)):
+    """Inline login from the shared-ticket claim popup. Authenticates the user,
+    claims the ticket, and returns a JSON redirect URL."""
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
+
+    login_id = (body.get("login_id") or "").strip()
+    password = body.get("password") or ""
+    share_token = (body.get("share_token") or "").strip()
+
+    if not login_id or not password or not share_token:
+        return JSONResponse({"ok": False, "error": "All fields are required."}, status_code=400)
+
+    from app.crypto import hash_lookup
+    from app.config import settings
+    import bcrypt
+
+    login_hash = hash_lookup(login_id, settings.field_encryption_key)
+    user = db.query(User).filter(
+        (User.username_hash == login_hash) | (User.email_hash == login_hash)
+    ).first()
+
+    if not user or not user.password_hash:
+        return JSONResponse({"ok": False, "error": "Invalid username/email or password."}, status_code=401)
+    if not bcrypt.checkpw(password.encode(), user.password_hash.encode()):
+        return JSONResponse({"ok": False, "error": "Invalid username/email or password."}, status_code=401)
+
+    share_row = db.query(TicketShare).filter(
+        TicketShare.share_token == share_token,
+        TicketShare.ticket_id == ticket_id,
+    ).first()
+    if not share_row:
+        return JSONResponse({"ok": False, "error": "Invalid share link."}, status_code=400)
+    if share_row.claimed_by is not None:
+        return JSONResponse({"ok": False, "error": "This ticket has already been claimed."}, status_code=400)
+
+    booking = db.query(Booking).filter(
+        Booking.ticket_id == ticket_id, Booking.payment_status == "paid"
+    ).first()
+    if not booking:
+        return JSONResponse({"ok": False, "error": "Ticket not found."}, status_code=404)
+
+    share_row.claimed_by = user.id
+    share_row.claimed_at = now_ist()
+    booking.original_user_id = booking.original_user_id or booking.user_id
+    booking.user_id = user.id
+    booking.is_shared_ticket = True
+    db.commit()
+
+    request.session["user_id"] = user.id
+    return JSONResponse({"ok": True, "redirect": f"/ticket/{ticket_id}"})
 
 
 @router.get("/tickets/group/{group_id}")
@@ -1328,13 +1443,13 @@ async def poll_stream(request: Request, session_id: int, event_id: int = Query(d
     async def event_generator():
         try:
             yield "data: {\"type\":\"connected\"}\n\n"
-            while True:
+            while not await request.is_disconnected():
                 try:
                     msg = await asyncio.wait_for(queue.get(), timeout=10.0)
                     yield f"data: {msg}\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, GeneratorExit):
             pass
         finally:
             unsubscribe(session_id, event_id, queue)
@@ -1363,13 +1478,13 @@ async def user_poll_notifications_stream(request: Request):
     async def event_generator():
         try:
             yield "data: {\"type\":\"connected\"}\n\n"
-            while True:
+            while not await request.is_disconnected():
                 try:
                     msg = await asyncio.wait_for(queue.get(), timeout=10.0)
                     yield f"data: {msg}\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, GeneratorExit):
             pass
         finally:
             unsubscribe_user(user_id, queue)

@@ -70,7 +70,8 @@ def _speaker_sessions(speaker, db):
         event = s.event
         booking_count = (
             db.query(func.count(Booking.id)).filter(
-                Booking.event_id == event.id, Booking.payment_status == "paid"
+                Booking.event_id == event.id, Booking.payment_status == "paid",
+                Booking.is_shared_ticket == False,
             ).scalar()
             if event else 0
         )

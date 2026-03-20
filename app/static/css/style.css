@@ -3093,7 +3093,7 @@ tr:last-child td { border-bottom:none }
 .ticket-qr { border-radius:4px }
 .booking-qr { border-radius:4px; margin:.25rem 0 }
 .booking-ticket-info { margin-top:.5rem; display:flex; align-items:center; gap:.5rem; flex-wrap:wrap }
-.btn-xs { font-size:.7rem; padding:.2rem .5rem }
+.btn-xs { font-size:.7rem; padding:.2rem .5rem; white-space:nowrap; flex-shrink:0 }
 .ticket-group-list { display:flex; flex-direction:column; gap:.35rem; margin-top:.5rem }
 .ticket-group-item { display:block; padding:.35rem .6rem; border:1px solid var(--border); border-radius:var(--radius-sm); font-family:var(--font-mono); font-size:.8rem; color:var(--text-secondary); text-decoration:none; transition:border-color .15s, background .15s }
 .ticket-group-item:hover { border-color:var(--cyan); background:var(--bg-elevated) }
@@ -5779,5 +5779,131 @@ tr:last-child td { border-bottom:none }
     padding: 1.5rem 1.25rem 1.25rem;
     width: calc(100vw - 2rem);
   }
+}
+
+/* ── Shared Ticket Claim Popup ────────────────────────────────── */
+.claim-overlay {
+  position:fixed; inset:0; z-index:10000;
+  background:rgba(0,0,0,.65); backdrop-filter:blur(6px);
+  display:flex; align-items:center; justify-content:center;
+  padding:1rem;
+}
+.claim-modal {
+  background:var(--bg-surface, #1a1a2e);
+  border:1px solid var(--border, rgba(255,255,255,.08));
+  border-radius:var(--radius-lg, 14px);
+  width:100%; max-width:440px;
+  padding:2rem 2rem 1.5rem;
+  position:relative;
+  box-shadow:0 24px 80px rgba(0,0,0,.4);
+  animation:claimSlideIn .35s cubic-bezier(.22,1,.36,1);
+  max-height:calc(100vh - 2rem); overflow-y:auto;
+}
+@keyframes claimSlideIn {
+  from { opacity:0; transform:translateY(24px) scale(.97); }
+  to   { opacity:1; transform:none; }
+}
+.claim-close {
+  position:absolute; top:.75rem; right:1rem;
+  background:none; border:none; font-size:1.6rem; cursor:pointer;
+  color:var(--text-muted, #94a3b8); line-height:1; padding:0;
+}
+.claim-close:hover { color:var(--text-primary, #f1f5f9); }
+.claim-header { text-align:center; margin-bottom:1.5rem; }
+.claim-invite-icon { font-size:2.4rem; display:block; margin-bottom:.5rem; }
+.claim-title {
+  font-size:1.35rem; font-weight:700; margin:0 0 .25rem;
+  color:var(--text-primary, #f1f5f9);
+}
+.claim-event-name {
+  font-size:.95rem; margin:0;
+  color:var(--cyan, #00d4ff); font-weight:500;
+}
+.claim-perks {
+  background:var(--bg-elevated, rgba(255,255,255,.04));
+  border:1px solid var(--border, rgba(255,255,255,.08));
+  border-radius:var(--radius, 8px);
+  padding:1rem 1.15rem; margin-bottom:1.5rem;
+}
+.claim-perks-label {
+  font-size:.78rem; font-weight:600; text-transform:uppercase;
+  letter-spacing:.06em; color:var(--text-muted, #94a3b8);
+  margin:0 0 .65rem;
+}
+.claim-perks-list {
+  list-style:none; margin:0; padding:0;
+  display:flex; flex-direction:column; gap:.5rem;
+}
+.claim-perks-list li {
+  display:flex; align-items:center; gap:.6rem;
+  font-size:.88rem; color:var(--text-secondary, #cbd5e1);
+}
+.claim-perk-icon { font-size:1.1rem; flex-shrink:0; }
+.claim-label {
+  display:block; margin-bottom:.3rem;
+  font-weight:600; font-size:.85rem;
+  color:var(--text-secondary, #cbd5e1);
+}
+.claim-error {
+  color:#ef4444; font-size:.83rem; margin-bottom:.75rem;
+  padding:.45rem .65rem; border-radius:6px;
+  background:rgba(239,68,68,.1); border:1px solid rgba(239,68,68,.2);
+}
+.claim-submit {
+  font-size:.95rem; font-weight:600;
+  padding:.7rem 1rem; margin-top:.25rem;
+}
+.claim-divider {
+  display:flex; align-items:center; gap:.75rem;
+  margin:1.1rem 0; color:var(--text-muted, #94a3b8); font-size:.82rem;
+}
+.claim-divider::before,
+.claim-divider::after {
+  content:""; flex:1; height:1px;
+  background:var(--border, rgba(255,255,255,.08));
+}
+.claim-register {
+  text-align:center; font-size:.88rem; margin-top:1rem;
+  color:var(--text-muted, #94a3b8);
+}
+.claim-register a {
+  color:var(--cyan, #00d4ff); font-weight:600;
+  text-decoration:none;
+}
+.claim-register a:hover { text-decoration:underline; }
+.claim-skip {
+  text-align:center; margin-top:1.1rem;
+  padding-top:.85rem; border-top:1px solid var(--border, rgba(255,255,255,.06));
+}
+.claim-skip a {
+  font-size:.8rem; color:var(--text-muted, #64748b);
+  text-decoration:none; opacity:.7; transition:opacity .15s;
+}
+.claim-skip a:hover { opacity:1; text-decoration:underline; }
+
+/* Light mode overrides */
+[data-theme="light"] .claim-modal {
+  background:#fff;
+  border-color:rgba(14,14,14,.1);
+  box-shadow:0 20px 60px rgba(0,0,0,.12);
+}
+[data-theme="light"] .claim-close { color:#6a6a6a; }
+[data-theme="light"] .claim-close:hover { color:#0e0e0e; }
+[data-theme="light"] .claim-title { color:#0e0e0e; }
+[data-theme="light"] .claim-event-name { color:#E84E2C; }
+[data-theme="light"] .claim-perks {
+  background:rgba(14,14,14,.03);
+  border-color:rgba(14,14,14,.08);
+}
+[data-theme="light"] .claim-perks-label { color:#6a6a6a; }
+[data-theme="light"] .claim-perks-list li { color:#2e2e2e; }
+[data-theme="light"] .claim-label { color:#2e2e2e; }
+[data-theme="light"] .claim-register { color:#6a6a6a; }
+[data-theme="light"] .claim-register a { color:#E84E2C; }
+[data-theme="light"] .claim-skip a { color:#94a3b8; }
+[data-theme="light"] .claim-overlay { background:rgba(0,0,0,.4); }
+
+@media (max-width:480px) {
+  .claim-modal { padding:1.5rem 1.25rem 1.25rem; }
 }
 

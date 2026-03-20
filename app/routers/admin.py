@@ -144,8 +144,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login?next=/admin/", status_code=303)
 
     total_users = db.query(func.count(User.id)).scalar()
-    total_bookings = db.query(func.count(Booking.id)).filter(Booking.payment_status == "paid").scalar()
-    total_revenue = db.query(func.sum(Booking.amount_paid)).filter(Booking.payment_status == "paid").scalar() or 0
+    _paid_not_shared = [Booking.payment_status == "paid", Booking.is_shared_ticket == False]
+    total_bookings = db.query(func.count(Booking.id)).filter(*_paid_not_shared).scalar()
+    total_revenue = db.query(func.sum(Booking.amount_paid)).filter(*_paid_not_shared).scalar() or 0
 
     now = now_ist()
     today = now.date()
@@ -170,7 +171,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         .join(Event, Booking.event_id == Event.id)
         .join(College, Event.college_id == College.id)
         .join(City, College.city_id == City.id)
-        .filter(Booking.payment_status == "paid")
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
         .group_by(City.name)
         .order_by(func.count(Booking.id).desc())
         .limit(5)
@@ -963,7 +964,8 @@ def sessions_list(request: Request, db: Session = Depends(get_db)):
         event = s.event
         total_bookings = (
             db.query(func.count(Booking.id)).filter(
-                Booking.event_id == event.id, Booking.payment_status == "paid"
+                Booking.event_id == event.id, Booking.payment_status == "paid",
+                Booking.is_shared_ticket == False,
             ).scalar() or 0
         ) if event else 0
         enriched.append({"session": s, "event": event, "bookings": total_bookings})
@@ -2301,7 +2303,8 @@ def events_list(request: Request, db: Session = Depends(get_db)):
     for ev in events:
         session_count = len(ev.sessions) if ev.sessions else 0
         booking_count = db.query(func.count(Booking.id)).filter(
-            Booking.event_id == ev.id, Booking.payment_status == "paid"
+            Booking.event_id == ev.id, Booking.payment_status == "paid",
+            Booking.is_shared_ticket == False,
         ).scalar() or 0
         aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
         enriched.append({"event": ev, "session_count": session_count, "bookings": booking_count, "auditorium": aud})
@@ -3266,7 +3269,8 @@ def event_management_landing(request: Request, db: Session = Depends(get_db)):
     for ev in events:
         session_count = len(ev.sessions) if ev.sessions else 0
         booking_count = db.query(func.count(Booking.id)).filter(
-            Booking.event_id == ev.id, Booking.payment_status == "paid"
+            Booking.event_id == ev.id, Booking.payment_status == "paid",
+            Booking.is_shared_ticket == False,
         ).scalar() or 0
         checked_in = db.query(func.count(Booking.id)).filter(
             Booking.event_id == ev.id, Booking.payment_status == "paid", Booking.checked_in == True
@@ -3293,10 +3297,12 @@ def event_management_overview(request: Request, event_id: int, db: Session = Dep
         return RedirectResponse("/admin/event-management", status_code=303)
 
     bookings_count = db.query(func.count(Booking.id)).filter(
-        Booking.event_id == event_id, Booking.payment_status == "paid"
+        Booking.event_id == event_id, Booking.payment_status == "paid",
+        Booking.is_shared_ticket == False,
     ).scalar() or 0
     revenue = db.query(func.sum(Booking.amount_paid)).filter(
-        Booking.event_id == event_id, Booking.payment_status == "paid"
+        Booking.event_id == event_id, Booking.payment_status == "paid",
+        Booking.is_shared_ticket == False,
     ).scalar() or 0
     checked_in = db.query(func.count(Booking.id)).filter(
         Booking.event_id == event_id, Booking.payment_status == "paid", Booking.checked_in == True
