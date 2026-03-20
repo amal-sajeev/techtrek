@@ -5,7 +5,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&family=Exo+2:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-html{scroll-behavior:smooth}
+html{scroll-behavior:smooth;overflow-x:hidden}
 
 :root {
   --bg-void:      #010409;
@@ -1832,8 +1832,8 @@ td code {
   .admin-sidebar-toggle { display:flex; position:fixed; top:calc(var(--nav-h) + .75rem); left:.75rem; z-index:1001; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:8px }
   .admin-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.7); backdrop-filter:blur(4px); z-index:1002 }
   .admin-overlay.open { display:block }
-  .admin-sidebar { position:fixed; top:0; left:-260px; height:100vh; width:240px; z-index:1003; transition:left .3s ease; padding-top:calc(var(--nav-h) + 1rem) }
-  .admin-sidebar.open { left:0 }
+  .admin-sidebar { position:fixed !important; top:0; left:0; height:100vh; width:240px; z-index:1003; transform:translateX(-260px); transition:transform .3s ease; padding-top:calc(var(--nav-h) + 1rem); backdrop-filter:none !important }
+  .admin-sidebar.open { transform:translateX(0) }
   .admin-main { padding:1rem; padding-top:3.5rem }
 }
 
@@ -3063,6 +3063,14 @@ tr:last-child td { border-bottom:none }
 }
 .wizard-step.active { color:var(--cyan); border-bottom-color:var(--cyan); background:var(--bg-card) }
 .wizard-step:hover { background:var(--bg-card) }
+@media (max-width: 768px) {
+  .wizard-steps {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+  }
+  .wizard-step { flex: none; font-size: .75rem; padding: .55rem .4rem; }
+}
 .wizard-panel { display:none }
 .wizard-panel.active { display:block }
 .wizard-panel-title { font-size:19px; margin-bottom:1rem; color:var(--text-primary) }
@@ -4792,7 +4800,7 @@ tr:last-child td { border-bottom:none }
 
 /* from @media (max-width:767px) */
 .force-mobile .admin-sidebar-toggle { display:flex; position:fixed; top:calc(var(--nav-h) + .75rem); left:.75rem; z-index:1001; background:var(--bg-elevated); border:1px solid var(--border); border-radius:var(--radius-md); padding:8px }
-.force-mobile .admin-sidebar { position:fixed; top:0; left:-260px; height:100vh; width:240px; z-index:1003; transition:left .3s ease; padding-top:calc(var(--nav-h) + 1rem) }
+.force-mobile .admin-sidebar { position:fixed; top:0; left:0; height:100vh; width:240px; z-index:1003; transform:translateX(-260px); transition:transform .3s ease; padding-top:calc(var(--nav-h) + 1rem); backdrop-filter:none !important }
 .force-mobile .admin-main { padding:1rem; padding-top:3.5rem }
 
 /* from @media (max-width:640px) */
@@ -5142,6 +5150,13 @@ tr:last-child td { border-bottom:none }
   box-shadow:0 0 12px rgba(12,119,146,.3);
 }
 [data-theme="light"] .fb-progress-line.active { background:#0c7792; }
+
+@media (max-width: 480px) {
+  .fb-dot-label { display: none; }
+  .fb-dot { width: 1.6rem; height: 1.6rem; font-size: .65rem; }
+  .fb-progress-line { margin: 0 .25rem; margin-bottom: 0; }
+  .fb-progress { padding: 0 .5rem; }
+}
 
 .fb-step {
   display:none; opacity:0;
@@ -5731,4 +5746,38 @@ tr:last-child td { border-bottom:none }
   padding:.35rem 0; margin-top:.15rem; display:inline-block;
 }
 .mc-add-option:hover { text-decoration:underline; }
+
+/* ================================================================
+   MOBILE FIX PASS — viewport overflow, modal, dropdown, seat
+   designer, checkout title
+   ================================================================ */
+
+/* Fix 5: Seat designer — scroll inside the card, not the full page.
+   Context menu uses position:fixed (line 2185) so it is not clipped. */
+.designer-container { overflow-x: auto; overflow-y: visible; }
+
+/* Fix 2: Phone CC dropdown — prevent right-edge viewport clip */
+.phone-cc-dropdown { max-width: calc(100vw - 2rem); }
+
+/* Fix 6: Checkout title — allow wrapping on narrow phones */
+@media (max-width: 600px) {
+  .checkout-box .page-title { white-space: normal; }
+}
+
+/* Fix 1: Flash container — pin within viewport on narrow phones */
+@media (max-width: 480px) {
+  .flash-container {
+    right: .5rem;
+    left: .5rem;
+    max-width: calc(100vw - 1rem);
+  }
+}
+
+/* Fix 3: Modal dialog — reduce cramped padding on very narrow screens */
+@media (max-width: 400px) {
+  .modal-dialog {
+    padding: 1.5rem 1.25rem 1.25rem;
+    width: calc(100vw - 2rem);
+  }
+}
 

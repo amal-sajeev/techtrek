@@ -256,6 +256,31 @@
     [data-theme="light"] .theme-toggle-btn:hover{background:rgba(14,14,14,.12);color:#0e0e0e}
     [data-theme="light"] .theme-toggle-btn .icon-sun{display:inline}
     [data-theme="light"] .theme-toggle-btn .icon-moon{display:none}
+
+    /* ── Mobile ── */
+    @media (max-width: 600px) {
+      header { padding: .85rem 1rem; }
+
+      main { padding: 1.25rem 1rem; gap: 1.5rem; }
+
+      .bar-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: .4rem;
+      }
+      .bar-label {
+        min-width: 0;
+        max-width: 100%;
+        text-align: left;
+        white-space: normal;
+      }
+      .bar-track { width: 100%; }
+      .bar-stats {
+        min-width: 0;
+        display: flex;
+        gap: .5rem;
+      }
+    }
   </style>
 </head>
 <body>
