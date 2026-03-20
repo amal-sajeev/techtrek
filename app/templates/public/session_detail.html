@@ -787,30 +787,26 @@
     });
   };
 
-  fetch('/sessions/' + sessionId + '/polls/active' + pollQS)
-    .then(function(r) { return r.json(); })
-    .then(function(data) { if (data.poll) renderPoll(data.poll); });
-
-  var evtSource = new EventSource('/sessions/' + sessionId + '/polls/stream' + pollQS);
-  evtSource.onmessage = function(e) {
-    try {
-      var data = JSON.parse(e.data);
-      if (data.type === 'connected') return;
-      if (data.closed || data.is_active === false) {
-        pollSection.style.display = 'none';
-        currentPollId = null;
-        return;
-      }
-      var isNewPoll = currentPollId !== data.poll_id;
-      if (isNewPoll && typeof window.TechTrek !== 'undefined' && window.TechTrek.showToast) {
-        window.TechTrek.showToast('Live poll: ' + (data.question || 'New poll'), 'info', 6000);
-        renderPoll(data);
-        pollSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      } else {
-        renderPoll(data);
-      }
-    } catch (ex) {}
-  };
+  function refreshPoll() {
+    fetch('/sessions/' + sessionId + '/polls/active' + pollQS)
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.poll) {
+          var isNewPoll = currentPollId !== data.poll.poll_id;
+          renderPoll(data.poll);
+          if (isNewPoll && data.poll.is_active && typeof window.TechTrek !== 'undefined' && window.TechTrek.showToast) {
+            window.TechTrek.showToast('Live poll: ' + (data.poll.question || 'New poll'), 'info', 6000);
+            pollSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        } else {
+          pollSection.style.display = 'none';
+          currentPollId = null;
+        }
+      })
+      .catch(function() {});
+  }
+  refreshPoll();
+  setInterval(refreshPoll, 2000);
 
 /* Session hero slideshow (dark mode) */
 (function () {

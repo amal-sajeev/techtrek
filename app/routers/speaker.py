@@ -507,16 +507,15 @@ async def toggle_poll(request: Request, poll_id: int, db: Session = Depends(get_
 
     db.commit()
 
-    import asyncio
     from app.services.poll_events import publish
     if poll.is_active:
         from app.routers.public import _poll_results, _notify_event_attendees_of_poll
         results = _poll_results(db, poll)
-        asyncio.ensure_future(publish(poll.session_id, poll.event_id, results))
+        await publish(poll.session_id, poll.event_id, results)
         _notify_event_attendees_of_poll(db, poll, results)
     else:
         from app.routers.public import _notify_event_attendees_poll_closed
-        asyncio.ensure_future(publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+        await publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True})
         _notify_event_attendees_poll_closed(db, poll)
 
     return JSONResponse({"ok": True, "is_active": poll.is_active})
@@ -536,10 +535,9 @@ async def close_poll(request: Request, poll_id: int, db: Session = Depends(get_d
     poll.closed_at = now_ist()
     db.commit()
 
-    import asyncio
     from app.services.poll_events import publish
     from app.routers.public import _notify_event_attendees_poll_closed
-    asyncio.ensure_future(publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True}))
+    await publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True})
     _notify_event_attendees_poll_closed(db, poll)
     return JSONResponse({"ok": True})
 

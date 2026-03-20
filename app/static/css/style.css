@@ -1942,9 +1942,8 @@ tr:last-child td { border-bottom:none }
 
 /* ---- RESPONSIVE ---- */
 @media (max-width:768px) {
-  .navbar-links,.navbar-actions .btn { display:none }
-  .hamburger { display:flex }
-  .navbar-actions { margin-left:auto }
+  .navbar-links, .navbar-actions { display:none }
+  .hamburger { display:flex; flex-shrink:0; margin-left:auto }
   .session-page-body { grid-template-columns:1fr; padding:20px 14px 40px }
   .session-booking-card { position:static }
   .session-hero-content { padding:0 14px 24px }
@@ -4762,9 +4761,8 @@ tr:last-child td { border-bottom:none }
 
 /* from @media (max-width:768px) */
 .force-mobile .navbar-links,
-.force-mobile .navbar-actions .btn { display:none }
-.force-mobile .hamburger { display:flex }
-.force-mobile .navbar-actions { margin-left:auto }
+.force-mobile .navbar-actions { display:none }
+.force-mobile .hamburger { display:flex; flex-shrink:0; margin-left:auto }
 .force-mobile .session-page-body { grid-template-columns:1fr; padding:20px 14px 40px }
 .force-mobile .session-booking-card { position:static }
 .force-mobile .session-hero-content { padding:0 14px 24px }

@@ -55,6 +55,7 @@
       </p>
     </div>
     <div style="display:flex;gap:.5rem;flex-shrink:0">
+      <a href="/polls/{{ p.poll.id }}/display" target="_blank" class="btn btn-xs btn-outline" title="Open full-screen display for projectors">&#128250; Display</a>
       {% if not p.poll.closed_at %}
       <button class="btn btn-xs {% if p.poll.is_active %}btn-outline{% else %}btn-primary{% endif %}" onclick="togglePoll({{ p.poll.id }}, this)">
         {{ 'Deactivate' if p.poll.is_active else 'Activate' }}

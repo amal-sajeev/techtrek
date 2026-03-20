@@ -1314,7 +1314,7 @@ async def vote_poll(request: Request, session_id: int, poll_id: int, event_id: i
         results["voted_text"] = (body.get("text", "") or "").strip()
 
     from app.services.poll_events import publish
-    asyncio.ensure_future(publish(poll.session_id, poll.event_id, results))
+    await publish(poll.session_id, poll.event_id, results)
 
     return JSONResponse({"ok": True, "poll": results})
 
@@ -1330,7 +1330,7 @@ async def poll_stream(request: Request, session_id: int, event_id: int = Query(d
             yield "data: {\"type\":\"connected\"}\n\n"
             while True:
                 try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    msg = await asyncio.wait_for(queue.get(), timeout=10.0)
                     yield f"data: {msg}\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
@@ -1365,7 +1365,7 @@ async def user_poll_notifications_stream(request: Request):
             yield "data: {\"type\":\"connected\"}\n\n"
             while True:
                 try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    msg = await asyncio.wait_for(queue.get(), timeout=10.0)
                     yield f"data: {msg}\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
@@ -1396,4 +1396,42 @@ def newsletter_unsubscribe(request: Request, token: str, db: DbSession = Depends
     return templates.TemplateResponse(
         "public/newsletter_unsubscribed.html",
         template_ctx(request, found=sub is not None),
+    )
+
+
+# --- Poll Display (presentation mode) ---
+
+@router.get("/polls/{poll_id}/display")
+def poll_display(request: Request, poll_id: int, db: DbSession = Depends(get_db)):
+    user_id = request.session.get("user_id")
+    if not user_id:
+        return RedirectResponse(f"/auth/login?next=/polls/{poll_id}/display", status_code=303)
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    is_speaker = db.query(Speaker).filter(Speaker.user_id == user.id).first() is not None
+    if not (user.is_admin or user.is_supervisor or is_speaker):
+        return RedirectResponse("/", status_code=303)
+
+    poll = db.query(Poll).get(poll_id)
+    if not poll:
+        return RedirectResponse("/", status_code=303)
+
+    session_obj = db.query(Session).get(poll.session_id) if poll.session_id else None
+    event = db.query(Event).get(poll.event_id) if poll.event_id else None
+
+    results = _poll_results(db, poll)
+
+    return templates.TemplateResponse(
+        "public/poll_display.html",
+        {
+            "request": request,
+            "poll": poll,
+            "results": results,
+            "session_obj": session_obj,
+            "event": event,
+            "session_id": poll.session_id,
+            "event_id": poll.event_id or 0,
+        },
     )

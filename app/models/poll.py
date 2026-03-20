@@ -1,5 +1,5 @@
 from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 
 from app.database import Base
 from app.utils import now_ist
@@ -54,6 +54,6 @@ class PollVote(Base):
         UniqueConstraint("poll_id", "user_id", name="uq_poll_vote_user"),
     )
 
-    poll = relationship("Poll", backref="votes")
+    poll = relationship("Poll", backref=backref("votes", cascade="all, delete-orphan", passive_deletes=True))
     option = relationship("PollOption", back_populates="votes")
     user = relationship("User", backref="poll_votes")
