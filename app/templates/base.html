@@ -762,8 +762,10 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
   dismissBtn.addEventListener('click', closePollModal);
   if (backdrop) backdrop.addEventListener('click', closePollModal);
 
-  var evtSource = new EventSource('/user/poll-notifications/stream');
-  evtSource.onmessage = function(e) {
+  var evtSource = null;
+  var evtTimer = null;
+
+  function onStreamMessage(e) {
     try {
       var data = JSON.parse(e.data);
       if (data.type === 'connected') return;
@@ -799,7 +801,24 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
         }
       }
     } catch (err) {}
-  };
+  }
+
+  function openStream() {
+    if (evtSource) return;
+    evtSource = new EventSource('/user/poll-notifications/stream');
+    evtSource.onmessage = onStreamMessage;
+    evtTimer = setTimeout(function() { closeStream(); openStream(); }, 240000);
+  }
+  function closeStream() {
+    if (evtTimer) { clearTimeout(evtTimer); evtTimer = null; }
+    if (evtSource) { evtSource.close(); evtSource = null; }
+  }
+
+  openStream();
+  window.addEventListener('beforeunload', closeStream);
+  document.addEventListener('visibilitychange', function() {
+    if (document.hidden) closeStream(); else openStream();
+  });
 })();
 {% endif %}
 

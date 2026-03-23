@@ -823,8 +823,15 @@ def public_ticket(request: Request, ticket_id: str, share: str = Query(default="
         if not booking:
             return templates.TemplateResponse("errors/404.html", template_ctx(request), status_code=404)
 
-        # Logged-in user: claim the ticket immediately
+        # Logged-in user: claim the ticket if their email matches
         if viewer_id:
+            from app.crypto import hash_lookup
+            from app.config import settings
+            viewer_user = db.query(User).filter(User.id == viewer_id).first()
+            recipient_hash = hash_lookup(share_row.recipient_email.strip().lower(), settings.field_encryption_key)
+            if not viewer_user or viewer_user.email_hash != recipient_hash:
+                flash(request, f"This ticket was shared to {share_row.recipient_email}. Please log in with that email to claim it.", "danger")
+                return RedirectResponse(f"/auth/login?next=/ticket/{ticket_id}%3Fshare%3D{share_token}", status_code=303)
             share_row.claimed_by = viewer_id
             share_row.claimed_at = now_ist()
             booking.original_user_id = booking.original_user_id or booking.user_id
@@ -852,6 +859,7 @@ def public_ticket(request: Request, ticket_id: str, share: str = Query(default="
                 show_claim_popup=True,
                 share_token=share_token,
                 shared_by_name=share_row.recipient_name,
+                shared_to_email=share_row.recipient_email,
             ),
         )
 
@@ -1007,6 +1015,10 @@ async def claim_shared_ticket(request: Request, ticket_id: str, db: DbSession = 
         return JSONResponse({"ok": False, "error": "Invalid share link."}, status_code=400)
     if share_row.claimed_by is not None:
         return JSONResponse({"ok": False, "error": "This ticket has already been claimed."}, status_code=400)
+
+    recipient_hash = hash_lookup(share_row.recipient_email.strip().lower(), settings.field_encryption_key)
+    if user.email_hash != recipient_hash:
+        return JSONResponse({"ok": False, "error": f"This ticket was shared to {share_row.recipient_email}. Please sign in with that email."}, status_code=403)
 
     booking = db.query(Booking).filter(
         Booking.ticket_id == ticket_id, Booking.payment_status == "paid"
@@ -1434,18 +1446,25 @@ async def vote_poll(request: Request, session_id: int, poll_id: int, event_id: i
     return JSONResponse({"ok": True, "poll": results})
 
 
+_SSE_MAX_DURATION = 300  # seconds — server closes; client auto-reconnects
+
+
 @router.get("/sessions/{session_id}/polls/stream")
 async def poll_stream(request: Request, session_id: int, event_id: int = Query(default=0)):
+    from time import monotonic
     from app.services.poll_events import subscribe, unsubscribe
 
     queue = subscribe(session_id, event_id)
 
     async def event_generator():
+        deadline = monotonic() + _SSE_MAX_DURATION
         try:
             yield "data: {\"type\":\"connected\"}\n\n"
             while not await request.is_disconnected():
+                if monotonic() > deadline:
+                    break
                 try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=10.0)
+                    msg = await asyncio.wait_for(queue.get(), timeout=15.0)
                     yield f"data: {msg}\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"
@@ -1467,6 +1486,7 @@ async def poll_stream(request: Request, session_id: int, event_id: int = Query(d
 
 @router.get("/user/poll-notifications/stream")
 async def user_poll_notifications_stream(request: Request):
+    from time import monotonic
     from app.services.poll_events import subscribe_user, unsubscribe_user
 
     user_id = request.session.get("user_id")
@@ -1476,11 +1496,14 @@ async def user_poll_notifications_stream(request: Request):
     queue = subscribe_user(user_id)
 
     async def event_generator():
+        deadline = monotonic() + _SSE_MAX_DURATION
         try:
             yield "data: {\"type\":\"connected\"}\n\n"
             while not await request.is_disconnected():
+                if monotonic() > deadline:
+                    break
                 try:
-                    msg = await asyncio.wait_for(queue.get(), timeout=10.0)
+                    msg = await asyncio.wait_for(queue.get(), timeout=15.0)
                     yield f"data: {msg}\n\n"
                 except asyncio.TimeoutError:
                     yield ": keepalive\n\n"

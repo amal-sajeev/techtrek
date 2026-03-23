@@ -5,7 +5,6 @@ from pathlib import Path
 from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from app.config import settings
@@ -16,30 +15,48 @@ BASE_DIR = Path(__file__).resolve().parent
 
 
 # ---------------------------------------------------------------------------
-# Security-headers middleware
+# Security-headers middleware  (pure ASGI — avoids BaseHTTPMiddleware
+# buffering that stalls SSE StreamingResponse connections)
 # ---------------------------------------------------------------------------
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+_SECURITY_DEFAULTS = [
+    (b"x-content-type-options", b"nosniff"),
+    (b"x-frame-options", b"DENY"),
+    (b"x-xss-protection", b"1; mode=block"),
+    (b"referrer-policy", b"strict-origin-when-cross-origin"),
+    (b"permissions-policy", b"camera=(self), microphone=(), geolocation=()"),
+]
+
+_HSTS_HEADER = (
+    b"strict-transport-security",
+    b"max-age=31536000; includeSubDomains",
+)
+
+
+class SecurityHeadersMiddleware:
     """Attach defensive HTTP response headers to every response."""
 
-    async def dispatch(self, request: Request, call_next):
-        response = await call_next(request)
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("X-Frame-Options", "DENY")
-        response.headers.setdefault("X-XSS-Protection", "1; mode=block")
-        response.headers.setdefault(
-            "Referrer-Policy", "strict-origin-when-cross-origin"
-        )
-        response.headers.setdefault(
-            "Permissions-Policy", "camera=(self), microphone=(), geolocation=()"
-        )
-        # Only send HSTS over HTTPS (i.e., when not in debug/dev mode).
-        if not settings.debug:
-            response.headers.setdefault(
-                "Strict-Transport-Security",
-                "max-age=31536000; includeSubDomains",
-            )
-        return response
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                raw = list(message.get("headers", []))
+                existing = {k for k, _ in raw}
+                for k, v in _SECURITY_DEFAULTS:
+                    if k not in existing:
+                        raw.append((k, v))
+                if not settings.debug and _HSTS_HEADER[0] not in existing:
+                    raw.append(_HSTS_HEADER)
+                message = {**message, "headers": raw}
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
 @asynccontextmanager

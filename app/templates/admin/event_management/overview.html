@@ -2,6 +2,16 @@
 {% block title %}Overview — {{ hub_event.name }} — Admin{% endblock %}
 
 {% block hub_content %}
+<div style="margin-top:1.25rem">
+  <h3 class="panel-title">Quick Actions</h3>
+  <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+    <a href="/admin/event-management/{{ hub_event.id }}/checkin" class="btn btn-primary">Check-in Scanner</a>
+    <a href="/admin/event-management/{{ hub_event.id }}/alerts" class="btn btn-outline">Send Alert</a>
+    <a href="/admin/event-management/{{ hub_event.id }}/bookings" class="btn btn-outline">View Bookings</a>
+    <a href="/admin/events/{{ hub_event.id }}/edit" class="btn btn-outline">Edit Event</a>
+  </div>
+</div>
+
 <div class="admin-stats" style="margin-top:1.5rem">
   <div class="admin-stat-card">
     <div class="admin-stat-value">{{ stats.bookings }}</div>
@@ -62,15 +72,5 @@
   {% else %}
   <p class="text-muted">No sessions for this event yet.</p>
   {% endif %}
-</div>
-
-<div class="mt-3">
-  <h3 class="panel-title">Quick Actions</h3>
-  <div style="display:flex;gap:.75rem;flex-wrap:wrap">
-    <a href="/admin/event-management/{{ hub_event.id }}/checkin" class="btn btn-primary">Check-in Scanner</a>
-    <a href="/admin/event-management/{{ hub_event.id }}/alerts" class="btn btn-outline">Send Alert</a>
-    <a href="/admin/event-management/{{ hub_event.id }}/bookings" class="btn btn-outline">View Bookings</a>
-    <a href="/admin/events/{{ hub_event.id }}/edit" class="btn btn-outline">Edit Event</a>
-  </div>
 </div>
 {% endblock %}

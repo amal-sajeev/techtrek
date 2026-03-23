@@ -121,6 +121,9 @@
       <span class="claim-invite-icon">&#127911;</span>
       <h2 class="claim-title">You've been invited!</h2>
       <p class="claim-event-name">{{ event.name if event else "a TechTrek Event" }}</p>
+      {% if shared_to_email %}
+      <p class="claim-email-hint">Sent to <strong>{{ shared_to_email }}</strong></p>
+      {% endif %}
     </div>
 
     <div class="claim-perks">

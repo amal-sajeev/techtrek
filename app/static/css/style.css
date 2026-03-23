@@ -5819,6 +5819,12 @@ tr:last-child td { border-bottom:none }
   font-size:.95rem; margin:0;
   color:var(--cyan, #00d4ff); font-weight:500;
 }
+.claim-email-hint {
+  font-size:.82rem; margin:.4rem 0 0; color:var(--text-muted, #94a3b8);
+}
+.claim-email-hint strong { color:var(--text-secondary, #cbd5e1); }
+[data-theme="light"] .claim-email-hint { color:#6a6a6a; }
+[data-theme="light"] .claim-email-hint strong { color:#2e2e2e; }
 .claim-perks {
   background:var(--bg-elevated, rgba(255,255,255,.04));
   border:1px solid var(--border, rgba(255,255,255,.08));
