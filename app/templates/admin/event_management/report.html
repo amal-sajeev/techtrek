@@ -1,0 +1,535 @@
+{% extends "admin/event_management/base_hub.html" %}
+{% block title %}Report — {{ hub_event.name }} — Admin{% endblock %}
+
+{% block hub_content %}
+<style>
+  .rpt-grid{display:grid;gap:.75rem;margin-bottom:1.25rem}
+  .rpt-grid-2{grid-template-columns:1fr 1fr}
+  .rpt-metric{
+    padding:.85rem .75rem;text-align:center;
+    background:var(--bg-card,#1c2128);
+    border:1px solid var(--border,rgba(0,212,255,.1));
+    border-left:3px solid var(--cyan,#00d4ff);
+    border-radius:6px;
+  }
+  .rpt-metric-val{
+    font-size:1.5rem;font-weight:700;line-height:1.15;
+    color:var(--cyan,#00d4ff);
+  }
+  .rpt-metric-val.green{color:#10b981}
+  .rpt-metric-val.amber{color:#f59e0b}
+  .rpt-metric-val.violet{color:#8b5cf6}
+  .rpt-metric-label{font-size:.68rem;color:var(--text-muted,#a8b4c0);margin-top:.2rem;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+
+  .rpt-section{margin-bottom:1.75rem}
+  .rpt-section-title{
+    font-size:.95rem;font-weight:700;margin:0 0 .75rem;
+    padding-bottom:.4rem;
+    border-bottom:2px solid var(--cyan,#00d4ff);
+    display:flex;align-items:center;gap:.4rem;
+    color:var(--text-primary,#e8edf3);
+  }
+  .rpt-card{
+    background:var(--bg-card,#1c2128);
+    border:1px solid var(--border-strong,rgba(0,212,255,.28));
+    border-radius:6px;padding:1rem;
+  }
+  .rpt-card-title{font-size:.8rem;font-weight:700;margin:0 0 .5rem;color:var(--text-primary,#e8edf3);text-transform:uppercase;letter-spacing:.04em}
+  .rpt-chart-wrap{position:relative;width:100%;height:200px}
+  .rpt-chart-wrap canvas{width:100%!important;height:100%!important}
+
+  .rpt-table{width:100%;border-collapse:collapse;font-size:.85rem}
+  .rpt-table th{
+    text-align:left;font-weight:700;font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--text-primary,#e8edf3);padding:.45rem .65rem;
+    border-bottom:2px solid var(--cyan,#00d4ff);
+    background:var(--bg-void,#0d0d1a);
+  }
+  .rpt-table td{padding:.45rem .65rem;border-bottom:1px solid var(--border,rgba(0,212,255,.1));color:var(--text-primary,#e8edf3)}
+  .rpt-table tr:hover td{background:rgba(0,212,255,.05)}
+
+  .rpt-bar-inline{display:flex;align-items:center;gap:.5rem}
+  .rpt-bar-track{flex:1;height:16px;background:var(--bg-void,#0d0d1a);border-radius:3px;overflow:hidden;border:1px solid var(--border,rgba(0,212,255,.1))}
+  .rpt-bar-fill{height:100%;border-radius:2px;background:var(--cyan,#00d4ff);transition:width .6s}
+  .rpt-bar-fill.green{background:#10b981}
+  .rpt-bar-fill.amber{background:#f59e0b}
+  .rpt-bar-fill.red{background:#ef4444}
+  .rpt-bar-fill.violet{background:#8b5cf6}
+
+  .rpt-comment{
+    padding:.6rem .85rem;margin-bottom:.4rem;
+    background:var(--bg-void,#0d0d1a);
+    border-left:3px solid var(--cyan,#00d4ff);
+    border-radius:0 4px 4px 0;
+    font-size:.82rem;line-height:1.45;
+    color:var(--text-primary,#e8edf3);
+  }
+
+  .rpt-poll-card{margin-bottom:.75rem}
+  .rpt-poll-q{font-weight:700;font-size:.88rem;margin-bottom:.35rem;color:var(--text-primary,#e8edf3)}
+  .rpt-poll-meta{font-size:.72rem;color:var(--text-muted);margin-bottom:.4rem;font-weight:500}
+
+  .rpt-empty{text-align:center;color:var(--text-muted);padding:1.25rem .75rem;font-size:.85rem;font-style:italic}
+
+  @media(max-width:768px){
+    .rpt-grid-2{grid-template-columns:1fr}
+  }
+
+  /* ── LIGHT MODE ── */
+  [data-theme="light"] .rpt-metric{
+    background:#fff;border-color:rgba(14,14,14,.18);
+    border-left:3px solid #E84E2C;
+    box-shadow:0 1px 4px rgba(0,0,0,.06);
+  }
+  [data-theme="light"] .rpt-metric-val{color:#0e0e0e;font-weight:800}
+  [data-theme="light"] .rpt-metric-val.green{color:#0a5c3f}
+  [data-theme="light"] .rpt-metric-val.amber{color:#7a3d00}
+  [data-theme="light"] .rpt-metric-val.violet{color:#3b0e8a}
+  [data-theme="light"] .rpt-metric-label{color:#2e2e2e}
+  [data-theme="light"] .rpt-card{
+    background:#fff;border-color:rgba(14,14,14,.18);
+    box-shadow:0 1px 4px rgba(0,0,0,.06);
+  }
+  [data-theme="light"] .rpt-card-title{color:#0e0e0e}
+  [data-theme="light"] .rpt-section-title{border-bottom-color:#0e0e0e;color:#0e0e0e}
+  [data-theme="light"] .rpt-bar-track{background:#e8e3dc;border-color:rgba(14,14,14,.12)}
+  [data-theme="light"] .rpt-bar-fill{background:#E84E2C}
+  [data-theme="light"] .rpt-bar-fill.green{background:#1A6B55}
+  [data-theme="light"] .rpt-bar-fill.amber{background:#b45d05}
+  [data-theme="light"] .rpt-bar-fill.violet{background:#5b21b6}
+  [data-theme="light"] .rpt-comment{background:#f2ede5;border-left-color:#E84E2C;color:#0e0e0e}
+  [data-theme="light"] .rpt-table th{background:#f2ede5;color:#0e0e0e;border-bottom-color:#0e0e0e}
+  [data-theme="light"] .rpt-table td{border-bottom-color:rgba(14,14,14,.12);color:#0e0e0e}
+  [data-theme="light"] .rpt-table tr:hover td{background:rgba(14,14,14,.04)}
+  [data-theme="light"] .rpt-poll-q{color:#0e0e0e}
+</style>
+
+<div style="margin-top:1rem">
+  <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem">
+    <div>
+      <h3 class="panel-title" style="margin:0">Event Analytics</h3>
+      <p class="text-muted" style="font-size:.78rem;margin:.15rem 0 0">{{ hub_event.name }}</p>
+    </div>
+    <a href="/admin/event-management/{{ hub_event.id }}/report/pdf" class="btn btn-primary btn-sm" style="display:inline-flex;align-items:center;gap:.4rem">
+      &#128196; Download PDF
+    </a>
+  </div>
+
+  {# ══════════════ KEY METRICS ══════════════ #}
+  <div class="rpt-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="rpt-metric">
+      <div class="rpt-metric-val">{{ metrics.bookings }}</div>
+      <div class="rpt-metric-label">Bookings</div>
+    </div>
+    <div class="rpt-metric" style="border-left-color:#10b981">
+      <div class="rpt-metric-val green">Rs.{{ "{:,.0f}".format(metrics.revenue) }}</div>
+      <div class="rpt-metric-label">Revenue</div>
+    </div>
+    <div class="rpt-metric" style="border-left-color:#f59e0b">
+      <div class="rpt-metric-val amber">{{ metrics.checkin_pct }}%</div>
+      <div class="rpt-metric-label">Check-in Rate</div>
+    </div>
+    <div class="rpt-metric" style="border-left-color:#8b5cf6">
+      <div class="rpt-metric-val violet">{{ metrics.sessions }}</div>
+      <div class="rpt-metric-label">Sessions</div>
+    </div>
+  </div>
+  <div class="rpt-grid" style="grid-template-columns:repeat(4,1fr)">
+    <div class="rpt-metric">
+      <div class="rpt-metric-val">{{ metrics.polls }}</div>
+      <div class="rpt-metric-label">Polls</div>
+    </div>
+    <div class="rpt-metric" style="border-left-color:#10b981">
+      <div class="rpt-metric-val green">{{ metrics.feedback }}</div>
+      <div class="rpt-metric-label">Feedback</div>
+    </div>
+    <div class="rpt-metric" style="border-left-color:#f59e0b">
+      <div class="rpt-metric-val amber">{{ metrics.waitlist }}</div>
+      <div class="rpt-metric-label">Waitlist</div>
+    </div>
+    <div class="rpt-metric">
+      <div class="rpt-metric-val">{{ metrics.checked_in }}<span style="font-size:.85rem;font-weight:400;color:var(--text-muted)"> / {{ metrics.bookings }}</span></div>
+      <div class="rpt-metric-label">Checked In</div>
+    </div>
+  </div>
+
+  {# ══════════════ REVENUE & FINANCIALS ══════════════ #}
+  <div class="rpt-section">
+    <h4 class="rpt-section-title">&#128176; Revenue &amp; Financials</h4>
+    <div class="rpt-grid rpt-grid-2">
+      <div class="rpt-card">
+        <div class="rpt-card-title">Revenue by Seat Type</div>
+        {% if seat_revenue %}
+        <div class="rpt-chart-wrap" style="height:{{ [seat_revenue|length * 50, 120]|max }}px"><canvas id="chart-seat-rev"></canvas></div>
+        {% else %}
+        <div class="rpt-empty">No booking data.</div>
+        {% endif %}
+      </div>
+      <div class="rpt-card">
+        <div class="rpt-card-title">Booking Status</div>
+        {% if status_counts %}
+        <div class="rpt-chart-wrap" style="height:180px"><canvas id="chart-status"></canvas></div>
+        {% else %}
+        <div class="rpt-empty">No bookings yet.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if coupon_data %}
+    <div class="rpt-card" style="margin-top:.75rem">
+      <div class="rpt-card-title">Coupon Usage</div>
+      <table class="rpt-table">
+        <thead><tr><th>Code</th><th>Discount</th><th>Used</th><th>Max</th></tr></thead>
+        <tbody>
+          {% for c in coupon_data %}
+          <tr>
+            <td><strong>{{ c.code }}</strong></td>
+            <td>{{ c.discount }}</td>
+            <td>{{ c.used }}</td>
+            <td>{{ c.max if c.max else '∞' }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+
+    {% if addon_data %}
+    <div class="rpt-card" style="margin-top:.75rem">
+      <div class="rpt-card-title">Add-On Sales</div>
+      <table class="rpt-table">
+        <thead><tr><th>Add-On</th><th>Price</th><th>Qty</th><th>Revenue</th></tr></thead>
+        <tbody>
+          {% for a in addon_data %}
+          <tr>
+            <td><strong>{{ a.title }}</strong></td>
+            <td>Rs.{{ "{:,.0f}".format(a.price) }}</td>
+            <td>{{ a.qty }}</td>
+            <td><strong>Rs.{{ "{:,.0f}".format(a.revenue) }}</strong></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ══════════════ BOOKING TREND ══════════════ #}
+  {% if daily_trend %}
+  <div class="rpt-section">
+    <h4 class="rpt-section-title">&#128200; Booking Trend</h4>
+    <div class="rpt-card">
+      <div class="rpt-card-title">Daily Paid Bookings</div>
+      <div class="rpt-chart-wrap" style="height:180px"><canvas id="chart-trend"></canvas></div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ══════════════ CHECK-IN ══════════════ #}
+  {% if metrics.bookings %}
+  <div class="rpt-section">
+    <h4 class="rpt-section-title">&#9989; Check-in Progress</h4>
+    <div class="rpt-grid rpt-grid-2">
+      <div class="rpt-card" style="display:flex;align-items:center;justify-content:center">
+        <div class="rpt-chart-wrap" style="height:160px;width:160px"><canvas id="chart-checkin"></canvas></div>
+      </div>
+      <div class="rpt-card" style="display:flex;flex-direction:column;justify-content:center;gap:.75rem">
+        <div>
+          <div style="font-size:.75rem;font-weight:600;color:var(--text-primary,#e8edf3);margin-bottom:.2rem">Checked In</div>
+          <div class="rpt-bar-inline">
+            <div class="rpt-bar-track"><div class="rpt-bar-fill green" style="width:{{ metrics.checkin_pct }}%"></div></div>
+            <span style="font-size:.85rem;font-weight:700;min-width:55px">{{ metrics.checked_in }} / {{ metrics.bookings }}</span>
+          </div>
+        </div>
+        <div>
+          <div style="font-size:.75rem;font-weight:600;color:var(--text-primary,#e8edf3);margin-bottom:.2rem">Not Checked In</div>
+          <div class="rpt-bar-inline">
+            <div class="rpt-bar-track"><div class="rpt-bar-fill red" style="width:{{ 100 - metrics.checkin_pct }}%"></div></div>
+            <span style="font-size:.85rem;font-weight:700;min-width:55px">{{ metrics.bookings - metrics.checked_in }}</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ══════════════ DEMOGRAPHICS ══════════════ #}
+  {% if demographics.colleges or demographics.disciplines or demographics.years %}
+  <div class="rpt-section">
+    <h4 class="rpt-section-title">&#127891; Attendee Demographics</h4>
+    <div class="rpt-grid rpt-grid-2">
+      {% if demographics.colleges %}
+      <div class="rpt-card">
+        <div class="rpt-card-title">Top Colleges</div>
+        {% for c in demographics.colleges %}
+        {% set max_college = demographics.colleges[0].count if demographics.colleges else 1 %}
+        <div style="margin-bottom:.4rem">
+          <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.15rem">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:72%;font-weight:500;color:var(--text-primary,#e8edf3)">{{ c.name }}</span>
+            <span style="font-weight:700">{{ c.count }}</span>
+          </div>
+          <div class="rpt-bar-track" style="height:8px">
+            <div class="rpt-bar-fill" style="width:{{ (c.count / max_college * 100)|round }}%"></div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <div>
+        {% if demographics.disciplines %}
+        <div class="rpt-card" {% if demographics.years %}style="margin-bottom:.75rem"{% endif %}>
+          <div class="rpt-card-title">Disciplines</div>
+          <div class="rpt-chart-wrap" style="height:160px;display:flex;justify-content:center"><canvas id="chart-discipline" style="max-width:200px"></canvas></div>
+        </div>
+        {% endif %}
+        {% if demographics.years %}
+        <div class="rpt-card">
+          <div class="rpt-card-title">Year of Study</div>
+          <div class="rpt-chart-wrap" style="height:140px"><canvas id="chart-years"></canvas></div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ══════════════ FEEDBACK ══════════════ #}
+  {% if feedback_data.total_ratings %}
+  <div class="rpt-section">
+    <h4 class="rpt-section-title">&#11088; Feedback Summary</h4>
+    <div class="rpt-grid rpt-grid-2">
+      <div class="rpt-card">
+        <div class="rpt-card-title">Overall Rating</div>
+        <div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">
+          <div style="font-size:2.5rem;font-weight:800;color:var(--cyan,#00d4ff)">{{ feedback_data.avg_rating }}</div>
+          <div>
+            <div style="font-size:1.2rem;color:#fbbf24">{% for i in range(1,6) %}&#9733;{% endfor %}</div>
+            <div style="font-size:.75rem;font-weight:600;color:var(--text-primary,#e8edf3)">{{ feedback_data.total_ratings }} rating{{ 's' if feedback_data.total_ratings != 1 else '' }}</div>
+          </div>
+        </div>
+        {% for star in range(5,0,-1) %}
+        {% set count = feedback_data.distribution.get(star, 0) %}
+        {% set pct = (count / feedback_data.total_ratings * 100)|round(1) if feedback_data.total_ratings else 0 %}
+        <div style="display:flex;align-items:center;gap:.4rem;margin-bottom:.25rem">
+          <span style="min-width:28px;font-size:.75rem;text-align:right;color:#fbbf24;font-weight:700">{{ star }}&#9733;</span>
+          <div class="rpt-bar-track" style="height:12px"><div class="rpt-bar-fill amber" style="width:{{ pct }}%"></div></div>
+          <span style="min-width:30px;font-size:.72rem;font-weight:600;color:var(--text-primary,#e8edf3)">{{ count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="rpt-card">
+        <div class="rpt-card-title">Per-Session Ratings</div>
+        {% if feedback_data.session_ratings %}
+        {% for sr in feedback_data.session_ratings %}
+        <div style="margin-bottom:.5rem">
+          <div style="display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.15rem">
+            <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:58%;font-weight:500;color:var(--text-primary,#e8edf3)">{{ sr.title }}</span>
+            <span style="font-weight:700;color:#fbbf24">{{ sr.avg }} &#9733; <span style="color:var(--text-primary,#e8edf3);font-weight:400">({{ sr.count }})</span></span>
+          </div>
+          <div class="rpt-bar-track" style="height:8px"><div class="rpt-bar-fill amber" style="width:{{ (sr.avg / 5 * 100)|round }}%"></div></div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="rpt-empty">No per-session ratings.</div>
+        {% endif %}
+      </div>
+    </div>
+
+    {% if feedback_data.comments %}
+    <div class="rpt-card" style="margin-top:.75rem">
+      <div class="rpt-card-title">Recent Comments</div>
+      {% for c in feedback_data.comments %}
+      <div class="rpt-comment">&ldquo;{{ c[:300] }}{{ '...' if c|length > 300 else '' }}&rdquo;</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ══════════════ POLLS ══════════════ #}
+  {% if poll_summary %}
+  <div class="rpt-section">
+    <h4 class="rpt-section-title">&#128202; Poll Results</h4>
+    {% for p in poll_summary %}
+    <div class="rpt-card rpt-poll-card">
+      <div class="rpt-poll-q">{{ p.question }}</div>
+      <div class="rpt-poll-meta">
+        {% set type_labels = {"multiple_choice":"Multiple Choice","yes_no":"Yes / No","rating":"Star Rating","text":"Text"} %}
+        {{ type_labels.get(p.type, "Poll") }} &middot; {{ p.votes }} response{{ 's' if p.votes != 1 else '' }}
+        {% if p.closed %}&middot; Closed{% elif p.active %}&middot; <span style="color:#10b981">Active</span>{% endif %}
+      </div>
+      {% if p.options is defined %}
+      {% for o in p.options %}
+      <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem">
+        <span style="min-width:100px;font-size:.8rem;text-align:right;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;color:var(--text-primary,#e8edf3)">{{ o.text }}</span>
+        <div class="rpt-bar-track" style="height:18px"><div class="rpt-bar-fill" style="width:{{ o.pct }}%"></div></div>
+        <span style="min-width:65px;font-size:.78rem;font-weight:600;color:var(--text-primary,#e8edf3)">{{ o.votes }} ({{ o.pct }}%)</span>
+      </div>
+      {% endfor %}
+      {% elif p.average is defined %}
+      <div style="font-size:1.3rem;font-weight:800;color:#fbbf24">{{ p.average }} &#9733;</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+{{ super() }}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+(function(){
+  var isLight = document.documentElement.getAttribute('data-theme') === 'light';
+  var gridColor = isLight ? 'rgba(14,14,14,.12)' : 'rgba(255,255,255,.1)';
+  var textColor = isLight ? '#0e0e0e' : '#e8edf3';
+  var mutedColor = isLight ? '#6a6a6a' : '#a8b4c0';
+  var palette = isLight
+    ? ['#E84E2C','#1A6B55','#b45d05','#5b21b6','#0e7490','#dc2626','#16a34a','#d97706']
+    : ['#00d4ff','#10b981','#f59e0b','#8b5cf6','#06b6d4','#ef4444','#22c55e','#eab308'];
+
+  Chart.defaults.color = textColor;
+  Chart.defaults.borderColor = gridColor;
+  Chart.defaults.font.family = "'DM Sans',system-ui,sans-serif";
+  Chart.defaults.font.weight = 500;
+  Chart.defaults.plugins.legend.labels.boxWidth = 10;
+  Chart.defaults.plugins.legend.labels.padding = 10;
+  Chart.defaults.plugins.legend.labels.color = textColor;
+
+  {% if seat_revenue %}
+  new Chart(document.getElementById('chart-seat-rev'), {
+    type: 'bar',
+    data: {
+      labels: {{ seat_revenue|map(attribute='type')|list|tojson }},
+      datasets: [{
+        label: 'Revenue (Rs.)',
+        data: {{ seat_revenue|map(attribute='revenue')|list|tojson }},
+        backgroundColor: palette.slice(0, {{ seat_revenue|length }}),
+        borderRadius: 3, barPercentage: 0.7,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      plugins: {legend:{display:false}},
+      scales: {
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{weight:600},callback:function(v){return 'Rs.'+v.toLocaleString()}}},
+        y:{grid:{display:false},ticks:{color:textColor,font:{weight:600}}}
+      }
+    }
+  });
+  {% endif %}
+
+  {% if status_counts %}
+  new Chart(document.getElementById('chart-status'), {
+    type: 'doughnut',
+    data: {
+      labels: {{ status_counts.keys()|list|tojson }},
+      datasets: [{
+        data: {{ status_counts.values()|list|tojson }},
+        backgroundColor: palette.slice(0, {{ status_counts|length }}),
+        borderWidth: 2,
+        borderColor: isLight ? '#fff' : '#1c2128',
+        hoverOffset: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      cutout: '55%',
+      plugins: {legend:{position:'bottom',labels:{padding:8,color:textColor,font:{weight:600}}}}
+    }
+  });
+  {% endif %}
+
+  {% if daily_trend %}
+  new Chart(document.getElementById('chart-trend'), {
+    type: 'line',
+    data: {
+      labels: {{ daily_trend|map(attribute='date')|list|tojson }},
+      datasets: [{
+        label: 'Bookings',
+        data: {{ daily_trend|map(attribute='count')|list|tojson }},
+        borderColor: palette[0], borderWidth: 2.5,
+        backgroundColor: isLight ? 'rgba(232,78,44,.12)' : 'rgba(0,212,255,.12)',
+        fill: true, tension: 0.35, pointRadius: 5, pointHoverRadius: 7,
+        pointBackgroundColor: palette[0],
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {legend:{display:false}},
+      scales: {
+        x:{grid:{color:gridColor},ticks:{color:textColor,font:{weight:600}}},
+        y:{grid:{color:gridColor},beginAtZero:true,ticks:{color:textColor,font:{weight:600},stepSize:1}},
+      }
+    }
+  });
+  {% endif %}
+
+  {% if metrics.bookings %}
+  new Chart(document.getElementById('chart-checkin'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Checked In','Remaining'],
+      datasets: [{
+        data: [{{ metrics.checked_in }}, {{ metrics.bookings - metrics.checked_in }}],
+        backgroundColor: [isLight?'#1A6B55':'#10b981', isLight?'#e8e3dc':'rgba(255,255,255,.1)'],
+        borderWidth: 2,
+        borderColor: isLight ? '#fff' : '#1c2128',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '65%',
+      plugins: {legend:{display:false}}
+    }
+  });
+  {% endif %}
+
+  {% if demographics.disciplines %}
+  new Chart(document.getElementById('chart-discipline'), {
+    type: 'doughnut',
+    data: {
+      labels: {{ demographics.disciplines|map(attribute='name')|list|tojson }},
+      datasets: [{
+        data: {{ demographics.disciplines|map(attribute='count')|list|tojson }},
+        backgroundColor: palette.slice(0, {{ demographics.disciplines|length }}),
+        borderWidth: 2,
+        borderColor: isLight ? '#fff' : '#1c2128',
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, cutout: '50%',
+      plugins: {legend:{position:'bottom',labels:{font:{size:10,weight:600},color:textColor,padding:6}}}
+    }
+  });
+  {% endif %}
+
+  {% if demographics.years %}
+  new Chart(document.getElementById('chart-years'), {
+    type: 'bar',
+    data: {
+      labels: {{ demographics.years|map(attribute='year')|list|tojson }},
+      datasets: [{
+        label: 'Attendees',
+        data: {{ demographics.years|map(attribute='count')|list|tojson }},
+        backgroundColor: palette[3],
+        borderRadius: 3, barPercentage: 0.5,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {legend:{display:false}},
+      scales: {
+        x:{grid:{display:false},ticks:{color:textColor,font:{weight:600}}},
+        y:{grid:{color:gridColor},beginAtZero:true,ticks:{color:textColor,font:{weight:600},stepSize:1}}
+      }
+    }
+  });
+  {% endif %}
+})();
+</script>
+{% endblock %}

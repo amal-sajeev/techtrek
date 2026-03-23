@@ -32,6 +32,7 @@
   <a href="/admin/event-management/{{ hub_event.id }}/recordings" class="em-hub-tab {% if hub_tab == 'recordings' %}active{% endif %}">Recordings</a>
   <a href="/admin/event-management/{{ hub_event.id }}/feedback" class="em-hub-tab {% if hub_tab == 'feedback' %}active{% endif %}">Feedback</a>
   <a href="/admin/event-management/{{ hub_event.id }}/alerts" class="em-hub-tab {% if hub_tab == 'alerts' %}active{% endif %}">Alerts</a>
+  <a href="/admin/event-management/{{ hub_event.id }}/report" class="em-hub-tab {% if hub_tab == 'report' %}active{% endif %}">Report</a>
 </nav>
 <div class="em-hub-select-wrap">
   <label class="em-hub-select-label">Navigate to&hellip;</label>
@@ -44,6 +45,7 @@
     <option value="/admin/event-management/{{ hub_event.id }}/recordings" {% if hub_tab == 'recordings' %}selected{% endif %}>&#127909;  Recordings</option>
     <option value="/admin/event-management/{{ hub_event.id }}/feedback" {% if hub_tab == 'feedback' %}selected{% endif %}>&#128172;  Feedback</option>
     <option value="/admin/event-management/{{ hub_event.id }}/alerts" {% if hub_tab == 'alerts' %}selected{% endif %}>&#128276;  Alerts</option>
+    <option value="/admin/event-management/{{ hub_event.id }}/report" {% if hub_tab == 'report' %}selected{% endif %}>&#128196;  Report</option>
   </select>
 </div>
 

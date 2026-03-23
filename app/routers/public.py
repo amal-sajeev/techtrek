@@ -2,7 +2,7 @@ import asyncio
 import io
 import re
 from collections import defaultdict
-from datetime import datetime, date, time, timedelta
+from datetime import datetime, time, timedelta
 from urllib.parse import urlparse, parse_qs
 
 from fastapi import APIRouter, Depends, Query, Request
@@ -10,6 +10,7 @@ from fastapi.responses import RedirectResponse, Response, StreamingResponse, JSO
 from sqlalchemy import func
 from sqlalchemy.orm import Session as DbSession
 
+from app.config import settings
 from app.csrf import csrf_protection
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
 from app.services.booking import _generate_qr_base64
@@ -80,15 +81,17 @@ def _build_embed_url(recording_url: str | None) -> str | None:
         if vid:
             return f"https://www.dailymotion.com/embed/video/{vid}"
     if host in ("twitch.tv", "www.twitch.tv"):
+        twitch_parent = urlparse(settings.base_url).hostname or "localhost"
         parts = [p for p in parsed.path.split("/") if p]
         if len(parts) >= 2 and parts[0] == "videos":
-            return f"https://player.twitch.tv/?video={parts[1]}&parent=localhost"
+            return f"https://player.twitch.tv/?video={parts[1]}&parent={twitch_parent}"
         if parts:
-            return f"https://player.twitch.tv/?channel={parts[0]}&parent=localhost"
+            return f"https://player.twitch.tv/?channel={parts[0]}&parent={twitch_parent}"
     if host == "clips.twitch.tv":
+        twitch_parent = urlparse(settings.base_url).hostname or "localhost"
         slug = parsed.path.lstrip("/").split("/")[0]
         if slug:
-            return f"https://clips.twitch.tv/embed?clip={slug}&parent=localhost"
+            return f"https://clips.twitch.tv/embed?clip={slug}&parent={twitch_parent}"
     if host in ("facebook.com", "www.facebook.com", "fb.watch"):
         from urllib.parse import quote_plus
         return f"https://www.facebook.com/plugins/video.php?href={quote_plus(recording_url)}"

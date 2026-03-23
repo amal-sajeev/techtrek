@@ -1583,11 +1583,19 @@ def booking_cancel(request: Request, booking_id: int, db: Session = Depends(get_
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     b = db.query(Booking).get(booking_id)
-    if b:
-        b.payment_status = "cancelled"
-        log_activity(db, category="admin", action="cancel", description=f"Admin cancelled booking {b.booking_ref}", request=request, user_id=admin.id, target_type="booking", target_id=booking_id)
-        db.commit()
-        flash(request, f"Booking {b.booking_ref} cancelled.", "success")
+    if not b:
+        flash(request, "Booking not found.", "danger")
+        return RedirectResponse("/admin/bookings", status_code=303)
+    if b.payment_status not in ("paid", "hold"):
+        flash(request, f"Booking {b.booking_ref} is '{b.payment_status}' — cannot cancel.", "danger")
+        return RedirectResponse("/admin/bookings", status_code=303)
+    if b.checked_in:
+        flash(request, f"Booking {b.booking_ref} is checked in — cancel not allowed.", "danger")
+        return RedirectResponse("/admin/bookings", status_code=303)
+    b.payment_status = "cancelled"
+    log_activity(db, category="admin", action="cancel", description=f"Admin cancelled booking {b.booking_ref}", request=request, user_id=admin.id, target_type="booking", target_id=booking_id)
+    db.commit()
+    flash(request, f"Booking {b.booking_ref} cancelled.", "success")
     return RedirectResponse("/admin/bookings", status_code=303)
 
 
@@ -1637,6 +1645,9 @@ def booking_refund(request: Request, booking_id: int, db: Session = Depends(get_
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     b = db.query(Booking).get(booking_id)
+    if b and b.checked_in:
+        flash(request, f"Booking {b.booking_ref} is checked in — refund not allowed.", "danger")
+        return RedirectResponse("/admin/bookings", status_code=303)
     can_refund = b and b.payment_status in ("paid", "refunded") and (
         b.payment_status == "paid" or b.refund_status == "failed"
     )
@@ -3635,23 +3646,205 @@ async def event_management_send_alert(request: Request, event_id: int, db: Sessi
     db.add(alert)
     db.commit()
 
-    user_ids = [
+    user_ids = set(
         r[0] for r in
         db.query(Booking.user_id).filter(
             Booking.event_id == event_id, Booking.payment_status == "paid"
         ).distinct().all()
+    )
+    user_ids.add(admin.id)
+
+    from app.services.poll_events import publish_to_users
+    publish_to_users(list(user_ids), {
+        "type": "alert",
+        "message": message,
+        "alert_type": alert_type,
+        "event_name": event.name,
+        "event_id": event_id,
+    })
+
+    attendee_count = len(user_ids) - 1
+    log_activity(db, category="admin", action="alert", description=f"Sent alert to {attendee_count} attendee(s) of '{event.name}'", request=request, user_id=admin.id, target_type="event", target_id=event_id)
+
+    return JSONResponse({"ok": True, "recipients": attendee_count})
+
+
+@router.get("/event-management/{event_id}/report")
+def event_management_report(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    from app.models.event_session import EventSession
+    from app.models.coupon import Coupon
+    from app.models.event_addon import EventAddOn, BookingAddOn
+    from app.models.feedback_template import FeedbackResponse
+    from app.models.session_feedback import SessionFeedback
+
+    paid_q = db.query(Booking).filter(
+        Booking.event_id == event_id,
+        Booking.payment_status == "paid",
+        Booking.is_shared_ticket == False,
+    )
+    total_bookings = paid_q.count()
+    total_revenue = float(db.query(func.coalesce(func.sum(Booking.amount_paid), 0)).filter(
+        Booking.event_id == event_id, Booking.payment_status == "paid",
+        Booking.is_shared_ticket == False,
+    ).scalar() or 0)
+    checked_in = paid_q.filter(Booking.checked_in == True).count()
+    checkin_pct = round(checked_in / total_bookings * 100) if total_bookings else 0
+    waitlist_count = db.query(Waitlist).filter(Waitlist.event_id == event_id).count()
+    poll_count = db.query(Poll).filter(Poll.event_id == event_id).count()
+
+    fb_count_new = db.query(FeedbackResponse).filter(FeedbackResponse.event_id == event_id).count()
+    fb_count_legacy = db.query(Feedback).filter(Feedback.event_id == event_id).count()
+    feedback_count = fb_count_new + fb_count_legacy
+    session_count = db.query(EventSession).filter(EventSession.event_id == event_id).count()
+
+    metrics = {
+        "bookings": total_bookings, "revenue": total_revenue,
+        "checked_in": checked_in, "checkin_pct": checkin_pct,
+        "waitlist": waitlist_count, "polls": poll_count,
+        "feedback": feedback_count, "sessions": session_count,
+    }
+
+    seat_rev = (
+        db.query(Seat.seat_type, func.count(Booking.id), func.sum(Booking.amount_paid))
+        .join(Booking, Booking.seat_id == Seat.id)
+        .filter(Booking.event_id == event_id, Booking.payment_status == "paid",
+                Booking.is_shared_ticket == False)
+        .group_by(Seat.seat_type).all()
+    )
+    seat_revenue = [
+        {"type": (st or "standard").replace("_", " ").title(), "count": cnt, "revenue": float(rev or 0)}
+        for st, cnt, rev in seat_rev
     ]
 
-    if user_ids:
-        from app.services.poll_events import publish_to_users
-        publish_to_users(user_ids, {
-            "type": "alert",
-            "message": message,
-            "alert_type": alert_type,
-            "event_name": event.name,
-            "event_id": event_id,
-        })
+    status_counts = dict(
+        db.query(Booking.payment_status, func.count(Booking.id))
+        .filter(Booking.event_id == event_id, Booking.is_shared_ticket == False)
+        .group_by(Booking.payment_status).all()
+    )
 
-    log_activity(db, category="admin", action="alert", description=f"Sent alert to {len(user_ids)} attendee(s) of '{event.name}'", request=request, user_id=admin.id, target_type="event", target_id=event_id)
+    try:
+        daily_rows = (
+            db.query(func.date_trunc("day", Booking.booked_at).label("d"), func.count(Booking.id))
+            .filter(Booking.event_id == event_id, Booking.payment_status == "paid",
+                    Booking.is_shared_ticket == False)
+            .group_by("d").order_by("d").all()
+        )
+        daily_trend = [
+            {"date": d.strftime("%b %d") if hasattr(d, "strftime") else str(d)[:10], "count": cnt}
+            for d, cnt in daily_rows
+        ]
+    except Exception:
+        daily_trend = []
 
-    return JSONResponse({"ok": True, "recipients": len(user_ids)})
+    coupons = db.query(Coupon).filter(Coupon.event_id == event_id).all()
+    coupon_data = []
+    for c in coupons:
+        disc = f"{c.discount_pct}%" if c.discount_pct else f"Rs.{float(c.discount_amount or 0):,.0f}"
+        coupon_data.append({"code": c.code, "discount": disc, "used": c.used_count, "max": c.max_uses or 0})
+
+    addons = db.query(EventAddOn).filter(EventAddOn.event_id == event_id).all()
+    addon_data = []
+    for a in addons:
+        qty = int(db.query(func.coalesce(func.sum(BookingAddOn.quantity), 0)).filter(BookingAddOn.addon_id == a.id).scalar())
+        addon_data.append({"title": a.title, "price": float(a.price or 0), "qty": qty, "revenue": float(a.price or 0) * qty})
+
+    booked_user_ids = [
+        r[0] for r in
+        db.query(Booking.user_id).filter(
+            Booking.event_id == event_id, Booking.payment_status == "paid",
+            Booking.is_shared_ticket == False
+        ).distinct().all()
+    ]
+    demographics = {"colleges": [], "disciplines": [], "years": []}
+    if booked_user_ids:
+        users = db.query(User).filter(User.id.in_(booked_user_ids)).all()
+        from collections import Counter
+        college_counts = Counter(u.college for u in users if u.college).most_common(12)
+        demographics["colleges"] = [{"name": n, "count": c} for n, c in college_counts]
+        disc_counts = Counter(u.discipline for u in users if u.discipline).most_common(8)
+        demographics["disciplines"] = [{"name": n, "count": c} for n, c in disc_counts]
+        year_counts = Counter(u.year_of_study for u in users if u.year_of_study)
+        demographics["years"] = [{"year": yr, "count": year_counts[yr]} for yr in sorted(year_counts.keys())]
+
+    fb_responses = db.query(FeedbackResponse).filter(FeedbackResponse.event_id == event_id).all()
+    fb_legacy = db.query(Feedback).filter(Feedback.event_id == event_id).all()
+    all_ratings = [fr.overall_rating for fr in fb_responses if fr.overall_rating]
+    all_ratings += [fl.rating for fl in fb_legacy if fl.rating]
+    avg_rating = round(sum(all_ratings) / len(all_ratings), 1) if all_ratings else 0
+    rating_dist = {s: 0 for s in range(1, 6)}
+    for r in all_ratings:
+        if 1 <= r <= 5:
+            rating_dist[int(r)] = rating_dist.get(int(r), 0) + 1
+
+    session_fb = (
+        db.query(SessionModel.title, func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
+        .join(SessionFeedback, SessionFeedback.session_id == SessionModel.id)
+        .filter(SessionFeedback.event_id == event_id, SessionFeedback.rating.isnot(None))
+        .group_by(SessionModel.id, SessionModel.title).all()
+    )
+    session_ratings = [{"title": t, "avg": round(float(a), 1), "count": c} for t, a, c in session_fb]
+
+    comments = [fr.comment.strip() for fr in fb_responses if fr.comment and fr.comment.strip()]
+    comments += [fl.comment.strip() for fl in fb_legacy if fl.comment and fl.comment.strip()]
+
+    feedback_data = {
+        "avg_rating": avg_rating, "total_ratings": len(all_ratings),
+        "distribution": rating_dist, "session_ratings": session_ratings,
+        "comments": comments[:15],
+    }
+
+    polls = db.query(Poll).filter(Poll.event_id == event_id).order_by(Poll.created_at).all()
+    poll_summary = []
+    for p in polls:
+        total_votes = db.query(PollVote).filter(PollVote.poll_id == p.id).count()
+        entry = {"question": p.question, "type": p.poll_type, "votes": total_votes,
+                 "active": p.is_active, "closed": p.closed_at is not None}
+        if p.poll_type in ("multiple_choice", "yes_no"):
+            opts = []
+            for o in p.options:
+                vc = db.query(PollVote).filter(PollVote.option_id == o.id).count()
+                opts.append({"text": o.option_text, "votes": vc, "pct": round(vc / total_votes * 100, 1) if total_votes else 0})
+            entry["options"] = opts
+        elif p.poll_type == "rating":
+            avg = db.query(func.avg(PollVote.rating_value)).filter(
+                PollVote.poll_id == p.id, PollVote.rating_value.isnot(None)
+            ).scalar()
+            entry["average"] = round(float(avg), 1) if avg else 0
+        poll_summary.append(entry)
+
+    return templates.TemplateResponse(
+        "admin/event_management/report.html",
+        _hub_ctx(request, event, "report",
+                 metrics=metrics, seat_revenue=seat_revenue,
+                 status_counts=status_counts, daily_trend=daily_trend,
+                 coupon_data=coupon_data, addon_data=addon_data,
+                 demographics=demographics, feedback_data=feedback_data,
+                 poll_summary=poll_summary),
+    )
+
+
+@router.get("/event-management/{event_id}/report/pdf")
+def event_management_report_pdf(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/event-management", status_code=303)
+    from app.services.event_report import generate_event_report_pdf
+    pdf_bytes = generate_event_report_pdf(db, event_id)
+    safe_name = "".join(c if c.isalnum() or c in " _-" else "_" for c in event.name)
+    return StreamingResponse(
+        iter([pdf_bytes]),
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'attachment; filename="report-{safe_name}.pdf"'},
+    )

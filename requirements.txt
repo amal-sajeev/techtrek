@@ -16,6 +16,6 @@ alembic
 cryptography
 authlib
 slowapi
-python-dotenv
 pytest
 httpx
+requests

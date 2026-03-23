@@ -29,6 +29,10 @@ env/
 
 # Environment and secrets
 .env
+certs/
+
+# Runtime uploads
+app/static/uploads/
 
 # Database
 *.db

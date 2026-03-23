@@ -18,19 +18,30 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_RIGHT, TA_CENTER
 
 _FONT_REGISTERED = False
+_FONT_CHECKED = False
 
 def _register_fonts():
-    global _FONT_REGISTERED
-    if _FONT_REGISTERED:
+    global _FONT_REGISTERED, _FONT_CHECKED
+    if _FONT_CHECKED:
         return
-    _FONT_REGISTERED = True
-    candidates = [
-        ("Arial", "C:/Windows/Fonts/arial.ttf"),
-        ("Arial-Bold", "C:/Windows/Fonts/arialbd.ttf"),
+    _FONT_CHECKED = True
+
+    font_sets = [
+        [("Arial", "C:/Windows/Fonts/arial.ttf"),
+         ("Arial-Bold", "C:/Windows/Fonts/arialbd.ttf")],
+        [("Arial", "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf"),
+         ("Arial-Bold", "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf")],
+        [("Arial", "/usr/share/fonts/dejavu/DejaVuSans.ttf"),
+         ("Arial-Bold", "/usr/share/fonts/dejavu/DejaVuSans-Bold.ttf")],
+        [("Arial", "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+         ("Arial-Bold", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf")],
     ]
-    for name, path in candidates:
-        if os.path.exists(path):
-            pdfmetrics.registerFont(TTFont(name, path))
+    for candidates in font_sets:
+        if all(os.path.exists(p) for _, p in candidates):
+            for name, path in candidates:
+                pdfmetrics.registerFont(TTFont(name, path))
+            _FONT_REGISTERED = True
+            return
 
 from app.config import settings
 from app.utils import now_ist
@@ -84,7 +95,7 @@ def generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_
     _register_fonts()
     font = "Arial" if _FONT_REGISTERED else "Helvetica"
     font_bold = "Arial-Bold" if _FONT_REGISTERED else "Helvetica-Bold"
-    rupee = "₹" if _FONT_REGISTERED else "Rs."
+    rupee = "Rs."
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(

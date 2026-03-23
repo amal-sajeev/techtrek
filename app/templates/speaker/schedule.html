@@ -62,8 +62,8 @@
                 class="spk-cal-chip spk-cal-chip--{{ ev.status }}"
                 data-id="{{ ev.id }}"
                 data-title="{{ ev.session_title }}"
-                data-time="{{ ev.start_time.strftime('%I:%M %p') }}"
-                data-date="{{ ev.start_time.strftime('%b %d, %Y') }}"
+                data-time="{{ ev.start_time.strftime('%I:%M %p') if ev.start_time else '' }}"
+                data-date="{{ ev.start_time.strftime('%b %d, %Y') if ev.start_time else '' }}"
                 data-dur="{{ ev.duration }}"
                 data-venue="{{ ev.auditorium }}"
                 data-location="{{ ev.location }}"
@@ -75,7 +75,7 @@
                 data-session-id="{{ ev.session_id }}"
                 title="{{ ev.session_title }}">
           <span class="spk-cal-chip-dot"></span>
-          <span class="spk-cal-chip-time">{{ ev.start_time.strftime('%H:%M') }}</span>
+          <span class="spk-cal-chip-time">{{ ev.start_time.strftime('%H:%M') if ev.start_time else '' }}</span>
           <span class="spk-cal-chip-title">{{ ev.session_title }}</span>
         </button>
         {% endfor %}
@@ -105,8 +105,8 @@
                   class="spk-cal-week-event spk-cal-week-event--{{ ev.status }}"
                   data-id="{{ ev.id }}"
                   data-title="{{ ev.session_title }}"
-                  data-time="{{ ev.start_time.strftime('%I:%M %p') }}"
-                  data-date="{{ ev.start_time.strftime('%b %d, %Y') }}"
+                  data-time="{{ ev.start_time.strftime('%I:%M %p') if ev.start_time else '' }}"
+                  data-date="{{ ev.start_time.strftime('%b %d, %Y') if ev.start_time else '' }}"
                   data-dur="{{ ev.duration }}"
                   data-venue="{{ ev.auditorium }}"
                   data-location="{{ ev.location }}"
@@ -116,7 +116,7 @@
                   data-bookings="{{ ev.bookings }}"
                   data-status="{{ ev.status }}"
                   data-session-id="{{ ev.session_id }}">
-            <div class="spk-cal-event-time">{{ ev.start_time.strftime('%I:%M %p') }}</div>
+            <div class="spk-cal-event-time">{{ ev.start_time.strftime('%I:%M %p') if ev.start_time else '' }}</div>
             <div class="spk-cal-event-title">{{ ev.session_title }}</div>
             <div class="spk-cal-event-venue">{{ ev.auditorium }}</div>
             <div class="spk-cal-event-meta">{{ ev.duration }} min &middot; {{ ev.bookings }} booked</div>

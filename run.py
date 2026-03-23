@@ -14,9 +14,10 @@ if __name__ == "__main__":
     kwargs: dict = dict(host="0.0.0.0", port=8000, reload=True, timeout_graceful_shutdown=3)
 
     use_http = os.environ.get("USE_HTTP", "").strip().lower() in ("1", "true", "yes")
-    cert_dir = pathlib.Path(__file__).parent / "certs"
-    cert_file = cert_dir / "cert.pem"
-    key_file = cert_dir / "key.pem"
+    default_cert = pathlib.Path(__file__).parent / "certs" / "cert.pem"
+    default_key = pathlib.Path(__file__).parent / "certs" / "key.pem"
+    cert_file = pathlib.Path(os.environ.get("SSL_CERTFILE", "") or default_cert)
+    key_file = pathlib.Path(os.environ.get("SSL_KEYFILE", "") or default_key)
 
     if use_http:
         print(f"  [HTTP] USE_HTTP=1 — plain HTTP only. From other devices use:  http://<this-PC-IP>:8000  (not https://)")

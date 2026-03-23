@@ -1,9 +1,10 @@
 from pathlib import Path
-from typing import Optional
+from typing import Any, Optional
 
 from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
+from starlette.requests import Request as StarletteRequest
+from starlette.templating import Jinja2Templates as StarletteJinja2Templates
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -14,6 +15,31 @@ from app.models.user import User
 from app.utils import now_ist  # noqa: F401 — re-exported for routers
 
 BASE_DIR = Path(__file__).resolve().parent
+
+
+class Jinja2Templates(StarletteJinja2Templates):
+    """Starlette 0.37+ expects ``TemplateResponse(request, name, context)``.
+
+    This app (and FastAPI's older examples) use ``TemplateResponse(name, context)``
+    with ``request`` inside the context dict. On newer Starlette, that is mis-read as
+    ``(request=name_str, name=context_dict, ...)``, which leads to
+    ``get_template(dict)`` → ``TypeError: unhashable type: 'dict'``.
+    """
+
+    def TemplateResponse(self, *args: Any, **kwargs: Any) -> Any:
+        if (
+            args
+            and isinstance(args[0], str)
+            and len(args) >= 2
+            and isinstance(args[1], dict)
+        ):
+            ctx = args[1]
+            req = ctx.get("request")
+            if isinstance(req, StarletteRequest):
+                return super().TemplateResponse(req, args[0], ctx, *args[2:], **kwargs)
+        return super().TemplateResponse(*args, **kwargs)
+
+
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
 def _gettext_noop(s: str) -> str:

@@ -158,7 +158,7 @@
                 {% if b.qr_code_data and b.payment_status == 'paid' %}
                 <img src="data:image/png;base64,{{ b.qr_code_data }}" alt="QR Code" class="booking-qr-img" width="100" height="100">
                 {% endif %}
-                {% if b.payment_status == 'paid' %}
+                {% if b.payment_status == 'paid' and not b.checked_in %}
                 <form method="post" action="/booking/cancel/{{ b.id }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button type="button" class="btn btn-sm btn-danger"
@@ -215,7 +215,7 @@
           <a href="/booking/certificate/{{ b.id }}" class="btn btn-outline">&#127891; Certificate{% if cert_bookings|length > 1 %} ({{ b.booking_ref }}){% endif %}</a>
           {% endfor %}
           <a href="/booking/my" class="btn btn-primary">Back to My Bookings</a>
-          {% if is_group and group_id and bookings|selectattr('payment_status', 'equalto', 'paid')|list|length > 1 %}
+          {% if is_group and group_id and bookings|selectattr('payment_status', 'equalto', 'paid')|list|length > 1 and not bookings|selectattr('checked_in')|list %}
           <form method="post" action="/booking/cancel-group/{{ group_id }}" style="display:inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-danger"

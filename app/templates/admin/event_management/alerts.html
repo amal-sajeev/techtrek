@@ -99,7 +99,6 @@ function sendAlert() {
       statusEl.textContent = 'Alert sent to ' + data.recipients + ' attendee(s).';
       statusEl.style.color = '#10b981';
       document.getElementById('alert-message').value = '';
-      setTimeout(function() { location.reload(); }, 1500);
     } else {
       statusEl.textContent = data.error || 'Failed to send alert.';
       statusEl.style.color = '#ef4444';

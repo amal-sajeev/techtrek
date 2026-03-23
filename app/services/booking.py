@@ -289,8 +289,13 @@ def cancel_booking_user(db: DBSession, booking_id: int, user_id: int, *, send_em
     b = db.query(Booking).filter(Booking.id == booking_id, Booking.user_id == user_id).first()
     if not b or b.payment_status != "paid":
         return {"ok": False, "msg": "Booking not found or already cancelled."}
+    if b.checked_in:
+        return {"ok": False, "msg": "Cannot cancel a checked-in booking."}
 
     event = db.query(Event).get(b.event_id) if b.event_id else None
+    if event and event.start_date and event.start_date <= now_ist().date():
+        return {"ok": False, "msg": "Cannot cancel after the event has started."}
+
     price = b.amount_paid or (float(event.price) if event else TICKET_PRICE)
     fee = CANCELLATION_FEE
     refund = max(0, price - fee)
@@ -346,8 +351,13 @@ def cancel_group_bookings(db: DBSession, group_id: str, user_id: int) -> dict:
     )
     if not bookings:
         return {"ok": False, "msg": "No active bookings found in this group.", "cancelled": 0}
+    if any(b.checked_in for b in bookings):
+        return {"ok": False, "msg": "Cannot cancel — one or more tickets have been checked in.", "cancelled": 0}
 
     event = db.query(Event).get(bookings[0].event_id) if bookings[0].event_id else None
+    if event and event.start_date and event.start_date <= now_ist().date():
+        return {"ok": False, "msg": "Cannot cancel after the event has started.", "cancelled": 0}
+
     event_title = event.name if event else "Event"
     cancelled_items = []
     total_refund = 0.0

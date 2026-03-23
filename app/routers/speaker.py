@@ -151,35 +151,40 @@ def schedule(
 
     from app.models.event_session import EventSession as ES_cal
     all_events = []
-    seen_event_ids = set()
+    seen_es_ids = set()
     for s in raw_sessions:
-        es = db.query(ES_cal).filter(ES_cal.session_id == s.id).first()
-        ev = es.event if es else None
-        if not ev or ev.id in seen_event_ids:
-            continue
-        seen_event_ids.add(ev.id)
-        aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
-        college_obj = aud.college if aud else None
-        city = college_obj.city if college_obj else None
-        bcount = (
-            db.query(func.count(Booking.id))
-            .filter(Booking.event_id == ev.id, Booking.payment_status == "paid")
-            .scalar()
-        )
-        all_events.append({
-            "id": ev.id,
-            "event_name": ev.name,
-            "start_date": ev.start_date,
-            "end_date": ev.end_date,
-            "status": ev.status,
-            "auditorium": aud.name if aud else "TBD",
-            "location": aud.location if aud else "",
-            "college": college_obj.name if college_obj else "",
-            "city": city.name if city else "",
-            "price": float(ev.price or 0),
-            "bookings": bcount,
-            "sessions": [es.session.title for es in ev.event_sessions] if ev.event_sessions else [],
-        })
+        es_list = db.query(ES_cal).filter(ES_cal.session_id == s.id).all()
+        for es in es_list:
+            if es.id in seen_es_ids:
+                continue
+            seen_es_ids.add(es.id)
+            ev = es.event
+            if not ev:
+                continue
+            aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
+            college_obj = aud.college if aud else None
+            city = college_obj.city if college_obj else None
+            bcount = (
+                db.query(func.count(Booking.id))
+                .filter(Booking.event_id == ev.id, Booking.payment_status == "paid")
+                .scalar()
+            )
+            all_events.append({
+                "id": ev.id,
+                "session_id": s.id,
+                "session_title": s.title,
+                "start_date": ev.start_date,
+                "start_time": es.start_time or (datetime.combine(ev.start_date, datetime.min.time()) if ev.start_date else None),
+                "end_date": ev.end_date,
+                "duration": s.duration_minutes or 30,
+                "status": ev.status,
+                "auditorium": aud.name if aud else "TBD",
+                "location": aud.location if aud else "",
+                "college": college_obj.name if college_obj else "",
+                "city": city.name if city else "",
+                "price": float(ev.price or 0),
+                "bookings": bcount,
+            })
 
     if view == "month":
         cal = _calendar.Calendar(firstweekday=0)

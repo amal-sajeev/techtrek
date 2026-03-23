@@ -215,6 +215,21 @@
     </div>
   </div>
 </div>
+<!-- Alert popup (for attendees receiving real-time alerts) -->
+<div class="modal-wrapper" id="alert-popup-modal" style="display:none;">
+  <div class="modal-backdrop" id="alert-popup-backdrop"></div>
+  <div class="modal-dialog" style="max-width:420px;">
+    <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;">
+      <span id="alert-popup-icon" style="font-size:1.5rem;">&#128276;</span>
+      <h3 id="alert-popup-title" style="margin:0;font-size:1.1rem;font-weight:700;">Alert</h3>
+    </div>
+    <p id="alert-popup-event" class="text-muted" style="font-size:.85rem;margin:0 0 .5rem;"></p>
+    <div id="alert-popup-message" style="font-size:1rem;line-height:1.5;margin-bottom:1rem;"></div>
+    <div class="modal-footer" style="margin-top:1rem;">
+      <button type="button" class="btn btn-primary" id="alert-popup-ok">OK</button>
+    </div>
+  </div>
+</div>
 {% endif %}
 
 <script>
@@ -770,10 +785,37 @@ window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFee
       var data = JSON.parse(e.data);
       if (data.type === 'connected') return;
       if (data.type === 'alert') {
-        var toastType = data.alert_type === 'urgent' ? 'danger' : (data.alert_type === 'warning' ? 'warning' : 'info');
-        var prefix = data.event_name ? '[' + data.event_name + '] ' : '';
-        if (window.TechTrek && window.TechTrek.showToast) {
-          window.TechTrek.showToast(prefix + data.message, toastType, data.alert_type === 'urgent' ? 10000 : 6000);
+        var alertModal = document.getElementById('alert-popup-modal');
+        if (alertModal) {
+          var iconEl = document.getElementById('alert-popup-icon');
+          var titleEl = document.getElementById('alert-popup-title');
+          var eventEl = document.getElementById('alert-popup-event');
+          var msgEl = document.getElementById('alert-popup-message');
+          var okBtn = document.getElementById('alert-popup-ok');
+          var alertBd = document.getElementById('alert-popup-backdrop');
+          if (data.alert_type === 'urgent') {
+            iconEl.textContent = '\u26A0\uFE0F';
+            titleEl.textContent = 'Urgent Alert';
+            titleEl.style.color = 'var(--red, #ef4444)';
+          } else if (data.alert_type === 'warning') {
+            iconEl.textContent = '\u26A0\uFE0F';
+            titleEl.textContent = 'Warning';
+            titleEl.style.color = 'var(--yellow, #eab308)';
+          } else {
+            iconEl.textContent = '\uD83D\uDD14';
+            titleEl.textContent = 'Alert';
+            titleEl.style.color = 'var(--cyan, #00d4ff)';
+          }
+          eventEl.textContent = data.event_name ? 'From: ' + data.event_name : '';
+          msgEl.textContent = data.message || '';
+          alertModal.style.display = 'flex';
+          function closeAlertModal() {
+            alertModal.style.display = 'none';
+            okBtn.removeEventListener('click', closeAlertModal);
+            if (alertBd) alertBd.removeEventListener('click', closeAlertModal);
+          }
+          okBtn.addEventListener('click', closeAlertModal);
+          if (alertBd) alertBd.addEventListener('click', closeAlertModal);
         }
         return;
       }

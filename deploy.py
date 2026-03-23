@@ -264,16 +264,17 @@ def start_server() -> None:
     port    = os.environ.get("PORT",    "8000")
     workers = os.environ.get("WORKERS", "4")
 
-    cert_dir = pathlib.Path(__file__).parent / "certs"
-    cert_file = cert_dir / "cert.pem"
-    key_file = cert_dir / "key.pem"
+    default_cert = pathlib.Path(__file__).parent / "certs" / "cert.pem"
+    default_key = pathlib.Path(__file__).parent / "certs" / "key.pem"
+    cert_file = pathlib.Path(os.environ.get("SSL_CERTFILE", "") or default_cert)
+    key_file = pathlib.Path(os.environ.get("SSL_KEYFILE", "") or default_key)
     ssl_args = ""
     if cert_file.exists() and key_file.exists():
         ssl_args = f' --ssl-certfile "{cert_file}" --ssl-keyfile "{key_file}"'
         scheme = "https"
     else:
         scheme = "http"
-        _warn(f"No SSL certs found at {cert_dir} — running plain HTTP")
+        _warn(f"No SSL certs at {cert_file} / {key_file} — running plain HTTP")
 
     _header("Step 5 – Starting TechTrek server")
     print(f"  Listening on  {scheme}://{host}:{port}")
