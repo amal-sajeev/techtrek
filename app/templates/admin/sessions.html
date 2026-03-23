@@ -11,7 +11,7 @@
 
 {% if sessions %}
 <div class="filter-bar mb-3">
-  <input type="text" id="session-search" class="form-input" placeholder="Search by title, speaker, or event…" oninput="filterSessions(this.value)" style="max-width:360px">
+  <input type="text" id="session-search" class="form-input" placeholder="Search by title or speaker…" oninput="filterSessions(this.value)" style="max-width:360px">
   <span id="session-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ sessions|length }} session{{ 's' if sessions|length != 1 }}</span>
 </div>
 <div class="table-responsive">
@@ -20,25 +20,21 @@
       <tr>
         <th>Title</th>
         <th>Speaker</th>
-        <th>Event</th>
-        <th>Start Time</th>
-        <th>Bookings</th>
+        <th>Duration</th>
+        <th>Linked Events</th>
         {% if user.is_admin %}<th>Actions</th>{% endif %}
       </tr>
     </thead>
     <tbody>
       {% for item in sessions %}
-      <tr data-search="{{ item.session.title|lower }} {{ (item.session.speaker_name or '')|lower }} {{ (item.event.name if item.event else '')|lower }}">
+      <tr data-search="{{ item.session.title|lower }} {{ (item.session.speaker_name or '')|lower }}">
         <td data-label="Title"><strong>{{ item.session.title }}</strong></td>
         <td data-label="Speaker">{{ item.session.speaker_name or "—" }}</td>
-        <td data-label="Event">{{ item.event.name if item.event else "—" }}</td>
-        <td data-label="Start Time">{{ item.session.start_time.strftime('%b %d, %Y %I:%M %p') if item.session.start_time else "—" }}</td>
-        <td data-label="Bookings">{{ item.bookings }}</td>
+        <td data-label="Duration">{{ item.session.duration_minutes }} min</td>
+        <td data-label="Linked Events">{{ item.linked_events }}</td>
         {% if user.is_admin %}
         <td data-label="Actions" class="actions-cell">
           <a href="/admin/sessions/{{ item.session.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
-          <a href="/admin/sessions/{{ item.session.id }}/polls?event_id={{ item.session.event_id or '' }}" class="btn btn-sm btn-outline">Polls</a>
-          <a href="/admin/sessions/{{ item.session.id }}/recordings" class="btn btn-sm btn-outline">Recordings</a>
           <form method="post" action="/admin/sessions/{{ item.session.id }}/delete" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete this session?" data-confirm-label="Delete">Delete</button>

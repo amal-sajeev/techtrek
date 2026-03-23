@@ -19,15 +19,6 @@
   <div class="wizard-panel active" data-panel="1">
     <h3 class="wizard-panel-title">Session Details</h3>
     <div class="form-group">
-      <label class="form-label" for="sess-event">Event</label>
-      <select name="event_id" id="sess-event" class="form-input" required placeholder="Select event">
-        <option value="">Select event</option>
-        {% for ev in events %}
-        <option value="{{ ev.id }}" {% if (lecture and lecture.event_id == ev.id) or (not lecture and preselect_event_id and preselect_event_id == ev.id) %}selected{% endif %}>{{ ev.name }}{% if ev.start_date %} ({{ ev.start_date.strftime('%b %d') }}){% endif %}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="form-group">
       <label class="form-label" for="sess-title">Title</label>
       <input type="text" name="title" id="sess-title" class="form-input" value="{{ lecture.title if lecture else '' }}" required>
     </div>
@@ -49,14 +40,6 @@
       </div>
     </div>
     <div class="form-row">
-      <div class="form-group">
-        <label class="form-label" for="sess-start">Start Time</label>
-        <input type="datetime-local" name="start_time" id="sess-start" class="form-input" value="{{ lecture.start_time.strftime('%Y-%m-%dT%H:%M') if lecture and lecture.start_time else '' }}">
-      </div>
-      <div class="form-group">
-        <label class="form-label" for="sess-order">Order</label>
-        <input type="number" name="order" id="sess-order" class="form-input" value="{{ lecture.order if lecture and lecture.order is not none else 0 }}" min="0">
-      </div>
       <div class="form-group">
         <label class="form-label" for="sess-duration">Duration (minutes)</label>
         <input type="number" name="duration_minutes" id="sess-duration" class="form-input" value="{{ lecture.duration_minutes if lecture else 30 }}" min="10">

@@ -37,7 +37,7 @@
           <h3 class="card-title">{{ s.title }}</h3>
           <p class="card-meta">{{ s.speaker_name }}</p>
           <div class="card-details">
-            <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') if ev and ev.start_date else (s.start_time.strftime('%b %d, %Y') if s.start_time else 'TBD') }}</span>
+            <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') if ev and ev.start_date else 'TBD' }}</span>
             {% if aud %}
             <span class="card-detail">&#128205; {{ aud.name }}{% if aud.location %}, {{ aud.location }}{% endif %}</span>
             {% endif %}

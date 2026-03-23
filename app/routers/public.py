@@ -168,7 +168,8 @@ def home(request: Request, db: DbSession = Depends(get_db)):
     for ev in upcoming_events:
         auditorium = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
         stats = _event_seat_stats(db, ev.id, ev.auditorium_id) if ev.auditorium_id else {"total": 0, "booked": 0, "available": 0}
-        session_count = db.query(func.count(Session.id)).filter(Session.event_id == ev.id).scalar()
+        from app.models.event_session import EventSession as ES_home
+        session_count = db.query(func.count(ES_home.id)).filter(ES_home.event_id == ev.id).scalar()
         city = ev.college.city if ev.college else None
         delta = datetime.combine(ev.start_date, time.min) - now.replace(tzinfo=None)
         days_until = max(0, delta.days)
@@ -212,28 +213,31 @@ def home(request: Request, db: DbSession = Depends(get_db)):
     total_speakers = db.query(func.count(Speaker.id)).scalar() or 0
     total_events = db.query(func.count(Event.id)).filter(Event.status == "published").scalar() or 0
 
-    featured_sessions = (
-        db.query(Session)
-        .join(Event, Session.event_id == Event.id)
+    from app.models.event_session import EventSession as ESHome
+    featured_es = (
+        db.query(ESHome)
+        .join(Event, ESHome.event_id == Event.id)
         .filter(Event.status == "published", Event.start_date >= today)
-        .order_by(Session.start_time)
+        .order_by(ESHome.start_time)
         .limit(10)
         .all()
     )
     sessions_with_info = []
-    for sess in featured_sessions:
-        ev = sess.event
+    for es in featured_es:
+        sess = es.session
+        ev = es.event
         speaker = db.query(Speaker).get(sess.speaker_id) if sess.speaker_id else None
         sessions_with_info.append({
             "session": sess,
             "event": ev,
+            "event_session": es,
             "speaker_obj": speaker,
         })
 
     cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
 
     ev_ids = [ev.id for ev in upcoming_events]
-    sess_ids = [s.id for s in featured_sessions]
+    sess_ids = [es.session_id for es in featured_es]
     first_gallery: dict[str, str] = {}
     if ev_ids or sess_ids:
         from sqlalchemy import case
@@ -295,11 +299,8 @@ def sessions_list(
     q: str = Query("", alias="q"),
     sort: str = Query("date", alias="sort"),
 ):
-    query = (
-        db.query(Session)
-        .join(Event, Session.event_id == Event.id)
-        .filter(Event.status == "published")
-    )
+    from app.models.event_session import EventSession
+    query = db.query(Session)
     if q:
         query = query.filter(
             Session.title.ilike(f"%{q}%")
@@ -308,16 +309,22 @@ def sessions_list(
     if sort == "title":
         query = query.order_by(Session.title)
     else:
-        query = query.order_by(Session.start_time)
+        query = query.order_by(Session.created_at.desc())
 
     all_sessions = query.all()
     sessions_with_info = []
     for sess in all_sessions:
-        event = sess.event
+        es = (
+            db.query(EventSession).join(Event, EventSession.event_id == Event.id)
+            .filter(EventSession.session_id == sess.id, Event.status == "published")
+            .first()
+        )
+        event = es.event if es else None
         speaker = db.query(Speaker).get(sess.speaker_id) if sess.speaker_id else None
         sessions_with_info.append({
             "session": sess,
             "event": event,
+            "event_session": es,
             "speaker_obj": speaker,
         })
 
@@ -333,14 +340,28 @@ def sessions_list(
 
 
 @router.get("/sessions/{session_id}")
-def session_detail(request: Request, session_id: int, db: DbSession = Depends(get_db)):
+def session_detail(
+    request: Request,
+    session_id: int,
+    db: DbSession = Depends(get_db),
+    event_id: int = Query(0, alias="event_id"),
+):
+    from app.models.event_session import EventSession
     session_obj = db.query(Session).filter(Session.id == session_id).first()
     if not session_obj:
         return templates.TemplateResponse(
             "errors/404.html", template_ctx(request), status_code=404
         )
 
-    event = session_obj.event
+    es = None
+    if event_id:
+        es = db.query(EventSession).filter(
+            EventSession.session_id == session_id, EventSession.event_id == event_id
+        ).first()
+    if not es:
+        es = db.query(EventSession).filter(EventSession.session_id == session_id).first()
+
+    event = es.event if es else None
     auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
 
     stats = (
@@ -353,15 +374,16 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
 
     sibling_sessions = []
     if event:
-        siblings = (
-            db.query(Session)
-            .filter(Session.event_id == event.id, Session.id != session_id)
-            .order_by(Session.order, Session.start_time)
+        sibling_es = (
+            db.query(EventSession)
+            .filter(EventSession.event_id == event.id, EventSession.session_id != session_id)
+            .order_by(EventSession.order, EventSession.start_time)
             .all()
         )
-        for s in siblings:
+        for s_es in sibling_es:
+            s = s_es.session
             speaker = db.query(Speaker).get(s.speaker_id) if s.speaker_id else None
-            sibling_sessions.append({"session": s, "speaker_obj": speaker})
+            sibling_sessions.append({"session": s, "speaker_obj": speaker, "event_session": s_es})
 
     public_recordings = (
         db.query(SessionRecording)
@@ -384,6 +406,10 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
     avg_rating = round(float(avg_rating_row[0]), 1) if avg_rating_row[0] else None
     rating_count = avg_rating_row[1] if avg_rating_row else 0
 
+    display_speaker_name = session_obj.speaker_name
+    if es and es.speaker_name:
+        display_speaker_name = es.speaker_name
+
     return templates.TemplateResponse(
         "public/session_detail.html",
         template_ctx(
@@ -391,6 +417,7 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
             lecture=session_obj,
             session=session_obj,
             event=event,
+            event_session=es,
             auditorium=auditorium,
             recordings=enriched_recordings,
             stats=stats,
@@ -401,6 +428,7 @@ def session_detail(request: Request, session_id: int, db: DbSession = Depends(ge
             gallery_urls=gallery_urls,
             avg_rating=avg_rating,
             rating_count=rating_count,
+            display_speaker_name=display_speaker_name,
         ),
     )
 
@@ -434,9 +462,10 @@ def events_list(
     events = query.all()
     cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
 
+    from app.models.event_session import EventSession as ES_list
     events_info = []
     for ev in events:
-        session_count = db.query(func.count(Session.id)).filter(Session.event_id == ev.id).scalar()
+        session_count = db.query(func.count(ES_list.id)).filter(ES_list.event_id == ev.id).scalar()
         auditorium = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
         stats = _event_seat_stats(db, ev.id, ev.auditorium_id) if ev.auditorium_id else {"total": 0, "booked": 0, "available": 0}
         city = ev.college.city if ev.college else None
@@ -488,18 +517,24 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
     stats = _event_seat_stats(db, ev.id, ev.auditorium_id) if ev.auditorium_id else {"total": 0, "booked": 0, "available": 0}
     availability = _availability_label(stats)
 
-    sessions = (
-        db.query(Session)
-        .filter(Session.event_id == event_id)
-        .order_by(Session.order, Session.start_time)
+    from app.models.event_session import EventSession
+    ev_sessions = (
+        db.query(EventSession)
+        .filter(EventSession.event_id == event_id)
+        .order_by(EventSession.order, EventSession.start_time)
         .all()
     )
     sessions_info = []
-    for sess in sessions:
-        speaker = db.query(Speaker).get(sess.speaker_id) if sess.speaker_id else None
+    for es in ev_sessions:
+        sess = es.session
+        spk_id = es.speaker_id or sess.speaker_id
+        speaker = db.query(Speaker).get(spk_id) if spk_id else None
+        display_name = es.speaker_name or sess.speaker_name
         sessions_info.append({
             "session": sess,
+            "event_session": es,
             "speaker_obj": speaker,
+            "display_speaker_name": display_name,
         })
 
     breaks = (
@@ -511,12 +546,15 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
 
     agenda_items = []
     for item in sessions_info:
+        es = item["event_session"]
         agenda_items.append({
             "type": "session",
             "session": item["session"],
+            "event_session": es,
             "speaker_obj": item["speaker_obj"],
-            "order": item["session"].order or 0,
-            "start_time": item["session"].start_time,
+            "display_speaker_name": item["display_speaker_name"],
+            "order": es.order or 0,
+            "start_time": es.start_time,
         })
     for brk in breaks:
         agenda_items.append({
@@ -590,11 +628,12 @@ def recordings_page(request: Request, db: DbSession = Depends(get_db)):
         .all()
     }
 
+    from app.models.event_session import EventSession
     paid_session_ids = set()
     if paid_event_ids:
         paid_session_ids = {
-            row[0] for row in db.query(Session.id)
-            .filter(Session.event_id.in_(paid_event_ids))
+            row[0] for row in db.query(EventSession.session_id)
+            .filter(EventSession.event_id.in_(paid_event_ids))
             .all()
         }
 
@@ -607,7 +646,8 @@ def recordings_page(request: Request, db: DbSession = Depends(get_db)):
 
     enriched = []
     for s in sessions:
-        event = s.event
+        es = db.query(EventSession).filter(EventSession.session_id == s.id).first()
+        event = es.event if es else None
         auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
         enriched.append({"session": s, "event": event, "auditorium": auditorium})
     return templates.TemplateResponse(
@@ -645,14 +685,16 @@ def schedule_page(
         if not ev.start_date:
             continue
         date_key = ev.start_date.strftime("%Y-%m-%d")
+        from app.models.event_session import EventSession as ES_sched
         auditorium = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
-        sessions = (
-            db.query(Session)
-            .filter(Session.event_id == ev.id)
-            .order_by(Session.order, Session.start_time)
+        ev_sess = (
+            db.query(ES_sched)
+            .filter(ES_sched.event_id == ev.id)
+            .order_by(ES_sched.order, ES_sched.start_time)
             .all()
         )
-        grouped[date_key].append({"event": ev, "auditorium": auditorium, "sessions": sessions})
+        sessions = [es.session for es in ev_sess]
+        grouped[date_key].append({"event": ev, "auditorium": auditorium, "sessions": sessions, "event_sessions": ev_sess})
 
     colleges = db.query(College).order_by(College.name).all()
     auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
@@ -694,8 +736,9 @@ def api_schedule(
         if not ev.start_date:
             continue
         date_key = ev.start_date.strftime("%Y-%m-%d")
+        from app.models.event_session import EventSession as ES_api
         aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
-        sessions = db.query(Session).filter(Session.event_id == ev.id).order_by(Session.order, Session.start_time).all()
+        ev_sess = db.query(ES_api).filter(ES_api.event_id == ev.id).order_by(ES_api.order, ES_api.start_time).all()
         result[date_key].append({
             "id": ev.id,
             "name": ev.name,
@@ -705,12 +748,12 @@ def api_schedule(
             "status": ev.status,
             "sessions": [
                 {
-                    "title": s.title,
-                    "speaker": s.speaker_name,
-                    "start_time": s.start_time.isoformat() if s.start_time else None,
-                    "duration_minutes": s.duration_minutes,
+                    "title": es.session.title,
+                    "speaker": es.speaker_name or es.session.speaker_name,
+                    "start_time": es.start_time.isoformat() if es.start_time else None,
+                    "duration_minutes": es.session.duration_minutes,
                 }
-                for s in sessions
+                for es in ev_sess
             ],
         })
     return JSONResponse(content=dict(sorted(result.items())))
@@ -747,9 +790,10 @@ def schedule_export_pdf(
         if not ev.start_date:
             continue
         date_key = ev.start_date.strftime("%Y-%m-%d")
+        from app.models.event_session import EventSession as ES_pdf
         aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
-        sessions = db.query(Session).filter(Session.event_id == ev.id).order_by(Session.order, Session.start_time).all()
-        grouped[date_key].append({"event": ev, "auditorium": aud, "sessions": sessions})
+        ev_sess = db.query(ES_pdf).filter(ES_pdf.event_id == ev.id).order_by(ES_pdf.order, ES_pdf.start_time).all()
+        grouped[date_key].append({"event": ev, "auditorium": aud, "event_sessions": ev_sess})
 
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4)
@@ -767,11 +811,12 @@ def schedule_export_pdf(
             aud = item["auditorium"]
             elements.append(Paragraph(f"{ev.name} — {aud.name if aud else 'TBA'}", styles["Heading3"]))
             data = [["Time", "Session", "Speaker", "Duration"]]
-            for sess in item["sessions"]:
+            for es in item["event_sessions"]:
+                sess = es.session
                 data.append([
-                    sess.start_time.strftime("%I:%M %p") if sess.start_time else "",
+                    es.start_time.strftime("%I:%M %p") if es.start_time else "",
                     sess.title,
-                    sess.speaker_name,
+                    es.speaker_name or sess.speaker_name,
                     f"{sess.duration_minutes} min" if sess.duration_minutes else "",
                 ])
             t = Table(data, colWidths=[70, 200, 120, 80])
@@ -1128,7 +1173,7 @@ def feedback_form(request: Request, event_id: int, db: DbSession = Depends(get_d
     if event.feedback_template_id:
         fb_template = db.query(FeedbackTemplate).get(event.feedback_template_id)
 
-    sessions = list(event.sessions) if event.sessions else []
+    sessions = [es.session for es in event.event_sessions] if event.event_sessions else []
 
     return templates.TemplateResponse(
         "public/feedback_form.html",
@@ -1163,8 +1208,9 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
 
     # Collect session ratings
     session_ratings = {}
-    if fb_template and fb_template.session_ratings_enabled and event.sessions:
-        for s in event.sessions:
+    ev_sessions_list = [es.session for es in event.event_sessions] if event.event_sessions else []
+    if fb_template and fb_template.session_ratings_enabled and ev_sessions_list:
+        for s in ev_sessions_list:
             raw = form.get(f"session_rating_{s.id}", "")
             try:
                 val = int(raw)
@@ -1172,7 +1218,7 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
                     session_ratings[s.id] = val
             except (ValueError, TypeError):
                 pass
-        if fb_template.session_ratings_required and len(session_ratings) < len(event.sessions):
+        if fb_template.session_ratings_required and len(session_ratings) < len(ev_sessions_list):
             flash(request, "Please rate all sessions.", "danger")
             return RedirectResponse(f"/feedback/{event_id}", status_code=303)
 

@@ -58,10 +58,10 @@
         <tr>
           <td data-label="Title"><strong>{{ s.session.title }}</strong></td>
           <td data-label="Speaker(s)">{{ s.speakers|join(', ') if s.speakers else '—' }}</td>
-          <td data-label="Time">{{ s.session.start_time.strftime('%H:%M') if s.session.start_time else '—' }}{% if s.session.end_time %} – {{ s.session.end_time.strftime('%H:%M') }}{% endif %}</td>
+          <td data-label="Time">{{ s.start_time.strftime('%H:%M') if s.start_time else '—' }}</td>
           <td data-label="Polls">{{ s.poll_count }}</td>
           <td data-label="Actions" class="actions-cell">
-            <a href="/admin/sessions/{{ s.session.id }}/polls?event_id={{ hub_event.id }}" class="btn btn-sm btn-outline">Polls</a>
+            <a href="/admin/event-management/{{ hub_event.id }}/polls" class="btn btn-sm btn-outline">Polls</a>
             <a href="/admin/sessions/{{ s.session.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           </td>
         </tr>

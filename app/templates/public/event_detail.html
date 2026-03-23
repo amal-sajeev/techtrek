@@ -217,8 +217,10 @@
           {% if item.type == 'session' %}
           {% set s = item.session %}
           {% set img_id = img_pool[s.id % 8] %}
+          {% set spk_name = item.display_speaker_name or s.speaker_name %}
+          {% set stime = item.start_time %}
 
-          <a href="/sessions/{{ s.id }}" class="ed-session-card reveal-{{ 'left' if loop.index is odd else 'right' }}"
+          <a href="/sessions/{{ s.id }}?event_id={{ event.id }}" class="ed-session-card reveal-{{ 'left' if loop.index is odd else 'right' }}"
                data-session-id="{{ s.id }}"
                style="transition-delay:{{ (loop.index0 * 0.12)|round(2) }}s; text-decoration:none; color:inherit;">
 
@@ -230,17 +232,17 @@
             </div>
 
             <div class="ed-sc-body">
-              {% if s.speaker_name %}
-              <p class="ed-sc-speaker">{{ s.speaker_name }}</p>
+              {% if spk_name %}
+              <p class="ed-sc-speaker">{{ spk_name }}</p>
               {% endif %}
               <h3 class="ed-sc-title">{{ s.title }}</h3>
               {% if s.description %}
               <p class="ed-sc-desc">{{ s.description|truncate(100, True, '...') }}</p>
               {% endif %}
               <div class="ed-sc-meta">
-                {% if s.start_time %}
-                <span>&#128197; {{ s.start_time.strftime('%b %d, %Y') }}</span>
-                <span>&#128336; {{ s.start_time.strftime('%I:%M %p') }}</span>
+                {% if stime %}
+                <span>&#128197; {{ stime.strftime('%b %d, %Y') }}</span>
+                <span>&#128336; {{ stime.strftime('%I:%M %p') }}</span>
                 {% endif %}
                 {% if venue %}<span>&#128205; {{ venue }}</span>{% endif %}
                 {% if s.duration_minutes %}<span class="meta-duration">&#9200; {{ s.duration_minutes }} min</span>{% endif %}

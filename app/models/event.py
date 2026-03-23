@@ -38,7 +38,7 @@ class Event(Base):
 
     college = relationship("College")
     auditorium = relationship("Auditorium", back_populates="events")
-    sessions = relationship("Session", back_populates="event", cascade="all, delete-orphan", order_by="Session.order, Session.start_time")
+    event_sessions = relationship("EventSession", back_populates="event", cascade="all, delete-orphan", order_by="EventSession.order, EventSession.start_time")
     bookings = relationship("Booking", back_populates="event")
     coupons = relationship("Coupon", back_populates="event")
     breaks = relationship("EventBreak", back_populates="event", cascade="all, delete-orphan", order_by="EventBreak.order, EventBreak.start_time")

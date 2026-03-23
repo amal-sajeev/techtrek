@@ -45,6 +45,7 @@ from app.models.site_setting import SiteSetting
 from app.models.event import Event
 from app.models.event_break import EventBreak
 from app.models.event_addon import EventAddOn
+from app.models.event_session import EventSession
 from app.models.coupon import Coupon
 from app.models.feedback_template import FeedbackTemplate, TemplateQuestion
 from app.crypto import hash_lookup
@@ -223,7 +224,13 @@ def phase1_db_seed(force: bool):
                     conn.commit()
                 except Exception:
                     conn.rollback()
-        Base.metadata.drop_all(bind=engine)
+            # Use CASCADE to handle leftover FK constraints from pre-migration schemas
+            rows = conn.execute(text(
+                "SELECT tablename FROM pg_tables WHERE schemaname = 'public'"
+            )).fetchall()
+            for (tbl,) in rows:
+                conn.execute(text(f'DROP TABLE IF EXISTS "{tbl}" CASCADE'))
+            conn.commit()
         Base.metadata.create_all(bind=engine)
         db = SessionLocal()
         print("  Cleared.")
@@ -1029,15 +1036,12 @@ def phase2_api_admin(api: ApiClient, refs: dict):
                 )
 
             session_form = {
-                "event_id": str(ev.id),
                 "title": sd["title"],
                 "speaker_id": str(sd["speaker_id"]),
                 "speaker_name": sd["speaker_name"],
                 "description": sd.get("description", ""),
                 "banner_url": sd.get("banner_url", ""),
                 "duration_minutes": str(sd.get("duration_minutes", 30)),
-                "start_time": session_start.isoformat() if session_start else "",
-                "order": str(sd.get("order", ord_idx)),
             }
 
             for ai, item in enumerate(sd.get("agenda", [])):
@@ -1054,16 +1058,30 @@ def phase2_api_admin(api: ApiClient, refs: dict):
             api.post_form("/admin/sessions/new", session_form)
 
             sess = db.query(SessionModel).filter(
-                SessionModel.event_id == ev.id,
                 SessionModel.title == sd["title"],
             ).order_by(SessionModel.id.desc()).first()
 
             if sess:
+                es = EventSession(
+                    event_id=ev.id,
+                    session_id=sess.id,
+                    order=sd.get("order", ord_idx),
+                    start_time=session_start,
+                    speaker_id=sd["speaker_id"],
+                    speaker_name=sd["speaker_name"],
+                )
+                db.add(es)
+                db.commit()
+
                 for rec in sd.get("recordings", []):
-                    rec_data = {"url": rec["url"], "title": rec.get("title", "")}
+                    rec_data = {
+                        "url": rec["url"],
+                        "title": rec.get("title", ""),
+                        "session_id": str(sess.id),
+                    }
                     if rec.get("is_public"):
                         rec_data["is_public"] = "on"
-                    api.post_form(f"/admin/sessions/{sess.id}/recordings", rec_data)
+                    api.post_form(f"/admin/event-management/{ev.id}/recordings", rec_data)
 
         for coup in evd.get("coupons", []):
             coup_form = {

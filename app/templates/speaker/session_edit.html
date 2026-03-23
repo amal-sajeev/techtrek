@@ -42,8 +42,8 @@
 
     <div class="form-row">
       <div class="form-group">
-        <label class="form-label" for="ss-start">Start Date &amp; Time</label>
-        <input type="datetime-local" name="start_time" id="ss-start" class="form-input" value="{{ lecture.start_time.strftime('%Y-%m-%dT%H:%M') if lecture.start_time else '' }}" required>
+        <label class="form-label">Start Date &amp; Time</label>
+        <p class="text-muted" style="font-size:.85rem">Start time is set per-event in the Event Management Hub.</p>
       </div>
       <div class="form-group">
         <label class="form-label" for="ss-duration">Duration (minutes)</label>
@@ -63,7 +63,7 @@
       <p class="text-muted" style="font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;margin-bottom:.75rem">Session Details (read-only)</p>
       <table class="table" style="font-size:.875rem">
         <tr><td><strong>Title</strong></td><td>{{ lecture.title }}</td></tr>
-        <tr><td><strong>Start</strong></td><td>{{ lecture.start_time.strftime('%b %d, %Y %I:%M %p') if lecture.start_time else '—' }}</td></tr>
+        <tr><td><strong>Start</strong></td><td>Set per event</td></tr>
         <tr><td><strong>Duration</strong></td><td>{{ lecture.duration_minutes }} minutes</td></tr>
         <tr><td><strong>Event</strong></td><td>{{ event.name if event else '—' }} {% if event and event.status %}({{ event.status|title }}){% endif %}</td></tr>
       </table>

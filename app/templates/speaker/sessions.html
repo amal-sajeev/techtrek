@@ -55,9 +55,10 @@
             {% endif %}
           </td>
           <td>
-            {% if s.start_time %}
-            <div style="font-size:.85rem">{{ s.start_time.strftime('%d %b %Y') }}</div>
-            <div style="font-size:.75rem;color:var(--text-muted)">{{ s.start_time.strftime('%I:%M %p') }}</div>
+            {% set es = item.event_session if item.event_session is defined else None %}
+            {% if es and es.start_time %}
+            <div style="font-size:.85rem">{{ es.start_time.strftime('%d %b %Y') }}</div>
+            <div style="font-size:.75rem;color:var(--text-muted)">{{ es.start_time.strftime('%I:%M %p') }}</div>
             {% else %}
             <span style="color:var(--text-muted)">—</span>
             {% endif %}

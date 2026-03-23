@@ -853,32 +853,33 @@ def speaker_delete_check(request: Request, speaker_id: int, db: Session = Depend
     sp = db.query(Speaker).get(speaker_id)
     if not sp:
         return JSONResponse({"error": "not_found"}, status_code=404)
+    from app.models.event_session import EventSession
     now = now_ist()
     primary_sessions = (
-        db.query(SessionModel)
-        .join(Event, SessionModel.event_id == Event.id)
+        db.query(SessionModel, Event)
+        .join(EventSession, EventSession.session_id == SessionModel.id)
+        .join(Event, EventSession.event_id == Event.id)
         .filter(SessionModel.speaker_id == speaker_id, Event.start_date >= now.date())
         .all()
     )
     agenda_sessions = (
-        db.query(SessionModel)
+        db.query(SessionModel, Event)
         .join(AgendaItem, AgendaItem.session_id == SessionModel.id)
-        .join(Event, SessionModel.event_id == Event.id)
+        .join(EventSession, EventSession.session_id == SessionModel.id)
+        .join(Event, EventSession.event_id == Event.id)
         .filter(AgendaItem.speaker_id == speaker_id, Event.start_date >= now.date())
         .all()
     )
     seen = set()
     sessions_list = []
-    for s in primary_sessions:
+    for s, ev in primary_sessions:
         if s.id not in seen:
             seen.add(s.id)
-            ev = s.event
             date_str = ev.start_date.strftime("%b %d, %Y") if ev and ev.start_date else ""
             sessions_list.append({"id": s.id, "title": s.title, "date": date_str, "role": "Primary Speaker"})
-    for s in agenda_sessions:
+    for s, ev in agenda_sessions:
         if s.id not in seen:
             seen.add(s.id)
-            ev = s.event
             date_str = ev.start_date.strftime("%b %d, %Y") if ev and ev.start_date else ""
             sessions_list.append({"id": s.id, "title": s.title, "date": date_str, "role": "Agenda Item"})
     return JSONResponse({"speaker_name": sp.name, "has_sessions": len(sessions_list) > 0, "sessions": sessions_list})
@@ -958,17 +959,12 @@ def sessions_list(request: Request, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
+    from app.models.event_session import EventSession
     all_sessions = db.query(SessionModel).order_by(SessionModel.created_at.desc()).all()
     enriched = []
     for s in all_sessions:
-        event = s.event
-        total_bookings = (
-            db.query(func.count(Booking.id)).filter(
-                Booking.event_id == event.id, Booking.payment_status == "paid",
-                Booking.is_shared_ticket == False,
-            ).scalar() or 0
-        ) if event else 0
-        enriched.append({"session": s, "event": event, "bookings": total_bookings})
+        linked_count = db.query(func.count(EventSession.id)).filter(EventSession.session_id == s.id).scalar() or 0
+        enriched.append({"session": s, "linked_events": linked_count})
     return templates.TemplateResponse(
         "admin/sessions.html",
         _admin_ctx(request, active_page="sessions", sessions=enriched),
@@ -976,17 +972,15 @@ def sessions_list(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/sessions/new")
-def session_new(request: Request, event_id: int | None = None, db: Session = Depends(get_db)):
+def session_new(request: Request, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     speakers = db.query(Speaker).order_by(Speaker.name).all()
-    events = db.query(Event).order_by(Event.name).all()
     return templates.TemplateResponse(
         "admin/session_form.html",
         _admin_ctx(request, active_page="sessions", lecture=None,
-                   events=events, speakers=speakers,
-                   preselect_event_id=event_id,
+                   speakers=speakers,
                    agenda_items=[], session_speakers=[], speaker_roles=SPEAKER_ROLES),
     )
 
@@ -998,30 +992,17 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login", status_code=303)
 
     form = await _form(request)
-    event_id_raw = form.get("event_id", "")
-    event_id = int(event_id_raw) if event_id_raw and event_id_raw.strip().isdigit() else None
-
-    start_str = form.get("start_time", "")
-    start_time = None
-    if start_str:
-        try:
-            start_time = datetime.fromisoformat(start_str)
-        except ValueError:
-            pass
 
     speaker_id_raw = form.get("speaker_id")
     speaker_id = int(speaker_id_raw) if speaker_id_raw and speaker_id_raw != "" else None
 
     session_obj = SessionModel(
-        event_id=event_id,
         speaker_id=speaker_id,
         title=form.get("title", "").strip(),
         speaker_name=form.get("speaker_name", "").strip() or form.get("speaker", "").strip(),
         description=form.get("description", "").strip(),
         banner_url=form.get("banner_url", "").strip() or None,
         duration_minutes=int(form.get("duration_minutes", 30)),
-        start_time=start_time,
-        order=int(form.get("order", 0) or 0),
     )
 
     db.add(session_obj)
@@ -1047,7 +1028,6 @@ def session_edit(request: Request, sess_id: int, db: Session = Depends(get_db)):
         flash(request, "Session not found.", "danger")
         return RedirectResponse("/admin/sessions", status_code=303)
     speakers = db.query(Speaker).order_by(Speaker.name).all()
-    events = db.query(Event).order_by(Event.name).all()
     agenda_items = db.query(AgendaItem).filter(AgendaItem.session_id == sess_id).order_by(AgendaItem.order).all()
     session_speakers = db.query(SessionSpeaker).filter(SessionSpeaker.session_id == sess_id).all()
     gallery = db.query(GalleryImage).filter(
@@ -1056,7 +1036,7 @@ def session_edit(request: Request, sess_id: int, db: Session = Depends(get_db)):
     return templates.TemplateResponse(
         "admin/session_form.html",
         _admin_ctx(request, active_page="sessions", lecture=lecture,
-                   events=events, speakers=speakers,
+                   speakers=speakers,
                    agenda_items=agenda_items, session_speakers=session_speakers,
                    speaker_roles=SPEAKER_ROLES, gallery_images=gallery),
     )
@@ -1076,20 +1056,11 @@ async def session_update(request: Request, sess_id: int, db: Session = Depends(g
 
     speaker_id_raw = form.get("speaker_id")
     lecture.speaker_id = int(speaker_id_raw) if speaker_id_raw and speaker_id_raw != "" else None
-    event_id_raw = form.get("event_id", "")
-    lecture.event_id = int(event_id_raw) if event_id_raw and event_id_raw.strip().isdigit() else lecture.event_id
     lecture.title = form.get("title", lecture.title).strip()
     lecture.speaker_name = form.get("speaker_name", "").strip() or form.get("speaker", lecture.speaker_name).strip()
     lecture.description = form.get("description", "").strip()
     lecture.banner_url = form.get("banner_url", "").strip() or None
     lecture.duration_minutes = int(form.get("duration_minutes", 30))
-    start_str = form.get("start_time", "")
-    if start_str:
-        try:
-            lecture.start_time = datetime.fromisoformat(start_str)
-        except ValueError:
-            pass
-    lecture.order = int(form.get("order", lecture.order or 0) or 0)
 
     _save_agenda_items(db, form, sess_id)
     _save_session_speakers(db, form, sess_id)
@@ -1164,6 +1135,49 @@ def _save_agenda_items(db: Session, form, session_id: int):
             db.add(item)
         idx += 1
     db.commit()
+
+
+def _save_event_sessions(db: Session, form, event_id: int) -> int:
+    """Sync EventSession rows from the event form. Returns count linked."""
+    from app.models.event_session import EventSession
+    db.query(EventSession).filter(EventSession.event_id == event_id).delete()
+    db.flush()
+    sess_indices = form.getlist("sess_idx")
+    linked = 0
+    for idx in sess_indices:
+        sess_id = form.get(f"sess_id_{idx}", "").strip()
+        if not sess_id or not sess_id.isdigit():
+            continue
+        sess = db.query(SessionModel).get(int(sess_id))
+        if not sess:
+            continue
+        start_time = None
+        start_str = form.get(f"sess_start_{idx}", "")
+        if start_str:
+            try:
+                start_time = datetime.fromisoformat(start_str)
+            except ValueError:
+                pass
+        speaker_id = None
+        speaker_name = None
+        speaker_id_raw = form.get(f"sess_speaker_id_{idx}", "").strip()
+        if speaker_id_raw and speaker_id_raw.isdigit():
+            speaker = db.query(Speaker).get(int(speaker_id_raw))
+            if speaker:
+                speaker_id = speaker.id
+                speaker_name = speaker.name
+        order = int(form.get(f"sess_order_{idx}", 0) or 0)
+        es = EventSession(
+            event_id=event_id,
+            session_id=sess.id,
+            order=order,
+            start_time=start_time,
+            speaker_id=speaker_id,
+            speaker_name=speaker_name,
+        )
+        db.add(es)
+        linked += 1
+    return linked
 
 
 def _save_event_breaks(db: Session, form, event_id: int):
@@ -1393,109 +1407,8 @@ async def event_certificate_preview_image(
     )
 
 
-# ─── Session Recordings ───
 
-@router.get("/sessions/{sess_id}/recordings")
-def session_recordings(request: Request, sess_id: int, db: Session = Depends(get_db)):
-    from app.routers.public import _build_embed_url
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    lecture = db.query(SessionModel).get(sess_id)
-    if not lecture:
-        flash(request, "Session not found.", "danger")
-        return RedirectResponse("/admin/sessions", status_code=303)
-    recordings = (
-        db.query(SessionRecording)
-        .filter(SessionRecording.session_id == sess_id)
-        .order_by(SessionRecording.order)
-        .all()
-    )
-    enriched = [{"rec": r, "embed_url": _build_embed_url(r.url)} for r in recordings]
-    return templates.TemplateResponse(
-        "admin/session_recordings.html",
-        _admin_ctx(request, active_page="sessions", lecture=lecture, recordings=enriched),
-    )
-
-
-@router.post("/sessions/{sess_id}/recordings")
-async def session_recording_add(request: Request, sess_id: int, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    lecture = db.query(SessionModel).get(sess_id)
-    if not lecture:
-        flash(request, "Session not found.", "danger")
-        return RedirectResponse("/admin/sessions", status_code=303)
-    form = await request.form()
-    url = form.get("url", "").strip()
-    err = _validate_recording_url(url)
-    if err:
-        flash(request, err, "danger")
-        return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
-    title = form.get("title", "").strip() or None
-    is_public = "is_public" in form
-    max_order = db.query(func.coalesce(func.max(SessionRecording.order), -1)).filter(
-        SessionRecording.session_id == sess_id
-    ).scalar()
-    rec = SessionRecording(
-        session_id=sess_id,
-        url=url,
-        title=title,
-        order=max_order + 1,
-        is_public=is_public,
-    )
-    db.add(rec)
-    db.commit()
-    flash(request, "Recording added.", "success")
-    return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
-
-
-@router.post("/sessions/{sess_id}/recordings/{rec_id}/update")
-async def session_recording_update(request: Request, sess_id: int, rec_id: int, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    rec = db.query(SessionRecording).filter(
-        SessionRecording.id == rec_id, SessionRecording.session_id == sess_id
-    ).first()
-    if not rec:
-        flash(request, "Recording not found.", "danger")
-        return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
-    form = await request.form()
-    rec.title = form.get("title", "").strip() or None
-    db.commit()
-    flash(request, "Recording title updated.", "success")
-    return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
-
-
-@router.post("/sessions/{sess_id}/recordings/{rec_id}/toggle")
-def session_recording_toggle(request: Request, sess_id: int, rec_id: int, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    rec = db.query(SessionRecording).filter(
-        SessionRecording.id == rec_id, SessionRecording.session_id == sess_id
-    ).first()
-    if rec:
-        rec.is_public = not rec.is_public
-        db.commit()
-    return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
-
-
-@router.post("/sessions/{sess_id}/recordings/{rec_id}/delete")
-def session_recording_delete(request: Request, sess_id: int, rec_id: int, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    rec = db.query(SessionRecording).filter(
-        SessionRecording.id == rec_id, SessionRecording.session_id == sess_id
-    ).first()
-    if rec:
-        db.delete(rec)
-        db.commit()
-        flash(request, "Recording removed.", "success")
-    return RedirectResponse(f"/admin/sessions/{sess_id}/recordings", status_code=303)
+# Session-level recordings routes removed — managed via Event Management Hub
 
 
 # ─── Bookings ───
@@ -2301,7 +2214,7 @@ def events_list(request: Request, db: Session = Depends(get_db)):
     events = db.query(Event).order_by(Event.created_at.desc()).all()
     enriched = []
     for ev in events:
-        session_count = len(ev.sessions) if ev.sessions else 0
+        session_count = len(ev.event_sessions) if ev.event_sessions else 0
         booking_count = db.query(func.count(Booking.id)).filter(
             Booking.event_id == ev.id, Booking.payment_status == "paid",
             Booking.is_shared_ticket == False,
@@ -2375,30 +2288,8 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
 
     _save_gallery_images(db, form, "event", ev.id)
 
-    sess_indices = form.getlist("sess_idx")
-    linked = 0
-    for idx in sess_indices:
-        sess_id = form.get(f"sess_id_{idx}", "").strip()
-        if not sess_id or not sess_id.isdigit():
-            continue
-        sess = db.query(SessionModel).get(int(sess_id))
-        if not sess:
-            continue
-        sess.event_id = ev.id
-        start_str = form.get(f"sess_start_{idx}", "")
-        if start_str:
-            try:
-                sess.start_time = datetime.fromisoformat(start_str)
-            except ValueError:
-                pass
-        speaker_id_raw = form.get(f"sess_speaker_id_{idx}", "").strip()
-        if speaker_id_raw and speaker_id_raw.isdigit():
-            speaker = db.query(Speaker).get(int(speaker_id_raw))
-            if speaker:
-                sess.speaker_id = speaker.id
-                sess.speaker_name = speaker.name
-        sess.order = int(form.get(f"sess_order_{idx}", 0) or 0)
-        linked += 1
+    from app.models.event_session import EventSession
+    linked = _save_event_sessions(db, form, ev.id)
 
     _save_event_breaks(db, form, ev.id)
     _save_event_addons(db, form, ev.id)
@@ -2421,11 +2312,18 @@ def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_d
     if not ev:
         flash(request, "Event not found.", "danger")
         return RedirectResponse("/admin/events", status_code=303)
+    from app.models.event_session import EventSession
     colleges = db.query(College).order_by(College.name).all()
     auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
-    sessions = db.query(SessionModel).filter(SessionModel.event_id == event_id).order_by(SessionModel.order, SessionModel.start_time).all()
+    ev_sessions = (
+        db.query(EventSession).filter(EventSession.event_id == event_id)
+        .order_by(EventSession.order, EventSession.start_time).all()
+    )
+    for es in ev_sessions:
+        _ = es.session
+    sessions = ev_sessions
     coupons = db.query(Coupon).filter(Coupon.event_id == event_id).order_by(Coupon.created_at.desc()).all()
-    linked_ids = {s.id for s in sessions}
+    linked_ids = {es.session_id for es in ev_sessions}
     all_sessions = [s for s in db.query(SessionModel).order_by(SessionModel.title).all() if s.id not in linked_ids]
     speakers = db.query(Speaker).order_by(Speaker.name).all()
     aud_seat_types = _auditorium_seat_types(db)
@@ -2490,30 +2388,8 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     ev.cert_style = form.get("cert_style", "").strip() or ev.cert_style
     ev.feedback_template_id = int(form["feedback_template_id"]) if form.get("feedback_template_id", "").strip() else None
 
-    sess_indices = form.getlist("sess_idx")
-    linked = 0
-    for idx in sess_indices:
-        sess_id = form.get(f"sess_id_{idx}", "").strip()
-        if not sess_id or not sess_id.isdigit():
-            continue
-        sess = db.query(SessionModel).get(int(sess_id))
-        if not sess:
-            continue
-        sess.event_id = ev.id
-        start_str = form.get(f"sess_start_{idx}", "")
-        if start_str:
-            try:
-                sess.start_time = datetime.fromisoformat(start_str)
-            except ValueError:
-                pass
-        speaker_id_raw = form.get(f"sess_speaker_id_{idx}", "").strip()
-        if speaker_id_raw and speaker_id_raw.isdigit():
-            speaker = db.query(Speaker).get(int(speaker_id_raw))
-            if speaker:
-                sess.speaker_id = speaker.id
-                sess.speaker_name = speaker.name
-        sess.order = int(form.get(f"sess_order_{idx}", 0) or 0)
-        linked += 1
+    from app.models.event_session import EventSession
+    linked = _save_event_sessions(db, form, ev.id)
 
     _save_gallery_images(db, form, "event", ev.id)
     _save_event_breaks(db, form, ev.id)
@@ -2721,93 +2597,7 @@ def feedback_toggle_featured(request: Request, feedback_id: int, db: Session = D
 
 
 # ─── Admin Poll Management ───
-
-
-@router.get("/sessions/{session_id}/polls")
-def admin_session_polls(request: Request, session_id: int, event_id: int = Query(default=0), db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    session_obj = db.query(SessionModel).get(session_id)
-    if not session_obj:
-        flash(request, "Session not found.", "danger")
-        return RedirectResponse("/admin/events", status_code=303)
-    eid = event_id or session_obj.event_id
-    filters = [Poll.session_id == session_id]
-    if eid:
-        filters.append(Poll.event_id == eid)
-    polls = db.query(Poll).filter(*filters).order_by(Poll.created_at.desc()).all()
-    polls_enriched = []
-    for p in polls:
-        enriched: dict = {"poll": p}
-        if p.poll_type in ("multiple_choice", "yes_no"):
-            total = sum(len(o.votes) for o in p.options)
-            opts = []
-            for o in p.options:
-                count = len(o.votes)
-                opts.append({"option": o, "votes": count, "pct": round(count / total * 100, 1) if total else 0})
-            enriched.update(total_votes=total, options=opts)
-        elif p.poll_type == "rating":
-            votes = [v for v in p.votes if v.rating_value is not None]
-            total = len(votes)
-            avg = round(sum(v.rating_value for v in votes) / total, 1) if total else 0
-            dist = {s: 0 for s in range(1, 6)}
-            for v in votes:
-                dist[v.rating_value] = dist.get(v.rating_value, 0) + 1
-            enriched.update(total_votes=total, average=avg, distribution=dist)
-        elif p.poll_type == "text":
-            votes = [v for v in p.votes if v.text_answer]
-            enriched.update(total_votes=len(votes), text_responses=[v.text_answer for v in votes])
-        else:
-            enriched.update(total_votes=0, options=[])
-        polls_enriched.append(enriched)
-    return templates.TemplateResponse(
-        "admin/session_polls.html",
-        _admin_ctx(request, active_page="events", session=session_obj, polls=polls_enriched, poll_event_id=eid),
-    )
-
-
-@router.post("/sessions/{session_id}/polls")
-async def admin_create_poll(request: Request, session_id: int, event_id: int = Query(default=0), db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return JSONResponse({"ok": False}, status_code=403)
-    session_obj = db.query(SessionModel).get(session_id)
-    if not session_obj:
-        return JSONResponse({"ok": False, "error": "Session not found."}, status_code=404)
-    try:
-        body = await request.json()
-    except Exception:
-        return JSONResponse({"ok": False, "error": "Invalid request."}, status_code=400)
-    question = (body.get("question") or "").strip()
-    poll_type = body.get("poll_type", "multiple_choice")
-    if poll_type not in ("multiple_choice", "yes_no", "rating", "text"):
-        poll_type = "multiple_choice"
-    options_list = body.get("options", [])
-    if not question:
-        return JSONResponse({"ok": False, "error": "Provide a question."}, status_code=400)
-    if poll_type == "multiple_choice" and len(options_list) < 2:
-        return JSONResponse({"ok": False, "error": "Provide at least 2 options."}, status_code=400)
-    eid = event_id or session_obj.event_id
-    if not eid:
-        return JSONResponse({"ok": False, "error": "No event associated with this session."}, status_code=400)
-    poll = Poll(
-        session_id=session_id, event_id=eid, question=question, poll_type=poll_type,
-        allow_multiple=bool(body.get("allow_multiple")), created_by=admin.id,
-    )
-    db.add(poll)
-    db.flush()
-    if poll_type == "yes_no":
-        db.add(PollOption(poll_id=poll.id, option_text="Yes", order=0))
-        db.add(PollOption(poll_id=poll.id, option_text="No", order=1))
-    elif poll_type == "multiple_choice":
-        for i, opt_text in enumerate(options_list):
-            opt_text = (opt_text or "").strip()
-            if opt_text:
-                db.add(PollOption(poll_id=poll.id, option_text=opt_text, order=i))
-    log_activity(db, category="admin", action="create", description=f"Created poll for session '{session_obj.title}'", request=request, user_id=admin.id, target_type="poll", target_id=poll.id)
-    db.commit()
-    return JSONResponse({"ok": True, "poll_id": poll.id})
+# Session-level poll list/create routes removed — managed via Event Management Hub
 
 
 @router.post("/polls/{poll_id}/toggle")
@@ -3267,7 +3057,7 @@ def event_management_landing(request: Request, db: Session = Depends(get_db)):
     events = db.query(Event).order_by(Event.start_date.desc().nullslast(), Event.created_at.desc()).all()
     enriched = []
     for ev in events:
-        session_count = len(ev.sessions) if ev.sessions else 0
+        session_count = len(ev.event_sessions) if ev.event_sessions else 0
         booking_count = db.query(func.count(Booking.id)).filter(
             Booking.event_id == ev.id, Booking.payment_status == "paid",
             Booking.is_shared_ticket == False,
@@ -3318,11 +3108,23 @@ def event_management_overview(request: Request, event_id: int, db: Session = Dep
         "checkin_pct": checkin_pct, "waitlist": waitlist_count, "active_polls": active_polls,
     }
 
+    from app.models.event_session import EventSession
+    ev_sessions = (
+        db.query(EventSession).filter(EventSession.event_id == event_id)
+        .order_by(EventSession.order, EventSession.start_time).all()
+    )
     sessions_enriched = []
-    for s in (event.sessions or []):
-        speakers = [ss.speaker.name for ss in s.session_speakers if ss.speaker] if hasattr(s, "session_speakers") else []
+    for es in ev_sessions:
+        s = es.session
+        override_speaker = es.speaker_name or (es.speaker.name if es.speaker else None)
+        speakers = [override_speaker] if override_speaker else []
+        if not speakers:
+            speakers = [ss.speaker.name for ss in s.session_speakers if ss.speaker] if hasattr(s, "session_speakers") else []
         poll_count = db.query(func.count(Poll.id)).filter(Poll.session_id == s.id, Poll.event_id == event_id).scalar() or 0
-        sessions_enriched.append({"session": s, "speakers": speakers, "poll_count": poll_count})
+        sessions_enriched.append({
+            "session": s, "speakers": speakers, "poll_count": poll_count,
+            "start_time": es.start_time, "order": es.order,
+        })
 
     return templates.TemplateResponse(
         "admin/event_management/overview.html",
@@ -3553,13 +3355,18 @@ def event_management_polls(request: Request, event_id: int, db: Session = Depend
     if not event:
         return RedirectResponse("/admin/event-management", status_code=303)
 
+    from app.models.event_session import EventSession
     polls = db.query(Poll).filter(Poll.event_id == event_id).order_by(Poll.created_at.desc()).all()
 
     by_session: dict[int, list] = {}
     for p in polls:
         by_session.setdefault(p.session_id, []).append(_enrich_poll(p))
 
-    sessions = event.sessions or []
+    ev_sessions = (
+        db.query(EventSession).filter(EventSession.event_id == event_id)
+        .order_by(EventSession.order, EventSession.start_time).all()
+    )
+    sessions = [es.session for es in ev_sessions]
     grouped = []
     for s in sessions:
         session_polls = by_session.pop(s.id, [])
@@ -3621,6 +3428,116 @@ async def event_management_create_poll(request: Request, event_id: int, db: Sess
     log_activity(db, category="admin", action="create", description=f"Created poll for session '{session_obj.title}' in event '{event.name}'", request=request, user_id=admin.id, target_type="poll", target_id=poll.id)
     db.commit()
     return JSONResponse({"ok": True, "poll_id": poll.id})
+
+
+# ─── Event-Level Recordings (Hub) ───
+
+@router.get("/event-management/{event_id}/recordings")
+def event_management_recordings(request: Request, event_id: int, db: Session = Depends(get_db)):
+    from app.routers.public import _build_embed_url
+    from app.models.event_session import EventSession
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+
+    ev_sessions = (
+        db.query(EventSession).filter(EventSession.event_id == event_id)
+        .order_by(EventSession.order, EventSession.start_time).all()
+    )
+    sessions = [es.session for es in ev_sessions]
+    session_ids = [es.session_id for es in ev_sessions]
+
+    recordings = (
+        db.query(SessionRecording)
+        .filter(SessionRecording.session_id.in_(session_ids))
+        .filter((SessionRecording.event_id == event_id) | (SessionRecording.event_id.is_(None)))
+        .order_by(SessionRecording.order).all()
+    ) if session_ids else []
+
+    enriched = [{"rec": r, "embed_url": _build_embed_url(r.url), "session": r.session} for r in recordings]
+    return templates.TemplateResponse(
+        "admin/event_management/recordings.html",
+        _hub_ctx(request, event, "recordings", recordings=enriched, sessions=sessions),
+    )
+
+
+@router.post("/event-management/{event_id}/recordings")
+async def event_management_recording_add(request: Request, event_id: int, db: Session = Depends(get_db)):
+    from app.models.event_session import EventSession
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return RedirectResponse("/admin/event-management", status_code=303)
+    form = await request.form()
+    url = form.get("url", "").strip()
+    err = _validate_recording_url(url)
+    if err:
+        flash(request, err, "danger")
+        return RedirectResponse(f"/admin/event-management/{event_id}/recordings", status_code=303)
+    session_id_raw = form.get("session_id", "").strip()
+    if not session_id_raw or not session_id_raw.isdigit():
+        flash(request, "Select a session.", "danger")
+        return RedirectResponse(f"/admin/event-management/{event_id}/recordings", status_code=303)
+    session_id = int(session_id_raw)
+    title = form.get("title", "").strip() or None
+    is_public = "is_public" in form
+    max_order = db.query(func.coalesce(func.max(SessionRecording.order), -1)).filter(
+        SessionRecording.session_id == session_id, SessionRecording.event_id == event_id
+    ).scalar()
+    rec = SessionRecording(
+        session_id=session_id, event_id=event_id,
+        url=url, title=title, order=max_order + 1, is_public=is_public,
+    )
+    db.add(rec)
+    db.commit()
+    flash(request, "Recording added.", "success")
+    return RedirectResponse(f"/admin/event-management/{event_id}/recordings", status_code=303)
+
+
+@router.post("/event-management/{event_id}/recordings/{rec_id}/update")
+async def event_management_recording_update(request: Request, event_id: int, rec_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    rec = db.query(SessionRecording).filter(SessionRecording.id == rec_id).first()
+    if not rec:
+        flash(request, "Recording not found.", "danger")
+        return RedirectResponse(f"/admin/event-management/{event_id}/recordings", status_code=303)
+    form = await request.form()
+    rec.title = form.get("title", "").strip() or None
+    db.commit()
+    flash(request, "Recording title updated.", "success")
+    return RedirectResponse(f"/admin/event-management/{event_id}/recordings", status_code=303)
+
+
+@router.post("/event-management/{event_id}/recordings/{rec_id}/toggle")
+def event_management_recording_toggle(request: Request, event_id: int, rec_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    rec = db.query(SessionRecording).filter(SessionRecording.id == rec_id).first()
+    if rec:
+        rec.is_public = not rec.is_public
+        db.commit()
+    return RedirectResponse(f"/admin/event-management/{event_id}/recordings", status_code=303)
+
+
+@router.post("/event-management/{event_id}/recordings/{rec_id}/delete")
+def event_management_recording_delete(request: Request, event_id: int, rec_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    rec = db.query(SessionRecording).filter(SessionRecording.id == rec_id).first()
+    if rec:
+        db.delete(rec)
+        db.commit()
+        flash(request, "Recording removed.", "success")
+    return RedirectResponse(f"/admin/event-management/{event_id}/recordings", status_code=303)
 
 
 @router.get("/event-management/{event_id}/feedback")

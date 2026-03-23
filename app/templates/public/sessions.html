@@ -87,9 +87,10 @@
         {% for item in sessions %}
         {% set s = item.session %}
         {% set ev = item.event %}
+        {% set es = item.event_session if item.event_session is defined else None %}
         {% set img_id = img_pool[s.id % 8] %}
         <div class="card card-hover">
-          <a href="/sessions/{{ s.id }}" style="text-decoration:none;color:inherit;display:block">
+          <a href="/sessions/{{ s.id }}{% if ev %}?event_id={{ ev.id }}{% endif %}" style="text-decoration:none;color:inherit;display:block">
             <div class="card-image">
               <img
                 src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
@@ -98,14 +99,14 @@
             </div>
             <div class="card-body">
               <h3 class="card-title">{{ s.title }}</h3>
-              <p class="card-meta">{{ s.speaker_name }}</p>
+              <p class="card-meta">{{ es.speaker_name or s.speaker_name if es else s.speaker_name }}</p>
               {% if s.description %}
               <p class="card-desc">{{ s.description|truncate(120, True, '...') }}</p>
               {% endif %}
               <div class="card-details">
-                {% if s.start_time %}
-                <span class="card-detail">&#128197; {{ s.start_time.strftime('%b %d, %Y') }}</span>
-                <span class="card-detail">&#128336; {{ s.start_time.strftime('%I:%M %p') }}</span>
+                {% if es and es.start_time %}
+                <span class="card-detail">&#128197; {{ es.start_time.strftime('%b %d, %Y') }}</span>
+                <span class="card-detail">&#128336; {{ es.start_time.strftime('%I:%M %p') }}</span>
                 {% elif ev and ev.start_date %}
                 <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') }}</span>
                 {% endif %}
@@ -118,9 +119,11 @@
               </div>
             </div>
           </a>
+          {% if ev %}
           <div class="card-footer">
             <a href="/events/{{ ev.id }}" class="card-cta-hint">View Event &rarr;</a>
           </div>
+          {% endif %}
         </div>
         {% endfor %}
       </div>

@@ -71,21 +71,22 @@
           </div>
           {% endif %}
 
-          {% if event and event.sessions %}
+          {% if event and event.event_sessions %}
           <div class="detail-group">
             <button type="button" class="booking-agenda-toggle" id="booking-agenda-toggle" aria-expanded="false" aria-controls="booking-agenda-body">
-              <span class="booking-agenda-toggle-text">Event Agenda ({{ event.sessions|length }} session{{ 's' if event.sessions|length != 1 else '' }})</span>
+              <span class="booking-agenda-toggle-text">Event Agenda ({{ event.event_sessions|length }} session{{ 's' if event.event_sessions|length != 1 else '' }})</span>
               <span class="booking-agenda-toggle-icon" aria-hidden="true">&#9660;</span>
             </button>
             <div id="booking-agenda-body" class="booking-agenda-body" hidden style="display:none;">
               <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem;">
-                {% for s in event.sessions|sort(attribute='order') %}
+                {% for es in event.event_sessions|sort(attribute='order') %}
+                {% set s = es.session %}
                 <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .75rem;background:var(--bg-surface);border:1px solid var(--border,rgba(255,255,255,.07));border-radius:var(--radius-lg,8px);">
                   <div style="flex:1;min-width:0;">
                     <div style="font-weight:600;font-size:.9rem;">{{ s.title }}</div>
                     <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.25rem;font-size:.8rem;color:var(--text-muted);">
-                      {% if s.speaker_name %}<span>{{ s.speaker_name }}</span>{% endif %}
-                      {% if s.start_time %}<span>&#128336; {{ s.start_time.strftime('%I:%M %p') }}</span>{% endif %}
+                      {% if es.speaker_name or s.speaker_name %}<span>{{ es.speaker_name or s.speaker_name }}</span>{% endif %}
+                      {% if es.start_time %}<span>&#128336; {{ es.start_time.strftime('%I:%M %p') }}</span>{% endif %}
                       {% if s.duration_minutes %}<span>{{ s.duration_minutes }} min</span>{% endif %}
                     </div>
                   </div>

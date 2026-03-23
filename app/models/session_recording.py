@@ -9,9 +9,11 @@ class SessionRecording(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     session_id = Column(Integer, ForeignKey("sessions.id", ondelete="CASCADE"), nullable=False)
+    event_id = Column(Integer, ForeignKey("events.id", ondelete="CASCADE"), nullable=True)
     url = Column(String(500), nullable=False)
     title = Column(String(300), nullable=True)
     order = Column(Integer, default=0)
     is_public = Column(Boolean, default=False)
 
     session = relationship("Session", back_populates="session_recordings")
+    event = relationship("Event")

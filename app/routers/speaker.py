@@ -63,11 +63,13 @@ def _speaker_sessions(speaker, db):
         )
         .all()
     )
+    from app.models.event_session import EventSession
     now = now_ist()
     today = now.date()
     enriched = []
     for s in sessions:
-        event = s.event
+        es = db.query(EventSession).filter(EventSession.session_id == s.id).first()
+        event = es.event if es else None
         booking_count = (
             db.query(func.count(Booking.id)).filter(
                 Booking.event_id == event.id, Booking.payment_status == "paid",
@@ -78,17 +80,18 @@ def _speaker_sessions(speaker, db):
         enriched.append({
             "session": s,
             "event": event,
+            "event_session": es,
             "bookings": booking_count,
         })
 
     total = len(sessions)
     upcoming = sum(
-        1 for s in sessions
-        if s.event and s.event.start_date and s.event.start_date >= today and s.event.status == "published"
+        1 for item in enriched
+        if item["event"] and item["event"].start_date and item["event"].start_date >= today and item["event"].status == "published"
     )
     completed = sum(
-        1 for s in sessions
-        if s.event and s.event.status == "completed"
+        1 for item in enriched
+        if item["event"] and item["event"].status == "completed"
     )
     return sessions, enriched, total, upcoming, completed
 
@@ -146,10 +149,12 @@ def schedule(
     if view not in ("month", "week"):
         view = "month"
 
+    from app.models.event_session import EventSession as ES_cal
     all_events = []
     seen_event_ids = set()
     for s in raw_sessions:
-        ev = s.event
+        es = db.query(ES_cal).filter(ES_cal.session_id == s.id).first()
+        ev = es.event if es else None
         if not ev or ev.id in seen_event_ids:
             continue
         seen_event_ids.add(ev.id)
@@ -173,7 +178,7 @@ def schedule(
             "city": city.name if city else "",
             "price": float(ev.price or 0),
             "bookings": bcount,
-            "sessions": [sess.title for sess in ev.sessions] if ev.sessions else [],
+            "sessions": [es.session.title for es in ev.event_sessions] if ev.event_sessions else [],
         })
 
     if view == "month":
@@ -313,7 +318,9 @@ def session_edit(request: Request, session_id: int, db: Session = Depends(get_db
         .all()
     )
     all_speakers = db.query(Speaker).order_by(Speaker.name).all()
-    event = session_obj.event
+    from app.models.event_session import EventSession as ES_edit
+    es = db.query(ES_edit).filter(ES_edit.session_id == session_id).first()
+    event = es.event if es else None
     gallery = db.query(GalleryImage).filter(
         GalleryImage.owner_type == "session", GalleryImage.owner_id == session_id
     ).order_by(GalleryImage.position).all()
@@ -339,13 +346,6 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
         session_obj.description = form.get("description", "").strip()
         session_obj.banner_url = form.get("banner_url", "").strip() or None
         session_obj.duration_minutes = int(form.get("duration_minutes", 30))
-
-        start_str = form.get("start_time", "")
-        if start_str:
-            try:
-                session_obj.start_time = datetime.fromisoformat(start_str)
-            except ValueError:
-                pass
 
         db.query(AgendaItem).filter(AgendaItem.session_id == session_id).delete()
         idx = 0
@@ -405,7 +405,9 @@ def session_polls(request: Request, session_id: int, event_id: int = Query(defau
     if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
         flash(request, "Session not found or access denied.", "danger")
         return RedirectResponse("/speaker/", status_code=303)
-    eid = event_id or session_obj.event_id
+    from app.models.event_session import EventSession as ES_poll
+    es_poll = db.query(ES_poll).filter(ES_poll.session_id == session_id).first()
+    eid = event_id or (es_poll.event_id if es_poll else 0)
     filters = [Poll.session_id == session_id]
     if eid:
         filters.append(Poll.event_id == eid)
@@ -460,7 +462,9 @@ async def create_poll(request: Request, session_id: int, event_id: int = Query(d
     if poll_type == "multiple_choice" and len(options_list) < 2:
         return JSONResponse({"ok": False, "error": "Provide at least 2 options."}, status_code=400)
 
-    eid = event_id or session_obj.event_id
+    from app.models.event_session import EventSession as ES_poll2
+    es_poll2 = db.query(ES_poll2).filter(ES_poll2.session_id == session_id).first()
+    eid = event_id or (es_poll2.event_id if es_poll2 else 0)
     if not eid:
         return JSONResponse({"ok": False, "error": "No event associated with this session."}, status_code=400)
     poll = Poll(

@@ -820,12 +820,14 @@ def certificate_feedback_page(request: Request, booking_id: int, db: Session = D
 
     auditorium = db.query(Auditorium).get(event.auditorium_id) if event.auditorium_id else None
 
-    sessions = (
-        db.query(SessionModel)
-        .filter(SessionModel.event_id == event.id)
-        .order_by(SessionModel.order, SessionModel.start_time)
+    from app.models.event_session import EventSession
+    ev_sessions = (
+        db.query(EventSession)
+        .filter(EventSession.event_id == event.id)
+        .order_by(EventSession.order, EventSession.start_time)
         .all()
     )
+    sessions = [es.session for es in ev_sessions]
 
     existing_feedback = (
         db.query(Feedback)
@@ -856,11 +858,13 @@ async def certificate_feedback_submit(request: Request, booking_id: int, db: Ses
     testimonial = form.get("testimonial", "").strip()
     allow_public = "allow_public" in form
 
-    sessions = (
-        db.query(SessionModel)
-        .filter(SessionModel.event_id == event.id)
+    from app.models.event_session import EventSession
+    ev_sessions = (
+        db.query(EventSession)
+        .filter(EventSession.event_id == event.id)
         .all()
     )
+    sessions = [es.session for es in ev_sessions]
 
     for sess in sessions:
         rating_raw = form.get(f"rating_{sess.id}", "")

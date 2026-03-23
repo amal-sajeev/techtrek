@@ -27,7 +27,7 @@
         <tr>
           <td data-label="Event"><strong>{{ item.event.name }}</strong></td>
           <td data-label="Auditorium">{{ item.auditorium.name if item.auditorium else '—' }}</td>
-          <td data-label="Sessions">{{ item.event.sessions|length if item.event.sessions else 0 }}</td>
+          <td data-label="Sessions">{{ item.event.event_sessions|length if item.event.event_sessions else 0 }}</td>
           <td data-label="Bookings">{{ item.booked }}</td>
           <td data-label="Status">
             {% if item.event.status == 'published' %}

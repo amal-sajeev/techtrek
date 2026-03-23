@@ -29,6 +29,7 @@
   <a href="/admin/event-management/{{ hub_event.id }}/checkin" class="em-hub-tab {% if hub_tab == 'checkin' %}active{% endif %}">Check-in</a>
   <a href="/admin/event-management/{{ hub_event.id }}/waitlist" class="em-hub-tab {% if hub_tab == 'waitlist' %}active{% endif %}">Waitlist</a>
   <a href="/admin/event-management/{{ hub_event.id }}/polls" class="em-hub-tab {% if hub_tab == 'polls' %}active{% endif %}">Polls</a>
+  <a href="/admin/event-management/{{ hub_event.id }}/recordings" class="em-hub-tab {% if hub_tab == 'recordings' %}active{% endif %}">Recordings</a>
   <a href="/admin/event-management/{{ hub_event.id }}/feedback" class="em-hub-tab {% if hub_tab == 'feedback' %}active{% endif %}">Feedback</a>
   <a href="/admin/event-management/{{ hub_event.id }}/alerts" class="em-hub-tab {% if hub_tab == 'alerts' %}active{% endif %}">Alerts</a>
 </nav>
@@ -40,6 +41,7 @@
     <option value="/admin/event-management/{{ hub_event.id }}/checkin" {% if hub_tab == 'checkin' %}selected{% endif %}>&#9989;  Check-in</option>
     <option value="/admin/event-management/{{ hub_event.id }}/waitlist" {% if hub_tab == 'waitlist' %}selected{% endif %}>&#128221;  Waitlist</option>
     <option value="/admin/event-management/{{ hub_event.id }}/polls" {% if hub_tab == 'polls' %}selected{% endif %}>&#128202;  Polls</option>
+    <option value="/admin/event-management/{{ hub_event.id }}/recordings" {% if hub_tab == 'recordings' %}selected{% endif %}>&#127909;  Recordings</option>
     <option value="/admin/event-management/{{ hub_event.id }}/feedback" {% if hub_tab == 'feedback' %}selected{% endif %}>&#128172;  Feedback</option>
     <option value="/admin/event-management/{{ hub_event.id }}/alerts" {% if hub_tab == 'alerts' %}selected{% endif %}>&#128276;  Alerts</option>
   </select>

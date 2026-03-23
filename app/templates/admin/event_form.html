@@ -10,7 +10,7 @@
   <button type="button" class="wizard-step active" data-step="1">1. Details</button>
   <button type="button" class="wizard-step" data-step="2">2. Pricing</button>
   <button type="button" class="wizard-step" data-step="3">3. Media</button>
-  <button type="button" class="wizard-step" data-step="4">4. Sessions</button>
+  <button type="button" class="wizard-step" data-step="4">4. Agenda</button>
   <button type="button" class="wizard-step" data-step="5">5. Certificate</button>
   <button type="button" class="wizard-step" data-step="6">6. Review &amp; Save</button>
 </div>
@@ -125,122 +125,111 @@
       </div>
     </div>
 
-    <!-- Step 4: Sessions -->
+    <!-- Step 4: Sessions & Agenda -->
     <div class="wizard-panel" data-panel="4">
-      <h3 class="wizard-panel-title">Sessions</h3>
-      <p class="text-muted" style="margin-bottom:1rem">Link existing sessions to this event. Sessions must be <a href="/admin/sessions/new" target="_blank">created first</a> from the Sessions page.</p>
+      <h3 class="wizard-panel-title">Sessions &amp; Agenda</h3>
 
-      {% if event and event_sessions %}
-      <div class="table-responsive mt-2 mb-3">
-        <table class="table">
-          <thead><tr><th>Title</th><th>Speaker</th><th>Start Time</th><th>Actions</th></tr></thead>
-          <tbody>
-            {% for s in event_sessions %}
-            <tr>
-              <td>{{ s.title }}</td>
-              <td>{{ s.speaker_name or "—" }}</td>
-              <td>{{ s.start_time.strftime('%b %d, %I:%M %p') if s.start_time else "—" }}</td>
-              <td><a href="/admin/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a></td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="agenda-subtabs">
+        <button type="button" class="agenda-subtab active" data-subtab="add">Add Items</button>
+        <button type="button" class="agenda-subtab" data-subtab="arrange">Arrange Agenda</button>
       </div>
-      {% endif %}
 
-      <div id="inline-sessions-list"></div>
-      <button type="button" class="btn btn-outline btn-sm" id="add-inline-session" style="margin-top:.75rem">+ Add Session</button>
-
-      <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
-
-      <h4 style="margin-bottom:.5rem">Breaks</h4>
-      <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Add breaks (lunch, networking, Q&amp;A) that appear in the event agenda alongside sessions.</p>
-
-      {% if event and event_breaks %}
-      <div class="table-responsive mt-2 mb-3">
-        <table class="table">
-          <thead><tr><th>Title</th><th>Start Time</th><th>Duration</th></tr></thead>
-          <tbody>
-            {% for brk in event_breaks %}
-            <tr>
-              <td>{{ brk.title }}</td>
-              <td>{{ brk.start_time.strftime('%b %d, %I:%M %p') if brk.start_time else "—" }}</td>
-              <td>{{ brk.duration_minutes }} min</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
-      </div>
-      {% endif %}
-
-      <div id="inline-breaks-list">
-        {% if event and event_breaks %}
-        {% for brk in event_breaks %}
-        <div class="break-row form-card" style="padding:.75rem;margin-bottom:.5rem;position:relative;" data-break-idx="{{ loop.index0 }}">
-          <button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest('.break-row').remove()">&#10005;</button>
-          <div class="form-row">
-            <div class="form-group" style="flex:2">
-              <label class="form-label">Title</label>
-              <input type="text" name="break_title_{{ loop.index0 }}" class="form-input" value="{{ brk.title }}" required>
+      <!-- Sub-tab: Add Items -->
+      <div class="agenda-subpanel" data-subpanel="add">
+        <h4 style="margin-bottom:.5rem">Sessions</h4>
+        <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Link existing sessions to this event. <a href="/admin/sessions/new" target="_blank">Create sessions</a> first if needed.</p>
+        <div id="inline-sessions-list">
+          {% if event and event_sessions %}
+          {% for es in event_sessions %}
+          <div class="inline-session-entry confirmed" data-existing="1">
+            <div class="sess-pill" style="display:flex;align-items:center;gap:.75rem;padding:.6rem 1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-surface);margin-bottom:.5rem">
+              <span style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ es.session.title }}</span>
+              {% if es.speaker_name or es.session.speaker_name %}<span style="font-size:.82rem;color:var(--text-muted);white-space:nowrap">{{ es.speaker_name or es.session.speaker_name }}</span>{% endif %}
+              <button type="button" class="btn btn-sm btn-outline sess-edit-btn" style="padding:2px 8px;font-size:.75rem">Edit</button>
+              <button type="button" class="btn btn-sm btn-danger sess-remove-btn" style="padding:2px 8px;font-size:.75rem">&times;</button>
             </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Duration (min)</label>
-              <input type="number" name="break_duration_{{ loop.index0 }}" class="form-input" value="{{ brk.duration_minutes }}" min="1">
-            </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Order</label>
-              <input type="number" name="break_order_{{ loop.index0 }}" class="form-input" value="{{ brk.order }}">
-            </div>
+            <input type="hidden" name="sess_idx" value="ex{{ loop.index0 }}">
+            <input type="hidden" name="sess_id_ex{{ loop.index0 }}" value="{{ es.session_id }}">
+            <input type="hidden" name="sess_speaker_id_ex{{ loop.index0 }}" value="{{ es.speaker_id or '' }}">
+            <input type="hidden" name="sess_start_ex{{ loop.index0 }}" class="sess-start-input" value="{{ es.start_time.strftime('%Y-%m-%dT%H:%M') if es.start_time else '' }}">
+            <input type="hidden" name="sess_order_ex{{ loop.index0 }}" class="sess-order-input" value="{{ es.order }}">
           </div>
-          <div class="form-row">
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Start Time</label>
-              <input type="datetime-local" name="break_start_time_{{ loop.index0 }}" class="form-input" value="{{ brk.start_time.strftime('%Y-%m-%dT%H:%M') if brk.start_time else '' }}">
+          {% endfor %}
+          {% endif %}
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" id="add-inline-session" style="margin-top:.75rem">+ Add Session</button>
+
+        <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
+
+        <h4 style="margin-bottom:.5rem">Breaks</h4>
+        <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Add breaks (lunch, networking, Q&amp;A) for the event agenda.</p>
+        <div id="inline-breaks-list">
+          {% if event and event_breaks %}
+          {% for brk in event_breaks %}
+          <div class="break-row form-card" style="padding:.75rem;margin-bottom:.5rem;position:relative;" data-break-idx="{{ loop.index0 }}">
+            <button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest('.break-row').remove()">&#10005;</button>
+            <div class="form-row">
+              <div class="form-group" style="flex:2">
+                <label class="form-label">Title</label>
+                <input type="text" name="break_title_{{ loop.index0 }}" class="form-input" value="{{ brk.title }}" required>
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Duration (min)</label>
+                <input type="number" name="break_duration_{{ loop.index0 }}" class="form-input" value="{{ brk.duration_minutes }}" min="1">
+              </div>
             </div>
-            <div class="form-group" style="flex:2">
+            <div class="form-group">
               <label class="form-label">Description</label>
               <input type="text" name="break_desc_{{ loop.index0 }}" class="form-input" value="{{ brk.description or '' }}" placeholder="Optional description">
             </div>
+            <input type="hidden" name="break_order_{{ loop.index0 }}" class="break-order-input" value="{{ brk.order }}">
+            <input type="hidden" name="break_start_time_{{ loop.index0 }}" class="break-start-input" value="{{ brk.start_time.strftime('%Y-%m-%dT%H:%M') if brk.start_time else '' }}">
           </div>
+          {% endfor %}
+          {% endif %}
         </div>
-        {% endfor %}
-        {% endif %}
-      </div>
-      <button type="button" class="btn btn-outline btn-sm" id="add-break-item" style="margin-top:.5rem">+ Add Break</button>
+        <button type="button" class="btn btn-outline btn-sm" id="add-break-item" style="margin-top:.5rem">+ Add Break</button>
 
-      <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
+        <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
 
-      <h4 style="margin-bottom:.5rem">Add-Ons</h4>
-      <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Optional extras attendees can purchase during checkout (e.g. workshops, meals, merch).</p>
-
-      <div id="inline-addons-list">
-        {% if event and event_addons %}
-        {% for addon in event_addons %}
-        <div class="addon-row form-card" style="padding:.75rem;margin-bottom:.5rem;position:relative;" data-addon-idx="{{ loop.index0 }}">
-          <button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest('.addon-row').remove()">&#10005;</button>
-          <div class="form-row">
-            <div class="form-group" style="flex:2">
-              <label class="form-label">Title</label>
-              <input type="text" name="addon_title_{{ loop.index0 }}" class="form-input" value="{{ addon.title }}" required>
+        <h4 style="margin-bottom:.5rem">Add-Ons</h4>
+        <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Optional extras attendees can purchase during checkout (e.g. workshops, meals, merch).</p>
+        <div id="inline-addons-list">
+          {% if event and event_addons %}
+          {% for addon in event_addons %}
+          <div class="addon-row form-card" style="padding:.75rem;margin-bottom:.5rem;position:relative;" data-addon-idx="{{ loop.index0 }}">
+            <button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest('.addon-row').remove()">&#10005;</button>
+            <div class="form-row">
+              <div class="form-group" style="flex:2">
+                <label class="form-label">Title</label>
+                <input type="text" name="addon_title_{{ loop.index0 }}" class="form-input" value="{{ addon.title }}" required>
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Price (&#8377;)</label>
+                <input type="number" name="addon_price_{{ loop.index0 }}" class="form-input" value="{{ addon.price }}" min="0" step="0.01">
+              </div>
+              <div class="form-group" style="flex:1">
+                <label class="form-label">Max Qty</label>
+                <input type="number" name="addon_max_qty_{{ loop.index0 }}" class="form-input" value="{{ addon.max_quantity or '' }}" min="0" placeholder="Unlimited">
+              </div>
             </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Price (&#8377;)</label>
-              <input type="number" name="addon_price_{{ loop.index0 }}" class="form-input" value="{{ addon.price }}" min="0" step="0.01">
-            </div>
-            <div class="form-group" style="flex:1">
-              <label class="form-label">Max Qty</label>
-              <input type="number" name="addon_max_qty_{{ loop.index0 }}" class="form-input" value="{{ addon.max_quantity or '' }}" min="0" placeholder="Unlimited">
+            <div class="form-group">
+              <label class="form-label">Description</label>
+              <input type="text" name="addon_desc_{{ loop.index0 }}" class="form-input" value="{{ addon.description or '' }}" placeholder="Optional description">
             </div>
           </div>
-          <div class="form-group">
-            <label class="form-label">Description</label>
-            <input type="text" name="addon_desc_{{ loop.index0 }}" class="form-input" value="{{ addon.description or '' }}" placeholder="Optional description">
-          </div>
+          {% endfor %}
+          {% endif %}
         </div>
-        {% endfor %}
-        {% endif %}
+        <button type="button" class="btn btn-outline btn-sm" id="add-addon-item" style="margin-top:.5rem">+ Add Add-On</button>
       </div>
-      <button type="button" class="btn btn-outline btn-sm" id="add-addon-item" style="margin-top:.5rem">+ Add Add-On</button>
+
+      <!-- Sub-tab: Arrange Agenda -->
+      <div class="agenda-subpanel" data-subpanel="arrange" style="display:none">
+        <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Drag items or use the arrow buttons to set the agenda order. Expand an item to set its start time or speaker override.</p>
+        <div id="agenda-arrange-list"></div>
+        <p id="agenda-empty-msg" class="text-muted" style="text-align:center;padding:2rem 0">No sessions or breaks added yet. Switch to "Add Items" to add some.</p>
+      </div>
 
       <div class="wizard-nav">
         <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
@@ -592,6 +581,11 @@ window._wizardAuditoriums = {};
 {% endfor %}
 window._wizardAudSeatTypes = {{ aud_seat_types|tojson }};
 window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
+{% if event and event_sessions %}
+{% for es in event_sessions %}
+window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.title|tojson }}, speaker: {{ (es.session.speaker_name or '')|tojson }}, speakerId: {{ es.session.speaker_id|tojson }} });
+{% endfor %}
+{% endif %}
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
@@ -753,15 +747,11 @@ window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
   rebuildPricingFields();
 
   function buildReview() {
-    var newCount = 0;
-    document.querySelectorAll('.inline-session-entry.confirmed').forEach(function(entry) {
+    var sessionCount = 0;
+    document.querySelectorAll('#inline-sessions-list .inline-session-entry.confirmed').forEach(function(entry) {
       var hid = entry.querySelector('input[name^="sess_id_"]');
-      if (hid && hid.value) newCount++;
+      if (hid && hid.value) sessionCount++;
     });
-    var sessionCount = newCount;
-    {% if event and event_sessions %}
-    sessionCount += {{ event_sessions|length }};
-    {% endif %}
 
     var rows = [
       ['Event Name', val('ev-name') || '—'],
@@ -857,22 +847,7 @@ window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
   var sessMap = {};
   window._wizardSessions.forEach(function(s) { sessMap[String(s.id)] = s; });
 
-  /* ── Recompute hidden order fields from DOM order ── */
-  function recomputeOrder() {
-    container.querySelectorAll('.inline-session-entry').forEach(function(entry, idx) {
-      var h = entry.querySelector('input[name^="sess_order_"]');
-      if (h) h.value = idx;
-    });
-  }
-
-  /* ── Sortable on the confirmed-session list ── */
   var container = document.getElementById('inline-sessions-list');
-  var sortable = Sortable.create(container, {
-    handle: '.drag-handle',
-    animation: 150,
-    ghostClass: 'sortable-ghost',
-    onEnd: recomputeOrder
-  });
 
   /* ── Combine separate date + time inputs into a datetime string ── */
   function combineDatetime(div) {
@@ -986,90 +961,60 @@ window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
   function collapseEntry(div, i) {
     var sessSel  = div.querySelector('select[name="sess_id_' + i + '"]');
     var spkSel   = div.querySelector('select[name="sess_speaker_id_' + i + '"]');
-    var audSel   = div.querySelector('.sess-auditorium-select');
 
     var sessVal    = tsVal(sessSel);
     var sessLabel  = tsText(sessSel) || '(no session)';
     var spkVal     = tsVal(spkSel);
     var spkLabel   = tsText(spkSel);
-    var audLabel   = audSel ? tsText(audSel) : '';
-    var timeVal    = combineDatetime(div);
-    var timeFmt    = '';
-    if (timeVal) {
-      try { timeFmt = new Date(timeVal).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); } catch(e) { timeFmt = timeVal; }
-    }
-
-    var meta = [spkLabel, audLabel, timeFmt].filter(Boolean).join(' \u00B7 ');
 
     destroyTS(sessSel);
     destroyTS(spkSel);
-    if (audSel) destroyTS(audSel);
 
     div.className = 'inline-session-entry confirmed';
     div.innerHTML =
       '<div class="sess-pill" style="display:flex;align-items:center;gap:.75rem;padding:.6rem 1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-surface);margin-bottom:.5rem">' +
-        '<span class="drag-handle" style="cursor:grab;color:var(--text-muted);flex:0 0 auto;font-size:1.1rem;line-height:1;user-select:none">\u2807</span>' +
         '<span style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sessLabel.replace(/</g,'&lt;') + '</span>' +
-        (meta ? '<span style="font-size:.82rem;color:var(--text-muted);white-space:nowrap">' + meta.replace(/</g,'&lt;') + '</span>' : '') +
+        (spkLabel ? '<span style="font-size:.82rem;color:var(--text-muted);white-space:nowrap">' + spkLabel.replace(/</g,'&lt;') + '</span>' : '') +
         '<button type="button" class="btn btn-sm btn-outline sess-edit-btn" style="padding:2px 8px;font-size:.75rem">Edit</button>' +
         '<button type="button" class="btn btn-sm btn-danger sess-remove-btn" style="padding:2px 8px;font-size:.75rem">&times;</button>' +
       '</div>' +
       '<input type="hidden" name="sess_idx" value="' + i + '">' +
       '<input type="hidden" name="sess_id_' + i + '" value="' + sessVal + '">' +
       '<input type="hidden" name="sess_speaker_id_' + i + '" value="' + spkVal + '">' +
-      '<input type="hidden" name="sess_start_' + i + '" value="' + timeVal + '">' +
-      '<input type="hidden" name="sess_order_' + i + '" value="0">' +
-      '<div class="sess-edit-form" style="display:none"></div>';
+      '<input type="hidden" name="sess_start_' + i + '" class="sess-start-input" value="">' +
+      '<input type="hidden" name="sess_order_' + i + '" class="sess-order-input" value="999">';
 
     div.querySelector('.sess-remove-btn').addEventListener('click', function() {
       div.remove();
-      recomputeOrder();
     });
 
     div.querySelector('.sess-edit-btn').addEventListener('click', function() {
-      expandEntry(div, i, sessVal, spkVal, timeVal);
+      expandEntry(div, i, sessVal, spkVal);
     });
-
-    recomputeOrder();
   }
 
   /* ── Expand an entry back into picker form ── */
-  function expandEntry(div, i, sessVal, spkVal, timeVal) {
-    var dt = splitDatetime(timeVal);
+  function expandEntry(div, i, sessVal, spkVal) {
     div.className = 'inline-session-entry editing';
     div.innerHTML =
       '<div style="margin-bottom:1rem;padding:1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-card);position:relative">' +
         '<div class="form-group"><label class="form-label">Session</label>' +
           '<select name="sess_id_' + i + '" class="form-input sess-sel">' + sessOptions + '</select></div>' +
-        '<div class="form-row">' +
-          '<div class="form-group" style="flex:2"><label class="form-label">Speaker</label>' +
-            '<select name="sess_speaker_id_' + i + '" class="form-input spk-sel">' + speakerOptions + '</select></div>' +
-          '<div class="form-group" style="flex:2"><label class="form-label">Auditorium</label>' +
-            '<select class="form-input sess-auditorium-select aud-sel" data-no-submit>' + buildAuditoriumOptions() + '</select></div>' +
-        '</div>' +
-        '<div class="form-row">' +
-          '<div class="form-group"><label class="form-label">Date</label>' +
-            '<input type="date" class="form-input date-in" value="' + dt.date + '"></div>' +
-          '<div class="form-group"><label class="form-label">Time</label>' +
-            buildTimeGroupHTML(dt.time) + '</div>' +
-        '</div>' +
+        '<div class="form-group"><label class="form-label">Speaker Override</label>' +
+          '<select name="sess_speaker_id_' + i + '" class="form-input spk-sel">' + speakerOptions + '</select></div>' +
         '<div style="display:flex;gap:.5rem;margin-top:.75rem">' +
           '<button type="button" class="btn btn-primary btn-sm sess-confirm-btn">Confirm</button>' +
           '<button type="button" class="btn btn-outline btn-sm sess-cancel-btn">Cancel</button>' +
         '</div>' +
       '</div>' +
       '<input type="hidden" name="sess_idx" value="' + i + '">' +
-      '<input type="hidden" name="sess_order_' + i + '" value="0">';
+      '<input type="hidden" name="sess_order_' + i + '" class="sess-order-input" value="999">';
 
     if (sessVal) div.querySelector('.sess-sel').value = sessVal;
     if (spkVal)  div.querySelector('.spk-sel').value = spkVal;
 
     if (window.TechTrekInitSelects) window.TechTrekInitSelects(div);
 
-    var tg = div.querySelector('.time-group');
-    if (tg) initTimeGroup(tg);
-
-    /* Auto-select the session's default speaker when session changes */
     var sessSel = div.querySelector('.sess-sel');
     var spkSel  = div.querySelector('.spk-sel');
     function onSessionChange() {
@@ -1106,7 +1051,6 @@ window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
         collapseEntry(div, i);
       } else {
         div.remove();
-        recomputeOrder();
       }
     });
   }
@@ -1118,7 +1062,18 @@ window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
     var div = document.createElement('div');
     div.className = 'inline-session-entry editing';
     container.appendChild(div);
-    expandEntry(div, i, '', '', '');
+    expandEntry(div, i, '', '');
+  });
+
+  /* ── Attach handlers to server-rendered existing session pills ── */
+  container.querySelectorAll('.inline-session-entry.confirmed[data-existing]').forEach(function(entry) {
+    entry.querySelector('.sess-remove-btn').addEventListener('click', function() { entry.remove(); });
+    entry.querySelector('.sess-edit-btn').addEventListener('click', function() {
+      var idx = (entry.querySelector('input[name="sess_idx"]') || {}).value || '';
+      var sid = (entry.querySelector('input[name="sess_id_' + idx + '"]') || {}).value || '';
+      var spk = (entry.querySelector('input[name="sess_speaker_id_' + idx + '"]') || {}).value || '';
+      expandEntry(entry, idx, sid, spk);
+    });
   });
 })();
 
@@ -1135,12 +1090,10 @@ window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
       + '<div class="form-row">'
       + '<div class="form-group" style="flex:2"><label class="form-label">Title</label><input type="text" name="break_title_' + i + '" class="form-input" required placeholder="e.g. Lunch Break"></div>'
       + '<div class="form-group" style="flex:1"><label class="form-label">Duration (min)</label><input type="number" name="break_duration_' + i + '" class="form-input" value="15" min="1"></div>'
-      + '<div class="form-group" style="flex:1"><label class="form-label">Order</label><input type="number" name="break_order_' + i + '" class="form-input" value="' + i + '"></div>'
       + '</div>'
-      + '<div class="form-row">'
-      + '<div class="form-group" style="flex:1"><label class="form-label">Start Time</label><input type="datetime-local" name="break_start_time_' + i + '" class="form-input"></div>'
-      + '<div class="form-group" style="flex:2"><label class="form-label">Description</label><input type="text" name="break_desc_' + i + '" class="form-input" placeholder="Optional description"></div>'
-      + '</div>';
+      + '<div class="form-group"><label class="form-label">Description</label><input type="text" name="break_desc_' + i + '" class="form-input" placeholder="Optional description"></div>'
+      + '<input type="hidden" name="break_order_' + i + '" class="break-order-input" value="999">'
+      + '<input type="hidden" name="break_start_time_' + i + '" class="break-start-input" value="">';
     breakContainer.appendChild(div);
   });
 
@@ -1161,6 +1114,258 @@ window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
       + '<div class="form-group"><label class="form-label">Description</label><input type="text" name="addon_desc_' + i + '" class="form-input" placeholder="Optional description"></div>';
     addonContainer.appendChild(div);
   });
+})();
+</script>
+
+<script>
+/* ─── Agenda sub-tabs & Arrange tab ─── */
+(function() {
+  var subtabs = document.querySelectorAll('.agenda-subtab');
+  var subpanels = document.querySelectorAll('.agenda-subpanel');
+
+  function switchSubtab(name) {
+    subtabs.forEach(function(t) { t.classList.toggle('active', t.dataset.subtab === name); });
+    subpanels.forEach(function(p) {
+      p.style.display = p.dataset.subpanel === name ? '' : 'none';
+    });
+    if (name === 'arrange') rebuildArrangeList();
+  }
+
+  subtabs.forEach(function(t) {
+    t.addEventListener('click', function() { switchSubtab(t.dataset.subtab); });
+  });
+
+  var arrangeList = document.getElementById('agenda-arrange-list');
+  var emptyMsg = document.getElementById('agenda-empty-msg');
+  var arrangeSortable = null;
+
+  var spkOpts = '<option value="">-- Default speaker --</option>';
+  (window._wizardSpeakers || []).forEach(function(sp) {
+    var lbl = sp.name + (sp.title ? ' \u2014 ' + sp.title : '');
+    spkOpts += '<option value="' + sp.id + '">' + lbl.replace(/"/g, '&quot;') + '</option>';
+  });
+
+  function splitDT(val) {
+    if (!val) return { date: '', time: '' };
+    var p = val.split('T');
+    return { date: p[0] || '', time: p[1] || '' };
+  }
+
+  function collectItems() {
+    var items = [];
+    document.querySelectorAll('#inline-sessions-list .inline-session-entry.confirmed').forEach(function(el) {
+      var idxIn = el.querySelector('input[name="sess_idx"]');
+      var idx = idxIn ? idxIn.value : '';
+      var sessId = (el.querySelector('input[name="sess_id_' + idx + '"]') || {}).value || '';
+      var spkId = (el.querySelector('input[name="sess_speaker_id_' + idx + '"]') || {}).value || '';
+      var startIn = el.querySelector('.sess-start-input');
+      var orderIn = el.querySelector('.sess-order-input');
+      var titleEl = el.querySelector('.sess-pill span[style*="font-weight:600"]');
+      var spkEl = el.querySelector('.sess-pill span[style*="font-size:.82rem"]');
+      items.push({
+        type: 'session', sourceEl: el, idx: idx, sessId: sessId,
+        label: titleEl ? titleEl.textContent : 'Session',
+        speakerId: spkId,
+        speakerLabel: spkEl ? spkEl.textContent : '',
+        startTime: startIn ? startIn.value : '',
+        order: orderIn ? parseInt(orderIn.value || '999') : 999
+      });
+    });
+    document.querySelectorAll('#inline-breaks-list .break-row').forEach(function(el) {
+      var titleIn = el.querySelector('input[name^="break_title_"]');
+      var durIn = el.querySelector('input[name^="break_duration_"]');
+      var descIn = el.querySelector('input[name^="break_desc_"]');
+      var orderIn = el.querySelector('.break-order-input');
+      var startIn = el.querySelector('.break-start-input');
+      var idx = '';
+      if (titleIn) { var m = titleIn.name.match(/break_title_(.+)/); if (m) idx = m[1]; }
+      items.push({
+        type: 'break', sourceEl: el, idx: idx,
+        title: titleIn ? titleIn.value : 'Break',
+        duration: durIn ? durIn.value : '15',
+        description: descIn ? descIn.value : '',
+        startTime: startIn ? startIn.value : '',
+        order: orderIn ? parseInt(orderIn.value || '999') : 999
+      });
+    });
+    items.sort(function(a, b) { return a.order - b.order; });
+    return items;
+  }
+
+  function rebuildArrangeList() {
+    arrangeList.innerHTML = '';
+    var items = collectItems();
+    if (!items.length) { emptyMsg.style.display = ''; return; }
+    emptyMsg.style.display = 'none';
+    items.forEach(function(item) {
+      arrangeList.appendChild(buildPill(item));
+    });
+    if (arrangeSortable) arrangeSortable.destroy();
+    arrangeSortable = Sortable.create(arrangeList, {
+      handle: '.agenda-drag-handle',
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      onEnd: syncOrder
+    });
+  }
+
+  function esc(s) { return s.replace(/</g, '&lt;'); }
+
+  function buildPill(item) {
+    var div = document.createElement('div');
+    div.className = 'agenda-pill agenda-pill--' + item.type;
+    div.dataset.type = item.type;
+    div.dataset.idx = item.idx;
+
+    var badge = item.type === 'session' ? 'agenda-badge-session' : 'agenda-badge-break';
+    var badgeTxt = item.type === 'session' ? 'SESSION' : 'BREAK';
+    var title = item.type === 'session' ? item.label : item.title;
+    var meta = item.type === 'session' ? item.speakerLabel : (item.duration + ' min');
+
+    var timeFmt = '';
+    if (item.startTime) {
+      try { timeFmt = new Date(item.startTime).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }
+      catch(e) { timeFmt = item.startTime; }
+    }
+
+    div.innerHTML =
+      '<div class="agenda-pill-main">' +
+        '<span class="agenda-drag-handle">\u2807</span>' +
+        '<span class="agenda-pill-badge ' + badge + '">' + badgeTxt + '</span>' +
+        '<span class="agenda-pill-title">' + esc(title) + '</span>' +
+        (meta ? '<span class="agenda-pill-meta">' + esc(meta) + '</span>' : '') +
+        (timeFmt ? '<span class="agenda-pill-time">' + timeFmt + '</span>' : '') +
+        '<span class="agenda-pill-arrows">' +
+          '<button type="button" class="agenda-arrow agenda-arrow-up" title="Move up">\u25B2</button>' +
+          '<button type="button" class="agenda-arrow agenda-arrow-down" title="Move down">\u25BC</button>' +
+        '</span>' +
+        '<button type="button" class="btn btn-sm btn-outline agenda-expand-btn" style="padding:2px 8px;font-size:.75rem">\u25BE</button>' +
+      '</div>' +
+      '<div class="agenda-pill-detail" style="display:none"></div>';
+
+    div.querySelector('.agenda-arrow-up').addEventListener('click', function() {
+      var prev = div.previousElementSibling;
+      if (prev) { arrangeList.insertBefore(div, prev); syncOrder(); }
+    });
+    div.querySelector('.agenda-arrow-down').addEventListener('click', function() {
+      var next = div.nextElementSibling;
+      if (next) { arrangeList.insertBefore(next, div); syncOrder(); }
+    });
+    div.querySelector('.agenda-expand-btn').addEventListener('click', function() {
+      toggleDetail(div, item);
+    });
+    return div;
+  }
+
+  function toggleDetail(div, item) {
+    var detail = div.querySelector('.agenda-pill-detail');
+    var btn = div.querySelector('.agenda-expand-btn');
+    if (detail.style.display !== 'none') {
+      saveDetail(div, item);
+      detail.style.display = 'none';
+      btn.textContent = '\u25BE';
+      return;
+    }
+    var dt = splitDT(item.startTime);
+    var html = '<div style="padding:.75rem 1rem .75rem 2.5rem">';
+    html += '<div class="form-row">';
+    html += '<div class="form-group"><label class="form-label">Date</label>' +
+      '<input type="date" class="form-input agenda-dt-date" value="' + dt.date + '"></div>';
+    html += '<div class="form-group"><label class="form-label">Time</label>' +
+      '<input type="time" class="form-input agenda-dt-time" value="' + dt.time + '"></div>';
+    if (item.type === 'session') {
+      html += '<div class="form-group" style="flex:2"><label class="form-label">Speaker Override</label>' +
+        '<select class="form-input agenda-dt-speaker" data-no-tomselect>' + spkOpts + '</select></div>';
+    }
+    html += '</div></div>';
+    detail.innerHTML = html;
+    detail.style.display = '';
+    btn.textContent = '\u25B4';
+
+    if (item.type === 'session' && item.speakerId) {
+      var sel = detail.querySelector('.agenda-dt-speaker');
+      if (sel) sel.value = item.speakerId;
+    }
+    detail.querySelectorAll('input, select').forEach(function(el) {
+      el.addEventListener('change', function() { saveDetail(div, item); });
+    });
+  }
+
+  function saveDetail(div, item) {
+    var detail = div.querySelector('.agenda-pill-detail');
+    if (!detail || detail.style.display === 'none') return;
+    var dateIn = detail.querySelector('.agenda-dt-date');
+    var timeIn = detail.querySelector('.agenda-dt-time');
+    var startTime = '';
+    if (dateIn && dateIn.value) {
+      startTime = dateIn.value + 'T' + (timeIn && timeIn.value ? timeIn.value : '00:00');
+    }
+    item.startTime = startTime;
+    var src = item.sourceEl;
+    if (src) {
+      var si = src.querySelector('.sess-start-input, .break-start-input');
+      if (si) si.value = startTime;
+    }
+    if (item.type === 'session') {
+      var sel = detail.querySelector('.agenda-dt-speaker');
+      if (sel && sel.value !== item.speakerId) {
+        item.speakerId = sel.value;
+        item.speakerLabel = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
+        if (src) {
+          var si2 = src.querySelector('input[name="sess_speaker_id_' + item.idx + '"]');
+          if (si2) si2.value = sel.value;
+        }
+        var metaSpan = div.querySelector('.agenda-pill-meta');
+        if (metaSpan && item.speakerLabel) metaSpan.textContent = item.speakerLabel;
+      }
+    }
+    var timeSpan = div.querySelector('.agenda-pill-time');
+    if (startTime) {
+      var fmt = '';
+      try { fmt = new Date(startTime).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); } catch(e) { fmt = startTime; }
+      if (timeSpan) { timeSpan.textContent = fmt; }
+      else {
+        var ns = document.createElement('span');
+        ns.className = 'agenda-pill-time';
+        ns.textContent = fmt;
+        var arrows = div.querySelector('.agenda-pill-arrows');
+        if (arrows) arrows.parentElement.insertBefore(ns, arrows);
+      }
+    } else if (timeSpan) {
+      timeSpan.remove();
+    }
+  }
+
+  function syncOrder() {
+    arrangeList.querySelectorAll('.agenda-pill').forEach(function(pill, idx) {
+      var type = pill.dataset.type;
+      var sourceIdx = pill.dataset.idx;
+      var cls = type === 'session' ? '.sess-order-input' : '.break-order-input';
+      var prefix = type === 'session' ? 'sess_id_' : 'break_title_';
+      var list = type === 'session' ? '#inline-sessions-list .inline-session-entry.confirmed' : '#inline-breaks-list .break-row';
+      document.querySelectorAll(list).forEach(function(el) {
+        var match = false;
+        if (type === 'session') {
+          var ii = (el.querySelector('input[name="sess_idx"]') || {}).value;
+          if (ii === sourceIdx) match = true;
+        } else {
+          var ti = el.querySelector('input[name^="break_title_"]');
+          if (ti) { var m = ti.name.match(/break_title_(.+)/); if (m && m[1] === sourceIdx) match = true; }
+        }
+        if (match) {
+          var oi = el.querySelector(cls);
+          if (oi) oi.value = idx;
+        }
+      });
+    });
+  }
+
+  var form = document.getElementById('event-form');
+  if (form) {
+    form.addEventListener('submit', function() {
+      if (arrangeList.children.length > 0) syncOrder();
+    });
+  }
 })();
 </script>
 

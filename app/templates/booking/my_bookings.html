@@ -44,10 +44,10 @@
                 <span>{{ g.auditorium.name }}, {{ g.auditorium.location }}</span>
               </div>
               {% endif %}
-              {% if g.event and g.event.sessions %}
+              {% if g.event and g.event.event_sessions %}
               <div class="booking-detail-row">
                 <span class="booking-detail-icon">&#128203;</span>
-                <span>{{ g.event.sessions|length }} session{{ 's' if g.event.sessions|length != 1 else '' }} included</span>
+                <span>{{ g.event.event_sessions|length }} session{{ 's' if g.event.event_sessions|length != 1 else '' }} included</span>
               </div>
               {% endif %}
               <div class="booking-detail-row">
@@ -124,10 +124,10 @@
                   <span>{{ g.auditorium.name }}, {{ g.auditorium.location }}</span>
                 </div>
                 {% endif %}
-                {% if g.event and g.event.sessions %}
+                {% if g.event and g.event.event_sessions %}
                 <div class="booking-detail-row">
                   <span class="booking-detail-icon">&#128203;</span>
-                  <span>{{ g.event.sessions|length }} session{{ 's' if g.event.sessions|length != 1 else '' }} included</span>
+                  <span>{{ g.event.event_sessions|length }} session{{ 's' if g.event.event_sessions|length != 1 else '' }} included</span>
                 </div>
                 {% endif %}
                 <div class="booking-detail-row">
