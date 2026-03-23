@@ -1,4 +1,4 @@
-from sqlalchemy import Boolean, Column, ForeignKey, Integer, Numeric, String, Text
+from sqlalchemy import Boolean, Column, DateTime, ForeignKey, Integer, Numeric, String, Text
 from sqlalchemy.orm import relationship
 
 from app.database import Base
@@ -14,6 +14,9 @@ class EventAddOn(Base):
     price = Column(Numeric(10, 2), nullable=False, default=0)
     max_quantity = Column(Integer, nullable=True)
     is_active = Column(Boolean, default=True)
+    in_agenda = Column(Boolean, default=False)
+    order = Column(Integer, default=0)
+    start_time = Column(DateTime, nullable=True)
 
     event = relationship("Event", back_populates="addons")
     booking_addons = relationship("BookingAddOn", back_populates="addon", cascade="all, delete-orphan")

@@ -563,6 +563,18 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
             "order": brk.order or 0,
             "start_time": brk.start_time,
         })
+    agenda_addons = (
+        db.query(EventAddOn)
+        .filter(EventAddOn.event_id == event_id, EventAddOn.is_active == True, EventAddOn.in_agenda == True)
+        .all()
+    )
+    for addon in agenda_addons:
+        agenda_items.append({
+            "type": "addon",
+            "addon": addon,
+            "order": addon.order or 0,
+            "start_time": addon.start_time,
+        })
     agenda_items.sort(key=lambda x: (x["order"], x["start_time"] or datetime.min))
 
     user_id = request.session.get("user_id")

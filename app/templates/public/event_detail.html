@@ -272,6 +272,26 @@
             </div>
           </div>
 
+          {% elif item.type == 'addon' %}
+          {% set addon = item.addon %}
+
+          <div class="ed-break-card reveal-{{ 'left' if loop.index is odd else 'right' }}"
+               style="transition-delay:{{ (loop.index0 * 0.12)|round(2) }}s;">
+            <div class="ed-break-icon">&#127915;</div>
+            <div class="ed-sc-body">
+              <h3 class="ed-sc-title">{{ addon.title }}</h3>
+              {% if addon.description %}
+              <p class="ed-sc-desc">{{ addon.description|truncate(120, True, '...') }}</p>
+              {% endif %}
+              <div class="ed-sc-meta">
+                {% if addon.start_time %}
+                <span>&#128336; {{ addon.start_time.strftime('%I:%M %p') }}</span>
+                {% endif %}
+                {% if addon.price and addon.price > 0 %}<span>&#8377;{{ '{:,.0f}'.format(addon.price) }}</span>{% endif %}
+              </div>
+            </div>
+          </div>
+
           {% endif %}
           {% endfor %}
         </div>

@@ -1218,6 +1218,15 @@ def _save_event_addons(db: Session, form, event_id: int):
             break
         title = title.strip()
         if title:
+            in_agenda = form.get(f"addon_in_agenda_{idx}") == "1"
+            raw_start = (form.get(f"addon_start_time_{idx}") or "").strip()
+            start_time = None
+            if raw_start:
+                try:
+                    from datetime import datetime
+                    start_time = datetime.fromisoformat(raw_start)
+                except (ValueError, TypeError):
+                    pass
             addon = EventAddOn(
                 event_id=event_id,
                 title=title,
@@ -1225,6 +1234,9 @@ def _save_event_addons(db: Session, form, event_id: int):
                 price=float(form.get(f"addon_price_{idx}", 0) or 0),
                 max_quantity=int(form.get(f"addon_max_qty_{idx}") or 0) or None,
                 is_active=True,
+                in_agenda=in_agenda,
+                order=int(form.get(f"addon_order_{idx}") or 0),
+                start_time=start_time,
             )
             db.add(addon)
         idx += 1
