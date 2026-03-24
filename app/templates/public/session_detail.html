@@ -22,14 +22,14 @@
 {% block head_extra %}
 <meta property="og:type" content="website">
 <meta property="og:title" content="{{ session.title }} — TechTrek">
-<meta property="og:description" content="{{ session.description|default('Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
+<meta property="og:description" content="{{ (session.abstract or session.description or 'Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
 <meta property="og:image" content="{{ og_img }}">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="{{ session.title }} — TechTrek">
-<meta name="twitter:description" content="{{ session.description|default('Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
+<meta name="twitter:description" content="{{ (session.abstract or session.description or 'Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
 <meta name="twitter:image" content="{{ og_img }}">
-{% if session.description %}
-<meta name="description" content="{{ session.description|truncate(160, True, '...') }}">
+{% if session.abstract or session.description %}
+<meta name="description" content="{{ (session.abstract or session.description)|truncate(160, True, '...') }}">
 {% endif %}
 {% endblock %}
 
@@ -93,8 +93,8 @@
 
       <h1 class="sd-hero-title">{{ session.title }}</h1>
 
-      {% if session.description %}
-      <p class="sd-hero-desc">{{ session.description|truncate(180, True, '...') }}</p>
+      {% if session.abstract or session.description %}
+      <p class="sd-hero-desc">{{ (session.abstract or session.description)|truncate(180, True, '...') }}</p>
       {% endif %}
 
       <div class="sd-hero-pills">
@@ -172,8 +172,8 @@
         </p>
         {% endif %}
         <h1 class="lm-ed-title">{{ session.title }}</h1>
-        {% if session.description %}
-        <p class="lm-ed-desc">{{ session.description|truncate(200, True, '...') }}</p>
+        {% if session.abstract or session.description %}
+        <p class="lm-ed-desc">{{ (session.abstract or session.description)|truncate(200, True, '...') }}</p>
         {% endif %}
         <div class="lm-ed-chips">
           {% if es_speaker %}
@@ -314,14 +314,27 @@
         </div>
         {% endif %}
 
-        {# About #}
-        {% if session.description %}
+        {# Abstract #}
+        {% if session.abstract or session.description %}
+        <div class="sd-section reveal">
+          <p class="sd-body-text">{{ session.abstract or session.description }}</p>
+        </div>
+        {% endif %}
+
+        {# Key Learning Outcomes #}
+        {% if session.key_learning_outcomes %}
         <div class="sd-section reveal">
           <div class="sd-sec-head">
-            <span class="sd-sec-label">About This Session</span>
+            <span class="sd-sec-label">Key Learning Outcomes</span>
             <div class="sd-sec-line"></div>
           </div>
-          <p class="sd-body-text">{{ session.description }}</p>
+          <ul class="sd-outcomes-list">
+            {% for outcome in session.key_learning_outcomes.split(';') %}
+            {% if outcome.strip() %}
+            <li class="sd-body-text">{{ outcome.strip() }}</li>
+            {% endif %}
+            {% endfor %}
+          </ul>
         </div>
         {% endif %}
 

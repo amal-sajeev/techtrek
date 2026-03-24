@@ -5,7 +5,21 @@
 <div class="admin-header">
   <h1 class="admin-page-title">Events</h1>
   {% if user.is_admin %}
-  <a href="/admin/events/new" class="btn btn-primary">+ New Event</a>
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <a href="/admin/events/event-template" class="btn btn-outline">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Event Template
+    </a>
+    <button type="button" class="btn btn-outline" id="import-event-btn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.3rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Import Event
+    </button>
+    <form id="import-event-form" method="post" action="/admin/events/import-event" enctype="multipart/form-data" style="display:none">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="file" id="import-event-file" name="event_file" accept=".xlsx,.xls">
+    </form>
+    <a href="/admin/events/new" class="btn btn-primary">+ New Event</a>
+  </div>
   {% endif %}
 </div>
 
@@ -79,6 +93,12 @@
 
 {% block scripts %}
 <script>
+document.getElementById('import-event-btn').addEventListener('click', function() {
+  document.getElementById('import-event-file').click();
+});
+document.getElementById('import-event-file').addEventListener('change', function() {
+  if (this.files.length) document.getElementById('import-event-form').submit();
+});
 function filterEvents(q) {
   q = q.toLowerCase().trim();
   var rows = document.querySelectorAll('#events-table tbody tr');

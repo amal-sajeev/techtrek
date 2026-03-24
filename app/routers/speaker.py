@@ -348,7 +348,9 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
 
     if is_primary:
         session_obj.title = form.get("title", session_obj.title).strip()
-        session_obj.description = form.get("description", "").strip()
+        session_obj.abstract = form.get("abstract", "").strip() or form.get("description", "").strip()
+        session_obj.key_learning_outcomes = form.get("key_learning_outcomes", "").strip()
+        session_obj.description = session_obj.abstract
         session_obj.banner_url = form.get("banner_url", "").strip() or None
         session_obj.duration_minutes = int(form.get("duration_minutes", 30))
 

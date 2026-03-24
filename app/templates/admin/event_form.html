@@ -136,6 +136,23 @@
 
       <!-- Sub-tab: Add Items -->
       <div class="agenda-subpanel" data-subpanel="add">
+        {% if event %}
+        <div class="agenda-import-card" style="border:1px dashed var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.5rem;background:var(--bg-surface)">
+          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+            <h4 style="margin:0">Import Agenda from File</h4>
+          </div>
+          <p class="text-muted" style="font-size:.85rem;margin-bottom:.75rem">Upload an Excel (.xlsx) or CSV file to bulk-create sessions, breaks, speakers, and agenda items. Each row needs Start Time and End Time (e.g. 9:00 AM) &mdash; duration is calculated automatically. Only the Speaker Email column is required to identify speakers; name and other fields are optional. <a href="/admin/events/agenda-template?format=xlsx">Download template</a></p>
+          <div style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end">
+            <div class="form-group" style="flex:1;min-width:200px;margin:0">
+              <label class="form-label" style="font-size:.82rem">Agenda File</label>
+              <input type="file" id="agenda-file-input" accept=".xlsx,.xls,.csv" class="form-input" style="padding:.35rem">
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" id="agenda-import-btn" style="height:fit-content;white-space:nowrap">Import Agenda</button>
+          </div>
+        </div>
+        {% endif %}
+
         <h4 style="margin-bottom:.5rem">Sessions</h4>
         <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Link existing sessions to this event. <a href="/admin/sessions/new" target="_blank">Create sessions</a> first if needed.</p>
         <div id="inline-sessions-list">
@@ -525,6 +542,29 @@
 
   </form>
 </div>
+
+{% if event %}
+<!-- Agenda Import Preview Modal -->
+<div class="modal-wrapper" id="agenda-import-modal">
+  <div class="modal-backdrop" id="agenda-modal-backdrop"></div>
+  <div class="modal-dialog agenda-import-dialog">
+    <div class="agenda-modal-header">
+      <h3 style="margin:0;font-size:1.15rem">Agenda Preview</h3>
+      <button type="button" class="agenda-modal-close" id="agenda-modal-close">&times;</button>
+    </div>
+    <div class="agenda-modal-body" id="agenda-modal-body">
+      <p class="text-muted" style="text-align:center;padding:2rem">Loading...</p>
+    </div>
+    <div class="agenda-modal-footer">
+      <span id="agenda-modal-status" class="text-muted" style="font-size:.85rem"></span>
+      <div style="display:flex;gap:.5rem">
+        <button type="button" class="btn btn-sm" id="agenda-modal-cancel" style="min-width:80px">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="agenda-modal-approve" style="min-width:120px">Approve Import</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {% if event %}
 <div class="form-card mt-3">
@@ -1508,6 +1548,112 @@ window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.titl
 }
 </style>
 
+<style>
+.agenda-import-dialog {
+  max-width: 95vw;
+  width: 95vw;
+  max-height: 90vh;
+  padding: 0;
+  text-align: left;
+  display: flex;
+  flex-direction: column;
+}
+.agenda-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid var(--border, #333);
+}
+.agenda-modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-muted, #888);
+  line-height: 1;
+  padding: 0 .25rem;
+}
+.agenda-modal-close:hover { color: var(--text, #fff); }
+.agenda-modal-body {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem 1.5rem;
+}
+.agenda-modal-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: .75rem 1.5rem;
+  border-top: 1px solid var(--border, #333);
+}
+.import-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .85rem;
+}
+.import-table th {
+  background: var(--bg-surface, #1a1a2e);
+  font-weight: 600;
+  text-align: left;
+  padding: .5rem .4rem;
+  white-space: nowrap;
+  border-bottom: 2px solid var(--border, #333);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.import-table td {
+  padding: .25rem .2rem;
+  vertical-align: top;
+}
+.import-table .row-num {
+  text-align: center;
+  font-weight: 600;
+  color: var(--text-muted, #888);
+  width: 36px;
+  min-width: 36px;
+}
+.import-table input {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--border, #333);
+  border-radius: 4px;
+  color: inherit;
+  padding: 4px 6px;
+  font-size: .82rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.import-table input:focus {
+  outline: none;
+  border-color: var(--primary, #00d4ff);
+  box-shadow: 0 0 0 2px rgba(0, 212, 255, .15);
+}
+.import-table tr.row-valid td:first-child {
+  border-left: 3px solid #22c55e;
+}
+.import-table tr.row-error td:first-child {
+  border-left: 3px solid #ef4444;
+}
+.import-table tr.row-error {
+  background: rgba(239, 68, 68, .06);
+}
+.import-table .row-error-msg {
+  color: #ef4444;
+  font-size: .78rem;
+  padding: 2px 6px 4px;
+  line-height: 1.3;
+}
+.import-table .row-error-msg span {
+  display: inline-block;
+  margin-right: .75rem;
+}
+@media (max-width: 768px) {
+  .agenda-import-dialog { width: 100vw; max-width: 100vw; max-height: 100vh; border-radius: 0; }
+}
+</style>
+
 <script>
 // ─── Border style visual picker ───
 function _syncBorderPicker() {
@@ -1849,4 +1995,177 @@ initGalleryUpload('ev-gallery', '/admin/upload-image', [
   {% if gallery_images %}{% for gi in gallery_images %}{id:{{ gi.image_id }},url:'/uploads/{{ gi.image_id }}'}{% if not loop.last %},{% endif %}{% endfor %}{% endif %}
 ]);
 </script>
+{% if event %}
+<script>
+(function() {
+  var eventId = {{ event.id }};
+  var modal = document.getElementById('agenda-import-modal');
+  var body = document.getElementById('agenda-modal-body');
+  var statusEl = document.getElementById('agenda-modal-status');
+  var approveBtn = document.getElementById('agenda-modal-approve');
+  var fileInput = document.getElementById('agenda-file-input');
+  var importBtn = document.getElementById('agenda-import-btn');
+  if (!modal || !importBtn) return;
+
+  document.body.appendChild(modal);
+
+  var previewData = null;
+  var COL_WIDTHS = [90, 180, 180, 170, 220, 140, 140, 170, 180, 130, 130];
+
+  function openModal() { modal.classList.add('active'); }
+  function closeModal() { modal.classList.remove('active'); previewData = null; }
+
+  document.getElementById('agenda-modal-close').addEventListener('click', closeModal);
+  document.getElementById('agenda-modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('agenda-modal-backdrop').addEventListener('click', closeModal);
+
+  importBtn.addEventListener('click', function() {
+    if (!fileInput.files || !fileInput.files.length) {
+      TechTrek.showToast('Please select an agenda file first.', 'warning');
+      return;
+    }
+    body.innerHTML = '<p class="text-muted" style="text-align:center;padding:2rem">Parsing file...</p>';
+    statusEl.textContent = '';
+    approveBtn.disabled = true;
+    openModal();
+
+    var fd = new FormData();
+    fd.append('agenda_file', fileInput.files[0]);
+    var csrfField = document.querySelector('#event-form input[name="csrf_token"]');
+    if (csrfField) fd.append('csrf_token', csrfField.value);
+
+    fetch('/admin/events/' + eventId + '/preview-agenda', { method: 'POST', body: fd })
+      .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
+      .then(function(res) {
+        if (!res.ok) {
+          body.innerHTML = '<p style="color:#ef4444;padding:1rem">' + (res.data.error || 'Unknown error') + '</p>';
+          return;
+        }
+        previewData = res.data;
+        renderTable(previewData);
+      })
+      .catch(function(err) {
+        body.innerHTML = '<p style="color:#ef4444;padding:1rem">Network error: ' + err.message + '</p>';
+      });
+  });
+
+  function renderTable(data) {
+    var cols = data.columns;
+    var rows = data.rows;
+    var validCount = 0, errorCount = 0;
+    rows.forEach(function(r) { if (r.valid) validCount++; else errorCount++; });
+
+    var html = '<table class="import-table"><thead><tr><th class="row-num">#</th>';
+    for (var c = 0; c < cols.length; c++) {
+      html += '<th style="min-width:' + COL_WIDTHS[c] + 'px">' + esc(cols[c]) + '</th>';
+    }
+    html += '</tr></thead><tbody>';
+
+    for (var i = 0; i < rows.length; i++) {
+      var r = rows[i];
+      var cls = r.valid ? 'row-valid' : 'row-error';
+      html += '<tr class="' + cls + '" data-row="' + i + '">';
+      html += '<td class="row-num">' + (i + 1) + '</td>';
+      for (var j = 0; j < cols.length; j++) {
+        var val = (r.values[j] || '').replace(/"/g, '&quot;');
+        html += '<td><input type="text" data-col="' + j + '" value="' + val + '"></td>';
+      }
+      html += '</tr>';
+      if (r.errors && r.errors.length) {
+        html += '<tr class="row-error"><td></td><td colspan="' + cols.length + '" class="row-error-msg">';
+        for (var e = 0; e < r.errors.length; e++) {
+          html += '<span>' + esc(r.errors[e]) + '</span>';
+        }
+        html += '</td></tr>';
+      }
+    }
+    html += '</tbody></table>';
+    body.innerHTML = html;
+
+    statusEl.textContent = validCount + ' valid, ' + errorCount + ' with errors';
+    approveBtn.disabled = false;
+    if (errorCount > 0) {
+      statusEl.style.color = '#ef4444';
+    } else {
+      statusEl.style.color = '';
+    }
+  }
+
+  function collectRows() {
+    var table = body.querySelector('.import-table');
+    if (!table) return [];
+    var dataRows = table.querySelectorAll('tbody tr:not(.row-error)');
+    var result = [];
+    dataRows.forEach(function(tr) {
+      if (tr.querySelector('.row-error-msg')) return;
+      var inputs = tr.querySelectorAll('input[data-col]');
+      var vals = [];
+      inputs.forEach(function(inp) { vals.push(inp.value); });
+      if (vals.length) result.push(vals);
+    });
+    return result;
+  }
+
+  function esc(s) {
+    var d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  approveBtn.addEventListener('click', function() {
+    var rows = collectRows();
+    if (!rows.length) {
+      TechTrek.showToast('No rows to import.', 'warning');
+      return;
+    }
+    approveBtn.disabled = true;
+    approveBtn.textContent = 'Importing...';
+    statusEl.textContent = 'Processing...';
+    statusEl.style.color = '';
+
+    fetch('/admin/events/' + eventId + '/confirm-agenda', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ rows: rows })
+    })
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (data.success) {
+          closeModal();
+          TechTrek.showToast(data.message, 'success');
+          window.location.href = '/admin/events/' + eventId + '/edit?step=4';
+        } else if (data.rows) {
+          previewData.rows = previewData.rows.map(function(r, idx) {
+            var match = data.rows.find(function(vr) { return vr.index === idx; });
+            if (match) {
+              r.errors = match.errors;
+              r.valid = match.valid;
+            }
+            return r;
+          });
+          for (var ri = 0; ri < previewData.rows.length; ri++) {
+            var inputs = body.querySelectorAll('tr[data-row="' + ri + '"] input');
+            if (inputs.length) {
+              var vals = [];
+              inputs.forEach(function(inp) { vals.push(inp.value); });
+              previewData.rows[ri].values = vals;
+            }
+          }
+          renderTable(previewData);
+          TechTrek.showToast('Some rows still have errors. Please fix them and try again.', 'warning');
+        } else {
+          TechTrek.showToast(data.error || 'Import failed.', 'danger');
+        }
+        approveBtn.textContent = 'Approve Import';
+        approveBtn.disabled = false;
+      })
+      .catch(function(err) {
+        TechTrek.showToast('Network error: ' + err.message, 'danger');
+        approveBtn.textContent = 'Approve Import';
+        approveBtn.disabled = false;
+      });
+  });
+})();
+</script>
+{% endif %}
 {% endblock %}

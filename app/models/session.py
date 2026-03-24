@@ -13,6 +13,8 @@ class Session(Base):
     title = Column(String(300), nullable=False)
     speaker_name = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
+    abstract = Column(Text, nullable=True)
+    key_learning_outcomes = Column(Text, nullable=True)
     banner_url = Column(String(500), nullable=True)
     duration_minutes = Column(Integer, default=30)
     recording_url = Column(String(500), nullable=True)

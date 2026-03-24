@@ -100,8 +100,8 @@
             <div class="card-body">
               <h3 class="card-title">{{ s.title }}</h3>
               <p class="card-meta">{{ es.speaker_name or s.speaker_name if es else s.speaker_name }}</p>
-              {% if s.description %}
-              <p class="card-desc">{{ s.description|truncate(120, True, '...') }}</p>
+              {% if s.abstract or s.description %}
+              <p class="card-desc">{{ (s.abstract or s.description)|truncate(120, True, '...') }}</p>
               {% endif %}
               <div class="card-details">
                 {% if es and es.start_time %}

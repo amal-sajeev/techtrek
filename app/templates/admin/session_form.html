@@ -23,8 +23,12 @@
       <input type="text" name="title" id="sess-title" class="form-input" value="{{ lecture.title if lecture else '' }}" required>
     </div>
     <div class="form-group">
-      <label class="form-label" for="sess-desc">Description</label>
-      <textarea name="description" id="sess-desc" class="form-input" rows="4">{{ lecture.description if lecture and lecture.description else '' }}</textarea>
+      <label class="form-label" for="sess-abstract">Abstract</label>
+      <textarea name="abstract" id="sess-abstract" class="form-input" rows="4">{{ lecture.abstract if lecture and lecture.abstract else (lecture.description if lecture and lecture.description else '') }}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="sess-klo">Key Learning Outcomes</label>
+      <textarea name="key_learning_outcomes" id="sess-klo" class="form-input" rows="3" placeholder="Separate outcomes with semicolons, e.g. Learn X; Understand Y; Build Z">{{ lecture.key_learning_outcomes if lecture and lecture.key_learning_outcomes else '' }}</textarea>
     </div>
     <div class="form-group">
       <label class="form-label" for="sess-banner">Banner Image</label>
@@ -116,11 +120,11 @@
             <select name="agenda_speaker_id_{{ loop.index0 }}" class="form-input agenda-speaker-select" placeholder="Select speaker">
               <option value="">-- No speaker --</option>
               {% for ss in session_speakers %}
-              {% set sp = None %}
-              {% for s in speakers %}{% if s.id == ss.speaker_id %}{% set sp = s %}{% endif %}{% endfor %}
-              {% if sp %}
-              <option value="{{ sp.id }}" {% if item.speaker_id == sp.id %}selected{% endif %}>{{ sp.name }}</option>
+              {% for s in speakers %}
+              {% if s.id == ss.speaker_id %}
+              <option value="{{ s.id }}" {% if item.speaker_id == s.id %}selected{% endif %}>{{ s.name }}</option>
               {% endif %}
+              {% endfor %}
               {% endfor %}
             </select>
           </div>

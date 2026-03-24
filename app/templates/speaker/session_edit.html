@@ -22,8 +22,12 @@
     </div>
 
     <div class="form-group">
-      <label class="form-label" for="ss-desc">Description</label>
-      <textarea name="description" id="ss-desc" class="form-input" rows="5">{{ lecture.description or '' }}</textarea>
+      <label class="form-label" for="ss-abstract">Abstract</label>
+      <textarea name="abstract" id="ss-abstract" class="form-input" rows="4">{{ lecture.abstract or lecture.description or '' }}</textarea>
+    </div>
+    <div class="form-group">
+      <label class="form-label" for="ss-klo">Key Learning Outcomes</label>
+      <textarea name="key_learning_outcomes" id="ss-klo" class="form-input" rows="3" placeholder="Separate outcomes with semicolons, e.g. Learn X; Understand Y; Build Z">{{ lecture.key_learning_outcomes or '' }}</textarea>
     </div>
 
     <div class="form-group">

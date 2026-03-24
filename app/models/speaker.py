@@ -17,6 +17,7 @@ class Speaker(Base):
     bio = Column(Text, nullable=True)
     photo_url = Column(String(500), nullable=True)
     email = Column(String(255), nullable=True)
+    linkedin_url = Column(String(500), nullable=True)
     invite_token = Column(String(64), nullable=True, unique=True)
     invite_token_expires = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=now_ist)
