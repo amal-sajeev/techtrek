@@ -49,7 +49,7 @@
         </div>
         <div class="form-group" style="flex:1">
           <label class="form-label" for="ev-status">Status</label>
-          <select name="status" id="ev-status" class="form-input">
+          <select name="status" id="ev-status" class="form-input" data-original-status="{{ event.status if event else 'draft' }}">
             <option value="draft" {% if not event or event.status == 'draft' %}selected{% endif %}>Draft</option>
             <option value="published" {% if event and event.status == 'published' %}selected{% endif %}>Published</option>
             <option value="completed" {% if event and event.status == 'completed' %}selected{% endif %}>Completed</option>
@@ -147,10 +147,17 @@
 
     <!-- Step 4: Sessions & Agenda -->
     <div class="wizard-panel" data-panel="4">
-      <h3 class="wizard-panel-title">Agenda</h3>
-
-      <div class="agenda-unified-header">
+      <div class="agenda-title-row">
+        <h3 class="wizard-panel-title" style="margin:0">Agenda</h3>
         <span class="agenda-summary" id="agenda-summary"></span>
+      </div>
+
+      <div class="agenda-toolbar">
+        <label class="agenda-desc-toggle" id="agenda-desc-toggle" style="display:none">
+          <input type="checkbox" id="agenda-desc-check" checked>
+          <span class="agenda-desc-slider"></span>
+          <span class="agenda-desc-label">Descriptions</span>
+        </label>
         <div class="agenda-add-buttons">
           <button type="button" class="btn btn-primary btn-sm" id="btn-add-session">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.2rem"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="12" y2="15"/></svg>
@@ -512,31 +519,85 @@
 <!-- Session Add/Edit Modal -->
 <div class="modal-wrapper agenda-form-modal" id="modal-add-session">
   <div class="modal-backdrop"></div>
-  <div class="modal-dialog">
-    <h3 id="modal-session-title">Add Session</h3>
-    <div class="modal-body">
-      <div class="form-group">
-        <label class="form-label">Session</label>
-        <select id="modal-sess-select" class="form-input" data-no-tomselect></select>
+  <div class="modal-dialog sess-modal">
+    <div class="sess-modal-header">
+      <div class="sess-modal-header-left">
+        <span class="sess-modal-eyebrow">Events &middot; Session</span>
+        <h2 id="modal-session-title" class="sess-modal-title">Add Session</h2>
+        <p class="sess-modal-subtitle" id="sess-modal-subtitle">Overrides apply to this event only &mdash; leave blank to keep originals.</p>
       </div>
-      <div class="form-group">
-        <label class="form-label">Speaker Override</label>
-        <select id="modal-sess-speaker" class="form-input" data-no-tomselect></select>
+      <button type="button" class="sess-modal-close" id="modal-sess-close-x">&times;</button>
+    </div>
+    <div class="sess-modal-stepper">
+      <div class="sess-stepper-tracks" id="sess-tracks">
+        <div class="sess-stepper-track active"></div>
+        <div class="sess-stepper-track"></div>
+        <div class="sess-stepper-track"></div>
       </div>
-      <div class="form-row">
+      <div class="sess-stepper-meta">
+        <span class="sess-stepper-name" id="sess-step-name">Basics</span>
+        <span class="sess-stepper-count" id="sess-step-count">Step 1 of 3</span>
+      </div>
+    </div>
+    <div class="sess-modal-body">
+      <!-- Step 0: Basics -->
+      <div class="sess-modal-step" id="sess-step-0">
         <div class="form-group">
-          <label class="form-label">Start Date</label>
-          <input type="date" id="modal-sess-date" class="form-input">
+          <label class="form-label">Session</label>
+          <select id="modal-sess-select" class="form-input" data-no-tomselect></select>
         </div>
         <div class="form-group">
-          <label class="form-label">Start Time</label>
-          <input type="time" id="modal-sess-time" class="form-input">
+          <label class="form-label" id="sess-speaker-label">Speaker Override</label>
+          <select id="modal-sess-speaker" class="form-input" data-no-tomselect></select>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Start Date</label>
+            <input type="date" id="modal-sess-date" class="form-input">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Start Time</label>
+            <input type="time" id="modal-sess-time" class="form-input">
+          </div>
+        </div>
+      </div>
+      <!-- Step 1: Content -->
+      <div class="sess-modal-step hidden" id="sess-step-1">
+        <div class="form-group">
+          <label class="form-label" id="sess-label-title">Title</label>
+          <input type="text" id="modal-sess-custom-title" class="form-input" placeholder="">
+        </div>
+        <div class="form-group">
+          <label class="form-label" id="sess-label-desc">Description</label>
+          <textarea id="modal-sess-custom-description" class="form-input sess-autosize" rows="4" placeholder=""></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" id="sess-label-abstract">Abstract <span class="sess-opt">optional</span></label>
+          <textarea id="modal-sess-custom-abstract" class="form-input sess-autosize" rows="4" placeholder=""></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label" id="sess-label-klo">Key Learning Outcomes</label>
+          <textarea id="modal-sess-custom-klo" class="form-input sess-autosize" rows="4" placeholder=""></textarea>
+        </div>
+      </div>
+      <!-- Step 2: Media -->
+      <div class="sess-modal-step hidden" id="sess-step-2">
+        <div class="form-group">
+          <label class="form-label">Duration <span class="sess-opt">minutes</span></label>
+          <input type="number" id="modal-sess-custom-duration" class="form-input" min="1" placeholder="">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Banner Image <span class="sess-opt">optional</span></label>
+          <input type="text" id="modal-sess-custom-banner" class="form-input" placeholder="Upload or paste URL">
         </div>
       </div>
     </div>
-    <div class="modal-footer">
+    <div class="sess-modal-footer">
+      <button type="button" class="btn btn-outline" id="modal-sess-reset-overrides">&circlearrowright; Reset</button>
+      <button type="button" class="btn btn-outline" id="modal-sess-back" style="display:none">&larr; Back</button>
       <button type="button" class="btn btn-outline" id="modal-sess-cancel">Cancel</button>
-      <button type="button" class="btn btn-primary" id="modal-sess-save">Add Session</button>
+      <button type="button" class="btn btn-outline" id="modal-sess-next">Next &rarr;</button>
+      <button type="button" class="btn btn-primary" id="modal-sess-save">Save</button>
     </div>
   </div>
 </div>
@@ -566,7 +627,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Description</label>
-        <textarea id="modal-break-desc" class="form-input" rows="2" placeholder="Optional"></textarea>
+        <textarea id="modal-break-desc" class="form-input sess-autosize" rows="3" placeholder="Optional"></textarea>
       </div>
       <div class="form-row">
         <div class="form-group">
@@ -608,7 +669,7 @@
       </div>
       <div class="form-group">
         <label class="form-label">Description</label>
-        <textarea id="modal-addon-desc" class="form-input" rows="2" placeholder="Optional"></textarea>
+        <textarea id="modal-addon-desc" class="form-input sess-autosize" rows="3" placeholder="Optional"></textarea>
       </div>
       <div class="form-group">
         <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.88rem">
@@ -680,7 +741,7 @@
 <script>
 window._wizardSessions = [
   {% for s in all_sessions %}
-  { id: {{ s.id }}, title: {{ s.title|tojson }}, speaker: {{ (s.speaker_name or '')|tojson }}, speakerId: {{ s.speaker_id|tojson }}, duration: {{ s.duration_minutes or 30 }} },
+  { id: {{ s.id }}, title: {{ s.title|tojson }}, speaker: {{ (s.speaker_name or '')|tojson }}, speakerId: {{ s.speaker_id|tojson }}, duration: {{ s.duration_minutes or 30 }}, description: {{ (s.description or '')|tojson }}, abstract: {{ (s.abstract or '')|tojson }}, keyLearningOutcomes: {{ (s.key_learning_outcomes or '')|tojson }}, bannerUrl: {{ (s.banner_url or '')|tojson }}, recordingUrl: {{ (s.recording_url or '')|tojson }}, isRecordingPublic: {{ 'true' if s.is_recording_public else 'false' }} },
   {% endfor %}
 ];
 window._wizardSpeakers = [
@@ -699,12 +760,12 @@ window._wizardAudSeatTypes = {{ aud_seat_types|tojson }};
 window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
 {% if event and event_sessions %}
 {% for es in event_sessions %}
-window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.title|tojson }}, speaker: {{ (es.session.speaker_name or '')|tojson }}, speakerId: {{ es.session.speaker_id|tojson }}, duration: {{ es.session.duration_minutes or 30 }} });
+window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.title|tojson }}, speaker: {{ (es.session.speaker_name or '')|tojson }}, speakerId: {{ es.session.speaker_id|tojson }}, duration: {{ es.session.duration_minutes or 30 }}, description: {{ (es.session.description or '')|tojson }}, abstract: {{ (es.session.abstract or '')|tojson }}, keyLearningOutcomes: {{ (es.session.key_learning_outcomes or '')|tojson }}, bannerUrl: {{ (es.session.banner_url or '')|tojson }}, recordingUrl: {{ (es.session.recording_url or '')|tojson }}, isRecordingPublic: {{ 'true' if es.session.is_recording_public else 'false' }} });
 {% endfor %}
 {% endif %}
 window._existingAgendaItems = [
   {% if event and event_sessions %}{% for es in event_sessions %}
-  {type:'session',sessId:{{es.session_id}},sessLabel:{{es.session.title|tojson}},speakerId:{{(es.speaker_id or '')|tojson}},speakerLabel:{{(es.speaker_name or es.session.speaker_name or '')|tojson}},duration:{{es.session.duration_minutes or 30}},startTime:{{(es.start_time.strftime('%Y-%m-%dT%H:%M') if es.start_time else '')|tojson}},order:{{es.order}}},
+  {type:'session',sessId:{{es.session_id}},sessLabel:{{es.session.title|tojson}},speakerId:{{(es.speaker_id or '')|tojson}},speakerLabel:{{(es.speaker_name or es.session.speaker_name or '')|tojson}},duration:{{es.session.duration_minutes or 30}},startTime:{{(es.start_time.strftime('%Y-%m-%dT%H:%M') if es.start_time else '')|tojson}},order:{{es.order}},customTitle:{{(es.custom_title or '')|tojson}},customDescription:{{(es.custom_description or '')|tojson}},customAbstract:{{(es.custom_abstract or '')|tojson}},customKeyLearningOutcomes:{{(es.custom_key_learning_outcomes or '')|tojson}},customBannerUrl:{{(es.custom_banner_url or '')|tojson}},customDurationMinutes:{{es.custom_duration_minutes|tojson}},customRecordingUrl:{{(es.custom_recording_url or '')|tojson}},customIsRecordingPublic:{{es.custom_is_recording_public|tojson}}},
   {% endfor %}{% endif %}
   {% if event and event_breaks %}{% for brk in event_breaks %}
   {type:'break',title:{{brk.title|tojson}},duration:{{brk.duration_minutes}},description:{{(brk.description or '')|tojson}},startTime:{{(brk.start_time.strftime('%Y-%m-%dT%H:%M') if brk.start_time else '')|tojson}},order:{{brk.order}}},
@@ -941,7 +1002,13 @@ window._existingAgendaItems = [
   var emptyEl   = document.getElementById('agenda-empty-state');
   var summaryEl = document.getElementById('agenda-summary');
   var hiddenEl  = document.getElementById('agenda-hidden-fields');
+  var descToggle = document.getElementById('agenda-desc-toggle');
+  var descCheck  = document.getElementById('agenda-desc-check');
   var sortableInst = null;
+
+  descCheck.addEventListener('change', function() {
+    listEl.classList.toggle('agenda-hide-descs', !this.checked);
+  });
 
   (window._existingAgendaItems || []).forEach(function(item) {
     item.id = nextId++;
@@ -1021,6 +1088,14 @@ window._existingAgendaItems = [
       summaryEl.textContent = parts.join(', ');
       agendaItems.forEach(function(item, idx) { listEl.appendChild(buildPill(item, idx)); });
     }
+    var hasDescs = agendaItems.some(function(it) {
+      if (it.type === 'session') {
+        var info = sessMap[String(it.sessId)] || {};
+        return !!(it.customDescription || info.description);
+      }
+      return !!it.description;
+    });
+    descToggle.style.display = hasDescs ? '' : 'none';
     syncHiddenFields();
     initSortable();
   }
@@ -1030,37 +1105,42 @@ window._existingAgendaItems = [
     div.className = 'agenda-pill agenda-pill--' + item.type;
     div.dataset.agendaId = item.id;
 
-    var badge, badgeTxt, title, meta, descSnippet = '';
+    var badge, badgeTxt, title, fullDesc = '';
+    var isCustomized = false;
     if (item.type === 'session') {
       badge = 'agenda-badge-session'; badgeTxt = 'SESSION';
       title = item.sessLabel || 'Session';
-      var dur = item.duration || (sessMap[String(item.sessId)] || {}).duration || 30;
-      meta = dur + ' min';
-      if (item.speakerLabel) meta += ' \u00B7 ' + item.speakerLabel;
+      isCustomized = !!(item.customTitle || item.customDescription || item.customAbstract || item.customKeyLearningOutcomes || item.customBannerUrl || item.customDurationMinutes != null);
+      var sessInfo = sessMap[String(item.sessId)] || {};
+      fullDesc = item.customDescription || sessInfo.description || '';
     } else if (item.type === 'break') {
       badge = 'agenda-badge-break'; badgeTxt = 'BREAK';
       title = item.title || 'Break';
-      meta = (item.duration || 15) + ' min';
-      if (item.description) descSnippet = item.description.length > 40 ? item.description.substring(0, 40) + '\u2026' : item.description;
+      fullDesc = item.description || '';
     } else {
       badge = 'agenda-badge-addon'; badgeTxt = 'ADD-ON';
       title = item.title || 'Add-On';
-      meta = '\u20B9' + (item.price || 0);
-      if (!item.inAgenda) meta += ' (hidden)';
-      if (item.description) descSnippet = item.description.length > 40 ? item.description.substring(0, 40) + '\u2026' : item.description;
+      fullDesc = item.description || '';
     }
     var timeFmt = formatTime(item.startTime);
     var canDup = item.type !== 'session';
+
+    var detailParts = [];
+    if (item.type === 'session' && item.speakerLabel) detailParts.push(esc(item.speakerLabel));
+    if (item.type === 'session') detailParts.push((item.duration || (sessMap[String(item.sessId)] || {}).duration || 30) + ' min');
+    else if (item.type === 'break') detailParts.push((item.duration || 15) + ' min');
+    else detailParts.push('\u20B9' + (item.price || 0) + (!item.inAgenda ? ' (hidden)' : ''));
+    if (timeFmt) detailParts.push(timeFmt);
 
     div.innerHTML =
       '<div class="agenda-pill-main">' +
         '<span class="agenda-drag-handle">\u2807</span>' +
         '<span class="agenda-item-number">' + (idx + 1) + '</span>' +
         '<span class="agenda-pill-badge ' + badge + '">' + badgeTxt + '</span>' +
-        '<span class="agenda-pill-title">' + esc(title) + '</span>' +
-        (meta ? '<span class="agenda-pill-meta">' + esc(meta) + '</span>' : '') +
-        (descSnippet ? '<span class="agenda-pill-desc">' + esc(descSnippet) + '</span>' : '') +
-        (timeFmt ? '<span class="agenda-pill-time">' + timeFmt + '</span>' : '') +
+        '<div class="agenda-pill-content">' +
+          '<span class="agenda-pill-title">' + esc(title) + (isCustomized ? '<span class="agenda-pill-customized">customized</span>' : '') + '</span>' +
+          '<span class="agenda-pill-details">' + detailParts.join(' <span class="agenda-pill-sep">\u00B7</span> ') + '</span>' +
+        '</div>' +
         '<span class="agenda-pill-arrows">' +
           '<button type="button" class="agenda-arrow agenda-arrow-up" title="Move up">\u25B2</button>' +
           '<button type="button" class="agenda-arrow agenda-arrow-down" title="Move down">\u25BC</button>' +
@@ -1070,7 +1150,8 @@ window._existingAgendaItems = [
           (canDup ? '<button type="button" class="btn btn-sm btn-outline agenda-dup-btn" title="Duplicate">\u2398</button>' : '') +
           '<button type="button" class="btn btn-sm btn-danger agenda-del-btn" title="Delete">\u00D7</button>' +
         '</span>' +
-      '</div>';
+      '</div>' +
+      (fullDesc ? '<p class="agenda-pill-desc">' + esc(fullDesc) + '</p>' : '');
 
     div.querySelector('.agenda-arrow-up').addEventListener('click', function(e) {
       e.stopPropagation();
@@ -1116,8 +1197,11 @@ window._existingAgendaItems = [
     if (!agendaItems.length) return;
     sortableInst = Sortable.create(listEl, {
       handle: '.agenda-drag-handle',
-      animation: 150,
-      ghostClass: 'sortable-ghost',
+      animation: 250,
+      forceFallback: true,
+      fallbackOnBody: true,
+      ghostClass: 'agenda-pill-ghost',
+      fallbackClass: 'agenda-pill-fallback',
       onEnd: function(evt) {
         var moved = agendaItems.splice(evt.oldIndex, 1)[0];
         agendaItems.splice(evt.newIndex, 0, moved);
@@ -1137,7 +1221,15 @@ window._existingAgendaItems = [
           '<input type="hidden" name="sess_id_' + idx + '" value="' + esc(item.sessId || '') + '">' +
           '<input type="hidden" name="sess_speaker_id_' + idx + '" value="' + esc(item.speakerId || '') + '">' +
           '<input type="hidden" name="sess_start_' + idx + '" value="' + esc(item.startTime || '') + '">' +
-          '<input type="hidden" name="sess_order_' + idx + '" value="' + order + '">';
+          '<input type="hidden" name="sess_order_' + idx + '" value="' + order + '">' +
+          '<input type="hidden" name="sess_custom_title_' + idx + '" value="' + esc(item.customTitle || '') + '">' +
+          '<input type="hidden" name="sess_custom_description_' + idx + '" value="' + esc(item.customDescription || '') + '">' +
+          '<input type="hidden" name="sess_custom_abstract_' + idx + '" value="' + esc(item.customAbstract || '') + '">' +
+          '<input type="hidden" name="sess_custom_key_learning_outcomes_' + idx + '" value="' + esc(item.customKeyLearningOutcomes || '') + '">' +
+          '<input type="hidden" name="sess_custom_banner_url_' + idx + '" value="' + esc(item.customBannerUrl || '') + '">' +
+          '<input type="hidden" name="sess_custom_duration_minutes_' + idx + '" value="' + (item.customDurationMinutes != null ? item.customDurationMinutes : '') + '">' +
+          '<input type="hidden" name="sess_custom_recording_url_' + idx + '" value="' + esc(item.customRecordingUrl || '') + '">' +
+          '<input type="hidden" name="sess_custom_is_recording_public_' + idx + '" value="' + (item.customIsRecordingPublic === true ? '1' : (item.customIsRecordingPublic === false ? '0' : '')) + '">';
       } else if (item.type === 'break') {
         var idx = bi++;
         html += '<input type="hidden" name="break_title_' + idx + '" value="' + esc(item.title || '') + '">' +
@@ -1160,7 +1252,11 @@ window._existingAgendaItems = [
   }
 
   /* ── Modal helpers ── */
-  function openModal(id) { document.getElementById(id).classList.add('active'); }
+  function openModal(id) {
+    var el = document.getElementById(id);
+    if (el.parentNode !== document.body) document.body.appendChild(el);
+    el.classList.add('active');
+  }
   function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
   /* ── Session modal ── */
@@ -1178,31 +1274,229 @@ window._existingAgendaItems = [
     sessTom.on('change', function(val) {
       var info = sessMap[val];
       if (info && info.speakerId) spkTom.setValue(String(info.speakerId), true);
+      updateSessModalMode();
     });
   }
   document.addEventListener('DOMContentLoaded', ensureSessionTomSelects);
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof initImageUpload === 'function') {
+      initImageUpload('modal-sess-custom-banner', '/admin/upload-image');
+    }
+    if (!CSS.supports('field-sizing', 'content')) {
+      document.querySelectorAll('textarea.sess-autosize').forEach(function(ta) {
+        function autoSize() { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+        ta.addEventListener('input', autoSize);
+        ta.addEventListener('change', autoSize);
+      });
+    }
+  });
+
+  var advFields = {
+    title: document.getElementById('modal-sess-custom-title'),
+    description: document.getElementById('modal-sess-custom-description'),
+    abstract: document.getElementById('modal-sess-custom-abstract'),
+    klo: document.getElementById('modal-sess-custom-klo'),
+    duration: document.getElementById('modal-sess-custom-duration'),
+    banner: document.getElementById('modal-sess-custom-banner')
+  };
+
+  var SESS_STEPS = [
+    { name: 'Basics',  count: 'Step 1 of 3' },
+    { name: 'Content', count: 'Step 2 of 3' },
+    { name: 'Media',   count: 'Step 3 of 3' }
+  ];
+  var sessStep = 0;
+  var stepEls = [
+    document.getElementById('sess-step-0'),
+    document.getElementById('sess-step-1'),
+    document.getElementById('sess-step-2')
+  ];
+  var trackEls   = document.querySelectorAll('#sess-tracks .sess-stepper-track');
+  var stepNameEl  = document.getElementById('sess-step-name');
+  var stepCountEl = document.getElementById('sess-step-count');
+  var btnBack     = document.getElementById('modal-sess-back');
+  var btnNext     = document.getElementById('modal-sess-next');
+  var btnSessSave = document.getElementById('modal-sess-save');
+  var btnReset    = document.getElementById('modal-sess-reset-overrides');
+
+  var sessModalMode = 'new';
+  var subtitleEl      = document.getElementById('sess-modal-subtitle');
+  var speakerLabelEl  = document.getElementById('sess-speaker-label');
+  var labelTitle      = document.getElementById('sess-label-title');
+  var labelDesc       = document.getElementById('sess-label-desc');
+  var labelAbstract   = document.getElementById('sess-label-abstract');
+  var labelKlo        = document.getElementById('sess-label-klo');
+
+  function updateSessModalMode() {
+    var sessId = sessTom ? sessTom.getValue() : sessSelect.value;
+    sessModalMode = sessId ? 'edit' : 'new';
+    if (sessModalMode === 'new') {
+      subtitleEl.textContent = 'Create a new session with the details below.';
+      speakerLabelEl.textContent = 'Speaker';
+      labelTitle.innerHTML = 'Title <span class="sess-req">\u2217</span>';
+      labelDesc.textContent = 'Description';
+      labelAbstract.innerHTML = 'Abstract <span class="sess-opt">optional</span>';
+      labelKlo.textContent = 'Key Learning Outcomes';
+      btnReset.style.display = 'none';
+      advFields.title.placeholder = 'Session title';
+      advFields.description.placeholder = 'Describe the session...';
+      advFields.abstract.placeholder = 'Brief abstract...';
+      advFields.klo.placeholder = 'What attendees will learn...';
+      advFields.duration.placeholder = '30';
+    } else {
+      subtitleEl.textContent = 'Overrides apply to this event only \u2014 leave blank to keep originals.';
+      speakerLabelEl.textContent = 'Speaker Override';
+      labelTitle.textContent = 'Title';
+      labelDesc.textContent = 'Description';
+      labelAbstract.innerHTML = 'Abstract <span class="sess-opt">optional</span>';
+      labelKlo.textContent = 'Key Learning Outcomes';
+      btnReset.style.display = '';
+      updateAdvancedPlaceholders(sessId);
+    }
+    if (sessStep === 0) {
+      btnNext.textContent = sessModalMode === 'new' ? 'New \u2192' : 'Edit \u2192';
+    }
+  }
+
+  function showSessStep(step, direction) {
+    var anim = direction > 0 ? 'anim-fwd' : 'anim-back';
+    stepEls[sessStep].classList.add('hidden');
+    stepEls[sessStep].classList.remove('anim-fwd', 'anim-back');
+    sessStep = step;
+    var target = stepEls[sessStep];
+    target.classList.remove('hidden', 'anim-fwd', 'anim-back');
+    target.classList.add(anim);
+    target.addEventListener('animationend', function handler() {
+      target.classList.remove('anim-fwd', 'anim-back');
+      target.removeEventListener('animationend', handler);
+    });
+    trackEls.forEach(function(t, i) {
+      t.classList.toggle('active', i === sessStep);
+      t.classList.toggle('done', i < sessStep);
+    });
+    stepNameEl.textContent  = SESS_STEPS[sessStep].name;
+    stepCountEl.textContent = SESS_STEPS[sessStep].count;
+    btnBack.style.display = sessStep > 0 ? '' : 'none';
+    btnNext.style.display = sessStep < 2 ? '' : 'none';
+    if (sessStep === 0) {
+      btnNext.textContent = sessModalMode === 'new' ? 'New \u2192' : 'Edit \u2192';
+    } else {
+      btnNext.textContent = 'Next \u2192';
+    }
+  }
+
+  btnNext.addEventListener('click', function() {
+    showSessStep(sessStep + 1, 1);
+  });
+  btnBack.addEventListener('click', function() { showSessStep(sessStep - 1, -1); });
+
+  document.getElementById('modal-sess-close-x').addEventListener('click', function() { closeModal('modal-add-session'); });
+
+  function updateAdvancedPlaceholders(sessId) {
+    var info = sessMap[String(sessId)] || {};
+    advFields.title.placeholder = info.title || 'Original title';
+    advFields.description.placeholder = (info.description || '').substring(0, 100) || 'Original description';
+    advFields.abstract.placeholder = (info.abstract || '').substring(0, 100) || 'Original abstract';
+    advFields.klo.placeholder = (info.keyLearningOutcomes || '').substring(0, 80) || 'Original outcomes';
+    advFields.duration.placeholder = info.duration || 30;
+  }
+
+  function clearBannerPreview() {
+    var el = document.getElementById('modal-sess-custom-banner');
+    if (!el) return;
+    el.value = '';
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  function clearAdvancedEditor() {
+    advFields.title.value = '';
+    advFields.description.value = '';
+    advFields.abstract.value = '';
+    advFields.klo.value = '';
+    advFields.duration.value = '';
+    clearBannerPreview();
+    showSessStep(0, -1);
+  }
+
+  function populateAdvancedEditor(item) {
+    advFields.title.value = item.customTitle || '';
+    advFields.description.value = item.customDescription || '';
+    advFields.abstract.value = item.customAbstract || '';
+    advFields.klo.value = item.customKeyLearningOutcomes || '';
+    advFields.duration.value = item.customDurationMinutes != null ? item.customDurationMinutes : '';
+    advFields.banner.value = item.customBannerUrl || '';
+    advFields.banner.dispatchEvent(new Event('input', { bubbles: true }));
+    var hasOverrides = !!(item.customTitle || item.customDescription || item.customAbstract || item.customKeyLearningOutcomes || item.customBannerUrl || item.customDurationMinutes != null);
+    if (hasOverrides) showSessStep(1, 1);
+    else showSessStep(0, -1);
+  }
+
+  function readAdvancedEditor() {
+    var out = {};
+    out.customTitle = advFields.title.value.trim() || '';
+    out.customDescription = advFields.description.value.trim() || '';
+    out.customAbstract = advFields.abstract.value.trim() || '';
+    out.customKeyLearningOutcomes = advFields.klo.value.trim() || '';
+    out.customBannerUrl = advFields.banner.value.trim() || '';
+    var dv = advFields.duration.value.trim();
+    out.customDurationMinutes = dv ? parseInt(dv) : null;
+    return out;
+  }
+
+  document.getElementById('modal-sess-reset-overrides').addEventListener('click', function() {
+    advFields.title.value = '';
+    advFields.description.value = '';
+    advFields.abstract.value = '';
+    advFields.klo.value = '';
+    advFields.duration.value = '';
+    clearBannerPreview();
+  });
 
   document.getElementById('btn-add-session').addEventListener('click', function() {
     ensureSessionTomSelects();
     editingItem = null;
     document.getElementById('modal-session-title').textContent = 'Add Session';
-    document.getElementById('modal-sess-save').textContent = 'Add Session';
+    btnSessSave.textContent = 'Save';
     if (sessTom) sessTom.setValue('', true);
     if (spkTom) spkTom.setValue('', true);
     var slot = getNextSlot();
     document.getElementById('modal-sess-date').value = slot.date;
     document.getElementById('modal-sess-time').value = slot.time;
+    clearAdvancedEditor();
+    updateSessModalMode();
     openModal('modal-add-session');
   });
 
   document.getElementById('modal-sess-cancel').addEventListener('click', function() { closeModal('modal-add-session'); });
   document.querySelector('#modal-add-session > .modal-backdrop').addEventListener('click', function() { closeModal('modal-add-session'); });
 
+  function finishSessSave(sessId, info, spkId, spkLabel, startTime, overrides) {
+    if (editingItem) {
+      editingItem.sessId = sessId;
+      editingItem.sessLabel = overrides.customTitle || info.title || 'Session';
+      editingItem.speakerId = spkId;
+      editingItem.speakerLabel = spkLabel || info.speaker || '';
+      editingItem.duration = overrides.customDurationMinutes || info.duration || 30;
+      editingItem.startTime = startTime;
+      Object.assign(editingItem, overrides);
+    } else {
+      var newItem = {
+        id: nextId++, type: 'session', sessId: sessId,
+        sessLabel: overrides.customTitle || info.title || 'Session', speakerId: spkId,
+        speakerLabel: spkLabel || info.speaker || '',
+        duration: overrides.customDurationMinutes || info.duration || 30,
+        startTime: startTime, order: agendaItems.length
+      };
+      Object.assign(newItem, overrides);
+      agendaItems.push(newItem);
+    }
+    closeModal('modal-add-session');
+    renderAgenda();
+  }
+
   document.getElementById('modal-sess-save').addEventListener('click', function() {
     ensureSessionTomSelects();
     var sessId = sessTom ? sessTom.getValue() : sessSelect.value;
-    if (!sessId) { if (window.TechTrek) TechTrek.showToast('Please select a session.', 'warning'); return; }
-    var info = sessMap[sessId] || {};
     var spkId = spkTom ? spkTom.getValue() : sessSpkSelect.value;
     var spkLabel = '';
     if (spkId && spkTom) { var it = spkTom.getItem(spkId); spkLabel = it ? it.textContent : ''; }
@@ -1210,24 +1504,57 @@ window._existingAgendaItems = [
     var t = document.getElementById('modal-sess-time').value;
     var startTime = d ? d + 'T' + (t || '00:00') : '';
 
-    if (editingItem) {
-      editingItem.sessId = sessId;
-      editingItem.sessLabel = info.title || 'Session';
-      editingItem.speakerId = spkId;
-      editingItem.speakerLabel = spkLabel || info.speaker || '';
-      editingItem.duration = info.duration || 30;
-      editingItem.startTime = startTime;
+    if (sessModalMode === 'edit') {
+      if (!sessId) { if (window.TechTrek) TechTrek.showToast('Please select a session.', 'warning'); return; }
+      var info = sessMap[sessId] || {};
+      var overrides = readAdvancedEditor();
+      finishSessSave(sessId, info, spkId, spkLabel, startTime, overrides);
     } else {
-      agendaItems.push({
-        id: nextId++, type: 'session', sessId: sessId,
-        sessLabel: info.title || 'Session', speakerId: spkId,
-        speakerLabel: spkLabel || info.speaker || '',
-        duration: info.duration || 30,
-        startTime: startTime, order: agendaItems.length
+      var fields = readAdvancedEditor();
+      var title = fields.customTitle;
+      if (!title) { if (window.TechTrek) TechTrek.showToast('Title is required for a new session.', 'warning'); return; }
+      var csrfEl = document.querySelector('input[name="csrf_token"]');
+      var payload = {
+        title: title,
+        speaker_name: spkLabel,
+        speaker_id: spkId ? parseInt(spkId) : null,
+        description: fields.customDescription,
+        abstract: fields.customAbstract,
+        key_learning_outcomes: fields.customKeyLearningOutcomes,
+        banner_url: fields.customBannerUrl,
+        duration_minutes: fields.customDurationMinutes || 30
+      };
+      btnSessSave.disabled = true;
+      btnSessSave.textContent = 'Creating\u2026';
+      fetch('/admin/api/sessions/create-quick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, data: j }; }); })
+      .then(function(res) {
+        if (!res.ok) { if (window.TechTrek) TechTrek.showToast(res.data.error || 'Failed to create session', 'danger'); return; }
+        var s = res.data;
+        var newSessInfo = {
+          id: s.id, title: s.title, speaker: s.speaker_name,
+          speakerId: s.speaker_id, duration: s.duration,
+          description: s.description, abstract: s.abstract,
+          keyLearningOutcomes: s.key_learning_outcomes,
+          bannerUrl: s.banner_url, recordingUrl: '', isRecordingPublic: false
+        };
+        sessMap[String(s.id)] = newSessInfo;
+        if (sessTom) {
+          sessTom.addOption({ value: String(s.id), text: s.title + (s.speaker_name ? ' \u2014 ' + s.speaker_name : '') });
+        }
+        finishSessSave(String(s.id), newSessInfo, spkId, spkLabel, startTime, {});
+        if (window.TechTrek) TechTrek.showToast("Session '" + s.title + "' created.", 'success');
+      })
+      .catch(function(e) { if (window.TechTrek) TechTrek.showToast('Error: ' + e.message, 'danger'); })
+      .finally(function() {
+        btnSessSave.disabled = false;
+        btnSessSave.textContent = 'Save';
       });
     }
-    closeModal('modal-add-session');
-    renderAgenda();
   });
 
   /* ── Break modal ── */
@@ -1351,19 +1678,23 @@ window._existingAgendaItems = [
     if (item.type === 'session') {
       ensureSessionTomSelects();
       document.getElementById('modal-session-title').textContent = 'Edit Session';
-      document.getElementById('modal-sess-save').textContent = 'Save Changes';
+      btnSessSave.textContent = 'Save';
       if (sessTom) sessTom.setValue(String(item.sessId || ''), true);
       if (spkTom) spkTom.setValue(String(item.speakerId || ''), true);
       var dt = splitDT(item.startTime);
       document.getElementById('modal-sess-date').value = dt.date;
       document.getElementById('modal-sess-time').value = dt.time;
+      updateSessModalMode();
+      populateAdvancedEditor(item);
       openModal('modal-add-session');
     } else if (item.type === 'break') {
       document.getElementById('modal-break-title-text').textContent = 'Edit Break';
       document.getElementById('modal-break-save').textContent = 'Save Changes';
       document.getElementById('modal-break-name').value = item.title || '';
       document.getElementById('modal-break-duration').value = item.duration || 15;
-      document.getElementById('modal-break-desc').value = item.description || '';
+      var breakDescEl = document.getElementById('modal-break-desc');
+      breakDescEl.value = item.description || '';
+      breakDescEl.dispatchEvent(new Event('input'));
       var dt = splitDT(item.startTime);
       document.getElementById('modal-break-date').value = dt.date;
       document.getElementById('modal-break-time').value = dt.time;
@@ -1374,7 +1705,9 @@ window._existingAgendaItems = [
       document.getElementById('modal-addon-name').value = item.title || '';
       document.getElementById('modal-addon-price').value = item.price || 0;
       document.getElementById('modal-addon-max-qty').value = item.maxQty || '';
-      document.getElementById('modal-addon-desc').value = item.description || '';
+      var addonDescEl = document.getElementById('modal-addon-desc');
+      addonDescEl.value = item.description || '';
+      addonDescEl.dispatchEvent(new Event('input'));
       document.getElementById('modal-addon-in-agenda').checked = !!item.inAgenda;
       var dt = splitDT(item.startTime);
       document.getElementById('modal-addon-date').value = dt.date;
@@ -1387,6 +1720,31 @@ window._existingAgendaItems = [
   var form = document.getElementById('event-form');
   if (form) {
     form.addEventListener('submit', function() { syncHiddenFields(); });
+  }
+
+  /* ── Status change warnings ── */
+  var statusSelect = document.getElementById('ev-status');
+  var statusConfirmed = false;
+  if (form && statusSelect) {
+    form.addEventListener('submit', function(e) {
+      if (statusConfirmed) { statusConfirmed = false; return; }
+      var newStatus = statusSelect.value;
+      var origStatus = statusSelect.dataset.originalStatus;
+      if (newStatus === origStatus) return;
+      if (newStatus === 'completed') {
+        e.preventDefault();
+        openConfirm('Mark as Completed?\nThis will trigger certificate emails to all checked-in attendees.', function() {
+          statusConfirmed = true;
+          form.requestSubmit();
+        }, { confirmLabel: 'Complete', confirmClass: 'btn-primary' });
+      } else if (newStatus === 'cancelled') {
+        e.preventDefault();
+        openConfirm('Cancel this Event?\nThis may send cancellation notifications to all registered attendees. This action is difficult to reverse.', function() {
+          statusConfirmed = true;
+          form.requestSubmit();
+        }, { confirmLabel: 'Cancel Event', confirmClass: 'btn-danger' });
+      }
+    });
   }
 
   renderAgenda();

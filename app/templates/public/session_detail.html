@@ -1,5 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ session.title }} — TechTrek{% endblock %}
+{% set d_title = display_title if display_title is defined and display_title else session.title %}
+{% set d_desc = display_description if display_description is defined else session.description %}
+{% set d_abstract = display_abstract if display_abstract is defined else session.abstract %}
+{% set d_klo = display_key_learning_outcomes if display_key_learning_outcomes is defined else session.key_learning_outcomes %}
+{% set d_banner = display_banner_url if display_banner_url is defined else session.banner_url %}
+{% set d_duration = display_duration_minutes if display_duration_minutes is defined else session.duration_minutes %}
+{% block title %}{{ d_title }} — TechTrek{% endblock %}
 
 {% set es_speaker = display_speaker_name if display_speaker_name is defined and display_speaker_name else session.speaker_name %}
 {% set es_start = event_session.start_time if event_session is defined and event_session and event_session.start_time else None %}
@@ -15,21 +21,21 @@
   'photo-1573164713714-d95e436ab8d1'
 ] %}
 {% set img_id = img_pool[session.id % 8] %}
-{% set hero_img = session.banner_url or ('https://images.unsplash.com/' + img_id + '?w=1600&auto=format&fit=crop&q=80') %}
-{% set og_img = session.banner_url or ('https://images.unsplash.com/' + img_id + '?w=1200&auto=format&fit=crop&q=80') %}
+{% set hero_img = d_banner or ('https://images.unsplash.com/' + img_id + '?w=1600&auto=format&fit=crop&q=80') %}
+{% set og_img = d_banner or ('https://images.unsplash.com/' + img_id + '?w=1200&auto=format&fit=crop&q=80') %}
 {% set venue = auditorium.name if auditorium else (event.college.name if event and event.college else '') %}
 
 {% block head_extra %}
 <meta property="og:type" content="website">
-<meta property="og:title" content="{{ session.title }} — TechTrek">
-<meta property="og:description" content="{{ (session.abstract or session.description or 'Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
+<meta property="og:title" content="{{ d_title }} — TechTrek">
+<meta property="og:description" content="{{ (d_abstract or d_desc or 'Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
 <meta property="og:image" content="{{ og_img }}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{{ session.title }} — TechTrek">
-<meta name="twitter:description" content="{{ (session.abstract or session.description or 'Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
+<meta name="twitter:title" content="{{ d_title }} — TechTrek">
+<meta name="twitter:description" content="{{ (d_abstract or d_desc or 'Join this session at TechTrek — book your event ticket now.')|truncate(200, True, '...') }}">
 <meta name="twitter:image" content="{{ og_img }}">
-{% if session.abstract or session.description %}
-<meta name="description" content="{{ (session.abstract or session.description)|truncate(160, True, '...') }}">
+{% if d_abstract or d_desc %}
+<meta name="description" content="{{ (d_abstract or d_desc)|truncate(160, True, '...') }}">
 {% endif %}
 {% endblock %}
 
@@ -42,7 +48,7 @@
 <div class="sd-sticky-bar" id="sd-sticky-bar">
   <div class="container">
     <div class="sd-sticky-inner">
-      <span class="sd-sticky-title">{{ session.title }}</span>
+      <span class="sd-sticky-title">{{ d_title }}</span>
       <div class="sd-sticky-actions">
         {% if event %}
           {% if event.price == 0 %}
@@ -69,9 +75,9 @@
 <div class="dark-only">
 <div class="sd-hero">
   <div class="sd-hero-media">
-    <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager" class="sd-hero-slide active">
+    <img src="{{ hero_img }}" alt="{{ d_title }}" loading="eager" class="sd-hero-slide active">
     {% for gurl in gallery_urls %}
-    <img src="{{ gurl }}" alt="{{ session.title }} gallery" loading="lazy" class="sd-hero-slide">
+    <img src="{{ gurl }}" alt="{{ d_title }} gallery" loading="lazy" class="sd-hero-slide">
     {% endfor %}
   </div>
   <div class="sd-hero-gradient"></div>
@@ -91,10 +97,10 @@
       </div>
       {% endif %}
 
-      <h1 class="sd-hero-title">{{ session.title }}</h1>
+      <h1 class="sd-hero-title">{{ d_title }}</h1>
 
-      {% if session.abstract or session.description %}
-      <p class="sd-hero-desc">{{ (session.abstract or session.description)|truncate(180, True, '...') }}</p>
+      {% if d_abstract or d_desc %}
+      <p class="sd-hero-desc">{{ (d_abstract or d_desc)|truncate(180, True, '...') }}</p>
       {% endif %}
 
       <div class="sd-hero-pills">
@@ -107,8 +113,8 @@
         {% elif event and event.start_date %}
         <span class="sd-pill">&#128197; {{ event.start_date.strftime('%b %d, %Y') }}</span>
         {% endif %}
-        {% if session.duration_minutes %}
-        <span class="sd-pill">&#9200; {{ session.duration_minutes }} min</span>
+        {% if d_duration %}
+        <span class="sd-pill">&#9200; {{ d_duration }} min</span>
         {% endif %}
         {% if venue %}
         <span class="sd-pill">&#128205; {{ venue }}</span>
@@ -171,9 +177,9 @@
           Part of <a href="/events/{{ event.id }}" class="lm-ed-eyebrow-link">{{ event.name }}</a>
         </p>
         {% endif %}
-        <h1 class="lm-ed-title">{{ session.title }}</h1>
-        {% if session.abstract or session.description %}
-        <p class="lm-ed-desc">{{ (session.abstract or session.description)|truncate(200, True, '...') }}</p>
+        <h1 class="lm-ed-title">{{ d_title }}</h1>
+        {% if d_abstract or d_desc %}
+        <p class="lm-ed-desc">{{ (d_abstract or d_desc)|truncate(200, True, '...') }}</p>
         {% endif %}
         <div class="lm-ed-chips">
           {% if es_speaker %}
@@ -185,8 +191,8 @@
           {% elif event and event.start_date %}
           <span class="lm-ed-chip">&#128197; {{ event.start_date.strftime('%b %d, %Y') }}</span>
           {% endif %}
-          {% if session.duration_minutes %}
-          <span class="lm-ed-chip">&#9200; {{ session.duration_minutes }} min</span>
+          {% if d_duration %}
+          <span class="lm-ed-chip">&#9200; {{ d_duration }} min</span>
           {% endif %}
           {% if venue %}
           <span class="lm-ed-chip">&#128205; {{ venue }}</span>
@@ -231,11 +237,11 @@
       <div class="lm-ed-img-wrap">
         <div class="lm-ed-carousel" id="lm-sd-carousel">
           <div class="lm-ed-slide active">
-            <img src="{{ hero_img }}" alt="{{ session.title }}" loading="eager">
+            <img src="{{ hero_img }}" alt="{{ d_title }}" loading="eager">
           </div>
           {% for gurl in gallery_urls %}
           <div class="lm-ed-slide">
-            <img src="{{ gurl }}" alt="{{ session.title }} gallery" loading="lazy">
+            <img src="{{ gurl }}" alt="{{ d_title }} gallery" loading="lazy">
           </div>
           {% endfor %}
         </div>
@@ -315,21 +321,21 @@
         {% endif %}
 
         {# Abstract #}
-        {% if session.abstract or session.description %}
+        {% if d_abstract or d_desc %}
         <div class="sd-section reveal">
-          <p class="sd-body-text">{{ session.abstract or session.description }}</p>
+          <p class="sd-body-text">{{ d_abstract or d_desc }}</p>
         </div>
         {% endif %}
 
         {# Key Learning Outcomes #}
-        {% if session.key_learning_outcomes %}
+        {% if d_klo %}
         <div class="sd-section reveal">
           <div class="sd-sec-head">
             <span class="sd-sec-label">Key Learning Outcomes</span>
             <div class="sd-sec-line"></div>
           </div>
           <ul class="sd-outcomes-list">
-            {% for outcome in session.key_learning_outcomes.split(';') %}
+            {% for outcome in d_klo.split(';') %}
             {% if outcome.strip() %}
             <li class="sd-body-text">{{ outcome.strip() }}</li>
             {% endif %}
@@ -394,15 +400,17 @@
             {% set s = item.session %}
             {% set sib_es = item.event_session if item.event_session is defined else None %}
             {% set s_img_id = img_pool[s.id % 8] %}
+            {% set sib_title = sib_es.display_title if sib_es else s.title %}
+            {% set sib_banner = sib_es.display_banner_url if sib_es else s.banner_url %}
             <a href="/sessions/{{ s.id }}{% if event %}?event_id={{ event.id }}{% endif %}" class="sd-sibling-card">
               <img class="sd-sibling-thumb"
-                src="{% if s.banner_url %}{{ s.banner_url }}{% else %}https://images.unsplash.com/{{ s_img_id }}?w=200&auto=format&fit=crop&q=80{% endif %}"
-                alt="{{ s.title }}" loading="lazy">
+                src="{% if sib_banner %}{{ sib_banner }}{% else %}https://images.unsplash.com/{{ s_img_id }}?w=200&auto=format&fit=crop&q=80{% endif %}"
+                alt="{{ sib_title }}" loading="lazy">
               <div class="sd-sibling-info">
-                <h4 class="sd-sibling-title">{{ s.title }}</h4>
-                <p class="sd-sibling-speaker">{{ sib_es.speaker_name or s.speaker_name if sib_es else s.speaker_name }}</p>
+                <h4 class="sd-sibling-title">{{ sib_title }}</h4>
+                <p class="sd-sibling-speaker">{{ sib_es.display_speaker_name if sib_es else s.speaker_name }}</p>
                 {% if sib_es and sib_es.start_time %}
-                <p class="sd-sibling-meta">{{ sib_es.start_time.strftime('%b %d') }} &middot; {{ sib_es.start_time.strftime('%I:%M %p') }}{% if s.duration_minutes %} &middot; {{ s.duration_minutes }} min{% endif %}</p>
+                <p class="sd-sibling-meta">{{ sib_es.start_time.strftime('%b %d') }} &middot; {{ sib_es.start_time.strftime('%I:%M %p') }}{% if (sib_es.display_duration_minutes if sib_es else s.duration_minutes) %} &middot; {{ sib_es.display_duration_minutes if sib_es else s.duration_minutes }} min{% endif %}</p>
                 {% endif %}
               </div>
               <span class="sd-sibling-arrow">&rarr;</span>

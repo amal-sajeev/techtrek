@@ -409,9 +409,13 @@ def session_detail(
     avg_rating = round(float(avg_rating_row[0]), 1) if avg_rating_row[0] else None
     rating_count = avg_rating_row[1] if avg_rating_row else 0
 
-    display_speaker_name = session_obj.speaker_name
-    if es and es.speaker_name:
-        display_speaker_name = es.speaker_name
+    display_speaker_name = es.display_speaker_name if es else session_obj.speaker_name
+    display_title = es.display_title if es else session_obj.title
+    display_description = es.display_description if es else session_obj.description
+    display_abstract = es.display_abstract if es else session_obj.abstract
+    display_key_learning_outcomes = es.display_key_learning_outcomes if es else session_obj.key_learning_outcomes
+    display_banner_url = es.display_banner_url if es else session_obj.banner_url
+    display_duration_minutes = es.display_duration_minutes if es else session_obj.duration_minutes
 
     return templates.TemplateResponse(
         "public/session_detail.html",
@@ -421,6 +425,12 @@ def session_detail(
             session=session_obj,
             event=event,
             event_session=es,
+            display_title=display_title,
+            display_description=display_description,
+            display_abstract=display_abstract,
+            display_key_learning_outcomes=display_key_learning_outcomes,
+            display_banner_url=display_banner_url,
+            display_duration_minutes=display_duration_minutes,
             auditorium=auditorium,
             recordings=enriched_recordings,
             stats=stats,
@@ -532,12 +542,15 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
         sess = es.session
         spk_id = es.speaker_id or sess.speaker_id
         speaker = db.query(Speaker).get(spk_id) if spk_id else None
-        display_name = es.speaker_name or sess.speaker_name
         sessions_info.append({
             "session": sess,
             "event_session": es,
             "speaker_obj": speaker,
-            "display_speaker_name": display_name,
+            "display_speaker_name": es.display_speaker_name,
+            "display_title": es.display_title,
+            "display_description": es.display_description,
+            "display_duration_minutes": es.display_duration_minutes,
+            "display_banner_url": es.display_banner_url,
         })
 
     breaks = (
@@ -556,6 +569,10 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
             "event_session": es,
             "speaker_obj": item["speaker_obj"],
             "display_speaker_name": item["display_speaker_name"],
+            "display_title": item["display_title"],
+            "display_description": item["display_description"],
+            "display_duration_minutes": item["display_duration_minutes"],
+            "display_banner_url": item["display_banner_url"],
             "order": es.order or 0,
             "start_time": es.start_time,
         })
@@ -763,10 +780,10 @@ def api_schedule(
             "status": ev.status,
             "sessions": [
                 {
-                    "title": es.session.title,
-                    "speaker": es.speaker_name or es.session.speaker_name,
+                    "title": es.display_title,
+                    "speaker": es.display_speaker_name,
                     "start_time": es.start_time.isoformat() if es.start_time else None,
-                    "duration_minutes": es.session.duration_minutes,
+                    "duration_minutes": es.display_duration_minutes,
                 }
                 for es in ev_sess
             ],

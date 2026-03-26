@@ -329,7 +329,8 @@ def colleges_list(request: Request, db: Session = Depends(get_db)):
     enriched = []
     for col in colleges:
         city = db.query(City).get(col.city_id) if col.city_id else None
-        enriched.append({"college": col, "city": city})
+        aud_names = " ".join(a.name for a in col.auditoriums)
+        enriched.append({"college": col, "city": city, "aud_count": len(col.auditoriums), "aud_names": aud_names})
     return templates.TemplateResponse(
         "admin/colleges.html",
         _admin_ctx(request, active_page="colleges", colleges=enriched),
@@ -370,7 +371,7 @@ async def college_create(request: Request, db: Session = Depends(get_db)):
 
 
 @router.get("/colleges/{college_id}/edit")
-def college_edit(request: Request, college_id: int, db: Session = Depends(get_db)):
+def college_edit(request: Request, college_id: int, tab: str = "details", db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
@@ -379,9 +380,10 @@ def college_edit(request: Request, college_id: int, db: Session = Depends(get_db
         flash(request, "College not found.", "danger")
         return RedirectResponse("/admin/colleges", status_code=303)
     cities = db.query(City).filter(City.is_active == True).order_by(City.name).all()
+    auditoriums = db.query(Auditorium).filter(Auditorium.college_id == college_id).order_by(Auditorium.name).all()
     return templates.TemplateResponse(
         "admin/college_form.html",
-        _admin_ctx(request, active_page="colleges", college=col, cities=cities),
+        _admin_ctx(request, active_page="colleges", college=col, cities=cities, auditoriums=auditoriums, active_tab=tab),
     )
 
 
@@ -419,43 +421,26 @@ def college_delete(request: Request, college_id: int, db: Session = Depends(get_
     return RedirectResponse("/admin/colleges", status_code=303)
 
 
-# ─── Auditoriums ───
+# ─── Auditoriums (nested under colleges) ───
 
 @router.get("/auditoriums")
-def auditoriums_list(request: Request, db: Session = Depends(get_db)):
+def auditoriums_list_redirect(request: Request):
+    return RedirectResponse("/admin/colleges", status_code=303)
+
+
+@router.post("/colleges/{college_id}/auditoriums/new")
+async def auditorium_create(request: Request, college_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    auditoriums = db.query(Auditorium).order_by(Auditorium.name).all()
-    return templates.TemplateResponse(
-        "admin/auditoriums.html",
-        _admin_ctx(request, active_page="auditoriums", auditoriums=auditoriums),
-    )
-
-
-@router.get("/auditoriums/new")
-def auditorium_new(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
-    return templates.TemplateResponse(
-        "admin/auditorium_form.html",
-        _admin_ctx(request, active_page="auditoriums", auditorium=None, colleges=colleges),
-    )
-
-
-@router.post("/auditoriums/new")
-async def auditorium_create(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
+    col = db.query(College).get(college_id)
+    if not col:
+        return RedirectResponse("/admin/colleges", status_code=303)
 
     form = await _form(request)
-    college_id_raw = form.get("college_id")
     aud = Auditorium(
         name=form.get("name", "").strip(),
-        college_id=int(college_id_raw) if college_id_raw and college_id_raw != "" else None,
+        college_id=college_id,
         location=form.get("location", "").strip(),
         description=form.get("description", "").strip(),
         total_rows=int(form.get("total_rows", 10)),
@@ -467,27 +452,11 @@ async def auditorium_create(request: Request, db: Session = Depends(get_db)):
     log_activity(db, category="admin", action="create", description=f"Created auditorium '{aud.name}'", request=request, user_id=admin.id, target_type="auditorium", target_id=aud.id)
     db.commit()
     flash(request, f"Auditorium '{aud.name}' created.", "success")
-    return RedirectResponse(f"/admin/auditoriums/{aud.id}/layout", status_code=303)
+    return RedirectResponse(f"/admin/colleges/{college_id}/edit?tab=auditoriums", status_code=303)
 
 
-@router.get("/auditoriums/{aud_id}/edit")
-def auditorium_edit(request: Request, aud_id: int, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login", status_code=303)
-    aud = db.query(Auditorium).get(aud_id)
-    if not aud:
-        flash(request, "Auditorium not found.", "danger")
-        return RedirectResponse("/admin/auditoriums", status_code=303)
-    colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
-    return templates.TemplateResponse(
-        "admin/auditorium_form.html",
-        _admin_ctx(request, active_page="auditoriums", auditorium=aud, colleges=colleges),
-    )
-
-
-@router.post("/auditoriums/{aud_id}/edit")
-async def auditorium_update(request: Request, aud_id: int, db: Session = Depends(get_db)):
+@router.post("/colleges/{college_id}/auditoriums/{aud_id}/edit")
+async def auditorium_update(request: Request, college_id: int, aud_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
@@ -495,12 +464,10 @@ async def auditorium_update(request: Request, aud_id: int, db: Session = Depends
     aud = db.query(Auditorium).get(aud_id)
     if not aud:
         flash(request, "Auditorium not found.", "danger")
-        return RedirectResponse("/admin/auditoriums", status_code=303)
+        return RedirectResponse(f"/admin/colleges/{college_id}/edit?tab=auditoriums", status_code=303)
 
     form = await _form(request)
-    college_id_raw = form.get("college_id")
     aud.name = form.get("name", aud.name).strip()
-    aud.college_id = int(college_id_raw) if college_id_raw and college_id_raw != "" else None
     aud.location = form.get("location", aud.location).strip()
     aud.description = form.get("description", "").strip()
     aud.total_rows = int(form.get("total_rows", aud.total_rows))
@@ -508,11 +475,11 @@ async def auditorium_update(request: Request, aud_id: int, db: Session = Depends
     log_activity(db, category="admin", action="update", description=f"Updated auditorium '{aud.name}'", request=request, user_id=admin.id, target_type="auditorium", target_id=aud_id)
     db.commit()
     flash(request, f"Auditorium '{aud.name}' updated.", "success")
-    return RedirectResponse("/admin/auditoriums", status_code=303)
+    return RedirectResponse(f"/admin/colleges/{college_id}/edit?tab=auditoriums", status_code=303)
 
 
-@router.post("/auditoriums/{aud_id}/delete")
-def auditorium_delete(request: Request, aud_id: int, db: Session = Depends(get_db)):
+@router.post("/colleges/{college_id}/auditoriums/{aud_id}/delete")
+def auditorium_delete(request: Request, college_id: int, aud_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
@@ -522,7 +489,7 @@ def auditorium_delete(request: Request, aud_id: int, db: Session = Depends(get_d
         db.delete(aud)
         db.commit()
         flash(request, f"Auditorium '{aud.name}' deleted.", "success")
-    return RedirectResponse("/admin/auditoriums", status_code=303)
+    return RedirectResponse(f"/admin/colleges/{college_id}/edit?tab=auditoriums", status_code=303)
 
 
 # ─── Seat Types ───
@@ -633,7 +600,7 @@ def seat_layout(request: Request, aud_id: int, db: Session = Depends(get_db)):
     aud = db.query(Auditorium).get(aud_id)
     if not aud:
         flash(request, "Auditorium not found.", "danger")
-        return RedirectResponse("/admin/auditoriums", status_code=303)
+        return RedirectResponse("/admin/colleges", status_code=303)
 
     seats = db.query(Seat).filter(Seat.auditorium_id == aud_id).order_by(Seat.row_num, Seat.col_num).all()
     seat_data = [
@@ -670,7 +637,7 @@ async def seat_layout_save(request: Request, aud_id: int, db: Session = Depends(
         return RedirectResponse("/auth/login", status_code=303)
     aud = db.query(Auditorium).get(aud_id)
     if not aud:
-        return RedirectResponse("/admin/auditoriums", status_code=303)
+        return RedirectResponse("/admin/colleges", status_code=303)
 
     form = await _form(request)
     layout_json = form.get("layout_data", "[]")
@@ -1020,6 +987,52 @@ async def session_create(request: Request, db: Session = Depends(get_db)):
     return RedirectResponse("/admin/sessions", status_code=303)
 
 
+@router.post("/api/sessions/create-quick")
+async def session_create_quick(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid request"}, status_code=400)
+    title = (body.get("title") or "").strip()
+    if not title:
+        return JSONResponse({"error": "Title is required"}, status_code=400)
+    speaker_name = (body.get("speaker_name") or "").strip()
+    speaker_id_raw = body.get("speaker_id")
+    speaker_id = int(speaker_id_raw) if speaker_id_raw else None
+    description = (body.get("description") or "").strip()
+    session_obj = SessionModel(
+        speaker_id=speaker_id,
+        title=title,
+        speaker_name=speaker_name,
+        description=description,
+        abstract=(body.get("abstract") or "").strip() or description,
+        key_learning_outcomes=(body.get("key_learning_outcomes") or "").strip(),
+        banner_url=(body.get("banner_url") or "").strip() or None,
+        duration_minutes=int(body.get("duration_minutes") or 30),
+    )
+    db.add(session_obj)
+    db.flush()
+    log_activity(db, category="admin", action="create",
+                 description=f"Quick-created session '{session_obj.title}'",
+                 request=request, user_id=admin.id,
+                 target_type="session", target_id=session_obj.id)
+    db.commit()
+    return JSONResponse({
+        "id": session_obj.id,
+        "title": session_obj.title,
+        "speaker_name": session_obj.speaker_name,
+        "speaker_id": session_obj.speaker_id,
+        "duration": session_obj.duration_minutes,
+        "description": session_obj.description or "",
+        "abstract": session_obj.abstract or "",
+        "key_learning_outcomes": session_obj.key_learning_outcomes or "",
+        "banner_url": session_obj.banner_url or "",
+    })
+
+
 @router.get("/sessions/{sess_id}/edit")
 def session_edit(request: Request, sess_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
@@ -1171,6 +1184,18 @@ def _save_event_sessions(db: Session, form, event_id: int) -> int:
                 speaker_id = speaker.id
                 speaker_name = speaker.name
         order = int(form.get(f"sess_order_{idx}", 0) or 0)
+
+        custom_title = form.get(f"sess_custom_title_{idx}", "").strip() or None
+        custom_description = form.get(f"sess_custom_description_{idx}", "").strip() or None
+        custom_abstract = form.get(f"sess_custom_abstract_{idx}", "").strip() or None
+        custom_klo = form.get(f"sess_custom_key_learning_outcomes_{idx}", "").strip() or None
+        custom_banner_url = form.get(f"sess_custom_banner_url_{idx}", "").strip() or None
+        custom_dur_raw = form.get(f"sess_custom_duration_minutes_{idx}", "").strip()
+        custom_duration_minutes = int(custom_dur_raw) if custom_dur_raw and custom_dur_raw.isdigit() else None
+        custom_recording_url = form.get(f"sess_custom_recording_url_{idx}", "").strip() or None
+        custom_is_rec_raw = form.get(f"sess_custom_is_recording_public_{idx}", "")
+        custom_is_recording_public = True if custom_is_rec_raw == "1" else (False if custom_is_rec_raw == "0" else None)
+
         es = EventSession(
             event_id=event_id,
             session_id=sess.id,
@@ -1178,6 +1203,14 @@ def _save_event_sessions(db: Session, form, event_id: int) -> int:
             start_time=start_time,
             speaker_id=speaker_id,
             speaker_name=speaker_name,
+            custom_title=custom_title,
+            custom_description=custom_description,
+            custom_abstract=custom_abstract,
+            custom_key_learning_outcomes=custom_klo,
+            custom_banner_url=custom_banner_url,
+            custom_duration_minutes=custom_duration_minutes,
+            custom_recording_url=custom_recording_url,
+            custom_is_recording_public=custom_is_recording_public,
         )
         db.add(es)
         linked += 1

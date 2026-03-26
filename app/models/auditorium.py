@@ -9,7 +9,7 @@ class Auditorium(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(200), nullable=False)
-    college_id = Column(Integer, ForeignKey("colleges.id"), nullable=True)
+    college_id = Column(Integer, ForeignKey("colleges.id"), nullable=False)
     location = Column(String(300), nullable=False)
     description = Column(Text, nullable=True)
     total_rows = Column(Integer, nullable=False, default=10)

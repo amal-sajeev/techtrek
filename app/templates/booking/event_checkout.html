@@ -297,7 +297,7 @@
         order_id: res.data.order_id,
         name: 'TechTrek',
         description: '{{ event.name|e }} — Event Ticket',
-        prefill: { email: '{{ user_email|e }}', contact: '' },
+        prefill: { email: '{{ user_email|e }}', contact: '{{ user_phone|e }}' },
         theme: { color: '#6c63ff' },
         handler: function(response) {
           showProcessing();

@@ -98,10 +98,11 @@
                 loading="lazy">
             </div>
             <div class="card-body">
-              <h3 class="card-title">{{ s.title }}</h3>
-              <p class="card-meta">{{ es.speaker_name or s.speaker_name if es else s.speaker_name }}</p>
-              {% if s.abstract or s.description %}
-              <p class="card-desc">{{ (s.abstract or s.description)|truncate(120, True, '...') }}</p>
+              <h3 class="card-title">{{ es.display_title if es else s.title }}</h3>
+              <p class="card-meta">{{ es.display_speaker_name if es else s.speaker_name }}</p>
+              {% set disp_abstract = (es.display_abstract if es else s.abstract) or (es.display_description if es else s.description) %}
+              {% if disp_abstract %}
+              <p class="card-desc">{{ disp_abstract|truncate(120, True, '...') }}</p>
               {% endif %}
               <div class="card-details">
                 {% if es and es.start_time %}

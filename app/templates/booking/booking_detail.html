@@ -80,14 +80,13 @@
             <div id="booking-agenda-body" class="booking-agenda-body" hidden style="display:none;">
               <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem;">
                 {% for es in event.event_sessions|sort(attribute='order') %}
-                {% set s = es.session %}
                 <div style="display:flex;align-items:flex-start;gap:.75rem;padding:.6rem .75rem;background:var(--bg-surface);border:1px solid var(--border,rgba(255,255,255,.07));border-radius:var(--radius-lg,8px);">
                   <div style="flex:1;min-width:0;">
-                    <div style="font-weight:600;font-size:.9rem;">{{ s.title }}</div>
+                    <div style="font-weight:600;font-size:.9rem;">{{ es.display_title }}</div>
                     <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.25rem;font-size:.8rem;color:var(--text-muted);">
-                      {% if es.speaker_name or s.speaker_name %}<span>{{ es.speaker_name or s.speaker_name }}</span>{% endif %}
+                      {% if es.display_speaker_name %}<span>{{ es.display_speaker_name }}</span>{% endif %}
                       {% if es.start_time %}<span>&#128336; {{ es.start_time.strftime('%I:%M %p') }}</span>{% endif %}
-                      {% if s.duration_minutes %}<span>{{ s.duration_minutes }} min</span>{% endif %}
+                      {% if es.display_duration_minutes %}<span>{{ es.display_duration_minutes }} min</span>{% endif %}
                     </div>
                   </div>
                 </div>

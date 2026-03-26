@@ -6,45 +6,215 @@
   <h1 class="admin-page-title">{{ "Edit" if college else "New" }} College</h1>
 </div>
 
-<div class="form-card">
-  <form method="post" action="{{ '/admin/colleges/' ~ college.id ~ '/edit' if college else '/admin/colleges/new' }}">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    <div class="form-group">
-      <label class="form-label" for="college-name">College Name</label>
-      <input type="text" name="name" id="college-name" class="form-input" value="{{ college.name if college else '' }}" required>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="college-city">City</label>
-      <select name="city_id" id="college-city" class="form-input" required placeholder="Select a city">
-        <option value="">Select a city</option>
-        {% for city in cities %}
-        <option value="{{ city.id }}" {% if college and college.city_id == city.id %}selected{% endif %}>{{ city.name }}, {{ city.state }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="college-address">Address</label>
-      <textarea name="address" id="college-address" class="form-input" rows="2">{{ college.address if college and college.address else '' }}</textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label" for="college-logo">College Logo</label>
-      <input type="text" name="logo_url" id="college-logo" class="form-input" value="{{ college.logo_url if college and college.logo_url else '' }}" placeholder="URL or upload image below">
-      <p class="text-muted" style="font-size:.85rem;margin-top:.25rem">Shown as a watermark on event hero images when this college hosts the event.</p>
-    </div>
-    <div class="form-group">
-      <label class="form-label">
-        <input type="checkbox" name="is_active" {% if not college or college.is_active %}checked{% endif %}> Active
-      </label>
-    </div>
-    <div class="form-actions">
-      <button type="submit" class="btn btn-primary">{{ "Update" if college else "Create" }} College</button>
-      <a href="/admin/colleges" class="btn btn-outline">Cancel</a>
-    </div>
-  </form>
+{% if college %}
+<div class="college-tabs">
+  <button type="button" class="college-tab {% if active_tab != 'auditoriums' %}active{% endif %}" data-tab="details">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+    Details
+  </button>
+  <button type="button" class="college-tab {% if active_tab == 'auditoriums' %}active{% endif %}" data-tab="auditoriums">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+    Auditoriums
+    {% if auditoriums %}<span class="college-tab-count">{{ auditoriums|length }}</span>{% endif %}
+  </button>
 </div>
+{% endif %}
+
+<!-- Details tab -->
+<div class="college-tab-panel {% if college and active_tab == 'auditoriums' %}hidden{% endif %}" id="panel-details">
+  <div class="form-card">
+    <form method="post" action="{{ '/admin/colleges/' ~ college.id ~ '/edit' if college else '/admin/colleges/new' }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="form-group">
+        <label class="form-label" for="college-name">College Name</label>
+        <input type="text" name="name" id="college-name" class="form-input" value="{{ college.name if college else '' }}" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="college-city">City</label>
+        <select name="city_id" id="college-city" class="form-input" required placeholder="Select a city">
+          <option value="">Select a city</option>
+          {% for city in cities %}
+          <option value="{{ city.id }}" {% if college and college.city_id == city.id %}selected{% endif %}>{{ city.name }}, {{ city.state }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="college-address">Address</label>
+        <textarea name="address" id="college-address" class="form-input" rows="2">{{ college.address if college and college.address else '' }}</textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="college-logo">College Logo</label>
+        <input type="text" name="logo_url" id="college-logo" class="form-input" value="{{ college.logo_url if college and college.logo_url else '' }}" placeholder="URL or upload image below">
+        <p class="text-muted" style="font-size:.85rem;margin-top:.25rem">Shown as a watermark on event hero images when this college hosts the event.</p>
+      </div>
+      <div class="form-group">
+        <label class="form-label">
+          <input type="checkbox" name="is_active" {% if not college or college.is_active %}checked{% endif %}> Active
+        </label>
+      </div>
+      <div class="form-actions">
+        <button type="submit" class="btn btn-primary">{{ "Update" if college else "Create" }} College</button>
+        <a href="/admin/colleges" class="btn btn-outline">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if college %}
+<!-- Auditoriums tab -->
+<div class="college-tab-panel {% if active_tab != 'auditoriums' %}hidden{% endif %}" id="panel-auditoriums">
+  <div class="form-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:.75rem;margin-bottom:1.25rem">
+      <h3 style="margin:0;font-size:1.1rem">Auditoriums at {{ college.name }}</h3>
+      <button type="button" class="btn btn-primary btn-sm" id="btn-add-aud">+ Add Auditorium</button>
+    </div>
+
+    {% if auditoriums %}
+    <div class="table-responsive">
+      <table class="table table-cards-mobile">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Location</th>
+            <th>Seats</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for aud in auditoriums %}
+          <tr>
+            <td data-label="Name"><strong>{{ aud.name }}</strong></td>
+            <td data-label="Location">{{ aud.location or "—" }}</td>
+            <td data-label="Seats">{{ aud.total_rows * aud.total_cols }} ({{ aud.total_rows }}&times;{{ aud.total_cols }})</td>
+            <td data-label="Actions" class="actions-cell">
+              <a href="/admin/auditoriums/{{ aud.id }}/layout" class="btn btn-sm btn-outline">Layout</a>
+              <button type="button" class="btn btn-sm btn-outline aud-edit-btn"
+                data-id="{{ aud.id }}"
+                data-name="{{ aud.name }}"
+                data-location="{{ aud.location or '' }}"
+                data-description="{{ aud.description or '' }}"
+                data-rows="{{ aud.total_rows }}"
+                data-cols="{{ aud.total_cols }}">Edit</button>
+              <form method="post" action="/admin/colleges/{{ college.id }}/auditoriums/{{ aud.id }}/delete" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button type="button" class="btn btn-sm btn-danger" data-confirm="Delete auditorium '{{ aud.name }}'?" data-confirm-label="Delete">Delete</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:2rem 1rem">
+      <div class="empty-state-icon">&#127963;</div>
+      <h3>No auditoriums yet</h3>
+      <p>Add auditoriums to this college for event seating.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Add / Edit auditorium modal -->
+  <div class="modal-wrapper" id="modal-aud">
+    <div class="modal-backdrop" id="modal-aud-backdrop"></div>
+    <div class="modal-dialog" style="max-width:540px;text-align:left;padding:0">
+      <h3 style="padding:1rem 1.5rem;margin:0;font-size:1.1rem;border-bottom:1px solid var(--border,#334155)" id="modal-aud-title">Add Auditorium</h3>
+      <form method="post" id="aud-form" action="/admin/colleges/{{ college.id }}/auditoriums/new">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div style="padding:1.25rem 1.5rem;display:flex;flex-direction:column;gap:.9rem">
+          <div class="form-group" style="margin:0">
+            <label class="form-label" for="aud-name">Name</label>
+            <input type="text" id="aud-name" name="name" class="form-input" required placeholder="Main Hall">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" for="aud-location">Location</label>
+            <input type="text" id="aud-location" name="location" class="form-input" required placeholder="Building A, Ground Floor">
+          </div>
+          <div class="form-group" style="margin:0">
+            <label class="form-label" for="aud-description">Description</label>
+            <textarea id="aud-description" name="description" class="form-input" rows="2" placeholder="Optional"></textarea>
+          </div>
+          <div class="form-row">
+            <div class="form-group" style="margin:0">
+              <label class="form-label" for="aud-rows">Rows</label>
+              <input type="number" id="aud-rows" name="total_rows" class="form-input" value="10" min="1" max="50" required>
+            </div>
+            <div class="form-group" style="margin:0">
+              <label class="form-label" for="aud-cols">Columns</label>
+              <input type="number" id="aud-cols" name="total_cols" class="form-input" value="15" min="1" max="50" required>
+            </div>
+          </div>
+        </div>
+        <div style="padding:.75rem 1.5rem;border-top:1px solid var(--border,#334155);display:flex;justify-content:flex-end;gap:.5rem">
+          <button type="button" class="btn btn-outline" id="modal-aud-cancel">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="modal-aud-save">Create</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
 <script src="{{ url_for('static', path='js/image-upload.js') }}"></script>
 <script>initImageUpload('college-logo', '/admin/upload-image');</script>
+{% if college %}
+<script>
+(function() {
+  var tabs = document.querySelectorAll('.college-tab');
+  var panels = document.querySelectorAll('.college-tab-panel');
+  tabs.forEach(function(tab) {
+    tab.addEventListener('click', function() {
+      tabs.forEach(function(t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      var target = tab.dataset.tab;
+      panels.forEach(function(p) {
+        p.classList.toggle('hidden', p.id !== 'panel-' + target);
+      });
+    });
+  });
+
+  var modal = document.getElementById('modal-aud');
+  var form = document.getElementById('aud-form');
+  var titleEl = document.getElementById('modal-aud-title');
+  var saveBtn = document.getElementById('modal-aud-save');
+  var collegeId = {{ college.id }};
+  var baseAction = '/admin/colleges/' + collegeId + '/auditoriums/';
+
+  function openAudModal() { modal.classList.add('active'); }
+  function closeAudModal() { modal.classList.remove('active'); }
+
+  document.getElementById('btn-add-aud').addEventListener('click', function() {
+    titleEl.textContent = 'Add Auditorium';
+    saveBtn.textContent = 'Create';
+    form.action = baseAction + 'new';
+    form.querySelector('#aud-name').value = '';
+    form.querySelector('#aud-location').value = '';
+    form.querySelector('#aud-description').value = '';
+    form.querySelector('#aud-rows').value = 10;
+    form.querySelector('#aud-cols').value = 15;
+    openAudModal();
+  });
+
+  document.querySelectorAll('.aud-edit-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var id = btn.dataset.id;
+      titleEl.textContent = 'Edit Auditorium';
+      saveBtn.textContent = 'Save Changes';
+      form.action = baseAction + id + '/edit';
+      form.querySelector('#aud-name').value = btn.dataset.name;
+      form.querySelector('#aud-location').value = btn.dataset.location;
+      form.querySelector('#aud-description').value = btn.dataset.description;
+      form.querySelector('#aud-rows').value = btn.dataset.rows;
+      form.querySelector('#aud-cols').value = btn.dataset.cols;
+      openAudModal();
+    });
+  });
+
+  document.getElementById('modal-aud-cancel').addEventListener('click', closeAudModal);
+  document.getElementById('modal-aud-backdrop').addEventListener('click', closeAudModal);
+})();
+</script>
+{% endif %}
 {% endblock %}

@@ -8,23 +8,29 @@
 </div>
 
 {% if colleges %}
+<div style="display:flex;align-items:center;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap">
+  <input type="text" id="college-search" class="form-input" placeholder="Search by name, city, or auditorium…" style="max-width:360px;flex:1 1 240px">
+  <span id="college-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ colleges|length }} college{{ 's' if colleges|length != 1 }}</span>
+</div>
 <div class="table-responsive">
-  <table class="table table-cards-mobile">
+  <table class="table table-cards-mobile" id="college-table">
     <thead>
       <tr>
         <th>Name</th>
         <th>City</th>
         <th>Address</th>
+        <th>Auditoriums</th>
         <th>Status</th>
         <th>Actions</th>
       </tr>
     </thead>
     <tbody>
       {% for item in colleges %}
-      <tr>
+      <tr data-search="{{ item.college.name|lower }} {{ (item.city.name if item.city else '')|lower }} {{ (item.college.address or '')|lower }} {{ item.aud_names|lower }}">
         <td data-label="Name"><strong>{{ item.college.name }}</strong></td>
         <td data-label="City">{{ item.city.name if item.city else "—" }}</td>
         <td data-label="Address">{{ item.college.address or "—" }}</td>
+        <td data-label="Auditoriums">{{ item.aud_count }}</td>
         <td data-label="Status">
           <span class="badge {% if item.college.is_active %}badge-success{% else %}badge-muted{% endif %}">
             {{ "Active" if item.college.is_active else "Inactive" }}
@@ -42,6 +48,25 @@
     </tbody>
   </table>
 </div>
+
+<script>
+(function() {
+  var input = document.getElementById('college-search');
+  var countEl = document.getElementById('college-count');
+  var total = {{ colleges|length }};
+  input.addEventListener('input', function() {
+    var q = this.value.toLowerCase().trim();
+    var rows = document.querySelectorAll('#college-table tbody tr');
+    var visible = 0;
+    rows.forEach(function(row) {
+      var match = !q || row.dataset.search.includes(q);
+      row.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    countEl.textContent = (q ? visible + ' of ' + total : total) + ' college' + (visible !== 1 ? 's' : '');
+  });
+})();
+</script>
 {% else %}
 <div class="empty-state">
   <div class="empty-state-icon">&#127979;</div>

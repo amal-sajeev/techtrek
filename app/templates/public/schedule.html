@@ -53,11 +53,11 @@
             <div class="schedule-card" style="margin-left:1.5rem;border-left:2px solid var(--border)">
               <div class="schedule-time">
                 <span class="schedule-time-text">{% if es.start_time %}{{ es.start_time.strftime('%I:%M %p') }}{% else %}—{% endif %}</span>
-                <span class="schedule-duration">{{ s.duration_minutes or 30 }} min</span>
+                <span class="schedule-duration">{{ es.display_duration_minutes or 30 }} min</span>
               </div>
               <div class="schedule-info">
-                <a href="/sessions/{{ s.id }}?event_id={{ ev.id }}" class="schedule-title">{{ s.title }}</a>
-                <p class="schedule-speaker">{{ es.speaker_name or s.speaker_name }}</p>
+                <a href="/sessions/{{ s.id }}?event_id={{ ev.id }}" class="schedule-title">{{ es.display_title }}</a>
+                <p class="schedule-speaker">{{ es.display_speaker_name }}</p>
               </div>
             </div>
             {% endfor %}

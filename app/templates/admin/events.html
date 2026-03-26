@@ -187,26 +187,37 @@ document.addEventListener('click', function(e) {
     if (!btn) return;
     var eventId = btn.dataset.eventId;
     if (btn.dataset.status === newStatus) { closeStatusMenu(); return; }
-    btn.classList.add('saving');
     closeStatusMenu();
-    fetch('/admin/events/' + eventId + '/status', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status: newStatus })
-    }).then(function(r) { return r.json(); }).then(function(data) {
-      btn.classList.remove('saving');
-      if (data.ok) {
-        btn.dataset.status = newStatus;
-        btn.className = 'status-toggle badge ' + STATUS_BADGE[newStatus];
-        btn.childNodes[0].textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1) + ' ';
-        if (typeof showToast === 'function') showToast('Status updated');
-      } else {
-        if (typeof showToast === 'function') showToast(data.error || 'Failed to update', 'error');
-      }
-    }).catch(function() {
-      btn.classList.remove('saving');
-      if (typeof showToast === 'function') showToast('Network error', 'error');
-    });
+
+    function applyStatus() {
+      btn.classList.add('saving');
+      fetch('/admin/events/' + eventId + '/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus })
+      }).then(function(r) { return r.json(); }).then(function(data) {
+        btn.classList.remove('saving');
+        if (data.ok) {
+          btn.dataset.status = newStatus;
+          btn.className = 'status-toggle badge ' + STATUS_BADGE[newStatus];
+          btn.childNodes[0].textContent = newStatus.charAt(0).toUpperCase() + newStatus.slice(1) + ' ';
+          if (typeof showToast === 'function') showToast('Status updated');
+        } else {
+          if (typeof showToast === 'function') showToast(data.error || 'Failed to update', 'error');
+        }
+      }).catch(function() {
+        btn.classList.remove('saving');
+        if (typeof showToast === 'function') showToast('Network error', 'error');
+      });
+    }
+
+    if (newStatus === 'completed') {
+      openConfirm('Mark as Completed?\nThis will trigger certificate emails to all checked-in attendees.', applyStatus, { confirmLabel: 'Complete', confirmClass: 'btn-primary' });
+    } else if (newStatus === 'cancelled') {
+      openConfirm('Cancel this Event?\nThis may send cancellation notifications to all registered attendees. This action is difficult to reverse.', applyStatus, { confirmLabel: 'Cancel Event', confirmClass: 'btn-danger' });
+    } else {
+      applyStatus();
+    }
     return;
   }
   if (!floatMenu.contains(e.target)) closeStatusMenu();

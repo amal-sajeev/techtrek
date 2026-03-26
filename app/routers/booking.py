@@ -264,6 +264,7 @@ def event_checkout(request: Request, event_id: int, db: Session = Depends(get_db
             booking_count=len(holds),
             razorpay_key_id=settings.razorpay_key_id,
             user_email=user.email if user else "",
+            user_phone=user.phone if user else "",
             custom_types_map=custom_types_map,
             addon_items=addon_items,
             addon_total=addon_total,

@@ -43,7 +43,8 @@
         {% set s = item.session %}
         {% set ev = item.event %}
         <tr>
-          <td><strong>{{ s.title }}</strong></td>
+          {% set es = item.event_session if item.event_session is defined else None %}
+          <td><strong>{{ es.display_title if es else s.title }}</strong></td>
           <td>
             {% if ev %}
             <a href="/events/{{ ev.id }}" style="color:var(--cyan);text-decoration:none;" target="_blank">{{ ev.name }}</a>
@@ -63,7 +64,7 @@
             <span style="color:var(--text-muted)">—</span>
             {% endif %}
           </td>
-          <td>{{ s.duration_minutes }} min</td>
+          <td>{{ es.display_duration_minutes if es else s.duration_minutes }} min</td>
           <td>{{ item.bookings }}</td>
           <td style="white-space:nowrap">
             <div style="display:inline-flex;gap:6px;align-items:center">
