@@ -598,6 +598,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "enumeration, port scanning with Nmap, and service fingerprinting "
                         "— then applies them live against the bootcamp's lab network."
                     ),
+                    "key_learning_outcomes": "Perform OSINT and passive reconnaissance; Run Nmap scans for port and service discovery; Build a structured attack map from findings",
                     "banner_url": "https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=1200&h=400&fit=crop",
                     "duration_minutes": 45,
                     "start_offset_hours": 10,
@@ -623,6 +624,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "broken authentication, SSRF — with live exploitation against a "
                         "deliberately vulnerable web app (DVWA) running in the lab."
                     ),
+                    "key_learning_outcomes": "Exploit SQL injection and XSS vulnerabilities; Identify broken access control and SSRF flaws; Apply OWASP Top 10 knowledge to real-world testing",
                     "banner_url": "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=1200&h=400&fit=crop",
                     "duration_minutes": 50,
                     "start_offset_hours": 11,
@@ -648,6 +650,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "capture flags, and simultaneously defend their own box. The session "
                         "ends with a live scoreboard reveal and a debrief on winning strategies."
                     ),
+                    "key_learning_outcomes": "Apply offensive techniques under time pressure; Combine recon, exploitation, and defence skills; Analyse winning strategies from competitive CTF play",
                     "banner_url": "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=1200&h=400&fit=crop",
                     "duration_minutes": 60,
                     "start_offset_hours": 12.75,
@@ -715,6 +718,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "outcomes: trust, democracy, sustainability, and shared prosperity instead of "
                         "surveillance, manipulation, or inequality."
                     ),
+                    "key_learning_outcomes": "Evaluate AI policy through a geopolitical lens; Distinguish good-future from bad-future pathways; Frame career choices around societal impact",
                     "banner_url": "https://images.unsplash.com/photo-1677442136019-21780ecad995?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 10,
@@ -740,6 +744,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "societal readiness gaps, and why safety, alignment, and governance become "
                         "engineering problems\u2014not just philosophy."
                     ),
+                    "key_learning_outcomes": "Understand the pace gap between AI capabilities and institutional readiness; Apply safety and alignment concepts practically; Build a personal action plan for AI-era skills",
                     "banner_url": "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 10.75,
@@ -766,6 +771,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "changes productivity, entry-level work, and the skills students need to stay "
                         "valuable when routine screen-work is automated."
                     ),
+                    "key_learning_outcomes": "Differentiate AI agents from traditional chatbots; Identify tasks most likely to be automated; Plan a portfolio that showcases collaboration with AI tools",
                     "banner_url": "https://images.unsplash.com/photo-1558494949-ef010cbdcc31?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 11.5,
@@ -792,6 +798,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "to audiences and equity-like assets\u2014so students can thrive in an "
                         "AI-accelerated economy."
                     ),
+                    "key_learning_outcomes": "Contrast labour income with ownership income; Choose a durable asset to build (portfolio, audience, or product); Draft a 90-day builder plan using AI tools",
                     "banner_url": "https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 12.25,
@@ -818,6 +825,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "demonstrate data handling, modeling, evaluation, and real-world deployment "
                         "thinking\u2014not just notebooks."
                     ),
+                    "key_learning_outcomes": "Identify five project archetypes that land jobs; Define 'done' for an AI project with proper evaluation; Build a recruiter-ready GitHub portfolio checklist",
                     "banner_url": "https://images.unsplash.com/photo-1504639725590-34d0984388bd?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 13.75,
@@ -843,6 +851,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "what tasks get automated first, and how industries redesign roles rather "
                         "than simply deleting them."
                     ),
+                    "key_learning_outcomes": "Distinguish job replacement from task automation; Critically evaluate AI-and-jobs headlines; Conduct a personal automation audit for career planning",
                     "banner_url": "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 14.5,
@@ -869,6 +878,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "and how students can build a credible learning path from linear algebra basics "
                         "to quantum algorithms and AI applications."
                     ),
+                    "key_learning_outcomes": "Explain quantum computing fundamentals without heavy physics; Identify AI problems that benefit from quantum approaches; Follow a starter roadmap from linear algebra to quantum simulators",
                     "banner_url": "https://images.unsplash.com/photo-1635070041078-e363dbe005cb?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 15.25,
@@ -894,6 +904,7 @@ def build_event_data(speakers, auditoriums, colleges):
                         "governance. This session turns failure modes into a practical playbook "
                         "students can apply to projects, hackathons, and internships."
                     ),
+                    "key_learning_outcomes": "Recognise why GenAI prototypes fail after a successful demo; Apply evaluation, safety, and cost-control essentials; Rewrite a demo idea into a production-ready problem statement",
                     "banner_url": "https://images.unsplash.com/photo-1555949963-ff9fe0c870eb?w=1200&h=400&fit=crop",
                     "duration_minutes": 30,
                     "start_offset_hours": 16,
@@ -1039,7 +1050,9 @@ def phase2_api_admin(api: ApiClient, refs: dict):
                 "title": sd["title"],
                 "speaker_id": str(sd["speaker_id"]),
                 "speaker_name": sd["speaker_name"],
+                "abstract": sd.get("description", ""),
                 "description": sd.get("description", ""),
+                "key_learning_outcomes": sd.get("key_learning_outcomes", ""),
                 "banner_url": sd.get("banner_url", ""),
                 "duration_minutes": str(sd.get("duration_minutes", 30)),
             }

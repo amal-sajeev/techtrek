@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
 from sqlalchemy import func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.csrf import csrf_protection
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
@@ -2276,6 +2276,23 @@ def events_list(request: Request, db: Session = Depends(get_db), view: str = Que
     )
 
 
+@router.post("/events/{event_id}/status")
+async def event_update_status(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    ev = db.query(Event).get(event_id)
+    if not ev:
+        return JSONResponse({"error": "Event not found"}, status_code=404)
+    body = await request.json()
+    new_status = body.get("status", "").strip().lower()
+    if new_status not in ("draft", "published", "completed", "cancelled"):
+        return JSONResponse({"error": "Invalid status"}, status_code=400)
+    ev.status = new_status
+    db.commit()
+    return JSONResponse({"ok": True, "status": new_status})
+
+
 @router.get("/events/new")
 def event_new_form(request: Request, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
@@ -2879,7 +2896,9 @@ def event_export_template(request: Request, event_id: int, db: Session = Depends
         cell.border = thin_border
 
     ev_sessions = (
-        db.query(EventSession).filter(EventSession.event_id == event_id)
+        db.query(EventSession)
+        .options(joinedload(EventSession.session))
+        .filter(EventSession.event_id == event_id)
         .order_by(EventSession.order, EventSession.start_time).all()
     )
     ev_breaks = (
@@ -2898,7 +2917,8 @@ def event_export_template(request: Request, event_id: int, db: Session = Depends
         sess = es.session
         if not sess:
             continue
-        speaker = db.query(Speaker).get(sess.speaker_id) if sess.speaker_id else None
+        spk_id = es.speaker_id or sess.speaker_id
+        speaker = db.query(Speaker).get(spk_id) if spk_id else None
         start_fmt = _fmt_time(es.start_time)
         end_time = None
         if es.start_time and sess.duration_minutes:
@@ -2909,7 +2929,7 @@ def event_export_template(request: Request, event_id: int, db: Session = Depends
             sess.title or "",
             sess.abstract or sess.description or "",
             sess.key_learning_outcomes or "",
-            speaker.name if speaker else (sess.speaker_name or ""),
+            speaker.name if speaker else (es.speaker_name or sess.speaker_name or ""),
             speaker.title if speaker else "",
             speaker.email if speaker else "",
             speaker.bio if speaker else "",
@@ -3333,6 +3353,272 @@ async def event_import_from_template(
         summary += f" Agenda warnings: {'; '.join(agenda_errors)}"
     flash(request, summary, "success")
     return RedirectResponse(f"/admin/events/{new_event.id}/edit?step=4", status_code=303)
+
+
+@router.post("/events/{event_id}/update-from-template")
+async def event_update_from_template(
+    request: Request,
+    event_id: int,
+    event_file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _csrf=Depends(csrf_protection),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    ev = db.query(Event).get(event_id)
+    if not ev:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+
+    content = await event_file.read()
+    fname = (event_file.filename or "").lower()
+    if not fname.endswith((".xlsx", ".xls")):
+        flash(request, "Event update only supports Excel (.xlsx) files.", "danger")
+        return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
+
+    from openpyxl import load_workbook
+
+    try:
+        wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
+    except Exception as exc:
+        flash(request, f"Could not read the Excel file: {exc}", "danger")
+        return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
+
+    ws = wb.active
+    all_rows = list(ws.iter_rows(values_only=True))
+    wb.close()
+
+    event_meta: dict[str, str] = {}
+    agenda_header_idx = None
+
+    _label_map = {
+        "eventtitle": "event_title", "title": "event_title",
+        "city": "city", "state": "state",
+        "college": "college", "hall": "hall",
+        "startdate": "start_date", "enddate": "end_date",
+        "status": "status",
+    }
+
+    for ri, row in enumerate(all_rows):
+        cells = [str(c).strip() if c is not None else "" for c in row]
+        if len(cells) >= 2 and cells[0]:
+            key = cells[0].lower().replace(" ", "").replace("_", "")
+            if key in _label_map:
+                event_meta[_label_map[key]] = cells[1]
+                continue
+
+        header_lower = [c.lower().replace(" ", "").replace("_", "") if c else "" for c in cells]
+        if "type" in header_lower and "title" in header_lower:
+            agenda_header_idx = ri
+            break
+
+    errors: list[str] = []
+    event_title = event_meta.get("event_title", "").strip()
+    if not event_title:
+        errors.append("Event Title is required.")
+
+    city_name = event_meta.get("city", "").strip()
+    state_name = event_meta.get("state", "").strip()
+    college_name = event_meta.get("college", "").strip()
+    hall_name = event_meta.get("hall", "").strip()
+
+    start_date_str = event_meta.get("start_date", "").strip()
+    end_date_str = event_meta.get("end_date", "").strip()
+    ev_start_date = ev_end_date = None
+    if start_date_str:
+        try:
+            ev_start_date = date.fromisoformat(start_date_str.replace("/", "-"))
+        except ValueError:
+            errors.append(f"Invalid Start Date format: '{start_date_str}'. Use YYYY-MM-DD.")
+    if end_date_str:
+        try:
+            ev_end_date = date.fromisoformat(end_date_str.replace("/", "-"))
+        except ValueError:
+            errors.append(f"Invalid End Date format: '{end_date_str}'. Use YYYY-MM-DD.")
+
+    if errors:
+        flash(request, " | ".join(errors), "danger")
+        return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
+
+    ev.name = event_title
+
+    if city_name:
+        city_obj = db.query(City).filter(func.lower(City.name) == city_name.lower()).first()
+        if not city_obj:
+            if not state_name:
+                flash(request, f"City '{city_name}' not found and no State provided to create it.", "danger")
+                return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
+            city_obj = City(name=city_name, state=state_name)
+            db.add(city_obj)
+            db.flush()
+
+        if college_name:
+            college_obj = (
+                db.query(College)
+                .filter(func.lower(College.name) == college_name.lower(), College.city_id == city_obj.id)
+                .first()
+            )
+            if not college_obj:
+                college_obj = College(name=college_name, city_id=city_obj.id)
+                db.add(college_obj)
+                db.flush()
+            ev.college_id = college_obj.id
+
+            if hall_name:
+                hall_obj = (
+                    db.query(Auditorium)
+                    .filter(func.lower(Auditorium.name) == hall_name.lower(), Auditorium.college_id == college_obj.id)
+                    .first()
+                )
+                if not hall_obj:
+                    hall_obj = Auditorium(name=hall_name, college_id=college_obj.id, location=college_name)
+                    db.add(hall_obj)
+                    db.flush()
+                ev.auditorium_id = hall_obj.id
+
+    if ev_start_date:
+        ev.start_date = ev_start_date
+    if ev_end_date:
+        ev.end_date = ev_end_date
+
+    ev_status = (event_meta.get("status", "") or "").strip().lower()
+    if ev_status in ("draft", "published", "completed", "cancelled"):
+        ev.status = ev_status
+
+    from app.models.event_session import EventSession
+
+    db.query(EventSession).filter(EventSession.event_id == event_id).delete()
+    db.query(EventBreak).filter(EventBreak.event_id == event_id).delete()
+    db.flush()
+
+    sessions_created = 0
+    breaks_created = 0
+    speakers_created = 0
+    agenda_errors: list[str] = []
+
+    if agenda_header_idx is not None and agenda_header_idx + 1 < len(all_rows):
+        header_cells = [str(c).strip() if c is not None else "" for c in all_rows[agenda_header_idx]]
+        col_map = _map_agenda_headers(header_cells)
+
+        agenda_data_rows: list[dict] = []
+        for row in all_rows[agenda_header_idx + 1:]:
+            vals = [str(c) if c is not None else "" for c in row]
+            if not any(v.strip() for v in vals):
+                continue
+            agenda_data_rows.append(_extract_agenda_row(vals, col_map))
+
+        for i, row in enumerate(agenda_data_rows, 1):
+            errs = _validate_agenda_row(row, i, ev_start_date or ev.start_date)
+            if errs:
+                agenda_errors.extend(errs)
+
+        if not agenda_errors:
+            email_cache: dict[str, Speaker | None] = {}
+            name_cache: dict[str, Speaker | None] = {}
+
+            def _resolve_speaker(name_raw: str, email_raw: str, row_data: dict) -> tuple[int | None, str | None]:
+                nonlocal speakers_created
+                email_key = email_raw.lower() if email_raw else ""
+                if email_key:
+                    if email_key not in email_cache:
+                        email_cache[email_key] = (
+                            db.query(Speaker).filter(func.lower(Speaker.email) == email_key).first()
+                        )
+                    matched = email_cache[email_key]
+                    if matched:
+                        name_cache[matched.name.lower()] = matched
+                        return matched.id, matched.name
+                    display_name = name_raw or email_raw.split("@")[0]
+                    new_sp = Speaker(
+                        name=display_name, title=row_data.get("speaker_title") or None,
+                        email=email_raw or None, bio=row_data.get("speaker_bio") or None,
+                        linkedin_url=row_data.get("speaker_linkedin") or None,
+                    )
+                    db.add(new_sp); db.flush()
+                    email_cache[email_key] = new_sp
+                    name_cache[display_name.lower()] = new_sp
+                    speakers_created += 1
+                    return new_sp.id, new_sp.name
+                if not name_raw:
+                    return None, None
+                name_key = name_raw.lower()
+                if name_key not in name_cache:
+                    name_cache[name_key] = (
+                        db.query(Speaker).filter(func.lower(Speaker.name) == name_key).first()
+                    )
+                matched = name_cache[name_key]
+                if matched:
+                    return matched.id, matched.name
+                new_sp = Speaker(
+                    name=name_raw, title=row_data.get("speaker_title") or None,
+                    bio=row_data.get("speaker_bio") or None,
+                    linkedin_url=row_data.get("speaker_linkedin") or None,
+                )
+                db.add(new_sp); db.flush()
+                name_cache[name_key] = new_sp
+                speakers_created += 1
+                return new_sp.id, new_sp.name
+
+            for i, row in enumerate(agenda_data_rows, 1):
+                row_type = row["type"].lower()
+                title = row["title"]
+                start_time = _parse_time_value(row["start_time"], ev_start_date or ev.start_date)
+                end_time = _parse_time_value(row["end_time"], ev_start_date or ev.start_date)
+                duration = int((end_time - start_time).total_seconds() // 60)
+                order = i - 1
+
+                if row_type == "session":
+                    speaker_id, speaker_name = _resolve_speaker(
+                        row.get("speaker", ""), row.get("speaker_email", ""), row
+                    )
+                    sess = SessionModel(
+                        title=title, speaker_id=speaker_id,
+                        speaker_name=speaker_name or "",
+                        abstract=row.get("abstract") or None,
+                        key_learning_outcomes=row.get("key_learning_outcomes") or None,
+                        description=row.get("abstract") or None,
+                        duration_minutes=duration,
+                    )
+                    db.add(sess); db.flush()
+                    if speaker_id:
+                        db.add(SessionSpeaker(session_id=sess.id, speaker_id=speaker_id, role="Guest"))
+                        db.flush()
+                    for ai_idx, ai in enumerate(_parse_agenda_items(row.get("agenda", ""))):
+                        db.add(AgendaItem(
+                            session_id=sess.id, order=ai_idx,
+                            title=ai["title"], duration_minutes=ai["duration_minutes"] or 0,
+                            speaker_id=speaker_id, speaker_name=speaker_name,
+                        ))
+                    db.add(EventSession(
+                        event_id=event_id, session_id=sess.id, order=order,
+                        start_time=start_time, speaker_id=speaker_id, speaker_name=speaker_name,
+                    ))
+                    sessions_created += 1
+                else:
+                    db.add(EventBreak(
+                        event_id=event_id, title=title,
+                        description=row.get("abstract") or None,
+                        duration_minutes=duration, start_time=start_time, order=order,
+                    ))
+                    breaks_created += 1
+
+    log_activity(
+        db, category="admin", action="update_event_from_template",
+        description=f"Updated event '{event_title}' from template: {sessions_created} session(s), {breaks_created} break(s)"
+                    + (f", {speakers_created} new speaker(s)" if speakers_created else "")
+                    + (f" — agenda warnings: {'; '.join(agenda_errors)}" if agenda_errors else ""),
+        request=request, user_id=admin.id, target_type="event", target_id=event_id,
+    )
+    db.commit()
+
+    summary = f"Event '{event_title}' updated with {sessions_created} session(s) and {breaks_created} break(s)."
+    if speakers_created:
+        summary += f" {speakers_created} new speaker(s) created."
+    if agenda_errors:
+        summary += f" Agenda warnings: {'; '.join(agenda_errors)}"
+    flash(request, summary, "success")
+    return RedirectResponse(f"/admin/events/{event_id}/edit?step=4", status_code=303)
 
 
 def _parse_agenda_file(content: bytes, filename: str) -> list[dict]:

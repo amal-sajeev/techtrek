@@ -10,6 +10,14 @@
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.25rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export as Template
     </a>
+    <button type="button" class="btn btn-outline btn-sm" id="update-from-excel-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.25rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+      Update from Excel
+    </button>
+    <form id="update-from-excel-form" method="post" action="/admin/events/{{ event.id }}/update-from-template" enctype="multipart/form-data" style="display:none">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="file" id="update-from-excel-file" name="event_file" accept=".xlsx,.xls">
+    </form>
     <button type="button" class="btn btn-outline btn-sm" id="copy-from-event-btn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.25rem"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
       Copy from Event
@@ -139,22 +147,48 @@
 
     <!-- Step 4: Sessions & Agenda -->
     <div class="wizard-panel" data-panel="4">
-      <h3 class="wizard-panel-title">Sessions &amp; Agenda</h3>
+      <h3 class="wizard-panel-title">Agenda</h3>
 
-      <div class="agenda-subtabs">
-        <button type="button" class="agenda-subtab active" data-subtab="add">Add Items</button>
-        <button type="button" class="agenda-subtab" data-subtab="arrange">Arrange Agenda</button>
+      <div class="agenda-unified-header">
+        <span class="agenda-summary" id="agenda-summary"></span>
+        <div class="agenda-add-buttons">
+          <button type="button" class="btn btn-primary btn-sm" id="btn-add-session">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.2rem"><rect x="2" y="3" width="20" height="18" rx="2"/><line x1="8" y1="7" x2="16" y2="7"/><line x1="8" y1="11" x2="16" y2="11"/><line x1="8" y1="15" x2="12" y2="15"/></svg>
+            Session
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-add-break">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.2rem"><path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/></svg>
+            Break
+          </button>
+          <div class="agenda-quick-wrap" id="quick-break-wrap">
+            <button type="button" class="btn btn-outline btn-sm" id="btn-quick-break">Quick Add &#9662;</button>
+            <div class="agenda-quick-dropdown" id="quick-break-menu">
+              <button type="button" data-preset="lunch">Lunch Break (30 min)</button>
+              <button type="button" data-preset="tea">Tea Break (15 min)</button>
+              <button type="button" data-preset="networking">Networking (20 min)</button>
+              <button type="button" data-preset="qa">Q&amp;A (10 min)</button>
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" id="btn-add-addon">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.2rem"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/></svg>
+            Add-On
+          </button>
+        </div>
       </div>
 
-      <!-- Sub-tab: Add Items -->
-      <div class="agenda-subpanel" data-subpanel="add">
-        {% if event %}
-        <div class="agenda-import-card" style="border:1px dashed var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-bottom:1.5rem;background:var(--bg-surface)">
-          <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
-            <h4 style="margin:0">Import Agenda from File</h4>
-          </div>
-          <p class="text-muted" style="font-size:.85rem;margin-bottom:.75rem">Upload an Excel (.xlsx) or CSV file to bulk-create sessions, breaks, speakers, and agenda items. Each row needs Start Time and End Time (e.g. 9:00 AM) &mdash; duration is calculated automatically. Only the Speaker Email column is required to identify speakers; name and other fields are optional. <a href="/admin/events/agenda-template?format=xlsx">Download template</a></p>
+      <div id="agenda-unified-list" class="agenda-unified-list"></div>
+      <div id="agenda-empty-state" class="agenda-empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:.4;margin-bottom:.75rem"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="10" y1="14" x2="14" y2="14"/><line x1="12" y1="12" x2="12" y2="16"/></svg>
+        <p style="font-weight:600;margin:0 0 .25rem">No agenda items yet</p>
+        <p class="text-muted" style="font-size:.85rem;margin:0">Click the buttons above to add sessions, breaks, or add-ons.</p>
+      </div>
+      <div id="agenda-hidden-fields" style="display:none"></div>
+
+      {% if event %}
+      <details class="agenda-import-details" style="margin-top:1.5rem">
+        <summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:.5rem 0;color:var(--text-muted);user-select:none">Import Agenda from File</summary>
+        <div style="border:1px dashed var(--border);border-radius:var(--radius);padding:1rem 1.25rem;margin-top:.5rem;background:var(--bg-surface)">
+          <p class="text-muted" style="font-size:.85rem;margin-bottom:.75rem">Upload an Excel or CSV file to bulk-create sessions and breaks. <a href="/admin/events/agenda-template?format=xlsx">Download template</a></p>
           <div style="display:flex;flex-wrap:wrap;gap:.75rem;align-items:flex-end">
             <div class="form-group" style="flex:1;min-width:200px;margin:0">
               <label class="form-label" style="font-size:.82rem">Agenda File</label>
@@ -163,111 +197,8 @@
             <button type="button" class="btn btn-primary btn-sm" id="agenda-import-btn" style="height:fit-content;white-space:nowrap">Import Agenda</button>
           </div>
         </div>
-        {% endif %}
-
-        <h4 style="margin-bottom:.5rem">Sessions</h4>
-        <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Link existing sessions to this event. <a href="/admin/sessions/new" target="_blank">Create sessions</a> first if needed.</p>
-        <div id="inline-sessions-list">
-          {% if event and event_sessions %}
-          {% for es in event_sessions %}
-          <div class="inline-session-entry confirmed" data-existing="1">
-            <div class="sess-pill" style="display:flex;align-items:center;gap:.75rem;padding:.6rem 1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-surface);margin-bottom:.5rem">
-              <span style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ es.session.title }}</span>
-              {% if es.speaker_name or es.session.speaker_name %}<span style="font-size:.82rem;color:var(--text-muted);white-space:nowrap">{{ es.speaker_name or es.session.speaker_name }}</span>{% endif %}
-              <button type="button" class="btn btn-sm btn-outline sess-edit-btn" style="padding:2px 8px;font-size:.75rem">Edit</button>
-              <button type="button" class="btn btn-sm btn-danger sess-remove-btn" style="padding:2px 8px;font-size:.75rem">&times;</button>
-            </div>
-            <input type="hidden" name="sess_idx" value="ex{{ loop.index0 }}">
-            <input type="hidden" name="sess_id_ex{{ loop.index0 }}" value="{{ es.session_id }}">
-            <input type="hidden" name="sess_speaker_id_ex{{ loop.index0 }}" value="{{ es.speaker_id or '' }}">
-            <input type="hidden" name="sess_start_ex{{ loop.index0 }}" class="sess-start-input" value="{{ es.start_time.strftime('%Y-%m-%dT%H:%M') if es.start_time else '' }}">
-            <input type="hidden" name="sess_order_ex{{ loop.index0 }}" class="sess-order-input" value="{{ es.order }}">
-          </div>
-          {% endfor %}
-          {% endif %}
-        </div>
-        <button type="button" class="btn btn-outline btn-sm" id="add-inline-session" style="margin-top:.75rem">+ Add Session</button>
-
-        <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
-
-        <h4 style="margin-bottom:.5rem">Breaks</h4>
-        <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Add breaks (lunch, networking, Q&amp;A) for the event agenda.</p>
-        <div id="inline-breaks-list">
-          {% if event and event_breaks %}
-          {% for brk in event_breaks %}
-          <div class="break-row form-card" style="padding:.75rem;margin-bottom:.5rem;position:relative;" data-break-idx="{{ loop.index0 }}">
-            <button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest('.break-row').remove()">&#10005;</button>
-            <div class="form-row">
-              <div class="form-group" style="flex:2">
-                <label class="form-label">Title</label>
-                <input type="text" name="break_title_{{ loop.index0 }}" class="form-input" value="{{ brk.title }}" required>
-              </div>
-              <div class="form-group" style="flex:1">
-                <label class="form-label">Duration (min)</label>
-                <input type="number" name="break_duration_{{ loop.index0 }}" class="form-input" value="{{ brk.duration_minutes }}" min="1">
-              </div>
-            </div>
-            <div class="form-group">
-              <label class="form-label">Description</label>
-              <textarea name="break_desc_{{ loop.index0 }}" class="form-input" rows="2" placeholder="Optional description">{{ brk.description or '' }}</textarea>
-            </div>
-            <input type="hidden" name="break_order_{{ loop.index0 }}" class="break-order-input" value="{{ brk.order }}">
-            <input type="hidden" name="break_start_time_{{ loop.index0 }}" class="break-start-input" value="{{ brk.start_time.strftime('%Y-%m-%dT%H:%M') if brk.start_time else '' }}">
-          </div>
-          {% endfor %}
-          {% endif %}
-        </div>
-        <button type="button" class="btn btn-outline btn-sm" id="add-break-item" style="margin-top:.5rem">+ Add Break</button>
-
-        <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0">
-
-        <h4 style="margin-bottom:.5rem">Add-Ons</h4>
-        <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Optional extras attendees can purchase during checkout (e.g. workshops, meals, merch).</p>
-        <div id="inline-addons-list">
-          {% if event and event_addons %}
-          {% for addon in event_addons %}
-          <div class="addon-row form-card" style="padding:.75rem;margin-bottom:.5rem;position:relative;" data-addon-idx="{{ loop.index0 }}">
-            <button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest('.addon-row').remove()">&#10005;</button>
-            <div class="form-row">
-              <div class="form-group" style="flex:2">
-                <label class="form-label">Title</label>
-                <input type="text" name="addon_title_{{ loop.index0 }}" class="form-input" value="{{ addon.title }}" required>
-              </div>
-              <div class="form-group" style="flex:1">
-                <label class="form-label">Price (&#8377;)</label>
-                <input type="number" name="addon_price_{{ loop.index0 }}" class="form-input" value="{{ addon.price }}" min="0" step="0.01">
-              </div>
-              <div class="form-group" style="flex:1">
-                <label class="form-label">Max Qty</label>
-                <input type="number" name="addon_max_qty_{{ loop.index0 }}" class="form-input" value="{{ addon.max_quantity or '' }}" min="0" placeholder="Unlimited">
-              </div>
-            </div>
-            <div class="form-row" style="align-items:end">
-              <div class="form-group" style="flex:2">
-                <label class="form-label">Description</label>
-                <textarea name="addon_desc_{{ loop.index0 }}" class="form-input" rows="2" placeholder="Optional description">{{ addon.description or '' }}</textarea>
-              </div>
-              <div class="form-group" style="flex:0 0 auto">
-                <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.85rem;white-space:nowrap;padding:.45rem 0">
-                  <input type="checkbox" name="addon_in_agenda_{{ loop.index0 }}" class="addon-agenda-check" value="1" {% if addon.in_agenda %}checked{% endif %}> Add to agenda
-                </label>
-              </div>
-            </div>
-            <input type="hidden" name="addon_order_{{ loop.index0 }}" class="addon-order-input" value="{{ addon.order }}">
-            <input type="hidden" name="addon_start_time_{{ loop.index0 }}" class="addon-start-input" value="{{ addon.start_time.strftime('%Y-%m-%dT%H:%M') if addon.start_time else '' }}">
-          </div>
-          {% endfor %}
-          {% endif %}
-        </div>
-        <button type="button" class="btn btn-outline btn-sm" id="add-addon-item" style="margin-top:.5rem">+ Add Add-On</button>
-      </div>
-
-      <!-- Sub-tab: Arrange Agenda -->
-      <div class="agenda-subpanel" data-subpanel="arrange" style="display:none">
-        <p class="text-muted" style="margin-bottom:1rem;font-size:.85rem">Drag items or use the arrow buttons to set the agenda order. Expand an item to set its start time or speaker override.</p>
-        <div id="agenda-arrange-list"></div>
-        <p id="agenda-empty-msg" class="text-muted" style="text-align:center;padding:2rem 0">No sessions or breaks added yet. Switch to "Add Items" to add some.</p>
-      </div>
+      </details>
+      {% endif %}
 
       <div class="wizard-nav">
         <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
@@ -578,6 +509,130 @@
 </div>
 {% endif %}
 
+<!-- Session Add/Edit Modal -->
+<div class="modal-wrapper agenda-form-modal" id="modal-add-session">
+  <div class="modal-backdrop"></div>
+  <div class="modal-dialog">
+    <h3 id="modal-session-title">Add Session</h3>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">Session</label>
+        <select id="modal-sess-select" class="form-input" data-no-tomselect></select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Speaker Override</label>
+        <select id="modal-sess-speaker" class="form-input" data-no-tomselect></select>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Start Date</label>
+          <input type="date" id="modal-sess-date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Start Time</label>
+          <input type="time" id="modal-sess-time" class="form-input">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" id="modal-sess-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="modal-sess-save">Add Session</button>
+    </div>
+  </div>
+</div>
+
+<!-- Break Add/Edit Modal -->
+<div class="modal-wrapper agenda-form-modal" id="modal-add-break">
+  <div class="modal-backdrop"></div>
+  <div class="modal-dialog">
+    <h3 id="modal-break-title-text">Add Break</h3>
+    <div class="modal-body">
+      <div class="break-presets">
+        <span style="font-size:.78rem;color:var(--text-muted);margin-right:.25rem">Quick:</span>
+        <button type="button" data-p-title="Lunch Break" data-p-dur="30">Lunch (30m)</button>
+        <button type="button" data-p-title="Tea Break" data-p-dur="15">Tea (15m)</button>
+        <button type="button" data-p-title="Networking" data-p-dur="20">Networking (20m)</button>
+        <button type="button" data-p-title="Q&amp;A" data-p-dur="10">Q&amp;A (10m)</button>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label class="form-label">Title</label>
+          <input type="text" id="modal-break-name" class="form-input" placeholder="e.g. Lunch Break">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Duration (min)</label>
+          <input type="number" id="modal-break-duration" class="form-input" value="15" min="1">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea id="modal-break-desc" class="form-input" rows="2" placeholder="Optional"></textarea>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Start Date</label>
+          <input type="date" id="modal-break-date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Start Time</label>
+          <input type="time" id="modal-break-time" class="form-input">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" id="modal-break-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="modal-break-save">Add Break</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add-On Add/Edit Modal -->
+<div class="modal-wrapper agenda-form-modal" id="modal-add-addon">
+  <div class="modal-backdrop"></div>
+  <div class="modal-dialog">
+    <h3 id="modal-addon-title-text">Add Add-On</h3>
+    <div class="modal-body">
+      <div class="form-row">
+        <div class="form-group" style="flex:2">
+          <label class="form-label">Title</label>
+          <input type="text" id="modal-addon-name" class="form-input" placeholder="e.g. Workshop Pass">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Price (&#8377;)</label>
+          <input type="number" id="modal-addon-price" class="form-input" value="0" min="0" step="0.01">
+        </div>
+        <div class="form-group" style="flex:1">
+          <label class="form-label">Max Qty</label>
+          <input type="number" id="modal-addon-max-qty" class="form-input" min="0" placeholder="Unlimited">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Description</label>
+        <textarea id="modal-addon-desc" class="form-input" rows="2" placeholder="Optional"></textarea>
+      </div>
+      <div class="form-group">
+        <label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.88rem">
+          <input type="checkbox" id="modal-addon-in-agenda" checked> Include in agenda timeline
+        </label>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Start Date</label>
+          <input type="date" id="modal-addon-date" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Start Time</label>
+          <input type="time" id="modal-addon-time" class="form-input">
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-outline" id="modal-addon-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="modal-addon-save">Add Add-On</button>
+    </div>
+  </div>
+</div>
+
 {% if event %}
 <div class="form-card mt-3">
   <h3 class="panel-title">Coupons</h3>
@@ -625,7 +680,7 @@
 <script>
 window._wizardSessions = [
   {% for s in all_sessions %}
-  { id: {{ s.id }}, title: {{ s.title|tojson }}, speaker: {{ (s.speaker_name or '')|tojson }}, speakerId: {{ s.speaker_id|tojson }} },
+  { id: {{ s.id }}, title: {{ s.title|tojson }}, speaker: {{ (s.speaker_name or '')|tojson }}, speakerId: {{ s.speaker_id|tojson }}, duration: {{ s.duration_minutes or 30 }} },
   {% endfor %}
 ];
 window._wizardSpeakers = [
@@ -644,9 +699,20 @@ window._wizardAudSeatTypes = {{ aud_seat_types|tojson }};
 window._wizardCustomTypesMap = {{ custom_types_map|tojson }};
 {% if event and event_sessions %}
 {% for es in event_sessions %}
-window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.title|tojson }}, speaker: {{ (es.session.speaker_name or '')|tojson }}, speakerId: {{ es.session.speaker_id|tojson }} });
+window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.title|tojson }}, speaker: {{ (es.session.speaker_name or '')|tojson }}, speakerId: {{ es.session.speaker_id|tojson }}, duration: {{ es.session.duration_minutes or 30 }} });
 {% endfor %}
 {% endif %}
+window._existingAgendaItems = [
+  {% if event and event_sessions %}{% for es in event_sessions %}
+  {type:'session',sessId:{{es.session_id}},sessLabel:{{es.session.title|tojson}},speakerId:{{(es.speaker_id or '')|tojson}},speakerLabel:{{(es.speaker_name or es.session.speaker_name or '')|tojson}},duration:{{es.session.duration_minutes or 30}},startTime:{{(es.start_time.strftime('%Y-%m-%dT%H:%M') if es.start_time else '')|tojson}},order:{{es.order}}},
+  {% endfor %}{% endif %}
+  {% if event and event_breaks %}{% for brk in event_breaks %}
+  {type:'break',title:{{brk.title|tojson}},duration:{{brk.duration_minutes}},description:{{(brk.description or '')|tojson}},startTime:{{(brk.start_time.strftime('%Y-%m-%dT%H:%M') if brk.start_time else '')|tojson}},order:{{brk.order}}},
+  {% endfor %}{% endif %}
+  {% if event and event_addons %}{% for addon in event_addons %}
+  {type:'addon',title:{{addon.title|tojson}},price:{{addon.price}},maxQty:{{addon.max_quantity|tojson}},description:{{(addon.description or '')|tojson}},inAgenda:{{'true' if addon.in_agenda else 'false'}},startTime:{{(addon.start_time.strftime('%Y-%m-%dT%H:%M') if addon.start_time else '')|tojson}},order:{{addon.order}}},
+  {% endfor %}{% endif %}
+];
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
@@ -671,28 +737,10 @@ window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.titl
     s.addEventListener('click', function() { goToStep(parseInt(s.dataset.step)); });
   });
   document.querySelectorAll('.wizard-next').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      if (currentStep === 4) {
-        var addPanel = document.querySelector('.agenda-subpanel[data-subpanel="add"]');
-        if (addPanel && addPanel.style.display !== 'none') {
-          document.querySelector('.agenda-subtab[data-subtab="arrange"]').click();
-          return;
-        }
-      }
-      goToStep(currentStep + 1);
-    });
+    btn.addEventListener('click', function() { goToStep(currentStep + 1); });
   });
   document.querySelectorAll('.wizard-prev').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-      if (currentStep === 4) {
-        var arrangePanel = document.querySelector('.agenda-subpanel[data-subpanel="arrange"]');
-        if (arrangePanel && arrangePanel.style.display !== 'none') {
-          document.querySelector('.agenda-subtab[data-subtab="add"]').click();
-          return;
-        }
-      }
-      goToStep(currentStep - 1);
-    });
+    btn.addEventListener('click', function() { goToStep(currentStep - 1); });
   });
 
   function val(id) { return (document.getElementById(id) || {}).value || ''; }
@@ -826,11 +874,10 @@ window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.titl
   rebuildPricingFields();
 
   function buildReview() {
-    var sessionCount = 0;
-    document.querySelectorAll('#inline-sessions-list .inline-session-entry.confirmed').forEach(function(entry) {
-      var hid = entry.querySelector('input[name^="sess_id_"]');
-      if (hid && hid.value) sessionCount++;
-    });
+    var hf = document.getElementById('agenda-hidden-fields');
+    var sessionCount = hf ? hf.querySelectorAll('input[name="sess_idx"]').length : 0;
+    var breakCount = hf ? hf.querySelectorAll('input[name^="break_title_"]').length : 0;
+    var addonCount = hf ? hf.querySelectorAll('input[name^="addon_title_"]').length : 0;
 
     var rows = [
       ['Event Name', val('ev-name') || '—'],
@@ -847,6 +894,8 @@ window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.titl
     rows.push(['Processing Fee', val('ev-fee') ? val('ev-fee') + '%' : '—']);
     rows = rows.concat([
       ['Sessions', sessionCount > 0 ? sessionCount + ' session(s)' : 'None yet'],
+      ['Breaks', breakCount > 0 ? breakCount + ' break(s)' : 'None'],
+      ['Add-Ons', addonCount > 0 ? addonCount + ' add-on(s)' : 'None'],
       ['Banner URL', val('ev-banner') || '—'],
       ['Description', (val('ev-desc') || '—').substring(0, 120) + (val('ev-desc').length > 120 ? '…' : '')],
     ]);
@@ -856,378 +905,61 @@ window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.titl
     }).join('');
   }
 
-  /* Build <option> strings from embedded data */
-  var sessOptions = '<option value="">-- Select session --</option>';
-  window._wizardSessions.forEach(function(s) {
-    var label = s.title + (s.speaker ? ' — ' + s.speaker : '');
-    sessOptions += '<option value="' + s.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
-  });
+  /* Session/speaker/agenda logic moved to the unified agenda script below */
 
-  var speakerOptions = '<option value="">-- Select speaker --</option>';
-  window._wizardSpeakers.forEach(function(sp) {
-    var label = sp.name + (sp.title ? ' — ' + sp.title : '');
-    speakerOptions += '<option value="' + sp.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
-  });
-
-  function buildAuditoriumOptions() {
-    var collegeEl = document.getElementById('ev-college');
-    var cid = collegeEl ? (collegeEl.tomselect ? collegeEl.tomselect.getValue() : collegeEl.value) : '';
-    var auds = window._wizardAuditoriums[cid || 0] || [];
-    if (!auds.length && cid) auds = window._wizardAuditoriums[cid] || [];
-    var html = '<option value="">-- Select auditorium --</option>';
-    auds.forEach(function(a) {
-      var label = a.name + (a.location ? ' — ' + a.location : '');
-      html += '<option value="' + a.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
-    });
-    return html;
-  }
-
-  function refreshAllAuditoriumSelects() {
-    var html = buildAuditoriumOptions();
-    document.querySelectorAll('.sess-auditorium-select').forEach(function(sel) {
-      var current = sel.tomselect ? sel.tomselect.getValue() : sel.value;
-      if (sel.tomselect) sel.tomselect.destroy();
-      sel.innerHTML = html;
-      if (current) {
-        var exists = sel.querySelector('option[value="' + current + '"]');
-        if (exists) sel.value = current;
-      }
-      if (window.TechTrekInitSelects) window.TechTrekInitSelects(sel.parentElement);
-    });
-  }
-
-  var collegeEl = document.getElementById('ev-college');
-  if (collegeEl) {
-    var handler = function() { refreshAllAuditoriumSelects(); };
-    if (collegeEl.tomselect) {
-      collegeEl.tomselect.on('change', handler);
-    } else {
-      collegeEl.addEventListener('change', handler);
-      var origObserver = new MutationObserver(function() {
-        if (collegeEl.tomselect) { collegeEl.tomselect.on('change', handler); origObserver.disconnect(); }
-      });
-      origObserver.observe(collegeEl.parentElement, { childList: true, subtree: true });
-    }
-  }
-
-  /* ── Helpers to read TomSelect / native select text ── */
-  function tsVal(sel) { return sel.tomselect ? sel.tomselect.getValue() : sel.value; }
-  function tsText(sel) {
-    if (sel.tomselect) {
-      var it = sel.tomselect.getItem(sel.tomselect.getValue());
-      return it ? it.textContent : '';
-    }
-    var o = sel.options[sel.selectedIndex];
-    return o ? o.text : '';
-  }
-  function destroyTS(sel) { if (sel && sel.tomselect) sel.tomselect.destroy(); }
-
-  /* ── Look up a session's default speaker_id from embedded data ── */
-  var sessMap = {};
-  window._wizardSessions.forEach(function(s) { sessMap[String(s.id)] = s; });
-
-  var container = document.getElementById('inline-sessions-list');
-
-  /* ── Combine separate date + time inputs into a datetime string ── */
-  function combineDatetime(div) {
-    var d = div.querySelector('.date-in');
-    var t = div.querySelector('.time-in');
-    if (!d || !t) return '';
-    if (d.value && t.value) return d.value + 'T' + t.value;
-    if (d.value) return d.value + 'T00:00';
-    return '';
-  }
-
-  /* ── Split a datetime string into {date, time} parts ── */
-  function splitDatetime(val) {
-    if (!val) return { date: '', time: '' };
-    var parts = val.split('T');
-    return { date: parts[0] || '', time: parts[1] || '' };
-  }
-
-  /* ── Custom 12hr / 24hr time picker ── */
-  var _12HR_HOURS = [12,1,2,3,4,5,6,7,8,9,10,11];
-
-  function buildTimeGroupHTML(timeVal) {
-    var h24 = -1, min = -1;
-    if (timeVal) {
-      var p = timeVal.split(':');
-      h24 = parseInt(p[0] || '0', 10);
-      min = parseInt(p[1] || '0', 10);
-    }
-    var h12 = h24 >= 0 ? (h24 % 12 || 12) : -1;
-    var ampm = h24 >= 12 ? 'PM' : 'AM';
-    var minRound = min >= 0 ? Math.round(min / 5) * 5 : -1;
-    if (minRound >= 60) minRound = 55;
-
-    var hourOpts = '<option value="">--</option>';
-    _12HR_HOURS.forEach(function(hv) {
-      hourOpts += '<option value="' + hv + '"' + (h12 === hv ? ' selected' : '') + '>' + hv + '</option>';
-    });
-
-    var minOpts = '<option value="">--</option>';
-    for (var mi = 0; mi < 60; mi += 5) {
-      var ms = mi < 10 ? '0' + mi : '' + mi;
-      minOpts += '<option value="' + ms + '"' + (minRound === mi ? ' selected' : '') + '>' + ms + '</option>';
-    }
-
-    return '<div class="time-group" style="display:flex;align-items:center;gap:.35rem;flex-wrap:nowrap">' +
-      '<select class="form-input hour-sel" data-no-tomselect style="width:auto;min-width:52px;padding:6px 8px">' + hourOpts + '</select>' +
-      '<span style="font-weight:600;color:var(--text-muted)">:</span>' +
-      '<select class="form-input min-sel" data-no-tomselect style="width:auto;min-width:58px;padding:6px 8px">' + minOpts + '</select>' +
-      '<select class="form-input ampm-sel" data-no-tomselect style="width:auto;min-width:58px;padding:6px 8px">' +
-        '<option value="AM"' + (ampm === 'AM' ? ' selected' : '') + '>AM</option>' +
-        '<option value="PM"' + (ampm === 'PM' ? ' selected' : '') + '>PM</option>' +
-      '</select>' +
-      '<button type="button" class="time-mode-btn" style="font-size:.72rem;color:var(--text-muted);background:none;border:1px solid var(--border);border-radius:4px;padding:3px 7px;cursor:pointer;white-space:nowrap">24hr</button>' +
-      '<input type="hidden" class="time-in" value="' + (timeVal || '') + '">' +
-    '</div>';
-  }
-
-  function initTimeGroup(grp) {
-    var hourSel = grp.querySelector('.hour-sel');
-    var minSel  = grp.querySelector('.min-sel');
-    var ampmSel = grp.querySelector('.ampm-sel');
-    var modeBtn = grp.querySelector('.time-mode-btn');
-    var hidden  = grp.querySelector('.time-in');
-    var is24 = false;
-
-    function syncHidden() {
-      var hv = hourSel.value, mv = minSel.value;
-      if (!hv || mv === '') { hidden.value = ''; return; }
-      var h = parseInt(hv, 10);
-      if (!is24) {
-        var pm = ampmSel.value === 'PM';
-        if (h === 12) h = pm ? 12 : 0;
-        else if (pm) h += 12;
-      }
-      hidden.value = (h < 10 ? '0' + h : '' + h) + ':' + mv;
-    }
-
-    hourSel.addEventListener('change', syncHidden);
-    minSel.addEventListener('change', syncHidden);
-    ampmSel.addEventListener('change', syncHidden);
-
-    modeBtn.addEventListener('click', function() {
-      var cur = hidden.value, curH = -1;
-      if (cur) curH = parseInt(cur.split(':')[0], 10);
-
-      is24 = !is24;
-      modeBtn.textContent = is24 ? '12hr' : '24hr';
-
-      if (is24) {
-        ampmSel.style.display = 'none';
-        var opts = '<option value="">--</option>';
-        for (var hi = 0; hi < 24; hi++) {
-          var hs = hi < 10 ? '0' + hi : '' + hi;
-          opts += '<option value="' + hs + '"' + (curH === hi ? ' selected' : '') + '>' + hs + '</option>';
-        }
-        hourSel.innerHTML = opts;
-      } else {
-        ampmSel.style.display = '';
-        var h12 = curH >= 0 ? (curH % 12 || 12) : -1;
-        ampmSel.value = curH >= 12 ? 'PM' : 'AM';
-        var opts = '<option value="">--</option>';
-        _12HR_HOURS.forEach(function(hv) {
-          opts += '<option value="' + hv + '"' + (h12 === hv ? ' selected' : '') + '>' + hv + '</option>';
-        });
-        hourSel.innerHTML = opts;
-      }
-    });
-  }
-
-  /* ── Collapse an entry into a compact pill ── */
-  function collapseEntry(div, i) {
-    var sessSel  = div.querySelector('select[name="sess_id_' + i + '"]');
-    var spkSel   = div.querySelector('select[name="sess_speaker_id_' + i + '"]');
-
-    var sessVal    = tsVal(sessSel);
-    var sessLabel  = tsText(sessSel) || '(no session)';
-    var spkVal     = tsVal(spkSel);
-    var spkLabel   = tsText(spkSel);
-
-    destroyTS(sessSel);
-    destroyTS(spkSel);
-
-    div.className = 'inline-session-entry confirmed';
-    div.innerHTML =
-      '<div class="sess-pill" style="display:flex;align-items:center;gap:.75rem;padding:.6rem 1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-surface);margin-bottom:.5rem">' +
-        '<span style="font-weight:600;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + sessLabel.replace(/</g,'&lt;') + '</span>' +
-        (spkLabel ? '<span style="font-size:.82rem;color:var(--text-muted);white-space:nowrap">' + spkLabel.replace(/</g,'&lt;') + '</span>' : '') +
-        '<button type="button" class="btn btn-sm btn-outline sess-edit-btn" style="padding:2px 8px;font-size:.75rem">Edit</button>' +
-        '<button type="button" class="btn btn-sm btn-danger sess-remove-btn" style="padding:2px 8px;font-size:.75rem">&times;</button>' +
-      '</div>' +
-      '<input type="hidden" name="sess_idx" value="' + i + '">' +
-      '<input type="hidden" name="sess_id_' + i + '" value="' + sessVal + '">' +
-      '<input type="hidden" name="sess_speaker_id_' + i + '" value="' + spkVal + '">' +
-      '<input type="hidden" name="sess_start_' + i + '" class="sess-start-input" value="">' +
-      '<input type="hidden" name="sess_order_' + i + '" class="sess-order-input" value="999">';
-
-    div.querySelector('.sess-remove-btn').addEventListener('click', function() {
-      div.remove();
-    });
-
-    div.querySelector('.sess-edit-btn').addEventListener('click', function() {
-      expandEntry(div, i, sessVal, spkVal);
-    });
-  }
-
-  /* ── Expand an entry back into picker form ── */
-  function expandEntry(div, i, sessVal, spkVal) {
-    div.className = 'inline-session-entry editing';
-    div.innerHTML =
-      '<div style="margin-bottom:1rem;padding:1rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg-card);position:relative">' +
-        '<div class="form-group"><label class="form-label">Session</label>' +
-          '<select name="sess_id_' + i + '" class="form-input sess-sel">' + sessOptions + '</select></div>' +
-        '<div class="form-group"><label class="form-label">Speaker Override</label>' +
-          '<select name="sess_speaker_id_' + i + '" class="form-input spk-sel">' + speakerOptions + '</select></div>' +
-        '<div style="display:flex;gap:.5rem;margin-top:.75rem">' +
-          '<button type="button" class="btn btn-primary btn-sm sess-confirm-btn">Confirm</button>' +
-          '<button type="button" class="btn btn-outline btn-sm sess-cancel-btn">Cancel</button>' +
-        '</div>' +
-      '</div>' +
-      '<input type="hidden" name="sess_idx" value="' + i + '">' +
-      '<input type="hidden" name="sess_order_' + i + '" class="sess-order-input" value="999">';
-
-    if (sessVal) div.querySelector('.sess-sel').value = sessVal;
-    if (spkVal)  div.querySelector('.spk-sel').value = spkVal;
-
-    if (window.TechTrekInitSelects) window.TechTrekInitSelects(div);
-
-    var sessSel = div.querySelector('.sess-sel');
-    var spkSel  = div.querySelector('.spk-sel');
-    function onSessionChange() {
-      var sid = sessSel.tomselect ? sessSel.tomselect.getValue() : sessSel.value;
-      var info = sessMap[sid];
-      if (info && info.speakerId) {
-        var spkId = String(info.speakerId);
-        if (spkSel.tomselect) {
-          spkSel.tomselect.setValue(spkId, true);
-        } else {
-          spkSel.value = spkId;
-        }
-      }
-    }
-    if (sessSel.tomselect) {
-      sessSel.tomselect.on('change', onSessionChange);
-    } else {
-      sessSel.addEventListener('change', onSessionChange);
-    }
-
-    div.querySelector('.sess-confirm-btn').addEventListener('click', function() {
-      var v = sessSel.tomselect ? sessSel.tomselect.getValue() : sessSel.value;
-      if (!v) {
-        sessSel.closest('.form-group').style.outline = '2px solid var(--danger, #f43f5e)';
-        setTimeout(function() { sessSel.closest('.form-group').style.outline = ''; }, 1500);
-        return;
-      }
-      collapseEntry(div, i);
-    });
-
-    div.querySelector('.sess-cancel-btn').addEventListener('click', function() {
-      var currentVal = sessSel.tomselect ? sessSel.tomselect.getValue() : sessSel.value;
-      if (currentVal || sessVal) {
-        collapseEntry(div, i);
-      } else {
-        div.remove();
-      }
-    });
-  }
-
-  /* ── "+ Add Session" creates a fresh expanded entry ── */
-  var sessionIdx = 0;
-  document.getElementById('add-inline-session').addEventListener('click', function() {
-    var i = sessionIdx++;
-    var div = document.createElement('div');
-    div.className = 'inline-session-entry editing';
-    container.appendChild(div);
-    expandEntry(div, i, '', '');
-  });
-
-  /* ── Attach handlers to server-rendered existing session pills ── */
-  container.querySelectorAll('.inline-session-entry.confirmed[data-existing]').forEach(function(entry) {
-    entry.querySelector('.sess-remove-btn').addEventListener('click', function() { entry.remove(); });
-    entry.querySelector('.sess-edit-btn').addEventListener('click', function() {
-      var idx = (entry.querySelector('input[name="sess_idx"]') || {}).value || '';
-      var sid = (entry.querySelector('input[name="sess_id_' + idx + '"]') || {}).value || '';
-      var spk = (entry.querySelector('input[name="sess_speaker_id_' + idx + '"]') || {}).value || '';
-      expandEntry(entry, idx, sid, spk);
-    });
-  });
-})();
-
-(function() {
-  var breakContainer = document.getElementById('inline-breaks-list');
-  var breakIdx = breakContainer ? breakContainer.querySelectorAll('.break-row').length : 0;
-
-  document.getElementById('add-break-item').addEventListener('click', function() {
-    var i = breakIdx++;
-    var div = document.createElement('div');
-    div.className = 'break-row form-card';
-    div.style.cssText = 'padding:.75rem;margin-bottom:.5rem;position:relative;';
-    div.innerHTML = '<button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest(\'.break-row\').remove()">&#10005;</button>'
-      + '<div class="form-row">'
-      + '<div class="form-group" style="flex:2"><label class="form-label">Title</label><input type="text" name="break_title_' + i + '" class="form-input" required placeholder="e.g. Lunch Break"></div>'
-      + '<div class="form-group" style="flex:1"><label class="form-label">Duration (min)</label><input type="number" name="break_duration_' + i + '" class="form-input" value="15" min="1"></div>'
-      + '</div>'
-      + '<div class="form-group"><label class="form-label">Description</label><textarea name="break_desc_' + i + '" class="form-input" rows="2" placeholder="Optional description"></textarea></div>'
-      + '<input type="hidden" name="break_order_' + i + '" class="break-order-input" value="999">'
-      + '<input type="hidden" name="break_start_time_' + i + '" class="break-start-input" value="">';
-    breakContainer.appendChild(div);
-  });
-
-  var addonContainer = document.getElementById('inline-addons-list');
-  var addonIdx = addonContainer ? addonContainer.querySelectorAll('.addon-row').length : 0;
-
-  document.getElementById('add-addon-item').addEventListener('click', function() {
-    var i = addonIdx++;
-    var div = document.createElement('div');
-    div.className = 'addon-row form-card';
-    div.style.cssText = 'padding:.75rem;margin-bottom:.5rem;position:relative;';
-    div.innerHTML = '<button type="button" class="btn btn-sm btn-outline" style="position:absolute;top:.5rem;right:.5rem;padding:0 .4rem;font-size:.8rem" onclick="this.closest(\'.addon-row\').remove()">&#10005;</button>'
-      + '<div class="form-row">'
-      + '<div class="form-group" style="flex:2"><label class="form-label">Title</label><input type="text" name="addon_title_' + i + '" class="form-input" required placeholder="e.g. Workshop Pass"></div>'
-      + '<div class="form-group" style="flex:1"><label class="form-label">Price (\u20B9)</label><input type="number" name="addon_price_' + i + '" class="form-input" value="0" min="0" step="0.01"></div>'
-      + '<div class="form-group" style="flex:1"><label class="form-label">Max Qty</label><input type="number" name="addon_max_qty_' + i + '" class="form-input" min="0" placeholder="Unlimited"></div>'
-      + '</div>'
-      + '<div class="form-row" style="align-items:end">'
-      + '<div class="form-group" style="flex:2"><label class="form-label">Description</label><textarea name="addon_desc_' + i + '" class="form-input" rows="2" placeholder="Optional description"></textarea></div>'
-      + '<div class="form-group" style="flex:0 0 auto"><label style="display:flex;align-items:center;gap:.4rem;cursor:pointer;font-size:.85rem;white-space:nowrap;padding:.45rem 0"><input type="checkbox" name="addon_in_agenda_' + i + '" class="addon-agenda-check" value="1"> Add to agenda</label></div>'
-      + '</div>'
-      + '<input type="hidden" name="addon_order_' + i + '" class="addon-order-input" value="999">'
-      + '<input type="hidden" name="addon_start_time_' + i + '" class="addon-start-input" value="">';
-    addonContainer.appendChild(div);
-  });
 })();
 </script>
 
 <script>
-/* ─── Agenda sub-tabs & Arrange tab ─── */
+/* ─── Unified Agenda Editor ─── */
 (function() {
-  var subtabs = document.querySelectorAll('.agenda-subtab');
-  var subpanels = document.querySelectorAll('.agenda-subpanel');
+  var agendaItems = [];
+  var nextId = 0;
+  var editingItem = null;
 
-  function switchSubtab(name) {
-    subtabs.forEach(function(t) { t.classList.toggle('active', t.dataset.subtab === name); });
-    subpanels.forEach(function(p) {
-      p.style.display = p.dataset.subpanel === name ? '' : 'none';
-    });
-    if (name === 'arrange') rebuildArrangeList();
+  var sessOptions = '<option value="">-- Select session --</option>';
+  (window._wizardSessions || []).forEach(function(s) {
+    var label = s.title + (s.speaker ? ' \u2014 ' + s.speaker : '');
+    sessOptions += '<option value="' + s.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
+  });
+  var speakerOptions = '<option value="">-- Default speaker --</option>';
+  (window._wizardSpeakers || []).forEach(function(sp) {
+    var label = sp.name + (sp.title ? ' \u2014 ' + sp.title : '');
+    speakerOptions += '<option value="' + sp.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
+  });
+  var sessMap = {};
+  (window._wizardSessions || []).forEach(function(s) { sessMap[String(s.id)] = s; });
+
+  var PRESETS = {
+    lunch:      { title: 'Lunch Break', duration: 30 },
+    tea:        { title: 'Tea Break',   duration: 15 },
+    networking: { title: 'Networking',  duration: 20 },
+    qa:         { title: 'Q\u0026A',    duration: 10 }
+  };
+
+  var listEl    = document.getElementById('agenda-unified-list');
+  var emptyEl   = document.getElementById('agenda-empty-state');
+  var summaryEl = document.getElementById('agenda-summary');
+  var hiddenEl  = document.getElementById('agenda-hidden-fields');
+  var sortableInst = null;
+
+  (window._existingAgendaItems || []).forEach(function(item) {
+    item.id = nextId++;
+    agendaItems.push(item);
+  });
+  agendaItems.sort(function(a, b) { return (a.order || 0) - (b.order || 0); });
+
+  function esc(s) {
+    var d = document.createElement('span');
+    d.textContent = s || '';
+    return d.innerHTML;
   }
 
-  subtabs.forEach(function(t) {
-    t.addEventListener('click', function() { switchSubtab(t.dataset.subtab); });
-  });
-
-  var arrangeList = document.getElementById('agenda-arrange-list');
-  var emptyMsg = document.getElementById('agenda-empty-msg');
-  var arrangeSortable = null;
-
-  var spkOpts = '<option value="">-- Default speaker --</option>';
-  (window._wizardSpeakers || []).forEach(function(sp) {
-    var lbl = sp.name + (sp.title ? ' \u2014 ' + sp.title : '');
-    spkOpts += '<option value="' + sp.id + '">' + lbl.replace(/"/g, '&quot;') + '</option>';
-  });
+  function formatTime(st) {
+    if (!st) return '';
+    try { return new Date(st).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }
+    catch(e) { return st; }
+  }
 
   function splitDT(val) {
     if (!val) return { date: '', time: '' };
@@ -1235,250 +967,429 @@ window._wizardSessions.push({ id: {{ es.session_id }}, title: {{ es.session.titl
     return { date: p[0] || '', time: p[1] || '' };
   }
 
-  function collectItems() {
-    var items = [];
-    document.querySelectorAll('#inline-sessions-list .inline-session-entry.confirmed').forEach(function(el) {
-      var idxIn = el.querySelector('input[name="sess_idx"]');
-      var idx = idxIn ? idxIn.value : '';
-      var sessId = (el.querySelector('input[name="sess_id_' + idx + '"]') || {}).value || '';
-      var spkId = (el.querySelector('input[name="sess_speaker_id_' + idx + '"]') || {}).value || '';
-      var startIn = el.querySelector('.sess-start-input');
-      var orderIn = el.querySelector('.sess-order-input');
-      var titleEl = el.querySelector('.sess-pill span[style*="font-weight:600"]');
-      var spkEl = el.querySelector('.sess-pill span[style*="font-size:.82rem"]');
-      items.push({
-        type: 'session', sourceEl: el, idx: idx, sessId: sessId,
-        label: titleEl ? titleEl.textContent : 'Session',
-        speakerId: spkId,
-        speakerLabel: spkEl ? spkEl.textContent : '',
-        startTime: startIn ? startIn.value : '',
-        order: orderIn ? parseInt(orderIn.value || '999') : 999
-      });
-    });
-    document.querySelectorAll('#inline-breaks-list .break-row').forEach(function(el) {
-      var titleIn = el.querySelector('input[name^="break_title_"]');
-      var durIn = el.querySelector('input[name^="break_duration_"]');
-      var descIn = el.querySelector('[name^="break_desc_"]');
-      var orderIn = el.querySelector('.break-order-input');
-      var startIn = el.querySelector('.break-start-input');
-      var idx = '';
-      if (titleIn) { var m = titleIn.name.match(/break_title_(.+)/); if (m) idx = m[1]; }
-      items.push({
-        type: 'break', sourceEl: el, idx: idx,
-        title: titleIn ? titleIn.value : 'Break',
-        duration: durIn ? durIn.value : '15',
-        description: descIn ? descIn.value : '',
-        startTime: startIn ? startIn.value : '',
-        order: orderIn ? parseInt(orderIn.value || '999') : 999
-      });
-    });
-    document.querySelectorAll('#inline-addons-list .addon-row').forEach(function(el) {
-      var check = el.querySelector('.addon-agenda-check');
-      if (!check || !check.checked) return;
-      var titleIn = el.querySelector('input[name^="addon_title_"]');
-      var priceIn = el.querySelector('input[name^="addon_price_"]');
-      var orderIn = el.querySelector('.addon-order-input');
-      var startIn = el.querySelector('.addon-start-input');
-      var idx = '';
-      if (titleIn) { var m = titleIn.name.match(/addon_title_(.+)/); if (m) idx = m[1]; }
-      items.push({
-        type: 'addon', sourceEl: el, idx: idx,
-        title: titleIn ? titleIn.value : 'Add-On',
-        price: priceIn ? priceIn.value : '0',
-        startTime: startIn ? startIn.value : '',
-        order: orderIn ? parseInt(orderIn.value || '999') : 999
-      });
-    });
-    items.sort(function(a, b) { return a.order - b.order; });
-    return items;
+  function getItemDuration(item) {
+    if (item.type === 'break') return item.duration || 15;
+    if (item.type === 'session') return item.duration || (sessMap[String(item.sessId)] || {}).duration || 30;
+    return 0;
   }
 
-  function rebuildArrangeList() {
-    arrangeList.innerHTML = '';
-    var items = collectItems();
-    if (!items.length) { emptyMsg.style.display = ''; return; }
-    emptyMsg.style.display = 'none';
-    items.forEach(function(item) {
-      arrangeList.appendChild(buildPill(item));
-    });
-    if (arrangeSortable) arrangeSortable.destroy();
-    arrangeSortable = Sortable.create(arrangeList, {
-      handle: '.agenda-drag-handle',
-      animation: 150,
-      ghostClass: 'sortable-ghost',
-      onEnd: syncOrder
-    });
+  function computeEndTime(startTime, durationMin) {
+    if (!startTime || !durationMin) return '';
+    var d = new Date(startTime);
+    if (isNaN(d.getTime())) return '';
+    d.setMinutes(d.getMinutes() + durationMin);
+    var yr = d.getFullYear();
+    var mo = String(d.getMonth() + 1).padStart(2, '0');
+    var dy = String(d.getDate()).padStart(2, '0');
+    var hh = String(d.getHours()).padStart(2, '0');
+    var mm = String(d.getMinutes()).padStart(2, '0');
+    return yr + '-' + mo + '-' + dy + 'T' + hh + ':' + mm;
   }
 
-  function esc(s) { return s.replace(/</g, '&lt;'); }
+  function getNextSlot() {
+    var evStart = document.getElementById('ev-start');
+    var fallbackDate = evStart ? evStart.value.split('T')[0] : '';
+    var fallbackTime = '09:00';
+    for (var i = agendaItems.length - 1; i >= 0; i--) {
+      if (agendaItems[i].startTime) {
+        var end = computeEndTime(agendaItems[i].startTime, getItemDuration(agendaItems[i]));
+        if (end) return splitDT(end);
+        return splitDT(agendaItems[i].startTime);
+      }
+    }
+    return { date: fallbackDate, time: fallbackTime };
+  }
 
-  function buildPill(item) {
+  /* ── Render ── */
+  function renderAgenda() {
+    listEl.innerHTML = '';
+    if (!agendaItems.length) {
+      emptyEl.style.display = '';
+      summaryEl.textContent = '';
+    } else {
+      emptyEl.style.display = 'none';
+      var sc = 0, bc = 0, ac = 0;
+      agendaItems.forEach(function(it) {
+        if (it.type === 'session') sc++;
+        else if (it.type === 'break') bc++;
+        else ac++;
+      });
+      var parts = [];
+      if (sc) parts.push(sc + ' session' + (sc > 1 ? 's' : ''));
+      if (bc) parts.push(bc + ' break' + (bc > 1 ? 's' : ''));
+      if (ac) parts.push(ac + ' add-on' + (ac > 1 ? 's' : ''));
+      summaryEl.textContent = parts.join(', ');
+      agendaItems.forEach(function(item, idx) { listEl.appendChild(buildPill(item, idx)); });
+    }
+    syncHiddenFields();
+    initSortable();
+  }
+
+  function buildPill(item, idx) {
     var div = document.createElement('div');
     div.className = 'agenda-pill agenda-pill--' + item.type;
-    div.dataset.type = item.type;
-    div.dataset.idx = item.idx;
+    div.dataset.agendaId = item.id;
 
-    var badge = item.type === 'session' ? 'agenda-badge-session'
-               : item.type === 'addon' ? 'agenda-badge-addon'
-               : 'agenda-badge-break';
-    var badgeTxt = item.type === 'session' ? 'SESSION'
-                 : item.type === 'addon' ? 'ADD-ON'
-                 : 'BREAK';
-    var title = item.type === 'session' ? item.label : item.title;
-    var meta = item.type === 'session' ? item.speakerLabel
-             : item.type === 'addon' ? ('\u20B9' + (item.price || '0'))
-             : (item.duration + ' min');
-
-    var timeFmt = '';
-    if (item.startTime) {
-      try { timeFmt = new Date(item.startTime).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); }
-      catch(e) { timeFmt = item.startTime; }
+    var badge, badgeTxt, title, meta, descSnippet = '';
+    if (item.type === 'session') {
+      badge = 'agenda-badge-session'; badgeTxt = 'SESSION';
+      title = item.sessLabel || 'Session';
+      var dur = item.duration || (sessMap[String(item.sessId)] || {}).duration || 30;
+      meta = dur + ' min';
+      if (item.speakerLabel) meta += ' \u00B7 ' + item.speakerLabel;
+    } else if (item.type === 'break') {
+      badge = 'agenda-badge-break'; badgeTxt = 'BREAK';
+      title = item.title || 'Break';
+      meta = (item.duration || 15) + ' min';
+      if (item.description) descSnippet = item.description.length > 40 ? item.description.substring(0, 40) + '\u2026' : item.description;
+    } else {
+      badge = 'agenda-badge-addon'; badgeTxt = 'ADD-ON';
+      title = item.title || 'Add-On';
+      meta = '\u20B9' + (item.price || 0);
+      if (!item.inAgenda) meta += ' (hidden)';
+      if (item.description) descSnippet = item.description.length > 40 ? item.description.substring(0, 40) + '\u2026' : item.description;
     }
+    var timeFmt = formatTime(item.startTime);
+    var canDup = item.type !== 'session';
 
     div.innerHTML =
       '<div class="agenda-pill-main">' +
         '<span class="agenda-drag-handle">\u2807</span>' +
+        '<span class="agenda-item-number">' + (idx + 1) + '</span>' +
         '<span class="agenda-pill-badge ' + badge + '">' + badgeTxt + '</span>' +
         '<span class="agenda-pill-title">' + esc(title) + '</span>' +
         (meta ? '<span class="agenda-pill-meta">' + esc(meta) + '</span>' : '') +
+        (descSnippet ? '<span class="agenda-pill-desc">' + esc(descSnippet) + '</span>' : '') +
         (timeFmt ? '<span class="agenda-pill-time">' + timeFmt + '</span>' : '') +
         '<span class="agenda-pill-arrows">' +
           '<button type="button" class="agenda-arrow agenda-arrow-up" title="Move up">\u25B2</button>' +
           '<button type="button" class="agenda-arrow agenda-arrow-down" title="Move down">\u25BC</button>' +
         '</span>' +
-        '<button type="button" class="btn btn-sm btn-outline agenda-expand-btn" style="padding:2px 8px;font-size:.75rem">\u25BE</button>' +
-      '</div>' +
-      '<div class="agenda-pill-detail" style="display:none"></div>';
+        '<span class="agenda-item-actions">' +
+          '<button type="button" class="btn btn-sm btn-outline agenda-edit-btn" title="Edit">\u270E</button>' +
+          (canDup ? '<button type="button" class="btn btn-sm btn-outline agenda-dup-btn" title="Duplicate">\u2398</button>' : '') +
+          '<button type="button" class="btn btn-sm btn-danger agenda-del-btn" title="Delete">\u00D7</button>' +
+        '</span>' +
+      '</div>';
 
-    div.querySelector('.agenda-arrow-up').addEventListener('click', function() {
-      var prev = div.previousElementSibling;
-      if (prev) { arrangeList.insertBefore(div, prev); syncOrder(); }
+    div.querySelector('.agenda-arrow-up').addEventListener('click', function(e) {
+      e.stopPropagation();
+      var i = agendaItems.indexOf(item);
+      if (i > 0) { agendaItems.splice(i, 1); agendaItems.splice(i - 1, 0, item); renderAgenda(); }
     });
-    div.querySelector('.agenda-arrow-down').addEventListener('click', function() {
-      var next = div.nextElementSibling;
-      if (next) { arrangeList.insertBefore(next, div); syncOrder(); }
+    div.querySelector('.agenda-arrow-down').addEventListener('click', function(e) {
+      e.stopPropagation();
+      var i = agendaItems.indexOf(item);
+      if (i < agendaItems.length - 1) { agendaItems.splice(i, 1); agendaItems.splice(i + 1, 0, item); renderAgenda(); }
     });
-    div.querySelector('.agenda-expand-btn').addEventListener('click', function() {
-      toggleDetail(div, item);
+    div.querySelector('.agenda-edit-btn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      openEditModal(item);
+    });
+    if (canDup) {
+      div.querySelector('.agenda-dup-btn').addEventListener('click', function(e) {
+        e.stopPropagation();
+        var clone = JSON.parse(JSON.stringify(item));
+        clone.id = nextId++;
+        if (item.startTime) {
+          clone.startTime = computeEndTime(item.startTime, getItemDuration(item)) || '';
+        }
+        clone.title = (clone.title || '') + ' (copy)';
+        var i = agendaItems.indexOf(item);
+        agendaItems.splice(i + 1, 0, clone);
+        renderAgenda();
+      });
+    }
+    div.querySelector('.agenda-del-btn').addEventListener('click', function(e) {
+      e.stopPropagation();
+      var label = title || 'this item';
+      if (!confirm('Remove \u201C' + label + '\u201D from the agenda?')) return;
+      var i = agendaItems.indexOf(item);
+      if (i >= 0) { agendaItems.splice(i, 1); renderAgenda(); }
     });
     return div;
   }
 
-  function toggleDetail(div, item) {
-    var detail = div.querySelector('.agenda-pill-detail');
-    var btn = div.querySelector('.agenda-expand-btn');
-    if (detail.style.display !== 'none') {
-      saveDetail(div, item);
-      detail.style.display = 'none';
-      btn.textContent = '\u25BE';
-      return;
-    }
-    var dt = splitDT(item.startTime);
-    var html = '<div style="padding:.75rem 1rem .75rem 2.5rem">';
-    html += '<div class="form-row">';
-    html += '<div class="form-group"><label class="form-label">Date</label>' +
-      '<input type="date" class="form-input agenda-dt-date" value="' + dt.date + '"></div>';
-    html += '<div class="form-group"><label class="form-label">Time</label>' +
-      '<input type="time" class="form-input agenda-dt-time" value="' + dt.time + '"></div>';
-    if (item.type === 'session') {
-      html += '<div class="form-group" style="flex:2"><label class="form-label">Speaker Override</label>' +
-        '<select class="form-input agenda-dt-speaker" data-no-tomselect>' + spkOpts + '</select></div>';
-    }
-    html += '</div></div>';
-    detail.innerHTML = html;
-    detail.style.display = '';
-    btn.textContent = '\u25B4';
-
-    if (item.type === 'session' && item.speakerId) {
-      var sel = detail.querySelector('.agenda-dt-speaker');
-      if (sel) sel.value = item.speakerId;
-    }
-    detail.querySelectorAll('input, select').forEach(function(el) {
-      el.addEventListener('change', function() { saveDetail(div, item); });
+  /* ── Sortable ── */
+  function initSortable() {
+    if (sortableInst) sortableInst.destroy();
+    if (!agendaItems.length) return;
+    sortableInst = Sortable.create(listEl, {
+      handle: '.agenda-drag-handle',
+      animation: 150,
+      ghostClass: 'sortable-ghost',
+      onEnd: function(evt) {
+        var moved = agendaItems.splice(evt.oldIndex, 1)[0];
+        agendaItems.splice(evt.newIndex, 0, moved);
+        renderAgenda();
+      }
     });
   }
 
-  function saveDetail(div, item) {
-    var detail = div.querySelector('.agenda-pill-detail');
-    if (!detail || detail.style.display === 'none') return;
-    var dateIn = detail.querySelector('.agenda-dt-date');
-    var timeIn = detail.querySelector('.agenda-dt-time');
-    var startTime = '';
-    if (dateIn && dateIn.value) {
-      startTime = dateIn.value + 'T' + (timeIn && timeIn.value ? timeIn.value : '00:00');
-    }
-    item.startTime = startTime;
-    var src = item.sourceEl;
-    if (src) {
-      var si = src.querySelector('.sess-start-input, .break-start-input, .addon-start-input');
-      if (si) si.value = startTime;
-    }
-    if (item.type === 'session') {
-      var sel = detail.querySelector('.agenda-dt-speaker');
-      if (sel && sel.value !== item.speakerId) {
-        item.speakerId = sel.value;
-        item.speakerLabel = sel.options[sel.selectedIndex] ? sel.options[sel.selectedIndex].text : '';
-        if (src) {
-          var si2 = src.querySelector('input[name="sess_speaker_id_' + item.idx + '"]');
-          if (si2) si2.value = sel.value;
-        }
-        var metaSpan = div.querySelector('.agenda-pill-meta');
-        if (metaSpan && item.speakerLabel) metaSpan.textContent = item.speakerLabel;
+  /* ── Hidden fields sync ── */
+  function syncHiddenFields() {
+    var html = '';
+    var si = 0, bi = 0, ai = 0;
+    agendaItems.forEach(function(item, order) {
+      if (item.type === 'session') {
+        var idx = si++;
+        html += '<input type="hidden" name="sess_idx" value="' + idx + '">' +
+          '<input type="hidden" name="sess_id_' + idx + '" value="' + esc(item.sessId || '') + '">' +
+          '<input type="hidden" name="sess_speaker_id_' + idx + '" value="' + esc(item.speakerId || '') + '">' +
+          '<input type="hidden" name="sess_start_' + idx + '" value="' + esc(item.startTime || '') + '">' +
+          '<input type="hidden" name="sess_order_' + idx + '" value="' + order + '">';
+      } else if (item.type === 'break') {
+        var idx = bi++;
+        html += '<input type="hidden" name="break_title_' + idx + '" value="' + esc(item.title || '') + '">' +
+          '<input type="hidden" name="break_duration_' + idx + '" value="' + (item.duration || 15) + '">' +
+          '<input type="hidden" name="break_desc_' + idx + '" value="' + esc(item.description || '') + '">' +
+          '<input type="hidden" name="break_order_' + idx + '" value="' + order + '">' +
+          '<input type="hidden" name="break_start_time_' + idx + '" value="' + esc(item.startTime || '') + '">';
+      } else if (item.type === 'addon') {
+        var idx = ai++;
+        html += '<input type="hidden" name="addon_title_' + idx + '" value="' + esc(item.title || '') + '">' +
+          '<input type="hidden" name="addon_price_' + idx + '" value="' + (item.price || 0) + '">' +
+          '<input type="hidden" name="addon_max_qty_' + idx + '" value="' + (item.maxQty || '') + '">' +
+          '<input type="hidden" name="addon_desc_' + idx + '" value="' + esc(item.description || '') + '">' +
+          (item.inAgenda ? '<input type="hidden" name="addon_in_agenda_' + idx + '" value="1">' : '') +
+          '<input type="hidden" name="addon_order_' + idx + '" value="' + order + '">' +
+          '<input type="hidden" name="addon_start_time_' + idx + '" value="' + esc(item.startTime || '') + '">';
       }
-    }
-    var timeSpan = div.querySelector('.agenda-pill-time');
-    if (startTime) {
-      var fmt = '';
-      try { fmt = new Date(startTime).toLocaleString([], { month:'short', day:'numeric', hour:'numeric', minute:'2-digit' }); } catch(e) { fmt = startTime; }
-      if (timeSpan) { timeSpan.textContent = fmt; }
-      else {
-        var ns = document.createElement('span');
-        ns.className = 'agenda-pill-time';
-        ns.textContent = fmt;
-        var arrows = div.querySelector('.agenda-pill-arrows');
-        if (arrows) arrows.parentElement.insertBefore(ns, arrows);
-      }
-    } else if (timeSpan) {
-      timeSpan.remove();
-    }
+    });
+    hiddenEl.innerHTML = html;
   }
 
-  function syncOrder() {
-    arrangeList.querySelectorAll('.agenda-pill').forEach(function(pill, idx) {
-      var type = pill.dataset.type;
-      var sourceIdx = pill.dataset.idx;
-      var cls = type === 'session' ? '.sess-order-input'
-              : type === 'addon' ? '.addon-order-input'
-              : '.break-order-input';
-      var list = type === 'session' ? '#inline-sessions-list .inline-session-entry.confirmed'
-               : type === 'addon' ? '#inline-addons-list .addon-row'
-               : '#inline-breaks-list .break-row';
-      document.querySelectorAll(list).forEach(function(el) {
-        var match = false;
-        if (type === 'session') {
-          var ii = (el.querySelector('input[name="sess_idx"]') || {}).value;
-          if (ii === sourceIdx) match = true;
-        } else if (type === 'addon') {
-          var ai = el.querySelector('input[name^="addon_title_"]');
-          if (ai) { var m = ai.name.match(/addon_title_(.+)/); if (m && m[1] === sourceIdx) match = true; }
-        } else {
-          var ti = el.querySelector('input[name^="break_title_"]');
-          if (ti) { var m = ti.name.match(/break_title_(.+)/); if (m && m[1] === sourceIdx) match = true; }
-        }
-        if (match) {
-          var oi = el.querySelector(cls);
-          if (oi) oi.value = idx;
-        }
+  /* ── Modal helpers ── */
+  function openModal(id) { document.getElementById(id).classList.add('active'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+
+  /* ── Session modal ── */
+  var sessSelect = document.getElementById('modal-sess-select');
+  var sessSpkSelect = document.getElementById('modal-sess-speaker');
+  sessSelect.innerHTML = sessOptions;
+  sessSpkSelect.innerHTML = speakerOptions;
+
+  var sessTom = null, spkTom = null;
+  function ensureSessionTomSelects() {
+    if (sessTom) return;
+    if (typeof TomSelect === 'undefined') return;
+    sessTom = new TomSelect(sessSelect, { create: false, allowEmptyOption: true, controlInput: '<input>', plugins: ['clear_button'], dropdownParent: 'body' });
+    spkTom  = new TomSelect(sessSpkSelect, { create: false, allowEmptyOption: true, controlInput: '<input>', plugins: ['clear_button'], dropdownParent: 'body' });
+    sessTom.on('change', function(val) {
+      var info = sessMap[val];
+      if (info && info.speakerId) spkTom.setValue(String(info.speakerId), true);
+    });
+  }
+  document.addEventListener('DOMContentLoaded', ensureSessionTomSelects);
+
+  document.getElementById('btn-add-session').addEventListener('click', function() {
+    ensureSessionTomSelects();
+    editingItem = null;
+    document.getElementById('modal-session-title').textContent = 'Add Session';
+    document.getElementById('modal-sess-save').textContent = 'Add Session';
+    if (sessTom) sessTom.setValue('', true);
+    if (spkTom) spkTom.setValue('', true);
+    var slot = getNextSlot();
+    document.getElementById('modal-sess-date').value = slot.date;
+    document.getElementById('modal-sess-time').value = slot.time;
+    openModal('modal-add-session');
+  });
+
+  document.getElementById('modal-sess-cancel').addEventListener('click', function() { closeModal('modal-add-session'); });
+  document.querySelector('#modal-add-session > .modal-backdrop').addEventListener('click', function() { closeModal('modal-add-session'); });
+
+  document.getElementById('modal-sess-save').addEventListener('click', function() {
+    ensureSessionTomSelects();
+    var sessId = sessTom ? sessTom.getValue() : sessSelect.value;
+    if (!sessId) { if (window.TechTrek) TechTrek.showToast('Please select a session.', 'warning'); return; }
+    var info = sessMap[sessId] || {};
+    var spkId = spkTom ? spkTom.getValue() : sessSpkSelect.value;
+    var spkLabel = '';
+    if (spkId && spkTom) { var it = spkTom.getItem(spkId); spkLabel = it ? it.textContent : ''; }
+    var d = document.getElementById('modal-sess-date').value;
+    var t = document.getElementById('modal-sess-time').value;
+    var startTime = d ? d + 'T' + (t || '00:00') : '';
+
+    if (editingItem) {
+      editingItem.sessId = sessId;
+      editingItem.sessLabel = info.title || 'Session';
+      editingItem.speakerId = spkId;
+      editingItem.speakerLabel = spkLabel || info.speaker || '';
+      editingItem.duration = info.duration || 30;
+      editingItem.startTime = startTime;
+    } else {
+      agendaItems.push({
+        id: nextId++, type: 'session', sessId: sessId,
+        sessLabel: info.title || 'Session', speakerId: spkId,
+        speakerLabel: spkLabel || info.speaker || '',
+        duration: info.duration || 30,
+        startTime: startTime, order: agendaItems.length
       });
+    }
+    closeModal('modal-add-session');
+    renderAgenda();
+  });
+
+  /* ── Break modal ── */
+  document.getElementById('btn-add-break').addEventListener('click', function() {
+    editingItem = null;
+    document.getElementById('modal-break-title-text').textContent = 'Add Break';
+    document.getElementById('modal-break-save').textContent = 'Add Break';
+    document.getElementById('modal-break-name').value = '';
+    document.getElementById('modal-break-duration').value = '15';
+    document.getElementById('modal-break-desc').value = '';
+    var slot = getNextSlot();
+    document.getElementById('modal-break-date').value = slot.date;
+    document.getElementById('modal-break-time').value = slot.time;
+    openModal('modal-add-break');
+  });
+
+  document.getElementById('modal-break-cancel').addEventListener('click', function() { closeModal('modal-add-break'); });
+  document.querySelector('#modal-add-break > .modal-backdrop').addEventListener('click', function() { closeModal('modal-add-break'); });
+
+  document.querySelectorAll('#modal-add-break .break-presets button').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      document.getElementById('modal-break-name').value = btn.dataset.pTitle || '';
+      document.getElementById('modal-break-duration').value = btn.dataset.pDur || '15';
     });
+  });
+
+  document.getElementById('modal-break-save').addEventListener('click', function() {
+    var title = document.getElementById('modal-break-name').value.trim();
+    if (!title) { if (window.TechTrek) TechTrek.showToast('Please enter a break title.', 'warning'); return; }
+    var dur = parseInt(document.getElementById('modal-break-duration').value) || 15;
+    var desc = document.getElementById('modal-break-desc').value.trim();
+    var d = document.getElementById('modal-break-date').value;
+    var t = document.getElementById('modal-break-time').value;
+    var startTime = d ? d + 'T' + (t || '00:00') : '';
+
+    if (editingItem) {
+      editingItem.title = title; editingItem.duration = dur;
+      editingItem.description = desc; editingItem.startTime = startTime;
+    } else {
+      agendaItems.push({
+        id: nextId++, type: 'break', title: title, duration: dur,
+        description: desc, startTime: startTime, order: agendaItems.length
+      });
+    }
+    closeModal('modal-add-break');
+    renderAgenda();
+  });
+
+  /* ── Quick-add presets ── */
+  var quickMenu = document.getElementById('quick-break-menu');
+  document.getElementById('btn-quick-break').addEventListener('click', function(e) {
+    e.stopPropagation();
+    quickMenu.classList.toggle('show');
+  });
+  document.addEventListener('click', function() { quickMenu.classList.remove('show'); });
+
+  quickMenu.querySelectorAll('[data-preset]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var p = PRESETS[btn.dataset.preset];
+      if (!p) return;
+      var slot = getNextSlot();
+      var st = slot.date ? slot.date + 'T' + (slot.time || '00:00') : '';
+      agendaItems.push({
+        id: nextId++, type: 'break', title: p.title, duration: p.duration,
+        description: '', startTime: st, order: agendaItems.length
+      });
+      quickMenu.classList.remove('show');
+      renderAgenda();
+    });
+  });
+
+  /* ── Add-On modal ── */
+  document.getElementById('btn-add-addon').addEventListener('click', function() {
+    editingItem = null;
+    document.getElementById('modal-addon-title-text').textContent = 'Add Add-On';
+    document.getElementById('modal-addon-save').textContent = 'Add Add-On';
+    document.getElementById('modal-addon-name').value = '';
+    document.getElementById('modal-addon-price').value = '0';
+    document.getElementById('modal-addon-max-qty').value = '';
+    document.getElementById('modal-addon-desc').value = '';
+    document.getElementById('modal-addon-in-agenda').checked = true;
+    var slot = getNextSlot();
+    document.getElementById('modal-addon-date').value = slot.date;
+    document.getElementById('modal-addon-time').value = slot.time;
+    openModal('modal-add-addon');
+  });
+
+  document.getElementById('modal-addon-cancel').addEventListener('click', function() { closeModal('modal-add-addon'); });
+  document.querySelector('#modal-add-addon > .modal-backdrop').addEventListener('click', function() { closeModal('modal-add-addon'); });
+
+  document.getElementById('modal-addon-save').addEventListener('click', function() {
+    var title = document.getElementById('modal-addon-name').value.trim();
+    if (!title) { if (window.TechTrek) TechTrek.showToast('Please enter an add-on title.', 'warning'); return; }
+    var price = parseFloat(document.getElementById('modal-addon-price').value) || 0;
+    var maxQty = parseInt(document.getElementById('modal-addon-max-qty').value) || null;
+    var desc = document.getElementById('modal-addon-desc').value.trim();
+    var inAgenda = document.getElementById('modal-addon-in-agenda').checked;
+    var d = document.getElementById('modal-addon-date').value;
+    var t = document.getElementById('modal-addon-time').value;
+    var startTime = d ? d + 'T' + (t || '00:00') : '';
+
+    if (editingItem) {
+      editingItem.title = title; editingItem.price = price;
+      editingItem.maxQty = maxQty; editingItem.description = desc;
+      editingItem.inAgenda = inAgenda; editingItem.startTime = startTime;
+    } else {
+      agendaItems.push({
+        id: nextId++, type: 'addon', title: title, price: price,
+        maxQty: maxQty, description: desc, inAgenda: inAgenda,
+        startTime: startTime, order: agendaItems.length
+      });
+    }
+    closeModal('modal-add-addon');
+    renderAgenda();
+  });
+
+  /* ── Edit dispatch ── */
+  function openEditModal(item) {
+    editingItem = item;
+    if (item.type === 'session') {
+      ensureSessionTomSelects();
+      document.getElementById('modal-session-title').textContent = 'Edit Session';
+      document.getElementById('modal-sess-save').textContent = 'Save Changes';
+      if (sessTom) sessTom.setValue(String(item.sessId || ''), true);
+      if (spkTom) spkTom.setValue(String(item.speakerId || ''), true);
+      var dt = splitDT(item.startTime);
+      document.getElementById('modal-sess-date').value = dt.date;
+      document.getElementById('modal-sess-time').value = dt.time;
+      openModal('modal-add-session');
+    } else if (item.type === 'break') {
+      document.getElementById('modal-break-title-text').textContent = 'Edit Break';
+      document.getElementById('modal-break-save').textContent = 'Save Changes';
+      document.getElementById('modal-break-name').value = item.title || '';
+      document.getElementById('modal-break-duration').value = item.duration || 15;
+      document.getElementById('modal-break-desc').value = item.description || '';
+      var dt = splitDT(item.startTime);
+      document.getElementById('modal-break-date').value = dt.date;
+      document.getElementById('modal-break-time').value = dt.time;
+      openModal('modal-add-break');
+    } else if (item.type === 'addon') {
+      document.getElementById('modal-addon-title-text').textContent = 'Edit Add-On';
+      document.getElementById('modal-addon-save').textContent = 'Save Changes';
+      document.getElementById('modal-addon-name').value = item.title || '';
+      document.getElementById('modal-addon-price').value = item.price || 0;
+      document.getElementById('modal-addon-max-qty').value = item.maxQty || '';
+      document.getElementById('modal-addon-desc').value = item.description || '';
+      document.getElementById('modal-addon-in-agenda').checked = !!item.inAgenda;
+      var dt = splitDT(item.startTime);
+      document.getElementById('modal-addon-date').value = dt.date;
+      document.getElementById('modal-addon-time').value = dt.time;
+      openModal('modal-add-addon');
+    }
   }
 
+  /* ── Sync on form submit ── */
   var form = document.getElementById('event-form');
   if (form) {
-    form.addEventListener('submit', function() {
-      if (arrangeList.children.length > 0) syncOrder();
-    });
+    form.addEventListener('submit', function() { syncHiddenFields(); });
   }
+
+  renderAgenda();
 })();
 </script>
 
@@ -2228,6 +2139,19 @@ initGalleryUpload('ev-gallery', '/admin/upload-image', [
     </div>
   </div>
 </div>
+
+<script>
+(function() {
+  var updateBtn = document.getElementById('update-from-excel-btn');
+  var updateFile = document.getElementById('update-from-excel-file');
+  if (updateBtn && updateFile) {
+    updateBtn.addEventListener('click', function() { updateFile.click(); });
+    updateFile.addEventListener('change', function() {
+      if (this.files.length) document.getElementById('update-from-excel-form').submit();
+    });
+  }
+})();
+</script>
 
 <script>
 (function() {
