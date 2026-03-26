@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from app.csrf import csrf_protection
@@ -2234,11 +2234,33 @@ async def settings_update(request: Request, db: Session = Depends(get_db)):
 # ---------------------------------------------------------------------------
 
 @router.get("/events")
-def events_list(request: Request, db: Session = Depends(get_db)):
+def events_list(request: Request, db: Session = Depends(get_db), view: str = Query("current")):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    events = db.query(Event).order_by(Event.created_at.desc()).all()
+
+    today = date.today()
+    stale = (
+        db.query(Event)
+        .filter(
+            Event.status == "published",
+            or_(
+                Event.end_date < today,
+                (Event.end_date.is_(None)) & (Event.start_date < today),
+            ),
+        )
+        .all()
+    )
+    for ev in stale:
+        ev.status = "completed"
+    if stale:
+        db.commit()
+
+    if view == "completed":
+        events = db.query(Event).filter(Event.status == "completed").order_by(Event.created_at.desc()).all()
+    else:
+        events = db.query(Event).filter(Event.status != "completed").order_by(Event.created_at.desc()).all()
+
     enriched = []
     for ev in events:
         session_count = len(ev.event_sessions) if ev.event_sessions else 0
@@ -2250,7 +2272,7 @@ def events_list(request: Request, db: Session = Depends(get_db)):
         enriched.append({"event": ev, "session_count": session_count, "bookings": booking_count, "auditorium": aud})
     return templates.TemplateResponse(
         "admin/events.html",
-        _admin_ctx(request, active_page="events", events=enriched),
+        _admin_ctx(request, active_page="events", events=enriched, view=view),
     )
 
 
@@ -2361,6 +2383,7 @@ def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_d
     event_breaks = db.query(EventBreak).filter(EventBreak.event_id == event_id).order_by(EventBreak.order, EventBreak.start_time).all()
     event_addons = db.query(EventAddOn).filter(EventAddOn.event_id == event_id).all()
     fb_templates = db.query(FeedbackTemplate).order_by(FeedbackTemplate.name).all()
+    all_events = db.query(Event).filter(Event.id != event_id).order_by(Event.name).all()
     return templates.TemplateResponse(
         "admin/event_form.html",
         _admin_ctx(request, active_page="events", event=ev, colleges=colleges, auditoriums=auditoriums,
@@ -2368,7 +2391,8 @@ def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_d
                    all_sessions=all_sessions, speakers=speakers,
                    aud_seat_types=aud_seat_types, custom_types_map=ct_map,
                    gallery_images=gallery, event_breaks=event_breaks,
-                   event_addons=event_addons, fb_templates=fb_templates),
+                   event_addons=event_addons, fb_templates=fb_templates,
+                   all_events=all_events),
     )
 
 
@@ -2780,6 +2804,267 @@ def event_template_download(request: Request, db: Session = Depends(get_db)):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": "attachment; filename=event_template.xlsx"},
     )
+
+
+@router.get("/events/{event_id}/export-template")
+def event_export_template(request: Request, event_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    ev = db.query(Event).get(event_id)
+    if not ev:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+
+    from openpyxl import Workbook
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from app.models.event_session import EventSession
+
+    city_name = state_name = college_name = hall_name = ""
+    if ev.college_id:
+        college_obj = db.query(College).get(ev.college_id)
+        if college_obj:
+            college_name = college_obj.name
+            city_obj = db.query(City).get(college_obj.city_id) if college_obj.city_id else None
+            if city_obj:
+                city_name = city_obj.name
+                state_name = city_obj.state or ""
+    if ev.auditorium_id:
+        aud_obj = db.query(Auditorium).get(ev.auditorium_id)
+        if aud_obj:
+            hall_name = aud_obj.name
+
+    header_values = [
+        ev.name or "",
+        city_name,
+        state_name,
+        college_name,
+        hall_name,
+        ev.start_date.isoformat() if ev.start_date else "",
+        ev.end_date.isoformat() if ev.end_date else "",
+        (ev.status or "draft").capitalize(),
+    ]
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Event"
+
+    label_font = Font(bold=True, size=11)
+    label_fill = PatternFill(start_color="D9E2F3", end_color="D9E2F3", fill_type="solid")
+    thin_border = Border(
+        left=Side(style="thin", color="D9D9D9"),
+        right=Side(style="thin", color="D9D9D9"),
+        top=Side(style="thin", color="D9D9D9"),
+        bottom=Side(style="thin", color="D9D9D9"),
+    )
+
+    for r, (label, value) in enumerate(zip(_EVENT_HEADER_LABELS, header_values), 1):
+        lc = ws.cell(row=r, column=1, value=label)
+        lc.font = label_font
+        lc.fill = label_fill
+        lc.border = thin_border
+        vc = ws.cell(row=r, column=2, value=value)
+        vc.border = thin_border
+
+    agenda_header_row = len(_EVENT_HEADER_LABELS) + 3
+    header_font = Font(bold=True, color="FFFFFF", size=11)
+    header_fill = PatternFill(start_color="4472C4", end_color="4472C4", fill_type="solid")
+    header_align = Alignment(horizontal="center", vertical="center")
+
+    for ci, col_name in enumerate(_EVENT_TEMPLATE_AGENDA_COLS, 1):
+        cell = ws.cell(row=agenda_header_row, column=ci, value=col_name)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = header_align
+        cell.border = thin_border
+
+    ev_sessions = (
+        db.query(EventSession).filter(EventSession.event_id == event_id)
+        .order_by(EventSession.order, EventSession.start_time).all()
+    )
+    ev_breaks = (
+        db.query(EventBreak).filter(EventBreak.event_id == event_id)
+        .order_by(EventBreak.order, EventBreak.start_time).all()
+    )
+
+    def _fmt_time(dt):
+        if not dt:
+            return ""
+        h = dt.hour % 12 or 12
+        return f"{h}:{dt.minute:02d} {'AM' if dt.hour < 12 else 'PM'}"
+
+    agenda_items = []
+    for es in ev_sessions:
+        sess = es.session
+        if not sess:
+            continue
+        speaker = db.query(Speaker).get(sess.speaker_id) if sess.speaker_id else None
+        start_fmt = _fmt_time(es.start_time)
+        end_time = None
+        if es.start_time and sess.duration_minutes:
+            end_time = es.start_time + timedelta(minutes=sess.duration_minutes)
+        end_fmt = _fmt_time(end_time)
+        agenda_items.append((es.order, [
+            start_fmt, end_fmt, "Session",
+            sess.title or "",
+            sess.abstract or sess.description or "",
+            sess.key_learning_outcomes or "",
+            speaker.name if speaker else (sess.speaker_name or ""),
+            speaker.title if speaker else "",
+            speaker.email if speaker else "",
+            speaker.bio if speaker else "",
+            speaker.linkedin_url if speaker else "",
+        ]))
+    for eb in ev_breaks:
+        start_fmt = _fmt_time(eb.start_time)
+        end_time = None
+        if eb.start_time and eb.duration_minutes:
+            end_time = eb.start_time + timedelta(minutes=eb.duration_minutes)
+        end_fmt = _fmt_time(end_time)
+        agenda_items.append((eb.order, [
+            start_fmt, end_fmt, "Break",
+            eb.title or "",
+            eb.description or "",
+            "", "", "", "", "", "",
+        ]))
+
+    agenda_items.sort(key=lambda x: x[0])
+    for ri, (_, row_data) in enumerate(agenda_items, agenda_header_row + 1):
+        for ci, val in enumerate(row_data, 1):
+            cell = ws.cell(row=ri, column=ci, value=val or "")
+            cell.border = thin_border
+
+    ws.column_dimensions["A"].width = 18
+    ws.column_dimensions["B"].width = 30
+    agenda_col_widths = [15, 15, 12, 30, 35, 30, 20, 20, 25, 30, 30]
+    for i, w in enumerate(agenda_col_widths):
+        letter = chr(65 + i)
+        if w > (ws.column_dimensions[letter].width or 0):
+            ws.column_dimensions[letter].width = w
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    safe_name = (ev.name or "event").replace(" ", "_").replace("/", "_")[:40]
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f"attachment; filename={safe_name}_template.xlsx"},
+    )
+
+
+@router.post("/events/{event_id}/copy-from/{source_id}")
+def event_copy_from(request: Request, event_id: int, source_id: int, db: Session = Depends(get_db),
+                    _csrf=Depends(csrf_protection)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    ev = db.query(Event).get(event_id)
+    src = db.query(Event).get(source_id)
+    if not ev or not src:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+    if ev.id == src.id:
+        flash(request, "Cannot copy an event onto itself.", "danger")
+        return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
+
+    from app.models.event_session import EventSession
+
+    # Clear existing agenda items on the target
+    db.query(EventSession).filter(EventSession.event_id == event_id).delete()
+    db.query(EventBreak).filter(EventBreak.event_id == event_id).delete()
+    db.query(EventAddOn).filter(EventAddOn.event_id == event_id).delete()
+    db.flush()
+
+    # Copy scalar fields (keep the target's name and set status to draft)
+    ev.description = src.description
+    ev.banner_url = src.banner_url
+    ev.college_id = src.college_id
+    ev.auditorium_id = src.auditorium_id
+    ev.start_date = src.start_date
+    ev.end_date = src.end_date
+    ev.price = src.price
+    ev.price_vip = src.price_vip
+    ev.price_accessible = src.price_accessible
+    ev.processing_fee_pct = src.processing_fee_pct
+    ev.custom_prices = src.custom_prices
+    ev.status = "draft"
+    ev.cert_title = src.cert_title
+    ev.cert_subtitle = src.cert_subtitle
+    ev.cert_footer = src.cert_footer
+    ev.cert_signer_name = src.cert_signer_name
+    ev.cert_signer_designation = src.cert_signer_designation
+    ev.cert_logo_url = src.cert_logo_url
+    ev.cert_bg_url = src.cert_bg_url
+    ev.cert_signature_url = src.cert_signature_url
+    ev.cert_color_scheme = src.cert_color_scheme
+    ev.cert_style = src.cert_style
+    ev.feedback_template_id = src.feedback_template_id
+
+    # Copy sessions
+    src_sessions = (
+        db.query(EventSession).filter(EventSession.event_id == source_id)
+        .order_by(EventSession.order, EventSession.start_time).all()
+    )
+    for es in src_sessions:
+        old_sess = es.session
+        if not old_sess:
+            continue
+        new_sess = SessionModel(
+            title=old_sess.title,
+            speaker_id=old_sess.speaker_id,
+            speaker_name=old_sess.speaker_name,
+            description=old_sess.description,
+            abstract=old_sess.abstract,
+            key_learning_outcomes=old_sess.key_learning_outcomes,
+            banner_url=old_sess.banner_url,
+            duration_minutes=old_sess.duration_minutes,
+        )
+        db.add(new_sess)
+        db.flush()
+
+        old_agenda = db.query(AgendaItem).filter(AgendaItem.session_id == old_sess.id).order_by(AgendaItem.order).all()
+        for ai in old_agenda:
+            db.add(AgendaItem(
+                session_id=new_sess.id, order=ai.order,
+                title=ai.title, duration_minutes=ai.duration_minutes,
+                speaker_id=ai.speaker_id, speaker_name=ai.speaker_name,
+            ))
+
+        old_speakers = db.query(SessionSpeaker).filter(SessionSpeaker.session_id == old_sess.id).all()
+        for ss in old_speakers:
+            db.add(SessionSpeaker(session_id=new_sess.id, speaker_id=ss.speaker_id, role=ss.role))
+
+        db.add(EventSession(
+            event_id=event_id, session_id=new_sess.id, order=es.order,
+            start_time=es.start_time, speaker_id=es.speaker_id, speaker_name=es.speaker_name,
+        ))
+
+    # Copy breaks
+    src_breaks = db.query(EventBreak).filter(EventBreak.event_id == source_id).order_by(EventBreak.order).all()
+    for eb in src_breaks:
+        db.add(EventBreak(
+            event_id=event_id, title=eb.title, description=eb.description,
+            duration_minutes=eb.duration_minutes, start_time=eb.start_time, order=eb.order,
+        ))
+
+    # Copy add-ons
+    src_addons = db.query(EventAddOn).filter(EventAddOn.event_id == source_id).all()
+    for ao in src_addons:
+        db.add(EventAddOn(
+            event_id=event_id, title=ao.title, description=ao.description,
+            price=ao.price, max_quantity=ao.max_quantity, is_active=ao.is_active,
+        ))
+
+    log_activity(
+        db, category="admin", action="copy_event",
+        description=f"Copied details from '{src.name}' to '{ev.name}'",
+        request=request, user_id=admin.id, target_type="event", target_id=ev.id,
+    )
+    db.commit()
+
+    flash(request, f"Copied all details from '{src.name}'. Status set to Draft. Review and save.", "success")
+    return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
 
 
 @router.post("/events/import-event")

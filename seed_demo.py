@@ -23,6 +23,7 @@ from app.models.user import User
 from app.models.event import Event
 from app.models.booking import Booking
 from app.models.seat import Seat
+from app.models.seat_type import SeatType
 from app.models.coupon import Coupon
 from app.models.waitlist import Waitlist
 from app.models.feedback import Feedback
@@ -295,16 +296,20 @@ def main():
     # ══════════════════════════════════════════════════════════════
     print("[2/10] Diversifying seat types ...")
     if ev2.auditorium_id:
+        premium_st = db.query(SeatType).filter(SeatType.name == "Premium").first()
+        balcony_st = db.query(SeatType).filter(SeatType.name == "Balcony").first()
+        premium_key = f"custom_{premium_st.id}" if premium_st else "standard"
+        balcony_key = f"custom_{balcony_st.id}" if balcony_st else "standard"
         db.execute(text(
-            "UPDATE seats SET seat_type = 'premium' "
+            "UPDATE seats SET seat_type = :stype "
             "WHERE auditorium_id = :aid AND row_num <= 2 AND seat_type NOT IN ('aisle')"
-        ), {"aid": ev2.auditorium_id})
+        ), {"aid": ev2.auditorium_id, "stype": premium_key})
         db.execute(text(
-            "UPDATE seats SET seat_type = 'balcony' "
+            "UPDATE seats SET seat_type = :stype "
             "WHERE auditorium_id = :aid AND row_num IN (3,4) AND seat_type NOT IN ('aisle')"
-        ), {"aid": ev2.auditorium_id})
+        ), {"aid": ev2.auditorium_id, "stype": balcony_key})
         db.commit()
-        print("  Rows 1-2 = Premium, Rows 3-4 = Balcony, rest = Standard")
+        print(f"  Rows 1-2 = {premium_key}, Rows 3-4 = {balcony_key}, rest = Standard")
 
     # ══════════════════════════════════════════════════════════════
     #  3. Create extra coupons
@@ -381,7 +386,7 @@ def main():
     e2_date = ev2.start_date or (datetime.utcnow().date() + timedelta(days=10))
     e2_book_origin = datetime.combine(e2_date - timedelta(days=21), time_cls(0, 0))
 
-    seat_prices = {"standard": 500, "premium": 800, "balcony": 600}
+    seat_prices = {"standard": 500, premium_key: 800, balcony_key: 600}
     coupon_used = {c.id: 0 for c in all_coupons_e2}
 
     bookings_e2 = []

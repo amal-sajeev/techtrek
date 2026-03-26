@@ -40,6 +40,11 @@ def process_pending_feedback(base_url: str | None = None):
             if end_dt >= now.replace(tzinfo=None):
                 continue
 
+            if event.status == "published":
+                event.status = "completed"
+                db.commit()
+                logger.info("Auto-completed event %d (%s)", event.id, event.name)
+
             checked_in_bookings = (
                 db.query(Booking)
                 .filter(

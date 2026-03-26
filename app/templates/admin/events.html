@@ -1,9 +1,18 @@
 {% extends "admin/base_admin.html" %}
-{% block title %}Events — Admin — TechTrek{% endblock %}
+{% block title %}{{ "Completed Events" if view == "completed" else "Current Events" }} — Admin — TechTrek{% endblock %}
 
 {% block admin_content %}
 <div class="admin-header">
-  <h1 class="admin-page-title">Events</h1>
+  <div class="title-dropdown" style="position:relative">
+    <h1 class="admin-page-title title-dropdown-toggle" tabindex="0" role="button" onclick="this.parentElement.classList.toggle('open')">
+      {{ "Completed Events" if view == "completed" else "Current Events" }}
+      <svg class="title-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </h1>
+    <div class="title-dropdown-menu">
+      <a href="/admin/events?view=current" class="title-dropdown-item{% if view != 'completed' %} active{% endif %}">Current Events</a>
+      <a href="/admin/events?view=completed" class="title-dropdown-item{% if view == 'completed' %} active{% endif %}">Completed Events</a>
+    </div>
+  </div>
   {% if user.is_admin %}
   <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
     <a href="/admin/events/event-template" class="btn btn-outline">
@@ -82,9 +91,9 @@
 {% else %}
 <div class="empty-state">
   <div class="empty-state-icon">&#127942;</div>
-  <h3>No events yet</h3>
-  <p>Create events with pricing, dates, and venue. Add sessions as agenda items within each event.</p>
-  {% if user.is_admin %}
+  <h3>No {{ "completed " if view == "completed" else "" }}events yet</h3>
+  <p>{% if view == "completed" %}Events will appear here once their end date has passed.{% else %}Create events with pricing, dates, and venue. Add sessions as agenda items within each event.{% endif %}</p>
+  {% if user.is_admin and view != "completed" %}
   <a href="/admin/events/new" class="btn btn-primary">Create Event</a>
   {% endif %}
 </div>
@@ -92,7 +101,23 @@
 {% endblock %}
 
 {% block scripts %}
+<style>
+.title-dropdown-toggle{cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;user-select:none}
+.title-dropdown-toggle:hover{opacity:.8}
+.title-chevron{transition:transform .2s ease;flex-shrink:0}
+.title-dropdown.open .title-chevron{transform:rotate(180deg)}
+.title-dropdown-menu{display:none;position:absolute;left:0;top:100%;margin-top:.25rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);min-width:220px;z-index:50;padding:.25rem 0}
+.title-dropdown.open .title-dropdown-menu{display:block}
+.title-dropdown-item{display:block;padding:.6rem 1.1rem;color:var(--text);text-decoration:none;font-size:.95rem;white-space:nowrap}
+.title-dropdown-item:hover{background:var(--bg-hover)}
+.title-dropdown-item.active{font-weight:600;color:var(--primary)}
+</style>
 <script>
+document.addEventListener('click', function(e) {
+  document.querySelectorAll('.title-dropdown.open').forEach(function(d) {
+    if (!d.contains(e.target)) d.classList.remove('open');
+  });
+});
 document.getElementById('import-event-btn').addEventListener('click', function() {
   document.getElementById('import-event-file').click();
 });

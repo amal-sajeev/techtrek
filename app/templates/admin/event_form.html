@@ -4,6 +4,18 @@
 {% block admin_content %}
 <div class="admin-header">
   <h1 class="admin-page-title">{{ "Edit" if event else "New" }} Event</h1>
+  {% if event %}
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <a href="/admin/events/{{ event.id }}/export-template" class="btn btn-outline btn-sm">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.25rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export as Template
+    </a>
+    <button type="button" class="btn btn-outline btn-sm" id="copy-from-event-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.25rem"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Copy from Event
+    </button>
+  </div>
+  {% endif %}
 </div>
 
 <div class="wizard-steps mb-3">
@@ -2165,6 +2177,95 @@ initGalleryUpload('ev-gallery', '/admin/upload-image', [
         approveBtn.disabled = false;
       });
   });
+})();
+</script>
+
+<!-- Copy from Event Modal -->
+<div class="modal-wrapper" id="copy-from-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="background:var(--bg-surface);border-radius:var(--radius-lg,12px);box-shadow:var(--shadow-lg);width:100%;max-width:480px;margin:1rem;overflow:hidden">
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)">
+      <h3 style="margin:0;font-size:1.1rem">Copy from Another Event</h3>
+    </div>
+    <div style="padding:1.5rem">
+      <label class="form-label" for="copy-source-select">Select source event</label>
+      <select id="copy-source-select" class="form-input" style="width:100%">
+        <option value="">— Choose an event —</option>
+        {% for cev in all_events|default([]) %}
+        <option value="{{ cev.id }}">{{ cev.name }}{% if cev.start_date %} ({{ cev.start_date.strftime('%b %d, %Y') }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.5rem;justify-content:flex-end">
+      <button type="button" class="btn btn-outline" id="copy-modal-cancel">Cancel</button>
+      <button type="button" class="btn btn-primary" id="copy-modal-confirm" disabled>Copy</button>
+    </div>
+  </div>
+</div>
+
+<!-- Copy-from warning overlay -->
+<div class="modal-wrapper" id="copy-warning-modal" style="display:none;position:fixed;inset:0;z-index:1001;background:rgba(0,0,0,.55);align-items:center;justify-content:center">
+  <div style="background:var(--bg-surface);border-radius:var(--radius-lg,12px);box-shadow:var(--shadow-lg);width:100%;max-width:440px;margin:1rem;overflow:hidden">
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)">
+      <h3 style="margin:0;font-size:1.1rem;color:var(--danger,#dc3545)">Warning</h3>
+    </div>
+    <div style="padding:1.5rem;line-height:1.6">
+      <p style="margin:0 0 .5rem"><strong>This will overwrite all details</strong> of the current event, including:</p>
+      <ul style="margin:.5rem 0;padding-left:1.25rem;color:var(--text-muted)">
+        <li>Description, college, venue, dates</li>
+        <li>Pricing and processing fees</li>
+        <li>Banner and media</li>
+        <li>Entire agenda (sessions, breaks, add-ons)</li>
+        <li>Certificate settings</li>
+      </ul>
+      <p style="margin:.75rem 0 0"><strong>This cannot be undone.</strong> The event name will be kept, and status will be set to Draft.</p>
+    </div>
+    <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.5rem;justify-content:flex-end">
+      <button type="button" class="btn btn-outline" id="copy-warning-cancel">Cancel</button>
+      <form id="copy-warning-form" method="post" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-danger">Overwrite &amp; Copy</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var copyBtn = document.getElementById('copy-from-event-btn');
+  var modal = document.getElementById('copy-from-modal');
+  var warningModal = document.getElementById('copy-warning-modal');
+  var sourceSelect = document.getElementById('copy-source-select');
+  var confirmBtn = document.getElementById('copy-modal-confirm');
+  var eventId = {{ event.id }};
+
+  if (!copyBtn) return;
+
+  copyBtn.addEventListener('click', function() {
+    modal.style.display = 'flex';
+    sourceSelect.value = '';
+    confirmBtn.disabled = true;
+  });
+
+  sourceSelect.addEventListener('change', function() {
+    confirmBtn.disabled = !this.value;
+  });
+
+  document.getElementById('copy-modal-cancel').addEventListener('click', function() {
+    modal.style.display = 'none';
+  });
+
+  confirmBtn.addEventListener('click', function() {
+    modal.style.display = 'none';
+    document.getElementById('copy-warning-form').action = '/admin/events/' + eventId + '/copy-from/' + sourceSelect.value;
+    warningModal.style.display = 'flex';
+  });
+
+  document.getElementById('copy-warning-cancel').addEventListener('click', function() {
+    warningModal.style.display = 'none';
+  });
+
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
+  warningModal.addEventListener('click', function(e) { if (e.target === warningModal) warningModal.style.display = 'none'; });
 })();
 </script>
 {% endif %}
