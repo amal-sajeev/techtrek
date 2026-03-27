@@ -36,28 +36,37 @@
 
 <!-- Active Events -->
 <div class="mt-3">
-  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
     <h3 class="panel-title" style="margin-bottom:0">Active Events</h3>
-    <div style="display:flex;gap:.5rem">
+    <div style="display:flex;gap:.5rem;align-items:center">
       <a href="/admin/metrics" class="btn btn-sm btn-primary">View Metrics</a>
-      <a href="/admin/event-management" class="btn btn-sm btn-outline">All Events</a>
     </div>
   </div>
   {% if active_events %}
+  <div class="filter-bar mb-3">
+    <input type="text" id="em-search" class="form-input" placeholder="Search events…" oninput="filterEMCards(this.value)" style="max-width:360px">
+    <span id="em-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ active_events|length }} event{{ 's' if active_events|length != 1 }}</span>
+  </div>
   <div class="em-card-grid">
     {% for item in active_events %}
     {% set ev = item.event %}
-    <a href="/admin/event-management/{{ ev.id }}" class="em-event-card">
+    <a href="/admin/event-management/{{ ev.id }}" class="em-event-card" data-search="{{ ev.name|lower }} {{ (ev.college.name if ev.college else '')|lower }} {{ (ev.college.city.name if ev.college and ev.college.city else '')|lower }}">
       <div class="em-card-header">
         <h3 class="em-card-title">{{ ev.name }}</h3>
-        {% if ev.start_date %}
-        <div class="dash-cal-date">
-          <span class="dash-cal-month">{{ ev.start_date.strftime('%b') }}</span>
-          <span class="dash-cal-day">{{ ev.start_date.strftime('%d') }}</span>
-        </div>
+        {% if ev.status == 'published' %}
+        <span class="badge badge-published">Published</span>
+        {% elif ev.status == 'completed' %}
+        <span class="badge badge-available">Completed</span>
+        {% elif ev.status == 'cancelled' %}
+        <span class="badge badge-danger">Cancelled</span>
+        {% else %}
+        <span class="badge badge-draft">Draft</span>
         {% endif %}
       </div>
       <div class="em-card-meta">
+        {% if ev.start_date %}
+        <span>{{ ev.start_date.strftime('%b %d, %Y') }}{% if ev.end_date and ev.end_date != ev.start_date %} &ndash; {{ ev.end_date.strftime('%b %d, %Y') }}{% endif %}</span>
+        {% endif %}
         {% if ev.college %}<span>{{ ev.college.name }}{% if ev.college.city %}, {{ ev.college.city.name }}{% endif %}</span>{% endif %}
       </div>
       <div class="em-card-stats">
@@ -81,8 +90,22 @@
     </a>
     {% endfor %}
   </div>
+  <script>
+  function filterEMCards(q) {
+    q = q.toLowerCase().trim();
+    var cards = document.querySelectorAll('.em-event-card');
+    var visible = 0;
+    cards.forEach(function(c) {
+      var match = !q || c.dataset.search.includes(q);
+      c.style.display = match ? '' : 'none';
+      if (match) visible++;
+    });
+    var countEl = document.getElementById('em-count');
+    if (countEl) countEl.textContent = visible + ' event' + (visible !== 1 ? 's' : '') + (q ? ' found' : '');
+  }
+  </script>
   {% else %}
-  <p class="text-muted">No published events at the moment.</p>
+  <p class="text-muted">No active events at the moment.</p>
   {% endif %}
 </div>
 {% endblock %}

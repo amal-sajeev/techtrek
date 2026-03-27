@@ -4,6 +4,14 @@
 {% block admin_content %}
 <div class="admin-header">
   <h1 class="admin-page-title">{{ "Edit" if event else "New" }} Event</h1>
+  {% if not event %}
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <button type="button" class="btn btn-outline btn-sm" id="duplicate-event-btn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.25rem"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Duplicate Event
+    </button>
+  </div>
+  {% endif %}
   {% if event %}
   <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
     <a href="/admin/events/{{ event.id }}/export-template" class="btn btn-outline btn-sm">
@@ -219,6 +227,9 @@
       <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees. Leave blank for defaults.</p>
       <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
 
+      <div class="cert-editor-layout">
+      <div class="cert-editor-form">
+
       <div class="form-row">
         <div class="form-group" style="flex:2">
           <label class="form-label" for="cert-title">Certificate Title</label>
@@ -249,6 +260,9 @@
           <label class="form-label" for="cert-signer-desg">Signer Designation</label>
           <input type="text" name="cert_signer_designation" id="cert-signer-desg" class="form-input" value="{{ event.cert_signer_designation if event else '' }}" placeholder="e.g. Program Director">
         </div>
+      </div>
+
+      <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="cert-signature-url">Signature Image</label>
           <input type="text" name="cert_signature_url" id="cert-signature-url" class="form-input" value="{{ event.cert_signature_url if event else '' }}" placeholder="https://... or upload">
@@ -288,10 +302,10 @@
 
           <div class="form-group" style="margin-bottom:1rem">
             <label class="form-label" style="font-size:.8rem">Border Style</label>
-            <input type="hidden" id="cert-style-border" name="cert_style_border" value="classic">
+            <input type="hidden" id="cert-style-border" name="cert_style_border" value="modern">
             <div id="cert-border-picker" style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px">
 
-              <label class="bsp-opt active" data-val="classic" title="Classic — double border with solid gold corner brackets">
+              <label class="bsp-opt" data-val="classic" title="Classic — double border with solid gold corner brackets">
                 <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M1.5 13.5 L1.5 1.5 L13.5 1.5 L13.5 4.5 L4.5 4.5 L4.5 13.5 Z" fill="#d4a853"/>
                   <path d="M62.5 13.5 L62.5 1.5 L50.5 1.5 L50.5 4.5 L59.5 4.5 L59.5 13.5 Z" fill="#d4a853"/>
@@ -307,7 +321,7 @@
                 <span>Classic</span>
               </label>
 
-              <label class="bsp-opt" data-val="modern" title="Modern — bold solid-slab frame with bevel">
+              <label class="bsp-opt active" data-val="modern" title="Modern — bold solid-slab frame with bevel">
                 <svg width="64" height="44" viewBox="0 0 64 44" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <rect x="4" y="4" width="56" height="36" rx="8" stroke="#0e7490" stroke-width="8"/>
                   <rect x="8" y="8" width="48" height="28" rx="5" stroke="#2ab8d8" stroke-width="0.75"/>
@@ -367,7 +381,7 @@
             <div style="display:flex;flex-wrap:wrap;gap:.75rem;margin-top:.75rem;align-items:end">
               <div class="form-group" style="margin-bottom:0;max-width:180px">
                 <label class="form-label" style="font-size:.8rem">Border Width</label>
-                <input type="number" id="cert-style-border-width" name="cert_style_border_width" class="form-input" value="1" min="0.25" max="10" step="0.25" style="font-size:.85rem">
+                <input type="number" id="cert-style-border-width" name="cert_style_border_width" class="form-input" value="0.5" min="0.25" max="10" step="0.25" style="font-size:.85rem">
               </div>
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label" style="font-size:.78rem">Primary</label>
@@ -458,16 +472,18 @@
         </div>
       </details>
 
-      <!-- Live Certificate Preview -->
-      <div id="cert-preview-wrapper" style="margin:1.5rem 0">
+      </div><!-- /.cert-editor-form -->
+
+      <div class="cert-editor-preview" id="cert-editor-preview">
         <div style="margin-bottom:.5rem">
           <span style="font-weight:600;font-size:.9rem">Live Preview</span>
         </div>
-        <div style="width:100%;max-width:760px;aspect-ratio:841/595;background:#f1f5f9;border-radius:8px;overflow:hidden;position:relative">
+        <div style="width:100%;aspect-ratio:841/595;background:#f1f5f9;border-radius:8px;overflow:hidden;position:relative">
           <img id="cert-preview-image" style="width:100%;height:100%;object-fit:contain;display:block" alt="Certificate preview">
           <div id="cert-preview-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:.85rem">Loading preview&hellip;</div>
         </div>
-      </div>
+      </div><!-- /.cert-editor-preview -->
+      </div><!-- /.cert-editor-layout -->
 
       <div class="wizard-nav">
         <button type="button" class="btn btn-outline wizard-prev">&larr; Back</button>
@@ -1811,6 +1827,46 @@ window._existingAgendaItems = [
 </script>
 
 <style>
+.cert-step-active .admin-wrapper {
+  height: calc(100vh - var(--nav-h, 64px));
+  min-height: 0;
+  overflow: hidden;
+}
+.cert-editor-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 1.5rem;
+  align-items: start;
+}
+.cert-editor-form {
+  min-width: 0;
+}
+.cert-editor-preview {
+  position: sticky;
+  top: 0;
+  min-width: 0;
+  padding-top: 1rem;
+}
+@media (min-width: 1200px) {
+  .cert-editor-layout { grid-template-columns: 1fr 420px; }
+}
+@media (min-width: 1500px) {
+  .cert-editor-layout { grid-template-columns: 1fr 500px; }
+}
+@media (max-width: 799px) {
+  .cert-editor-layout {
+    grid-template-columns: 1fr;
+  }
+  .cert-editor-preview {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    background: var(--bg-surface, #1e293b);
+    padding: .75rem;
+    margin: 0 -1rem;
+    border-bottom: 1px solid var(--border, rgba(255,255,255,.08));
+  }
+}
 .bsp-opt {
   cursor: pointer;
   display: flex;
@@ -1995,9 +2051,21 @@ window._existingAgendaItems = [
 </style>
 
 <script>
+(function() {
+  var p5 = document.querySelector('.wizard-panel[data-panel="5"]');
+  if (!p5) return;
+  function sync() {
+    document.body.classList.toggle('cert-step-active', p5.classList.contains('active'));
+  }
+  sync();
+  new MutationObserver(sync).observe(p5, { attributes: true, attributeFilter: ['class'] });
+})();
+</script>
+
+<script>
 // ─── Border style visual picker ───
 function _syncBorderPicker() {
-  var val = (document.getElementById('cert-style-border') || {}).value || 'classic';
+  var val = (document.getElementById('cert-style-border') || {}).value || 'modern';
   document.querySelectorAll('.bsp-opt').forEach(function(opt) {
     opt.classList.toggle('active', opt.dataset.val === val);
   });
@@ -2039,9 +2107,9 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
     if (el) el.value = val;
   }
 
-  setVal('cert-style-border', sty.border_style || 'classic');
+  setVal('cert-style-border', sty.border_style || 'modern');
   _syncBorderPicker();
-  setVal('cert-style-border-width', sty.border_width != null ? sty.border_width : 1);
+  setVal('cert-style-border-width', sty.border_width != null ? sty.border_width : 0.5);
   var _BORDER_SCHEME_COLORS = {
     '':        {border:'#0e7490', gold:'#d4a853', accent:'#00d4ff'},
     teal:      {border:'#0e7490', gold:'#d4a853', accent:'#00d4ff'},
@@ -2607,6 +2675,63 @@ initGalleryUpload('ev-gallery', '/admin/upload-image', [
 
   modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
   warningModal.addEventListener('click', function(e) { if (e.target === warningModal) warningModal.style.display = 'none'; });
+})();
+</script>
+{% endif %}
+
+{% if not event %}
+<!-- Duplicate Event Modal -->
+<div class="modal-wrapper" id="duplicate-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="background:var(--bg-surface);border-radius:var(--radius-lg,12px);box-shadow:var(--shadow-lg);width:100%;max-width:480px;margin:1rem;overflow:hidden">
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)">
+      <h3 style="margin:0;font-size:1.1rem">Duplicate an Existing Event</h3>
+    </div>
+    <div style="padding:1.5rem">
+      <p style="margin:0 0 1rem;color:var(--text-muted);font-size:.9rem">Creates a new event with all details copied from the selected event. Dates will be left blank so you can set new ones.</p>
+      <label class="form-label" for="dup-source-select">Select event to duplicate</label>
+      <select id="dup-source-select" class="form-input" style="width:100%">
+        <option value="">— Choose an event —</option>
+        {% for cev in all_events|default([]) %}
+        <option value="{{ cev.id }}">{{ cev.name }}{% if cev.start_date %} ({{ cev.start_date.strftime('%b %d, %Y') }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.5rem;justify-content:flex-end">
+      <button type="button" class="btn btn-outline" id="dup-modal-cancel">Cancel</button>
+      <form id="dup-form" method="post" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-primary" id="dup-modal-confirm" disabled>Duplicate</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function() {
+  var btn = document.getElementById('duplicate-event-btn');
+  var modal = document.getElementById('duplicate-modal');
+  var sourceSelect = document.getElementById('dup-source-select');
+  var confirmBtn = document.getElementById('dup-modal-confirm');
+  if (!btn) return;
+
+  btn.addEventListener('click', function() {
+    modal.style.display = 'flex';
+    sourceSelect.value = '';
+    confirmBtn.disabled = true;
+  });
+
+  sourceSelect.addEventListener('change', function() {
+    confirmBtn.disabled = !this.value;
+    if (this.value) {
+      document.getElementById('dup-form').action = '/admin/events/duplicate/' + this.value;
+    }
+  });
+
+  document.getElementById('dup-modal-cancel').addEventListener('click', function() {
+    modal.style.display = 'none';
+  });
+
+  modal.addEventListener('click', function(e) { if (e.target === modal) modal.style.display = 'none'; });
 })();
 </script>
 {% endif %}

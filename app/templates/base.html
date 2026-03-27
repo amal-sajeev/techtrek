@@ -55,7 +55,6 @@
           <a href="/speaker/" class="nav-link nav-admin">Speaker</a>
         {% endif %}
         {% if user.is_admin %}
-          <a href="/admin/event-management" class="nav-link nav-admin">Event Mgmt</a>
           <a href="/admin/" class="nav-link nav-admin">Admin</a>
         {% elif user.is_supervisor %}
           <a href="/supervisor/" class="nav-link nav-admin">Supervisor</a>
@@ -99,7 +98,6 @@
       <a href="/speaker/" class="nav-drawer-link">Speaker Dashboard</a>
     {% endif %}
     {% if user.is_admin %}
-      <a href="/admin/event-management" class="nav-drawer-link">Event Mgmt</a>
       <a href="/admin/" class="nav-drawer-link">Admin Panel</a>
     {% elif user.is_supervisor %}
       <a href="/supervisor/" class="nav-drawer-link">Supervisor</a>

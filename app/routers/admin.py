@@ -159,11 +159,10 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     total_checked_in = db.query(func.count(Booking.id)).filter(Booking.checked_in == True).scalar()
     total_refunded = db.query(func.count(Booking.id)).filter(Booking.payment_status == "refunded").scalar()
 
-    # Active events (published only)
     active_events_raw = (
         db.query(Event)
-        .filter(Event.status == "published")
-        .order_by(Event.start_date.asc().nullslast())
+        .filter(Event.status.notin_(["completed", "cancelled"]))
+        .order_by(Event.start_date.desc().nullslast(), Event.created_at.desc())
         .all()
     )
     active_events = []
@@ -2626,12 +2625,13 @@ def event_new_form(request: Request, db: Session = Depends(get_db)):
     aud_seat_types = _auditorium_seat_types(db)
     ct_map = _custom_types_map(db)
     fb_templates = db.query(FeedbackTemplate).order_by(FeedbackTemplate.name).all()
+    all_events = db.query(Event).order_by(Event.name).all()
     return templates.TemplateResponse(
         "admin/event_form.html",
         _admin_ctx(request, active_page="events", event=None, colleges=colleges,
                    auditoriums=auditoriums, all_sessions=all_sessions, speakers=speakers,
                    aud_seat_types=aud_seat_types, custom_types_map=ct_map,
-                   fb_templates=fb_templates),
+                   fb_templates=fb_templates, all_events=all_events),
     )
 
 
@@ -3406,6 +3406,111 @@ def event_copy_from(request: Request, event_id: int, source_id: int, db: Session
 
     flash(request, f"Copied all details from '{src.name}'. Status set to Draft. Review and save.", "success")
     return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
+
+
+@router.post("/events/duplicate/{source_id}")
+def event_duplicate(request: Request, source_id: int, db: Session = Depends(get_db),
+                    _csrf=Depends(csrf_protection)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    src = db.query(Event).get(source_id)
+    if not src:
+        flash(request, "Source event not found.", "danger")
+        return RedirectResponse("/admin/events/new", status_code=303)
+
+    from app.models.event_session import EventSession
+
+    ev = Event(
+        name=f"{src.name} (Copy)",
+        description=src.description,
+        banner_url=src.banner_url,
+        college_id=src.college_id,
+        auditorium_id=src.auditorium_id,
+        start_date=None,
+        end_date=None,
+        price=src.price,
+        price_vip=src.price_vip,
+        price_accessible=src.price_accessible,
+        processing_fee_pct=src.processing_fee_pct,
+        custom_prices=src.custom_prices,
+        status="draft",
+        cert_title=src.cert_title,
+        cert_subtitle=src.cert_subtitle,
+        cert_footer=src.cert_footer,
+        cert_signer_name=src.cert_signer_name,
+        cert_signer_designation=src.cert_signer_designation,
+        cert_logo_url=src.cert_logo_url,
+        cert_bg_url=src.cert_bg_url,
+        cert_signature_url=src.cert_signature_url,
+        cert_color_scheme=src.cert_color_scheme,
+        cert_style=src.cert_style,
+        feedback_template_id=src.feedback_template_id,
+    )
+    db.add(ev)
+    db.flush()
+
+    src_sessions = (
+        db.query(EventSession).filter(EventSession.event_id == source_id)
+        .order_by(EventSession.order, EventSession.start_time).all()
+    )
+    for es in src_sessions:
+        old_sess = es.session
+        if not old_sess:
+            continue
+        new_sess = SessionModel(
+            title=old_sess.title,
+            speaker_id=old_sess.speaker_id,
+            speaker_name=old_sess.speaker_name,
+            description=old_sess.description,
+            abstract=old_sess.abstract,
+            key_learning_outcomes=old_sess.key_learning_outcomes,
+            banner_url=old_sess.banner_url,
+            duration_minutes=old_sess.duration_minutes,
+        )
+        db.add(new_sess)
+        db.flush()
+
+        old_agenda = db.query(AgendaItem).filter(AgendaItem.session_id == old_sess.id).order_by(AgendaItem.order).all()
+        for ai in old_agenda:
+            db.add(AgendaItem(
+                session_id=new_sess.id, order=ai.order,
+                title=ai.title, duration_minutes=ai.duration_minutes,
+                speaker_id=ai.speaker_id, speaker_name=ai.speaker_name,
+            ))
+
+        old_speakers = db.query(SessionSpeaker).filter(SessionSpeaker.session_id == old_sess.id).all()
+        for ss in old_speakers:
+            db.add(SessionSpeaker(session_id=new_sess.id, speaker_id=ss.speaker_id, role=ss.role))
+
+        db.add(EventSession(
+            event_id=ev.id, session_id=new_sess.id, order=es.order,
+            start_time=es.start_time, speaker_id=es.speaker_id, speaker_name=es.speaker_name,
+        ))
+
+    src_breaks = db.query(EventBreak).filter(EventBreak.event_id == source_id).order_by(EventBreak.order).all()
+    for eb in src_breaks:
+        db.add(EventBreak(
+            event_id=ev.id, title=eb.title, description=eb.description,
+            duration_minutes=eb.duration_minutes, start_time=eb.start_time, order=eb.order,
+        ))
+
+    src_addons = db.query(EventAddOn).filter(EventAddOn.event_id == source_id).all()
+    for ao in src_addons:
+        db.add(EventAddOn(
+            event_id=ev.id, title=ao.title, description=ao.description,
+            price=ao.price, max_quantity=ao.max_quantity, is_active=ao.is_active,
+        ))
+
+    log_activity(
+        db, category="admin", action="duplicate_event",
+        description=f"Duplicated '{src.name}' as '{ev.name}'",
+        request=request, user_id=admin.id, target_type="event", target_id=ev.id,
+    )
+    db.commit()
+
+    flash(request, f"Duplicated '{src.name}'. Dates left blank — please set new dates.", "success")
+    return RedirectResponse(f"/admin/events/{ev.id}/edit", status_code=303)
 
 
 @router.post("/events/import-event")
@@ -5039,33 +5144,8 @@ def _hub_ctx(request: Request, event: Event, hub_tab: str, **kwargs):
 
 
 @router.get("/event-management")
-def event_management_landing(request: Request, db: Session = Depends(get_db)):
-    admin = _require_admin(request, db)
-    if not admin:
-        return RedirectResponse("/auth/login?next=/admin/event-management", status_code=303)
-    events = db.query(Event).filter(
-        Event.status.notin_(["completed", "cancelled"])
-    ).order_by(Event.start_date.desc().nullslast(), Event.created_at.desc()).all()
-    enriched = []
-    for ev in events:
-        session_count = len(ev.event_sessions) if ev.event_sessions else 0
-        booking_count = db.query(func.count(Booking.id)).filter(
-            Booking.event_id == ev.id, Booking.payment_status == "paid",
-            Booking.is_shared_ticket == False,
-        ).scalar() or 0
-        checked_in = db.query(func.count(Booking.id)).filter(
-            Booking.event_id == ev.id, Booking.payment_status == "paid", Booking.checked_in == True
-        ).scalar() or 0
-        waitlist_count = db.query(func.count(Waitlist.id)).filter(Waitlist.event_id == ev.id).scalar() or 0
-        aud = db.query(Auditorium).get(ev.auditorium_id) if ev.auditorium_id else None
-        enriched.append({
-            "event": ev, "session_count": session_count, "bookings": booking_count,
-            "checked_in": checked_in, "waitlist": waitlist_count, "auditorium": aud,
-        })
-    return templates.TemplateResponse(
-        "admin/event_management/landing.html",
-        _admin_ctx(request, active_page="event_mgmt", events=enriched),
-    )
+def event_management_landing(request: Request):
+    return RedirectResponse("/admin/", status_code=302)
 
 
 @router.get("/event-management/{event_id}")

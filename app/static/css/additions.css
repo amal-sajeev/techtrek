@@ -3322,8 +3322,8 @@
 
 /* ── Booking panel ── */
 .sd-booking-col {
-  position: sticky;
-  top: calc(var(--nav-h, 64px) + 1.5rem);
+  align-self: stretch;
+  position: relative;
 }
 
 .sd-booking-panel {
@@ -3699,7 +3699,7 @@
     gap: 2rem;
   }
   .sd-booking-col {
-    position: static;
+    position: static !important;
   }
 
   .sd-body {

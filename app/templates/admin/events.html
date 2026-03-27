@@ -74,6 +74,7 @@
           </button>
         </td>
         <td data-label="Actions" class="actions-cell">
+          <a href="/admin/event-management/{{ ev.id }}" class="btn btn-sm btn-primary">Manage</a>
           <a href="/admin/events/{{ ev.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
           {% if user.is_admin %}
           <form method="post" action="/admin/events/{{ ev.id }}/delete" style="display:inline">

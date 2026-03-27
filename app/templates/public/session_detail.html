@@ -437,7 +437,7 @@
 
       {# ── RIGHT COLUMN: booking panel ──────────────────────── #}
       <div class="sd-booking-col">
-        <div class="sd-booking-panel reveal-scale" id="sd-booking-panel">
+        <div class="sd-booking-panel" id="sd-booking-panel">
 
           {% if event %}
           <div class="sd-bp-header">
@@ -662,6 +662,59 @@
     });
   }
 }());
+
+  /* ── JS-driven sticky booking panel ── */
+  (function () {
+    var panel = document.getElementById('sd-booking-panel');
+    if (!panel) return;
+    var col = panel.closest('.sd-booking-col');
+    var contentCol = document.querySelector('.sd-content-col');
+    var navbar = document.getElementById('navbar');
+    if (!col || !contentCol) return;
+
+    var GAP = 24;
+    var rafId = null;
+    var isMobile = function () { return window.innerWidth <= 768; };
+
+    function update() {
+      rafId = null;
+      if (isMobile()) {
+        panel.style.cssText = '';
+        return;
+      }
+
+      var navH = navbar ? navbar.offsetHeight : 64;
+      var top = navH + GAP;
+      var colRect = col.getBoundingClientRect();
+      var panelH = panel.offsetHeight;
+
+      if (colRect.top >= top) {
+        panel.style.cssText = '';
+      } else if (colRect.bottom <= panelH + top + GAP) {
+        panel.style.position = 'absolute';
+        panel.style.bottom = '0';
+        panel.style.top = 'auto';
+        panel.style.left = '0';
+        panel.style.right = '0';
+        panel.style.width = '';
+      } else {
+        panel.style.position = 'fixed';
+        panel.style.top = top + 'px';
+        panel.style.left = colRect.left + 'px';
+        panel.style.width = colRect.width + 'px';
+        panel.style.bottom = '';
+        panel.style.right = '';
+      }
+    }
+
+    function requestUpdate() {
+      if (!rafId) rafId = requestAnimationFrame(update);
+    }
+
+    window.addEventListener('scroll', requestUpdate, { passive: true });
+    window.addEventListener('resize', requestUpdate, { passive: true });
+    update();
+  }());
 
   /* ── Live Polling ───────────────────────────────────── */
   var sessionId = {{ session.id }};
