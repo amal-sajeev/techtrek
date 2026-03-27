@@ -250,7 +250,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  1. Create 120 demo users
     # ══════════════════════════════════════════════════════════════
-    print("[1/10] Creating demo users ...")
+    print("[1/11] Creating demo users ...")
     firsts = FIRST_M + FIRST_F
     random.shuffle(firsts)
     lasts = list(LAST)
@@ -294,7 +294,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  2. Diversify seat types in Main Hall (event 2)
     # ══════════════════════════════════════════════════════════════
-    print("[2/10] Diversifying seat types ...")
+    print("[2/11] Diversifying seat types ...")
     if ev2.auditorium_id:
         premium_st = db.query(SeatType).filter(SeatType.name == "Premium").first()
         balcony_st = db.query(SeatType).filter(SeatType.name == "Balcony").first()
@@ -314,7 +314,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  3. Create extra coupons
     # ══════════════════════════════════════════════════════════════
-    print("[3/10] Creating coupons ...")
+    print("[3/11] Creating coupons ...")
     new_coupons = [
         Coupon(code="EARLYBIRD20", discount_pct=20, max_uses=30,
                event_id=ev2.id, is_active=True, used_count=0),
@@ -338,7 +338,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  4. Bookings — Event 1 (past, free, 42 seats)
     # ══════════════════════════════════════════════════════════════
-    print("[4/10] Creating bookings — Event 1 ...")
+    print("[4/11] Creating bookings — Event 1 ...")
     avail_e1 = _available_seats(db, ev1.id, ev1.auditorium_id)
     n_e1 = min(len(avail_e1), 42)
     users_e1 = random.sample(demo_users, n_e1)
@@ -369,7 +369,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  5. Bookings — Event 2 (paid, varied seat types)
     # ══════════════════════════════════════════════════════════════
-    print("[5/10] Creating bookings — Event 2 ...")
+    print("[5/11] Creating bookings — Event 2 ...")
     avail_e2 = _available_seats(db, ev2.id, ev2.auditorium_id)
     random.shuffle(avail_e2)
 
@@ -447,7 +447,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  6. Check-ins for Event 2
     # ══════════════════════════════════════════════════════════════
-    print("[6/10] Creating check-ins ...")
+    print("[6/11] Creating check-ins ...")
     n_checkin = int(len(paid_e2) * 0.72)
     for b in random.sample(paid_e2, n_checkin):
         b.checked_in = True
@@ -460,7 +460,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  7. Feedback (legacy + FeedbackResponse)
     # ══════════════════════════════════════════════════════════════
-    print("[7/10] Creating feedback ...")
+    print("[7/11] Creating feedback ...")
     fb_total = 0
 
     for ev, ev_bookings, n_legacy, n_resp in [
@@ -505,7 +505,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  8. Session feedback (per-session star ratings)
     # ══════════════════════════════════════════════════════════════
-    print("[8/10] Creating session feedback ...")
+    print("[8/11] Creating session feedback ...")
     sf_count = 0
     for ev, ev_bookings in [(ev1, bookings_e1), (ev2, paid_e2)]:
         ev_sessions = db.query(EventSession).filter(EventSession.event_id == ev.id).all()
@@ -532,7 +532,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  9. Polls and votes
     # ══════════════════════════════════════════════════════════════
-    print("[9/10] Creating polls and votes ...")
+    print("[9/11] Creating polls and votes ...")
     poll_count = 0
     vote_count = 0
 
@@ -609,7 +609,7 @@ def main():
     # ══════════════════════════════════════════════════════════════
     #  10. Add-on purchases & waitlist
     # ══════════════════════════════════════════════════════════════
-    print("[10/10] Add-on purchases & waitlist ...")
+    print("[10/11] Add-on purchases & waitlist ...")
 
     addons_e2 = db.query(EventAddOn).filter(EventAddOn.event_id == ev2.id).all()
     addon_count = 0
@@ -649,6 +649,119 @@ def main():
     print(f"  {wl_e2} waitlist (event 2) + {wl_e1} waitlist (event 1)")
 
     # ══════════════════════════════════════════════════════════════
+    #  11. Sold-out event with waitlist entries (waitlist demo)
+    # ══════════════════════════════════════════════════════════════
+    print("[11/11] Creating sold-out event for waitlist demo ...")
+    from app.models.auditorium import Auditorium
+    from app.models.speaker import Speaker
+
+    micro_hall = db.query(Auditorium).filter(Auditorium.name == "Micro Hall").first()
+    ev3_name = "TechTrek Exclusive AI Masterclass 2026"
+    ev3 = None
+    wl_e3_count = 0
+    n_e3 = 0
+
+    if micro_hall:
+        sarah_speaker = db.query(Speaker).filter(Speaker.name == "Dr. Sarah Chen").first()
+
+        ev3 = Event(
+            name=ev3_name,
+            description=(
+                "An ultra-exclusive, hands-on AI masterclass limited to just 9 participants. "
+                "Work directly with Dr. Sarah Chen on building and deploying a real AI agent "
+                "in a single intensive session. Due to the intimate format, seats sell out "
+                "instantly \u2014 join the waitlist to be notified if a spot opens up."
+            ),
+            banner_url="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1200&h=400&fit=crop",
+            college_id=micro_hall.college_id,
+            auditorium_id=micro_hall.id,
+            start_date=(datetime.utcnow() + timedelta(days=21)).date(),
+            end_date=(datetime.utcnow() + timedelta(days=21)).date(),
+            price=200,
+            status="published",
+            cert_title="Certificate of Completion",
+            cert_subtitle="TechTrek Exclusive AI Masterclass 2026",
+            cert_footer="Issued by TechTrek Pvt Ltd",
+        )
+        db.add(ev3)
+        db.flush()
+
+        sess3 = SessionModel(
+            title="Building & Deploying Your First AI Agent",
+            speaker_id=sarah_speaker.id if sarah_speaker else None,
+            speaker_name="Dr. Sarah Chen",
+            description=(
+                "A hands-on deep-dive into building an AI agent from scratch \u2014 from "
+                "prompt engineering and tool integration to deployment and monitoring. "
+                "Every participant walks away with a working agent they built themselves."
+            ),
+            duration_minutes=120,
+        )
+        db.add(sess3)
+        db.flush()
+
+        from app.models.event_session import EventSession as ES3
+        db.add(ES3(
+            event_id=ev3.id, session_id=sess3.id, order=0,
+            start_time=datetime.combine(ev3.start_date, time_cls(10, 0)),
+            speaker_id=sarah_speaker.id if sarah_speaker else None,
+            speaker_name="Dr. Sarah Chen",
+        ))
+        db.flush()
+
+        avail_e3 = _available_seats(db, ev3.id, micro_hall.id)
+        n_e3 = len(avail_e3)
+        users_e3 = demo_users[:n_e3]
+        e3_book_start = datetime.combine(
+            ev3.start_date - timedelta(days=7), time_cls(8, 0),
+        )
+
+        for i, (user, seat) in enumerate(zip(users_e3, avail_e3)):
+            booked_at = e3_book_start + timedelta(
+                days=int(i / max(n_e3, 1) * 5),
+                hours=random.randint(8, 20),
+                minutes=random.randint(0, 59),
+            )
+            db.add(Booking(
+                user_id=user.id, event_id=ev3.id, seat_id=seat.id,
+                payment_status="paid", booking_ref=_ref(), ticket_id=_ticket(),
+                qr_code_data=uuid.uuid4().hex, booking_group=uuid.uuid4().hex,
+                amount_paid=200, booked_at=booked_at, is_shared_ticket=False,
+            ))
+        db.flush()
+
+        booked_ids_e3 = {u.id for u in users_e3}
+        wl_pool_e3 = [u for u in demo_users if u.id not in booked_ids_e3]
+        wl_e3_demo = min(len(wl_pool_e3), 12)
+        for u in wl_pool_e3[:wl_e3_demo]:
+            db.add(Waitlist(
+                user_id=u.id, event_id=ev3.id,
+                joined_at=datetime.utcnow() - timedelta(days=random.randint(0, 5)),
+            ))
+        wl_e3_count = wl_e3_demo
+
+        for uname in ["alice", "charlie", "diana"]:
+            u_hash = hash_lookup(uname, _key)
+            u_obj = db.query(User).filter(User.username_hash == u_hash).first()
+            if u_obj and u_obj.id not in booked_ids_e3:
+                existing_wl = db.query(Waitlist).filter(
+                    Waitlist.user_id == u_obj.id, Waitlist.event_id == ev3.id,
+                ).first()
+                if not existing_wl:
+                    db.add(Waitlist(
+                        user_id=u_obj.id, event_id=ev3.id,
+                        joined_at=datetime.utcnow() - timedelta(days=random.randint(1, 3)),
+                    ))
+                    wl_e3_count += 1
+
+        db.commit()
+        print(f"  Created '{ev3.name}' in Micro Hall ({n_e3} seats, ALL booked)")
+        print(f"  {wl_e3_count} users on the waitlist")
+        print(f"  alice, charlie, diana are on the waitlist (login: user123)")
+    else:
+        print("  Micro Hall not found — skipping sold-out event")
+
+    # ══════════════════════════════════════════════════════════════
     #  Summary
     # ══════════════════════════════════════════════════════════════
     total_paid_e1 = db.query(Booking).filter(
@@ -685,11 +798,20 @@ def main():
     print(f"  {'Polls':<{w}} {total_polls}")
     print(f"  {'Poll votes':<{w}} {total_votes}")
     print(f"  {'Add-on purchases':<{w}} {addon_count}")
-    print(f"  {'Waitlist entries':<{w}} {wl_e2 + wl_e1}")
+    print(f"  {'Waitlist entries':<{w}} {wl_e2 + wl_e1 + wl_e3_count}")
+    if ev3:
+        print(f"  {'Sold-out event':<{w}} {ev3.name} ({n_e3}/{n_e3} booked)")
     print()
     print("  Dashboard URLs:")
     print(f"    Event 1: /admin/event-management/{ev1.id}/report")
     print(f"    Event 2: /admin/event-management/{ev2.id}/report")
+    if ev3:
+        print(f"    Event 3 (sold out): /events/{ev3.id}")
+    print()
+    print("  Waitlist demo:")
+    print("    Log in as alice / user123 -> visit the sold-out event -> see 'On Waitlist'")
+    print("    Log out -> visit the sold-out event -> see 'Log in to Join Waitlist'")
+    print("    Admin: /admin/waitlist -> see all waitlist entries with event filters")
     print()
     print("  All demo users login with password: demo123")
     print()

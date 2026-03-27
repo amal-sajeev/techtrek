@@ -778,6 +778,27 @@ def join_waitlist(request: Request, event_id: int, db: Session = Depends(get_db)
     return RedirectResponse(f"/events/{event_id}", status_code=303)
 
 
+@router.post("/waitlist/{event_id}/leave")
+def leave_waitlist(request: Request, event_id: int, db: Session = Depends(get_db)):
+    user = _require_user(request, db)
+    if not user:
+        return RedirectResponse(f"/auth/login?next=/events/{event_id}", status_code=303)
+
+    entry = (
+        db.query(Waitlist)
+        .filter(Waitlist.event_id == event_id, Waitlist.user_id == user.id)
+        .first()
+    )
+    if entry:
+        db.delete(entry)
+        db.commit()
+        flash(request, "You've been removed from the waitlist.", "success")
+    else:
+        flash(request, "You're not on the waitlist for this event.", "info")
+
+    return RedirectResponse(f"/events/{event_id}", status_code=303)
+
+
 def _validate_certificate_access(request, db, booking_id):
     """Common guard for all certificate endpoints. Returns (user, booking, event) or a redirect."""
     user = _require_user(request, db)

@@ -56,14 +56,22 @@
           {% else %}
             <span class="sd-sticky-price">₹{{ '{:,.0f}'.format(event.price) }}</span>
           {% endif %}
-          {% if user %}
-            {% if availability != 'sold-out' %}
+          {% if availability != 'sold-out' %}
+            {% if user %}
             <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm">Book Now</a>
             {% else %}
-            <span class="btn btn-outline btn-sm" style="opacity:.5;cursor:not-allowed">Sold Out</span>
+            <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm">Get Ticket</a>
             {% endif %}
           {% else %}
-          <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm">Get Ticket</a>
+            {% if user %}
+              {% if on_waitlist %}
+              <form method="post" action="/booking/waitlist/{{ event.id }}/leave" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-outline btn-sm">Leave Waitlist</button></form>
+              {% else %}
+              <form method="post" action="/booking/waitlist/{{ event.id }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-primary btn-sm">Join Waitlist</button></form>
+              {% endif %}
+            {% else %}
+            <a href="/auth/login?next=/events/{{ event.id }}" class="btn btn-outline btn-sm">Log in to Join Waitlist</a>
+            {% endif %}
           {% endif %}
         {% endif %}
       </div>
@@ -139,18 +147,26 @@
 
       {% if event %}
       <div class="sd-hero-cta">
-        {% if user %}
-          {% if availability != 'sold-out' %}
+        {% if availability != 'sold-out' %}
+          {% if user %}
           <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-hero-btn">
             {% if event.price == 0 %}Register Free{% else %}Book Event Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %}
           </a>
           {% else %}
-          <span class="btn btn-outline btn-lg sd-hero-btn" style="opacity:.6;cursor:not-allowed">Sold Out</span>
+          <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-hero-btn">
+            {% if event.price == 0 %}Register Free{% else %}Get Your Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %}
+          </a>
           {% endif %}
         {% else %}
-        <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-hero-btn">
-          {% if event.price == 0 %}Register Free{% else %}Get Your Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %}
-        </a>
+          {% if user %}
+            {% if on_waitlist %}
+            <form method="post" action="/booking/waitlist/{{ event.id }}/leave" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-outline btn-lg sd-hero-btn">Leave Waitlist</button></form>
+            {% else %}
+            <form method="post" action="/booking/waitlist/{{ event.id }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-primary btn-lg sd-hero-btn">Join Waitlist</button></form>
+            {% endif %}
+          {% else %}
+          <a href="/auth/login?next=/events/{{ event.id }}" class="btn btn-outline btn-lg sd-hero-btn">Log in to Join Waitlist</a>
+          {% endif %}
         {% endif %}
         {% if availability == 'filling-up' and stats.available > 0 %}
         <span class="sd-urgency-badge">&#128293; Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left</span>
@@ -214,18 +230,26 @@
         </div>
         {% endif %}
         {% if event %}
-          {% if user %}
-            {% if availability != 'sold-out' %}
+          {% if availability != 'sold-out' %}
+            {% if user %}
             <a href="/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">
               {% if event.price == 0 %}Register Free{% else %}Book Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
             </a>
             {% else %}
-            <span class="btn lm-ed-cta-btn lm-ed-cta-sold">Sold Out</span>
+            <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">
+              {% if event.price == 0 %}Register Free{% else %}Get Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
+            </a>
             {% endif %}
           {% else %}
-          <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">
-            {% if event.price == 0 %}Register Free{% else %}Get Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
-          </a>
+            {% if user %}
+              {% if on_waitlist %}
+              <form method="post" action="/booking/waitlist/{{ event.id }}/leave" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn lm-ed-cta-btn lm-ed-cta-sold" style="cursor:pointer">Leave Waitlist</button></form>
+              {% else %}
+              <form method="post" action="/booking/waitlist/{{ event.id }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn lm-btn-accent lm-ed-cta-btn">Join Waitlist &rarr;</button></form>
+              {% endif %}
+            {% else %}
+            <a href="/auth/login?next=/events/{{ event.id }}" class="btn lm-btn-accent lm-ed-cta-btn">Log in to Join Waitlist</a>
+            {% endif %}
           {% endif %}
           {% if availability == 'filling-up' and stats.available > 0 %}
           <span class="lm-ed-urgency">&#128293; Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left</span>
@@ -489,7 +513,7 @@
           {% if stats.total > 0 %}
           <div class="sd-bp-availability sd-avail-{{ availability }}">
             {% if availability == 'sold-out' %}
-            <span class="sd-avail-dot"></span> Sold Out
+            <span class="sd-avail-dot"></span> Sold Out &mdash; waitlist is open
             {% elif availability == 'filling-up' %}
             <span class="sd-avail-dot"></span> Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left
             {% else %}
@@ -500,17 +524,32 @@
 
           {# CTA buttons #}
           <div class="sd-bp-actions">
-            {% if user %}
-              {% if availability != 'sold-out' %}
+            {% if availability != 'sold-out' %}
+              {% if user %}
               <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-bp-btn">
                 {% if event.price == 0 %}Register Free{% else %}Book Now{% endif %}
               </a>
               {% else %}
-              <div class="btn btn-outline btn-lg sd-bp-btn" style="opacity:.5;cursor:not-allowed">Sold Out</div>
+              <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-bp-btn">Get Your Ticket</a>
+              <a href="/auth/login?next=/booking/event/{{ event.id }}/select" class="btn btn-outline btn-lg sd-bp-btn">Sign In</a>
               {% endif %}
             {% else %}
-            <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-bp-btn">Get Your Ticket</a>
-            <a href="/auth/login?next=/booking/event/{{ event.id }}/select" class="btn btn-outline btn-lg sd-bp-btn">Sign In</a>
+              {% if user %}
+                {% if on_waitlist %}
+                <form method="post" action="/booking/waitlist/{{ event.id }}/leave">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="submit" class="btn btn-outline btn-lg sd-bp-btn" style="width:100%">Leave Waitlist</button>
+                </form>
+                {% else %}
+                <form method="post" action="/booking/waitlist/{{ event.id }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                  <button type="submit" class="btn btn-primary btn-lg sd-bp-btn" style="width:100%">Join Waitlist</button>
+                </form>
+                {% endif %}
+              {% else %}
+              <a href="/auth/login?next=/events/{{ event.id }}" class="btn btn-primary btn-lg sd-bp-btn">Log in to Join Waitlist</a>
+              <a href="/auth/register?next=/events/{{ event.id }}" class="btn btn-outline btn-lg sd-bp-btn">Sign Up</a>
+              {% endif %}
             {% endif %}
           </div>
 
@@ -572,14 +611,22 @@
       {% endif %}
       <span class="sd-mobile-label">per ticket</span>
     </div>
-    {% if user %}
-      {% if availability != 'sold-out' %}
+    {% if availability != 'sold-out' %}
+      {% if user %}
       <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary sd-mobile-btn">Book Now</a>
       {% else %}
-      <span class="btn btn-outline sd-mobile-btn" style="opacity:.5;cursor:not-allowed">Sold Out</span>
+      <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary sd-mobile-btn">Get Ticket</a>
       {% endif %}
     {% else %}
-    <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary sd-mobile-btn">Get Ticket</a>
+      {% if user %}
+        {% if on_waitlist %}
+        <form method="post" action="/booking/waitlist/{{ event.id }}/leave" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-outline sd-mobile-btn">Leave Waitlist</button></form>
+        {% else %}
+        <form method="post" action="/booking/waitlist/{{ event.id }}" style="display:inline"><input type="hidden" name="csrf_token" value="{{ csrf_token }}"><button type="submit" class="btn btn-primary sd-mobile-btn">Join Waitlist</button></form>
+        {% endif %}
+      {% else %}
+      <a href="/auth/login?next=/events/{{ event.id }}" class="btn btn-outline sd-mobile-btn">Log in to Join Waitlist</a>
+      {% endif %}
     {% endif %}
   </div>
 </div>

@@ -16,11 +16,41 @@ from app.models.event import Event
 from app.models.coupon import Coupon
 from app.models.user import User
 from app.models.auditorium import Auditorium
-from app.services.email import send_booking_confirmation, send_group_booking_confirmation, send_cancellation_confirmation, send_group_cancellation_confirmation
+from app.services.email import send_booking_confirmation, send_group_booking_confirmation, send_cancellation_confirmation, send_group_cancellation_confirmation, send_waitlist_notification
 from app.services.razorpay import process_refund as rz_process_refund
 
 CANCELLATION_FEE = 100.0
 TICKET_PRICE = 500.0
+WAITLIST_PRIORITY_HOURS = 48
+
+
+def notify_next_waitlisted(db: DBSession, event_id: int):
+    """Email the next un-notified waitlisted user that a seat opened up."""
+    from app.models.waitlist import Waitlist
+
+    entry = (
+        db.query(Waitlist)
+        .filter(Waitlist.event_id == event_id, Waitlist.notified == False)
+        .order_by(Waitlist.joined_at.asc())
+        .first()
+    )
+    if not entry:
+        return
+
+    user = db.query(User).get(entry.user_id)
+    event = db.query(Event).get(event_id)
+    if not user or not event:
+        return
+
+    entry.notified = True
+    entry.priority_expires_at = now_ist() + timedelta(hours=WAITLIST_PRIORITY_HOURS)
+    db.commit()
+
+    base = settings.base_url.rstrip("/") if settings.base_url else ""
+    event_url = f"{base}/events/{event_id}"
+    send_waitlist_notification(
+        user.email, user.username, event.name, event.name, event_url,
+    )
 
 
 def get_seat_map(db: DBSession, event_id: int, auditorium_id: int):
@@ -336,6 +366,9 @@ def cancel_booking_user(db: DBSession, booking_id: int, user_id: int, *, send_em
                 invoice_pdf=invoice_pdf,
             )
 
+    if event:
+        notify_next_waitlisted(db, event.id)
+
     return {"ok": True, "msg": f"Booking cancelled. Refund of ₹{refund:.0f} will be processed (₹{fee:.0f} cancellation fee).{rz_warning}", "refund": refund, "fee": fee}
 
 
@@ -411,6 +444,9 @@ def cancel_group_bookings(db: DBSession, group_id: str, user_id: int) -> dict:
             cancelled_items, total_fees, total_refund,
             invoice_pdf=invoice_pdf,
         )
+
+    if event:
+        notify_next_waitlisted(db, event.id)
 
     count = len(cancelled_items)
     rz_warning = f" ({rz_failures} Razorpay refund(s) failed — process manually)" if rz_failures else ""

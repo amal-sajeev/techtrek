@@ -4,11 +4,28 @@
 {% block admin_content %}
 <div class="admin-header">
   <h1 class="admin-page-title">Waitlist</h1>
+  {% if entries %}
+  <span class="text-muted" style="font-size:.85rem">{{ entries|length }} total entr{{ 'ies' if entries|length != 1 else 'y' }}</span>
+  {% endif %}
 </div>
 
 {% if entries %}
+
+{% if waitlist_events|default([])|length > 0 %}
+<div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1rem;align-items:center">
+  {% for we in waitlist_events %}
+  <button type="button" class="btn btn-sm btn-outline wl-event-chip" data-event-id="{{ we.event.id }}" data-event-name="{{ we.event.name|lower }}" onclick="toggleEventFilter(this)">
+    {{ we.event.name }} <span class="badge badge-muted" style="margin-left:.25rem;font-size:.7rem">{{ we.count }}</span>
+  </button>
+  {% endfor %}
+  <button type="button" class="btn btn-sm btn-outline" id="wl-notify-btn" style="display:none;margin-left:auto" onclick="openNotifyModal()">
+    &#9993; Notify About Event
+  </button>
+</div>
+{% endif %}
+
 <div class="filter-bar mb-3">
-  <input type="text" id="waitlist-search" class="form-input" placeholder="Search by user or event…" oninput="filterWaitlist(this.value)" style="max-width:340px">
+  <input type="text" id="waitlist-search" class="form-input" placeholder="Search by user or event…" oninput="applyWaitlistFilters()" style="max-width:340px">
   <span id="waitlist-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ entries|length }} entr{{ 'ies' if entries|length != 1 else 'y' }}</span>
 </div>
 <div class="table-responsive">
@@ -24,12 +41,16 @@
     </thead>
     <tbody>
       {% for item in entries %}
-      <tr data-search="{{ (item.user.username if item.user else '')|lower }} {{ (item.event.name if item.event else '')|lower }}">
+      <tr data-search="{{ (item.user.username if item.user else '')|lower }} {{ (item.event.name if item.event else '')|lower }}" data-event-id="{{ item.event.id if item.event else '' }}">
         <td data-label="User">
           <strong>{{ item.user.username if item.user else '—' }}</strong>
           {% if item.user and item.user.email %}<br><small class="text-muted">{{ item.user.email }}</small>{% endif %}
         </td>
-        <td data-label="Waiting For">{{ item.event.name if item.event else '—' }}</td>
+        <td data-label="Waiting For">
+          {% if item.event %}
+          <a href="/admin/event-management/{{ item.event.id }}/waitlist" style="color:var(--primary);text-decoration:none">{{ item.event.name }}</a>
+          {% else %}—{% endif %}
+        </td>
         <td data-label="Joined">{{ item.entry.joined_at.strftime('%b %d, %Y %H:%M') }}</td>
         <td data-label="Notified">
           <span class="badge {% if item.entry.notified %}badge-success{% else %}badge-muted{% endif %}">
@@ -47,19 +68,96 @@
     </tbody>
   </table>
 </div>
+
+{# ── Notify About Event Modal ── #}
+<div id="wl-notify-modal" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(0,0,0,.45);align-items:center;justify-content:center">
+  <div style="background:var(--bg-surface,#1e293b);border-radius:var(--radius-lg,12px);box-shadow:var(--shadow-lg);width:100%;max-width:480px;margin:1rem;overflow:hidden">
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border)">
+      <h3 style="margin:0;font-size:1.1rem">Notify Waitlisted Users About an Event</h3>
+    </div>
+    <div style="padding:1.5rem">
+      <p style="margin:0 0 .5rem;font-size:.9rem;color:var(--text-muted)" id="wl-notify-desc"></p>
+      <p style="margin:0 0 1rem;font-size:.85rem;color:var(--text-muted)">Each user will receive an email about the selected event.</p>
+      <label class="form-label" for="wl-target-event">Select event to notify about</label>
+      <select id="wl-target-event" class="form-input" style="width:100%">
+        <option value="">— Choose an event —</option>
+        {% for ev in all_events|default([]) %}
+        <option value="{{ ev.id }}">{{ ev.name }}{% if ev.start_date %} ({{ ev.start_date.strftime('%b %d, %Y') }}){% endif %}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.5rem;justify-content:flex-end">
+      <button type="button" class="btn btn-outline" onclick="closeNotifyModal()">Cancel</button>
+      <form id="wl-notify-form" method="post" action="/admin/waitlist/notify-about-event" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="source_event_id" id="wl-notify-source" value="">
+        <button type="submit" class="btn btn-primary" id="wl-notify-confirm" disabled>Send Notifications</button>
+      </form>
+    </div>
+  </div>
+</div>
+
 <script>
-function filterWaitlist(q) {
-  q = q.toLowerCase().trim();
+var _wlActiveEvent = null;
+var _wlActiveEventName = '';
+
+function toggleEventFilter(btn) {
+  var eid = btn.dataset.eventId;
+  if (_wlActiveEvent === eid) {
+    _wlActiveEvent = null;
+    _wlActiveEventName = '';
+    btn.classList.remove('btn-primary');
+    btn.classList.add('btn-outline');
+  } else {
+    document.querySelectorAll('.wl-event-chip').forEach(function(c) {
+      c.classList.remove('btn-primary');
+      c.classList.add('btn-outline');
+    });
+    _wlActiveEvent = eid;
+    _wlActiveEventName = btn.textContent.trim().replace(/\s*\d+$/, '');
+    btn.classList.remove('btn-outline');
+    btn.classList.add('btn-primary');
+  }
+  var notifyBtn = document.getElementById('wl-notify-btn');
+  if (notifyBtn) notifyBtn.style.display = _wlActiveEvent ? '' : 'none';
+  applyWaitlistFilters();
+}
+
+function applyWaitlistFilters() {
+  var q = (document.getElementById('waitlist-search').value || '').toLowerCase().trim();
   var rows = document.querySelectorAll('#waitlist-table tbody tr');
   var visible = 0;
   rows.forEach(function(row) {
-    var match = !q || row.dataset.search.includes(q);
-    row.style.display = match ? '' : 'none';
-    if (match) visible++;
+    var textMatch = !q || row.dataset.search.includes(q);
+    var eventMatch = !_wlActiveEvent || row.dataset.eventId === _wlActiveEvent;
+    var show = textMatch && eventMatch;
+    row.style.display = show ? '' : 'none';
+    if (show) visible++;
   });
   var countEl = document.getElementById('waitlist-count');
-  if (countEl) countEl.textContent = visible + (visible !== 1 ? ' entries' : ' entry') + (q ? ' found' : '');
+  if (countEl) countEl.textContent = visible + (visible !== 1 ? ' entries' : ' entry') + ((q || _wlActiveEvent) ? ' found' : '');
 }
+
+function openNotifyModal() {
+  if (!_wlActiveEvent) return;
+  document.getElementById('wl-notify-source').value = _wlActiveEvent;
+  document.getElementById('wl-notify-desc').textContent = 'Sending to all users waitlisted for: ' + _wlActiveEventName;
+  document.getElementById('wl-target-event').value = '';
+  document.getElementById('wl-notify-confirm').disabled = true;
+  document.getElementById('wl-notify-modal').style.display = 'flex';
+}
+
+function closeNotifyModal() {
+  document.getElementById('wl-notify-modal').style.display = 'none';
+}
+
+document.getElementById('wl-target-event').addEventListener('change', function() {
+  document.getElementById('wl-notify-confirm').disabled = !this.value;
+});
+
+document.getElementById('wl-notify-modal').addEventListener('click', function(e) {
+  if (e.target === this) closeNotifyModal();
+});
 </script>
 {% else %}
 <div class="empty-state">

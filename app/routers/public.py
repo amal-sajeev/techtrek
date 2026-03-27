@@ -417,6 +417,17 @@ def session_detail(
     display_banner_url = es.display_banner_url if es else session_obj.banner_url
     display_duration_minutes = es.display_duration_minutes if es else session_obj.duration_minutes
 
+    user_id = request.session.get("user_id")
+    on_waitlist = False
+    if user_id and event:
+        from app.models.waitlist import Waitlist
+        on_waitlist = (
+            db.query(Waitlist)
+            .filter(Waitlist.event_id == event.id, Waitlist.user_id == user_id)
+            .first()
+            is not None
+        )
+
     return templates.TemplateResponse(
         "public/session_detail.html",
         template_ctx(
@@ -442,6 +453,7 @@ def session_detail(
             avg_rating=avg_rating,
             rating_count=rating_count,
             display_speaker_name=display_speaker_name,
+            on_waitlist=on_waitlist,
         ),
     )
 

@@ -2142,10 +2142,18 @@ def waitlist_list(request: Request, db: Session = Depends(get_db)):
 
     entries = db.query(Waitlist).order_by(Waitlist.joined_at.desc()).all()
     enriched = []
+    events_map = {}
     for w in entries:
         u = db.query(User).get(w.user_id)
         event = db.query(Event).get(w.event_id) if w.event_id else None
         enriched.append({"entry": w, "user": u, "event": event})
+        if event:
+            if event.id not in events_map:
+                events_map[event.id] = {"event": event, "count": 0}
+            events_map[event.id]["count"] += 1
+
+    waitlist_events = sorted(events_map.values(), key=lambda x: x["count"], reverse=True)
+    all_events = db.query(Event).filter(Event.status == "published").order_by(Event.name).all()
 
     return templates.TemplateResponse(
         "admin/waitlist.html",
@@ -2153,8 +2161,61 @@ def waitlist_list(request: Request, db: Session = Depends(get_db)):
             request,
             active_page="waitlist",
             entries=enriched,
+            waitlist_events=waitlist_events,
+            all_events=all_events,
         ),
     )
+
+
+@router.post("/waitlist/notify-about-event")
+async def waitlist_notify_about_event(
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    form = await _form(request)
+    source_event_id = int(form.get("source_event_id", 0))
+    target_event_id = int(form.get("target_event_id", 0))
+
+    source_event = db.query(Event).get(source_event_id) if source_event_id else None
+    target_event = db.query(Event).get(target_event_id) if target_event_id else None
+
+    if not source_event or not target_event:
+        flash(request, "Invalid event selection.", "danger")
+        return RedirectResponse("/admin/waitlist", status_code=303)
+
+    entries = db.query(Waitlist).filter(Waitlist.event_id == source_event_id).all()
+    if not entries:
+        flash(request, "No waitlist entries for that event.", "warning")
+        return RedirectResponse("/admin/waitlist", status_code=303)
+
+    from app.services.email import send_waitlist_notification
+
+    base = settings.base_url.rstrip("/") if hasattr(settings, "base_url") and settings.base_url else ""
+    event_url = f"{base}/events/{target_event_id}"
+    sent = 0
+    for w in entries:
+        user = db.query(User).get(w.user_id)
+        if user and user.email:
+            send_waitlist_notification(
+                user.email, user.username,
+                source_event.name, target_event.name, event_url,
+            )
+            sent += 1
+
+    log_activity(
+        db, category="admin", action="waitlist_notify",
+        description=f"Notified {sent} waitlisted user(s) from '{source_event.name}' about '{target_event.name}'",
+        request=request, user_id=admin.id,
+        target_type="event", target_id=target_event_id,
+    )
+    db.commit()
+
+    flash(request, f"Notified {sent} waitlisted user(s) about '{target_event.name}'.", "success")
+    return RedirectResponse("/admin/waitlist", status_code=303)
 
 
 @router.post("/waitlist/{entry_id}/delete")

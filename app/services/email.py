@@ -428,6 +428,55 @@ def send_password_reset(email: str, username: str, reset_url: str):
     return _send(email, "Reset Your Password — TechTrek", html)
 
 
+def send_waitlist_notification(email: str, username: str, original_event_name: str, event_name: str, event_url: str):
+    is_same = original_event_name == event_name
+    if is_same:
+        subject = f"A spot opened up — {event_name}"
+        headline = "A Spot Just Opened Up!"
+        intro = (
+            f"Great news! A seat has become available for "
+            f"<strong>{event_name}</strong> and you're next on the waitlist."
+        )
+        cta_text = "Book Your Spot Now"
+        note = "This spot may be offered to the next person on the waitlist if not claimed soon."
+    else:
+        subject = f"New event you might like — {event_name}"
+        headline = "An Event You Might Like"
+        intro = (
+            f"You're on the waitlist for <strong>{original_event_name}</strong>. "
+            f"We wanted to let you know about a similar event: <strong>{event_name}</strong>."
+        )
+        cta_text = "View Event"
+        note = "You're receiving this because you waitlisted for a similar event on TechTrek."
+
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="background:#0e7490;padding:28px 32px;">
+          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">{headline}</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#cffafe;">{event_name}</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
+          <p style="margin:0 0 16px;">Hi <strong>{username}</strong>,</p>
+          <p style="margin:0 0 20px;">{intro}</p>
+          <p style="margin:0 0 24px;">
+            <a href="{event_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">{cta_text} &rarr;</a>
+          </p>
+          <p style="margin:0;font-size:13px;color:#64748b;">{note}</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because you joined a waitlist on TechTrek.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return _send(email, subject, html)
+
+
 def wrap_newsletter_html(body_html: str, unsubscribe_url: str) -> str:
     return f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
