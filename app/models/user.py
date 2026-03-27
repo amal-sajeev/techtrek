@@ -80,6 +80,7 @@ class User(Base):
     is_supervisor = Column(Boolean, default=False)
     supervisor_college_id = Column(Integer, ForeignKey("colleges.id"), nullable=True)
     created_at = Column(DateTime, default=now_ist)
+    deleted_at = Column(DateTime, nullable=True)
 
     bookings = relationship("Booking", back_populates="user")
     waitlist_entries = relationship("Waitlist", back_populates="user")

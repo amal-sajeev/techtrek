@@ -2,7 +2,7 @@
 {% block title %}Newsletter Campaigns — Admin{% endblock %}
 
 {% block admin_content %}
-<div class="admin-page-header">
+<div class="admin-header">
   <h1 class="admin-page-title">Newsletter Campaigns</h1>
   <a href="/admin/newsletters/new" class="btn btn-primary">+ Compose New</a>
 </div>
@@ -12,8 +12,7 @@
 </p>
 
 {% if campaigns %}
-<div class="table-wrap">
-  <table class="admin-table">
+  <table class="table table-cards-mobile">
     <thead>
       <tr>
         <th>Subject</th>
@@ -65,7 +64,6 @@
       {% endfor %}
     </tbody>
   </table>
-</div>
 {% else %}
 <div class="empty-state">
   <h3>No campaigns yet</h3>

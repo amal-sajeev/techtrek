@@ -23,7 +23,7 @@
         <input type="number" name="discount_pct" id="coupon-discount-pct" class="form-input" step="0.01" min="0" max="100" value="{{ coupon.discount_pct if coupon and coupon.discount_pct is not none else '' }}" placeholder="e.g. 10">
       </div>
       <div class="form-group">
-        <label class="form-label" for="coupon-discount-amount">Discount Amount (&#8377;)</label>
+        <label class="form-label" for="coupon-discount-amount">Discount Amount (₹)</label>
         <input type="number" name="discount_amount" id="coupon-discount-amount" class="form-input" step="0.01" min="0" value="{{ coupon.discount_amount if coupon and coupon.discount_amount is not none else '' }}" placeholder="e.g. 100">
       </div>
     </div>

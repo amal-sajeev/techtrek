@@ -46,7 +46,7 @@
               <div class="ticket-card-info">
                 <span class="seat-label-chip">{{ st.label }}{% if st.seat_type not in ('standard', 'aisle') %} <small>({% if st.seat_type.startswith('custom_') %}{{ custom_types_map.get(st.seat_type, st.seat_type)|upper }}{% else %}{{ st.seat_type|upper }}{% endif %})</small>{% endif %}</span>
                 <span class="ticket-id">{{ b.ticket_id }}</span>
-                <span class="booking-ref-small">Ref: {{ b.booking_ref }} &middot; &#8377;{{ "%.0f"|format(b.amount_paid) }}</span>
+                <span class="booking-ref-small">Ref: {{ b.booking_ref }} &middot; ₹{{ "%.0f"|format(b.amount_paid) }}</span>
               </div>
               <div class="ticket-card-actions">
                 {% if b.qr_code_data %}
@@ -64,7 +64,7 @@
             {% for addon in purchased_addons %}
             <div style="display:flex;justify-content:space-between;padding:.35rem 0;{% if not loop.last %}border-bottom:1px dashed var(--border, #e5e7eb);{% endif %}">
               <span>{{ addon.title }}</span>
-              <span style="font-weight:600">{% if addon.price > 0 %}&#8377;{{ "%.0f"|format(addon.price) }}{% else %}Free{% endif %}</span>
+              <span style="font-weight:600">{% if addon.price > 0 %}₹{{ "%.0f"|format(addon.price) }}{% else %}Free{% endif %}</span>
             </div>
             {% endfor %}
           </div>
@@ -72,8 +72,8 @@
 
           <div class="detail-group">
             <h4>Total Paid</h4>
-            <p class="confirmation-total">&#8377;{{ "%.2f"|format(total) }}</p>
-            <p class="text-muted" style="font-size:.8rem">Cancellation policy: &#8377;100 fee per ticket, remainder refunded.</p>
+            <p class="confirmation-total">₹{{ "%.2f"|format(total) }}</p>
+            <p class="text-muted" style="font-size:.8rem">Cancellation policy: ₹100 fee per ticket, remainder refunded.</p>
           </div>
         </div>
 

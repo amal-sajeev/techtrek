@@ -54,7 +54,7 @@
           {% if event.price == 0 %}
             <span class="sd-sticky-price">Free</span>
           {% else %}
-            <span class="sd-sticky-price">&#8377;{{ '{:,.0f}'.format(event.price) }}</span>
+            <span class="sd-sticky-price">₹{{ '{:,.0f}'.format(event.price) }}</span>
           {% endif %}
           {% if user %}
             {% if availability != 'sold-out' %}
@@ -142,14 +142,14 @@
         {% if user %}
           {% if availability != 'sold-out' %}
           <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-hero-btn">
-            {% if event.price == 0 %}Register Free{% else %}Book Event Ticket &mdash; &#8377;{{ '{:,.0f}'.format(event.price) }}{% endif %}
+            {% if event.price == 0 %}Register Free{% else %}Book Event Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %}
           </a>
           {% else %}
           <span class="btn btn-outline btn-lg sd-hero-btn" style="opacity:.6;cursor:not-allowed">Sold Out</span>
           {% endif %}
         {% else %}
         <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg sd-hero-btn">
-          {% if event.price == 0 %}Register Free{% else %}Get Your Ticket &mdash; &#8377;{{ '{:,.0f}'.format(event.price) }}{% endif %}
+          {% if event.price == 0 %}Register Free{% else %}Get Your Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %}
         </a>
         {% endif %}
         {% if availability == 'filling-up' and stats.available > 0 %}
@@ -217,14 +217,14 @@
           {% if user %}
             {% if availability != 'sold-out' %}
             <a href="/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">
-              {% if event.price == 0 %}Register Free{% else %}Book Ticket &mdash; &#8377;{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
+              {% if event.price == 0 %}Register Free{% else %}Book Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
             </a>
             {% else %}
             <span class="btn lm-ed-cta-btn lm-ed-cta-sold">Sold Out</span>
             {% endif %}
           {% else %}
           <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">
-            {% if event.price == 0 %}Register Free{% else %}Get Ticket &mdash; &#8377;{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
+            {% if event.price == 0 %}Register Free{% else %}Get Ticket &mdash; ₹{{ '{:,.0f}'.format(event.price) }}{% endif %} &rarr;
           </a>
           {% endif %}
           {% if availability == 'filling-up' and stats.available > 0 %}
@@ -450,19 +450,19 @@
             <div class="sd-bp-tier sd-bp-tier--standard">
               <span class="sd-bp-tier-badge">Standard</span>
               <span class="sd-bp-tier-price">
-                {% if event.price == 0 %}Free{% else %}<span class="sd-bp-currency">&#8377;</span>{{ '{:,.0f}'.format(event.price) }}{% endif %}
+                {% if event.price == 0 %}Free{% else %}<span class="sd-bp-currency">₹</span>{{ '{:,.0f}'.format(event.price) }}{% endif %}
               </span>
             </div>
             {% if event.price_vip %}
             <div class="sd-bp-tier sd-bp-tier--vip">
               <span class="sd-bp-tier-badge sd-bp-badge--vip">VIP</span>
-              <span class="sd-bp-tier-price"><span class="sd-bp-currency">&#8377;</span>{{ '{:,.0f}'.format(event.price_vip) }}</span>
+              <span class="sd-bp-tier-price"><span class="sd-bp-currency">₹</span>{{ '{:,.0f}'.format(event.price_vip) }}</span>
             </div>
             {% endif %}
             {% if event.price_accessible %}
             <div class="sd-bp-tier sd-bp-tier--accessible">
               <span class="sd-bp-tier-badge sd-bp-badge--accessible">&#9855; Accessible</span>
-              <span class="sd-bp-tier-price"><span class="sd-bp-currency">&#8377;</span>{{ '{:,.0f}'.format(event.price_accessible) }}</span>
+              <span class="sd-bp-tier-price"><span class="sd-bp-currency">₹</span>{{ '{:,.0f}'.format(event.price_accessible) }}</span>
             </div>
             {% endif %}
           </div>
@@ -568,7 +568,7 @@
       {% if event.price == 0 %}
         <span class="sd-mobile-amount">Free</span>
       {% else %}
-        <span class="sd-mobile-amount">&#8377;{{ '{:,.0f}'.format(event.price) }}</span>
+        <span class="sd-mobile-amount">₹{{ '{:,.0f}'.format(event.price) }}</span>
       {% endif %}
       <span class="sd-mobile-label">per ticket</span>
     </div>

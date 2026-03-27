@@ -83,14 +83,13 @@
           </select>
         </div>
         <div class="form-group">
-          <label class="form-label" for="pf-domain">Domain of Interest</label>
-          <select name="domain" id="pf-domain" class="form-input">
-            <option value="">Select domain</option>
-            {% set domains = [('AI','Artificial Intelligence'),('Cloud Computing','Cloud Computing'),('Quantum Computing','Quantum Computing'),('Cybersecurity','Cybersecurity'),('Data Science','Data Science'),('Web Development','Web Development'),('Mobile Development','Mobile Development'),('IoT','IoT'),('Blockchain','Blockchain'),('DevOps','DevOps'),('Other','Other')] %}
-            {% for val, label in domains %}
-            <option value="{{ val }}" {% if profile_user.domain == val %}selected{% endif %}>{{ label }}</option>
+          <label class="form-label" for="pf-domain">Specialization</label>
+          <input type="text" name="domain" id="pf-domain" class="form-input" list="specialization-list" value="{{ profile_user.domain or '' }}" placeholder="e.g. Artificial Intelligence">
+          <datalist id="specialization-list">
+            {% for val in ['AI','Cloud Computing','Quantum Computing','Cybersecurity','Data Science','Web Development','Mobile Development','IoT','Blockchain','DevOps'] %}
+            <option value="{{ val }}">
             {% endfor %}
-          </select>
+          </datalist>
         </div>
       </div>
 

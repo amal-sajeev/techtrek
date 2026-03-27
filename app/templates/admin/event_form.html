@@ -550,6 +550,18 @@
           <label class="form-label" id="sess-speaker-label">Speaker Override</label>
           <select id="modal-sess-speaker" class="form-input" data-no-tomselect></select>
         </div>
+        <div id="new-speaker-fields" style="display:none;padding:.75rem;border:1px solid var(--border);border-radius:var(--radius-md);margin-top:-.5rem">
+          <div class="form-row">
+            <div class="form-group">
+              <label class="form-label">Speaker Name <span class="sess-req">*</span></label>
+              <input type="text" id="new-speaker-name" class="form-input" placeholder="Full name">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Email <span class="sess-req">*</span></label>
+              <input type="email" id="new-speaker-email" class="form-input" placeholder="speaker@email.com">
+            </div>
+          </div>
+        </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label">Start Date</label>
@@ -659,7 +671,7 @@
           <input type="text" id="modal-addon-name" class="form-input" placeholder="e.g. Workshop Pass">
         </div>
         <div class="form-group" style="flex:1">
-          <label class="form-label">Price (&#8377;)</label>
+          <label class="form-label">Price (₹)</label>
           <input type="number" id="modal-addon-price" class="form-input" value="0" min="0" step="0.01">
         </div>
         <div class="form-group" style="flex:1">
@@ -714,7 +726,7 @@
         {% for c in event_coupons %}
         <tr>
           <td><code>{{ c.code }}</code></td>
-          <td>{% if c.discount_pct %}{{ c.discount_pct }}%{% elif c.discount_amount %}&#8377;{{ "%.0f"|format(c.discount_amount) }}{% else %}—{% endif %}</td>
+          <td>{% if c.discount_pct %}{{ c.discount_pct }}%{% elif c.discount_amount %}₹{{ "%.0f"|format(c.discount_amount) }}{% else %}—{% endif %}</td>
           <td>{{ c.used_count or 0 }}{% if c.max_uses %}/{{ c.max_uses }}{% endif %}</td>
           <td>{{ c.valid_from.strftime('%b %d') if c.valid_from else "—" }} – {{ c.valid_until.strftime('%b %d') if c.valid_until else "—" }}</td>
           <td><span class="badge {% if c.is_active %}badge-success{% else %}badge-draft{% endif %}">{{ "Yes" if c.is_active else "No" }}</span></td>
@@ -988,6 +1000,7 @@ window._existingAgendaItems = [
     var label = sp.name + (sp.title ? ' \u2014 ' + sp.title : '');
     speakerOptions += '<option value="' + sp.id + '">' + label.replace(/"/g, '&quot;') + '</option>';
   });
+  speakerOptions += '<option value="__new__">+ Create New Speaker</option>';
   var sessMap = {};
   (window._wizardSessions || []).forEach(function(s) { sessMap[String(s.id)] = s; });
 
@@ -1276,6 +1289,16 @@ window._existingAgendaItems = [
       if (info && info.speakerId) spkTom.setValue(String(info.speakerId), true);
       updateSessModalMode();
     });
+    spkTom.on('change', function(val) {
+      var newFields = document.getElementById('new-speaker-fields');
+      if (val === '__new__') {
+        newFields.style.display = '';
+        document.getElementById('new-speaker-name').value = '';
+        document.getElementById('new-speaker-email').value = '';
+      } else {
+        newFields.style.display = 'none';
+      }
+    });
   }
   document.addEventListener('DOMContentLoaded', ensureSessionTomSelects);
   document.addEventListener('DOMContentLoaded', function() {
@@ -1459,6 +1482,7 @@ window._existingAgendaItems = [
     btnSessSave.textContent = 'Save';
     if (sessTom) sessTom.setValue('', true);
     if (spkTom) spkTom.setValue('', true);
+    document.getElementById('new-speaker-fields').style.display = 'none';
     var slot = getNextSlot();
     document.getElementById('modal-sess-date').value = slot.date;
     document.getElementById('modal-sess-time').value = slot.time;
@@ -1496,8 +1520,43 @@ window._existingAgendaItems = [
 
   document.getElementById('modal-sess-save').addEventListener('click', function() {
     ensureSessionTomSelects();
+    var spkVal = spkTom ? spkTom.getValue() : sessSpkSelect.value;
+
+    if (spkVal === '__new__') {
+      var newName = document.getElementById('new-speaker-name').value.trim();
+      var newEmail = document.getElementById('new-speaker-email').value.trim();
+      if (!newName || !newEmail) {
+        if (window.TechTrek) TechTrek.showToast('Speaker name and email are required.', 'warning');
+        return;
+      }
+      btnSessSave.disabled = true;
+      btnSessSave.textContent = 'Creating speaker\u2026';
+      fetch('/admin/api/speakers/create-quick', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName, email: newEmail })
+      })
+      .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, data: j }; }); })
+      .then(function(res) {
+        if (!res.ok) { if (window.TechTrek) TechTrek.showToast(res.data.error || 'Failed', 'danger'); return; }
+        var sp = res.data;
+        if (spkTom) {
+          spkTom.addOption({ value: String(sp.id), text: sp.name + (sp.title ? ' \u2014 ' + sp.title : '') });
+          spkTom.setValue(String(sp.id), true);
+        }
+        document.getElementById('new-speaker-fields').style.display = 'none';
+        if (window.TechTrek) TechTrek.showToast("Speaker '" + sp.name + "' created.", 'success');
+        btnSessSave.disabled = false;
+        btnSessSave.textContent = 'Save';
+        document.getElementById('modal-sess-save').click();
+      })
+      .catch(function(e) { if (window.TechTrek) TechTrek.showToast('Error: ' + e.message, 'danger'); })
+      .finally(function() { btnSessSave.disabled = false; btnSessSave.textContent = 'Save'; });
+      return;
+    }
+
     var sessId = sessTom ? sessTom.getValue() : sessSelect.value;
-    var spkId = spkTom ? spkTom.getValue() : sessSpkSelect.value;
+    var spkId = spkVal;
     var spkLabel = '';
     if (spkId && spkTom) { var it = spkTom.getItem(spkId); spkLabel = it ? it.textContent : ''; }
     var d = document.getElementById('modal-sess-date').value;

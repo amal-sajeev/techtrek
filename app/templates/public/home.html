@@ -3,55 +3,11 @@
 
 {% block content %}
 
-<div class="dark-only">
-<section class="hero hero-compact">
-  <div class="hero-glow hero-glow-1"></div>
-  <div class="hero-glow hero-glow-2"></div>
-  <div class="container">
-    <div class="hero-split">
-      <div class="hero-text">
-        <h1 class="hero-title">
-          <span class="line-1">TechTrek</span>
-          <span class="line-2" data-text="India's Campus Summit">India's Campus Summit</span>
-        </h1>
-        <p class="hero-subtitle">
-          The best campuses don't just teach tech &mdash; they live it. TechTrek brings working engineers and founders straight to your campus &mdash; live talks, real insights, zero fluff.
-        </p>
-        <div class="hero-actions">
-          <a href="/events" class="btn btn-primary btn-lg">Explore Events</a>
-          {% if not user %}
-          <a href="/auth/register" class="btn btn-outline btn-lg">Register Now</a>
-          {% endif %}
-        </div>
-        {% if total_attendees > 100 and total_speakers > 15 and total_events > 8 %}
-        <div class="hero-stats">
-          {% if total_attendees > 10 %}
-          <div class="stat-item">
-            <span class="stat-number">{{ total_attendees }}</span>
-            <span class="stat-label">Attendees</span>
-          </div>
-          {% endif %}
-          {% if total_speakers > 0 %}
-          <div class="stat-item">
-            <span class="stat-number">{{ total_speakers }}</span>
-            <span class="stat-label">Speakers</span>
-          </div>
-          {% endif %}
-          {% if total_events > 0 %}
-          <div class="stat-item">
-            <span class="stat-number">{{ total_events }}</span>
-            <span class="stat-label">Events</span>
-          </div>
-          {% endif %}
-        </div>
-        {% endif %}
-      </div>
+<section class="hero hero-compact lm-hero">
+  <div class="hero-glow hero-glow-1 dark-only"></div>
+  <div class="hero-glow hero-glow-2 dark-only"></div>
 
-    </div>
-  </div>
-
-  {% if featured and featured.event %}
-  {% set fev = featured.event %}
+  {% set fev = featured.event if featured and featured.event else None %}
   {% set hero_img_pool = [
     'photo-1540575467063-178a50c2df87',
     'photo-1475721027785-f74eccf877e2',
@@ -62,8 +18,10 @@
     'photo-1523580494863-6f3031224c94',
     'photo-1560439513-4e7cfb21b3f4'
   ] %}
-  {% set hero_img_id = hero_img_pool[fev.id % 8] %}
-  <div class="hero-session-bg">
+  {% set hero_img_id = hero_img_pool[fev.id % 8] if fev else '' %}
+
+  {% if fev %}
+  <div class="hero-session-bg dark-only">
     <img class="hero-session-img"
       src="{% if fev.banner_url %}{{ fev.banner_url }}{% else %}https://images.unsplash.com/{{ hero_img_id }}?w=1200&auto=format&fit=crop&q=80{% endif %}"
       alt="{{ fev.name }}" loading="eager">
@@ -89,20 +47,16 @@
           {% endif %}
         </div>
       </div>
-
       <div class="hsess-body">
         <a href="/events/{{ fev.id }}" class="hsess-title">{{ fev.name }}</a>
-
         {% if fev.description %}
         <p class="hsess-desc">{{ fev.description[:180] }}{% if fev.description|length > 180 %}&hellip;{% endif %}</p>
         {% endif %}
-
         <div class="hsess-speaker-row">
           <div class="hsess-speaker-info">
             <span class="hsess-speaker-name">{{ featured.session_count }} session{{ 's' if featured.session_count != 1 else '' }}</span>
           </div>
         </div>
-
         <div class="hsess-meta">
           {% if fev.start_date %}
           <span class="hsess-meta-chip">
@@ -118,7 +72,6 @@
           {% endif %}
         </div>
       </div>
-
       <div class="hsess-cta-row">
         <a href="/events/{{ fev.id }}" class="hsess-cta">
           View Event
@@ -129,20 +82,21 @@
     </div>
   </div>
   {% endif %}
-</section>
-</div><!-- /dark-only hero -->
 
-<!-- ── LIGHT-MODE NEWSPAPER HERO ────────────────────────────────────────── -->
-<div class="light-only">
-<section class="lm-hero">
   <div class="container">
-
-    <!-- Two-column editorial grid -->
-    <div class="lm-hero-grid">
-
-      <!-- Left column: headline + standfirst + CTAs + stats -->
+    <div class="hero-split lm-hero-grid">
       <div class="lm-hero-left">
-        <div>
+        <div class="hero-text">
+          <div class="dark-only">
+          <h1 class="hero-title">
+            <span class="line-1">TechTrek</span>
+            <span class="line-2" data-text="India's Campus Summit">India's Campus Summit</span>
+          </h1>
+          <p class="hero-subtitle">
+            The best campuses don't just teach tech &mdash; they live it. TechTrek brings working engineers and founders straight to your campus &mdash; live talks, real insights, zero fluff.
+          </p>
+          </div>
+          <div class="light-only">
           <div class="lm-brand-title">
             <div class="lm-bt-top">
               <div class="lm-bt-left">India's<br>Campus<br>Summit</div>
@@ -159,56 +113,78 @@
             Go beyond the classroom. TechTrek brings working engineers,
             founders, and researchers to your campus &mdash; live talks, real insights, no consultants.
           </p>
-          <div class="lm-cta-group">
-            <a href="/events" class="btn lm-btn-accent lm-btn-lg">Explore Events &rarr;</a>
-            {% if not user %}<a href="/auth/register" class="lm-link-secondary">Create account</a>{% endif %}
           </div>
-          <div class="lm-dispatch">
-            <span class="lm-dispatch-count">{{ total_events }} event{{ 's' if total_events != 1 else '' }} this season</span>
-            <span class="lm-dispatch-sep"></span>
-            <div class="lm-dispatch-ticker-wrap">
-              <div class="lm-dispatch-ticker">
-                {% set city_names = cities | map(attribute='name') | list if cities else ['Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata'] %}
-                {% for city in city_names %}<span>{{ city }}</span>{% endfor %}
-                {% for city in city_names %}<span>{{ city }}</span>{% endfor %}
-              </div>
+
+          <div class="hero-actions lm-cta-group">
+          <a href="/events" class="btn btn-primary btn-lg lm-btn-accent lm-btn-lg">Explore Events<span class="light-only-inline"> &rarr;</span></a>
+          {% if not user %}
+          <a href="/auth/register" class="btn btn-outline btn-lg dark-only">Register Now</a>
+          <a href="/auth/register" class="lm-link-secondary light-only">Create account</a>
+          {% endif %}
+          </div>
+
+          <div class="lm-dispatch light-only">
+          <span class="lm-dispatch-count">{{ total_events }} event{{ 's' if total_events != 1 else '' }} this season</span>
+          <span class="lm-dispatch-sep"></span>
+          <div class="lm-dispatch-ticker-wrap">
+            <div class="lm-dispatch-ticker">
+              {% set city_names = cities | map(attribute='name') | list if cities else ['Mumbai', 'Delhi', 'Bengaluru', 'Hyderabad', 'Chennai', 'Pune', 'Kolkata'] %}
+              {% for city in city_names %}<span>{{ city }}</span>{% endfor %}
+              {% for city in city_names %}<span>{{ city }}</span>{% endfor %}
             </div>
           </div>
+          </div>
         </div>
-        {% if total_attendees > 100 and total_events > 5 %}
-        <div class="lm-stats">
-          <div class="lm-stat">
-            <span class="lm-stat-num">{{ total_attendees }}+</span>
-            <span class="lm-stat-label">Attendees</span>
+
+        {% set show_stats_dark = total_attendees > 100 and total_speakers > 15 and total_events > 8 %}
+        {% set show_stats_light_only = total_attendees > 100 and total_events > 5 and not show_stats_dark %}
+        {% if show_stats_dark or show_stats_light_only %}
+        <div class="hero-stats lm-stats{% if show_stats_light_only %} light-only{% endif %}">
+          {% if show_stats_dark %}
+          {% if total_attendees > 10 %}
+          <div class="stat-item lm-stat" data-hero-stat="attendees">
+            <span class="stat-number lm-stat-num">{{ total_attendees }}</span>
+            <span class="stat-label lm-stat-label">Attendees</span>
           </div>
-          <div class="lm-stat">
-            <span class="lm-stat-num">{{ total_speakers }}+</span>
-            <span class="lm-stat-label">Speakers</span>
+          {% endif %}
+          {% if total_speakers > 0 %}
+          <div class="stat-item lm-stat" data-hero-stat="speakers">
+            <span class="stat-number lm-stat-num">{{ total_speakers }}</span>
+            <span class="stat-label lm-stat-label">Speakers</span>
           </div>
-          <div class="lm-stat">
-            <span class="lm-stat-num">{{ total_events }}</span>
-            <span class="lm-stat-label">Events</span>
+          {% endif %}
+          {% if total_events > 0 %}
+          <div class="stat-item lm-stat" data-hero-stat="events">
+            <span class="stat-number lm-stat-num">{{ total_events }}</span>
+            <span class="stat-label lm-stat-label">Events</span>
           </div>
+          {% endif %}
+          {% else %}
+          <div class="stat-item lm-stat" data-hero-stat="attendees">
+            <span class="stat-number lm-stat-num">{{ total_attendees }}</span>
+            <span class="stat-label lm-stat-label">Attendees</span>
+          </div>
+          <div class="stat-item lm-stat" data-hero-stat="speakers">
+            <span class="stat-number lm-stat-num">{{ total_speakers }}</span>
+            <span class="stat-label lm-stat-label">Speakers</span>
+          </div>
+          <div class="stat-item lm-stat" data-hero-stat="events">
+            <span class="stat-number lm-stat-num">{{ total_events }}</span>
+            <span class="stat-label lm-stat-label">Events</span>
+          </div>
+          {% endif %}
         </div>
         {% endif %}
       </div>
 
-      <!-- Right column: featured event card -->
-      <div class="lm-hero-right">
-        {% if featured and featured.event %}
-        {% set fev = featured.event %}
+      <div class="lm-hero-right light-only">
+        {% if fev %}
         <div class="lm-featured-label">
           <span class="lm-live-dot"></span>
           <span class="lm-featured-text">Featured upcoming event</span>
         </div>
         <a href="/events/{{ fev.id }}" class="lm-featured-card">
-          {% set hero_img_pool = [
-            'photo-1540575467063-178a50c2df87',
-            'photo-1475721027785-f74eccf877e2',
-            'photo-1591115765373-5207764f72e7',
-            'photo-1505373877841-8d25f7d46678'
-          ] %}
-          <img src="{{ fev.banner_url or 'https://images.unsplash.com/' + hero_img_pool[fev.id % 4] + '?w=900&auto=format&fit=crop&q=80' }}"
+          <img src="{% if fev.banner_url %}{{ fev.banner_url }}{% else %}https://images.unsplash.com/{{ hero_img_id }}?w=900&auto=format&fit=crop&q=80{% endif %}"
                alt="{{ fev.name }}" loading="eager">
           {% if fev.college and fev.college.logo_url %}
           <div class="college-logo-watermark">
@@ -236,11 +212,9 @@
         </div>
         {% endif %}
       </div>
-
-    </div><!-- /lm-hero-grid -->
-  </div><!-- /container -->
+    </div>
+  </div>
 </section>
-</div><!-- /light-only hero -->
 
 <div class="section-divider"></div>
 
@@ -400,7 +374,7 @@
               </div>
             </div>
             <div class="card-footer">
-              <span class="card-detail" style="font-size:.78rem;color:var(--text-muted)">{% if ev.price == 0 %}Free{% else %}&#8377;{{ '{:,.0f}'.format(ev.price) }}{% endif %}</span>
+              <span class="card-detail" style="font-size:.78rem;color:var(--text-muted)">{% if ev.price == 0 %}Free{% else %}₹{{ '{:,.0f}'.format(ev.price) }}{% endif %}</span>
               <span class="card-cta-hint">Details &rarr;</span>
             </div>
           </a>
@@ -630,7 +604,6 @@
 
   document.addEventListener('DOMContentLoaded', function() {
     initCarousel('talks-track', 'talks-prev', 'talks-next', 4000);
-    initCarousel('sessions-track', 'sessions-prev', 'sessions-next', 5000);
   });
 })();
 </script>

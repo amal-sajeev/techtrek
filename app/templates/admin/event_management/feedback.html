@@ -76,7 +76,7 @@
           {% if fb.allow_public and fb.rating %}
           <form method="post" action="/admin/feedback/{{ fb.id }}/toggle-featured" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-sm {% if fb.is_featured %}btn-outline{% else %}btn-primary{% endif %}">
+            <button type="button" class="btn btn-sm {% if fb.is_featured %}btn-outline{% else %}btn-primary{% endif %}" data-confirm="Toggle featured status for this review?" data-confirm-label="Confirm">
               {{ 'Unfeature' if fb.is_featured else 'Feature' }}
             </button>
           </form>

@@ -58,7 +58,7 @@
               <span style="font-weight:500">{{ item.addon.title }}</span>
               {% if item.addon.description %}<p style="font-size:.8rem;color:var(--text-secondary, #6b7280);margin:.1rem 0 0">{{ item.addon.description }}</p>{% endif %}
             </div>
-            <span style="font-weight:600;white-space:nowrap">{% if item.addon.price > 0 %}&#8377;{{ "%.0f"|format(item.addon.price) }}{% else %}Free{% endif %}</span>
+            <span style="font-weight:600;white-space:nowrap">{% if item.addon.price > 0 %}₹{{ "%.0f"|format(item.addon.price) }}{% else %}Free{% endif %}</span>
           </label>
           {% endfor %}
         </div>
@@ -69,32 +69,32 @@
             {% for item in seat_items %}
             <div class="checkout-line">
               <span>{{ item.seat.label }}{% if item.seat.seat_type not in ('standard', 'aisle') %} ({{ custom_types_map.get(item.seat.seat_type, item.seat.seat_type)|upper if item.seat.seat_type.startswith('custom_') else item.seat.seat_type|upper }}){% endif %}</span>
-              <span>&#8377;{{ "%.0f"|format(item.price) }}</span>
+              <span>₹{{ "%.0f"|format(item.price) }}</span>
             </div>
             {% endfor %}
           </div>
           {% if addon_total > 0 %}
           <div class="checkout-line">
             <span>Add-ons</span>
-            <span>&#8377;{{ "%.0f"|format(addon_total) }}</span>
+            <span>₹{{ "%.0f"|format(addon_total) }}</span>
           </div>
           {% endif %}
           {% if coupon_discount and coupon_discount > 0 %}
           <div class="checkout-line" style="color:var(--green)">
             <span>Coupon discount</span>
-            <span>-&#8377;{{ "%.0f"|format(coupon_discount) }}</span>
+            <span>-₹{{ "%.0f"|format(coupon_discount) }}</span>
           </div>
           {% endif %}
           {% if fee_pct %}
           <div class="checkout-line">
             <span>Processing Fee ({{ fee_pct|int if fee_pct == fee_pct|int else fee_pct }}%)</span>
-            <span>&#8377;{{ "%.0f"|format(processing_fee) }}</span>
+            <span>₹{{ "%.0f"|format(processing_fee) }}</span>
           </div>
           {% endif %}
 
           <div class="checkout-line checkout-total">
             <span>Total</span>
-            <span>&#8377;{{ "%.0f"|format(total) }}</span>
+            <span>₹{{ "%.0f"|format(total) }}</span>
           </div>
         </div>
 
@@ -107,7 +107,7 @@
 
         {% if total > 0 %}
         <button type="button" class="btn btn-primary btn-lg btn-block" id="pay-btn" disabled>
-          Pay &#8377;{{ "%.0f"|format(total) }}
+          Pay ₹{{ "%.0f"|format(total) }}
         </button>
         {% else %}
         <form method="post" action="/booking/event/{{ event.id }}/pay" id="free-form">

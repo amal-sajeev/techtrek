@@ -1183,7 +1183,12 @@ def terms_page(request: Request):
 # --- Feedback (event-centric) ---
 
 @router.get("/feedback/{event_id}")
-def feedback_form(request: Request, event_id: int, db: DbSession = Depends(get_db)):
+def feedback_form(
+    request: Request,
+    event_id: int,
+    db: DbSession = Depends(get_db),
+    from_cert: str = Query("", alias="from_cert"),
+):
     user_id = request.session.get("user_id")
     if not user_id:
         return RedirectResponse(f"/auth/login?next=/feedback/{event_id}", status_code=303)
@@ -1199,6 +1204,8 @@ def feedback_form(request: Request, event_id: int, db: DbSession = Depends(get_d
     ).first()
     if existing and existing.submitted_at is not None:
         flash(request, "You have already submitted feedback for this event.", "info")
+        if from_cert:
+            return RedirectResponse(f"/booking/certificate/{from_cert}/download", status_code=303)
         return RedirectResponse("/booking/my", status_code=303)
 
     fb_template = None
@@ -1216,6 +1223,7 @@ def feedback_form(request: Request, event_id: int, db: DbSession = Depends(get_d
             existing=existing,
             fb_template=fb_template,
             sessions=sessions,
+            from_cert=from_cert or "",
         ),
     )
 
@@ -1285,6 +1293,16 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
         for sid, val in session_ratings.items():
             db.add(SessionRating(feedback_id=fb.id, session_id=sid, rating=val))
 
+    # Also write SessionFeedback rows (used by metrics)
+    for sid, val in session_ratings.items():
+        existing_sf = db.query(SessionFeedback).filter(
+            SessionFeedback.user_id == user_id, SessionFeedback.session_id == sid
+        ).first()
+        if existing_sf:
+            existing_sf.rating = val
+        else:
+            db.add(SessionFeedback(user_id=user_id, session_id=sid, event_id=event_id, rating=val))
+
     if fb_template:
         fr = FeedbackResponse(
             user_id=user_id,
@@ -1307,6 +1325,10 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
 
     db.commit()
     flash(request, "Thank you for your feedback!", "success")
+
+    from_cert = form.get("from_cert", "").strip()
+    if from_cert:
+        return RedirectResponse(f"/booking/certificate/{from_cert}/download", status_code=303)
     return RedirectResponse("/booking/my", status_code=303)
 
 

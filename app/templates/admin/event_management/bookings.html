@@ -97,7 +97,7 @@
           {% elif item.booking.payment_status == 'hold' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Cancel this hold booking? This will release the held seats." data-confirm-label="Cancel Booking">Cancel</button>
           </form>
           {% endif %}
         </td>

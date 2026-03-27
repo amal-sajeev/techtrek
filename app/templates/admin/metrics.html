@@ -1,0 +1,202 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Metrics — Admin — TechTrek{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">Metrics</h1>
+</div>
+
+<!-- Filter Bar -->
+<form method="get" action="/admin/metrics" class="metrics-filter-bar">
+  <div class="metrics-filter-group">
+    <label class="metrics-filter-label">From</label>
+    <input type="date" name="date_from" class="form-input" value="{{ f_date_from or '' }}">
+  </div>
+  <div class="metrics-filter-group">
+    <label class="metrics-filter-label">To</label>
+    <input type="date" name="date_to" class="form-input" value="{{ f_date_to or '' }}">
+  </div>
+  <div class="metrics-filter-group metrics-filter-grow">
+    <label class="metrics-filter-label">Event</label>
+    <select name="event_id" class="form-input">
+      <option value="">All Events</option>
+      {% for ev in all_events %}
+      <option value="{{ ev.id }}" {% if f_event_id == ev.id|string %}selected{% endif %}>{{ ev.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="metrics-filter-group">
+    <label class="metrics-filter-label">College</label>
+    <select name="college_id" class="form-input">
+      <option value="">All Colleges</option>
+      {% for c in all_colleges %}
+      <option value="{{ c.id }}" {% if f_college_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="metrics-filter-actions">
+    <button type="submit" class="btn btn-sm btn-primary">Apply</button>
+    <a href="/admin/metrics" class="btn btn-sm btn-outline">Reset</a>
+  </div>
+</form>
+
+<!-- Row 1: Status + Cities + Specializations -->
+<div class="dashboard-panels dashboard-panels-3 mt-3">
+  <div class="dashboard-panel">
+    <h3 class="panel-title">Event Status Breakdown</h3>
+    {% if event_statuses %}
+    <div class="status-breakdown">
+      {% for status, count in event_statuses.items() %}
+      <div class="status-row">
+        <span class="badge {% if status == 'published' %}badge-success{% elif status == 'draft' %}badge-draft{% elif status == 'completed' %}badge-available{% elif status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">{{ status|replace('_',' ')|title }}</span>
+        <span class="status-count">{{ count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No events match the filters.</p>
+    {% endif %}
+  </div>
+
+  <div class="dashboard-panel">
+    <h3 class="panel-title">Top Cities</h3>
+    {% if top_cities %}
+    <div class="top-cities-list">
+      {% for city in top_cities %}
+      <div class="city-row">
+        <span class="city-name">{{ city.name }}</span>
+        <span class="city-bar-wrapper">
+          <span class="city-bar" style="width:{{ (city.count / top_cities[0].count * 100)|round(0) }}%"></span>
+        </span>
+        <span class="city-count">{{ city.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No city data for this filter.</p>
+    {% endif %}
+  </div>
+
+  <div class="dashboard-panel">
+    <h3 class="panel-title">Top Specializations</h3>
+    {% if top_specializations %}
+    <div class="top-cities-list">
+      {% for spec in top_specializations %}
+      <div class="city-row">
+        <span class="city-name">{{ spec.name }}</span>
+        <span class="city-bar-wrapper">
+          <span class="city-bar" style="width:{{ (spec.count / top_specializations[0].count * 100)|round(0) }}%"></span>
+        </span>
+        <span class="city-count">{{ spec.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No specialization data.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Row 2: Best Sessions + Speakers + Colleges -->
+<div class="dashboard-panels dashboard-panels-3 mt-3">
+  <div class="dashboard-panel">
+    <h3 class="panel-title">Best Rated Sessions</h3>
+    {% if best_sessions %}
+    <div class="top-cities-list">
+      {% for s in best_sessions %}
+      <div class="city-row">
+        <span class="city-name">{{ s.title }}</span>
+        <span class="city-bar-wrapper">
+          <span class="city-bar" style="width:{{ (s.avg / 5 * 100)|round(0) }}%"></span>
+        </span>
+        <span class="city-count">{{ s.avg }}<small>/5</small></span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No session feedback data.</p>
+    {% endif %}
+  </div>
+
+  <div class="dashboard-panel">
+    <h3 class="panel-title">Best Rated Speakers</h3>
+    {% if best_speakers %}
+    <div class="top-cities-list">
+      {% for s in best_speakers %}
+      <div class="city-row">
+        <span class="city-name">{{ s.name }}</span>
+        <span class="city-bar-wrapper">
+          <span class="city-bar" style="width:{{ (s.avg / 5 * 100)|round(0) }}%"></span>
+        </span>
+        <span class="city-count">{{ s.avg }}<small>/5</small></span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No speaker feedback data.</p>
+    {% endif %}
+  </div>
+
+  <div class="dashboard-panel">
+    <h3 class="panel-title">Most Successful Colleges</h3>
+    {% if top_colleges %}
+    <div class="top-cities-list">
+      {% for c in top_colleges %}
+      <div class="city-row">
+        <span class="city-name">{{ c.name }}</span>
+        <span class="city-bar-wrapper">
+          <span class="city-bar" style="width:{{ (c.count / top_colleges[0].count * 100)|round(0) }}%"></span>
+        </span>
+        <span class="city-count">{{ c.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No college booking data.</p>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Row 3: Trends -->
+<div class="dashboard-panels mt-3">
+  <div class="dashboard-panel">
+    <h3 class="panel-title">Monthly Bookings</h3>
+    {% if booking_trend %}
+    <div class="top-cities-list">
+      {% set max_b = booking_trend|map(attribute='count')|max %}
+      {% for m in booking_trend %}
+      <div class="city-row">
+        <span class="city-name" style="min-width:70px">{{ m.label }}</span>
+        <span class="city-bar-wrapper">
+          <span class="city-bar" style="width:{{ (m.count / max_b * 100)|round(0) if max_b else 0 }}%"></span>
+        </span>
+        <span class="city-count">{{ m.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No booking data in the last 12 months.</p>
+    {% endif %}
+  </div>
+
+  <div class="dashboard-panel">
+    <h3 class="panel-title">Monthly Registrations</h3>
+    {% if reg_trend %}
+    <div class="top-cities-list">
+      {% set max_r = reg_trend|map(attribute='count')|max %}
+      {% for m in reg_trend %}
+      <div class="city-row">
+        <span class="city-name" style="min-width:70px">{{ m.label }}</span>
+        <span class="city-bar-wrapper">
+          <span class="city-bar" style="width:{{ (m.count / max_r * 100)|round(0) if max_r else 0 }}%"></span>
+        </span>
+        <span class="city-count">{{ m.count }}</span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-muted">No registration data in the last 12 months.</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

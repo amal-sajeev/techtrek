@@ -2,14 +2,13 @@
 {% block title %}Feedback Templates — Admin{% endblock %}
 
 {% block admin_content %}
-<div class="page-header-block">
-  <h1 class="page-title">Feedback Templates</h1>
+<div class="admin-header">
+  <h1 class="admin-page-title">Feedback Templates</h1>
   <a href="/admin/feedback-templates/new" class="btn btn-primary btn-sm">+ New Template</a>
 </div>
 
 {% if templates_list %}
-<div class="table-responsive">
-  <table class="data-table">
+  <table class="table table-cards-mobile">
     <thead>
       <tr>
         <th>Name</th>
@@ -39,7 +38,6 @@
       {% endfor %}
     </tbody>
   </table>
-</div>
 {% else %}
 <div class="empty-state">
   <p>No feedback templates yet. Create one to start collecting structured feedback from attendees.</p>

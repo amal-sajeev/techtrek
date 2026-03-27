@@ -18,7 +18,7 @@
 
 <!-- Search & Filter -->
 <form method="get" action="/admin/bookings" class="filter-bar mb-3">
-  <input type="text" name="q" class="form-input" placeholder="Search by user, ref, ticket…" value="{{ q or '' }}" style="min-width:200px;flex:1">
+  <input type="text" name="q" class="form-input" placeholder="Search by booking ref, ticket, or event name…" value="{{ q or '' }}" style="min-width:200px;flex:1">
   <select name="status" class="form-input" style="min-width:140px">
     <option value="">All Statuses</option>
     {% for s in ['paid','hold','refunded','cancelled'] %}
@@ -110,7 +110,7 @@
           {% elif item.booking.payment_status == 'hold' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/cancel" style="display:inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-sm btn-danger">Cancel</button>
+            <button type="button" class="btn btn-sm btn-danger" data-confirm="Cancel this hold booking? This will release the held seats." data-confirm-label="Cancel Booking">Cancel</button>
           </form>
           {% endif %}
         </td>
@@ -120,7 +120,18 @@
     </tbody>
   </table>
 </div>
-<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Displaying {{ bookings|length }} booking(s).</p>
+<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Showing {{ bookings|length }} of {{ total_count }} booking{{ 's' if total_count != 1 else '' }}.</p>
+{% if total_pages > 1 %}
+<div class="log-pagination">
+  {% if page > 1 %}
+    <a href="/admin/bookings?page={{ page - 1 }}&q={{ q }}&status={{ status_filter }}&event_id={{ session_filter }}" class="btn btn-sm btn-outline">&laquo; Previous</a>
+  {% endif %}
+  <span class="log-pagination-info">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="/admin/bookings?page={{ page + 1 }}&q={{ q }}&status={{ status_filter }}&event_id={{ session_filter }}" class="btn btn-sm btn-outline">Next &raquo;</a>
+  {% endif %}
+</div>
+{% endif %}
 {% else %}
 <div class="empty-state">
   <h3>No bookings found</h3>

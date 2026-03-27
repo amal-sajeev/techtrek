@@ -20,3 +20,4 @@ pytest
 httpx
 requests
 openpyxl
+pypdfium2

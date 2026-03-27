@@ -93,7 +93,7 @@
           {% if fb.allow_public and fb.rating %}
           <form method="post" action="/admin/feedback/{{ fb.id }}/toggle-featured" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn btn-sm {% if fb.is_featured %}btn-outline{% else %}btn-primary{% endif %}">
+            <button type="button" class="btn btn-sm {% if fb.is_featured %}btn-outline{% else %}btn-primary{% endif %}" data-confirm="Toggle featured status for this review?" data-confirm-label="Confirm">
               {{ 'Unfeature' if fb.is_featured else 'Feature' }}
             </button>
           </form>
@@ -106,5 +106,17 @@
     </tbody>
   </table>
 </div>
+<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Showing {{ feedback_items|length }} of {{ total_count }} {{ 'entries' if total_count != 1 else 'entry' }}.</p>
+{% if total_pages > 1 %}
+<div class="log-pagination">
+  {% if page > 1 %}
+    <a href="/admin/feedback?page={{ page - 1 }}&rating={{ rating_filter }}&featured={{ featured_filter }}" class="btn btn-sm btn-outline">&laquo; Previous</a>
+  {% endif %}
+  <span class="log-pagination-info">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="/admin/feedback?page={{ page + 1 }}&rating={{ rating_filter }}&featured={{ featured_filter }}" class="btn btn-sm btn-outline">Next &raquo;</a>
+  {% endif %}
+</div>
+{% endif %}
 {% endif %}
 {% endblock %}

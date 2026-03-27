@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
-from sqlalchemy import func, or_
+from sqlalchemy import extract, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.csrf import csrf_protection
@@ -57,6 +57,8 @@ RECORDING_ALLOWED_HOSTS = {
     "loom.com", "www.loom.com",
     "drive.google.com",
 }
+
+ADMIN_PAGE_SIZE = 50
 
 
 def _validate_recording_url(url: str | None) -> str | None:
@@ -157,42 +159,28 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     total_checked_in = db.query(func.count(Booking.id)).filter(Booking.checked_in == True).scalar()
     total_refunded = db.query(func.count(Booking.id)).filter(Booking.payment_status == "refunded").scalar()
 
-    status_counts = (
-        db.query(Event.status, func.count(Event.id))
-        .group_by(Event.status)
+    # Active events (published only)
+    active_events_raw = (
+        db.query(Event)
+        .filter(Event.status == "published")
+        .order_by(Event.start_date.asc().nullslast())
         .all()
     )
-    event_statuses = {s: c for s, c in status_counts}
-
-    top_cities = []
-    city_rows = (
-        db.query(City.name, func.count(Booking.id))
-        .select_from(Booking)
-        .join(Event, Booking.event_id == Event.id)
-        .join(College, Event.college_id == College.id)
-        .join(City, College.city_id == City.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-        .group_by(City.name)
-        .order_by(func.count(Booking.id).desc())
-        .limit(5)
-        .all()
-    )
-    for city_name, count in city_rows:
-        top_cities.append({"name": city_name, "count": count})
-
-    recent_bookings = (
-        db.query(Booking)
-        .filter(Booking.payment_status == "paid")
-        .order_by(Booking.booked_at.desc())
-        .limit(10)
-        .all()
-    )
-    enriched_bookings = []
-    for b in recent_bookings:
-        u = db.query(User).get(b.user_id)
-        event = db.query(Event).get(b.event_id) if b.event_id else None
-        seat = db.query(Seat).get(b.seat_id)
-        enriched_bookings.append({"booking": b, "user": u, "event": event, "seat": seat})
+    active_events = []
+    for ev in active_events_raw:
+        session_count = len(ev.event_sessions) if ev.event_sessions else 0
+        booking_count = db.query(func.count(Booking.id)).filter(
+            Booking.event_id == ev.id, Booking.payment_status == "paid",
+            Booking.is_shared_ticket == False,
+        ).scalar() or 0
+        checked_in = db.query(func.count(Booking.id)).filter(
+            Booking.event_id == ev.id, Booking.payment_status == "paid", Booking.checked_in == True
+        ).scalar() or 0
+        waitlist_count = db.query(func.count(Waitlist.id)).filter(Waitlist.event_id == ev.id).scalar() or 0
+        active_events.append({
+            "event": ev, "session_count": session_count, "bookings": booking_count,
+            "checked_in": checked_in, "waitlist": waitlist_count,
+        })
 
     return templates.TemplateResponse(
         "admin/dashboard.html",
@@ -205,9 +193,212 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             upcoming_count=upcoming_count,
             total_checked_in=total_checked_in,
             total_refunded=total_refunded,
+            active_events=active_events,
+        ),
+    )
+
+
+# ─── Metrics ───
+
+@router.get("/metrics")
+def metrics_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    date_from: str = Query("", alias="date_from"),
+    date_to: str = Query("", alias="date_to"),
+    event_id: str = Query("", alias="event_id"),
+    college_id: str = Query("", alias="college_id"),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login?next=/admin/metrics", status_code=303)
+
+    from collections import Counter
+    from app.models.session_feedback import SessionFeedback
+    from app.models.session import Session as SessModel
+
+    # Parse filters
+    d_from = None
+    d_to = None
+    ev_filter = None
+    col_filter = None
+    try:
+        if date_from:
+            d_from = date.fromisoformat(date_from)
+        if date_to:
+            d_to = date.fromisoformat(date_to)
+        if event_id:
+            ev_filter = int(event_id)
+        if college_id:
+            col_filter = int(college_id)
+    except (ValueError, TypeError):
+        pass
+
+    # Base booking filter
+    def booking_filters(q):
+        q = q.filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+        if d_from:
+            q = q.filter(Booking.booked_at >= datetime.combine(d_from, datetime.min.time()))
+        if d_to:
+            q = q.filter(Booking.booked_at <= datetime.combine(d_to, datetime.max.time()))
+        if ev_filter:
+            q = q.filter(Booking.event_id == ev_filter)
+        if col_filter:
+            q = q.join(Event, Booking.event_id == Event.id).filter(Event.college_id == col_filter)
+        return q
+
+    # Event status breakdown
+    status_q = db.query(Event.status, func.count(Event.id))
+    if col_filter:
+        status_q = status_q.filter(Event.college_id == col_filter)
+    if d_from:
+        status_q = status_q.filter(Event.start_date >= d_from)
+    if d_to:
+        status_q = status_q.filter(Event.start_date <= d_to)
+    status_counts = status_q.group_by(Event.status).all()
+    event_statuses = {s: c for s, c in status_counts}
+
+    # Top cities
+    city_q = (
+        db.query(City.name, func.count(Booking.id))
+        .select_from(Booking)
+        .join(Event, Booking.event_id == Event.id)
+        .join(College, Event.college_id == College.id)
+        .join(City, College.city_id == City.id)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+    )
+    if d_from:
+        city_q = city_q.filter(Booking.booked_at >= datetime.combine(d_from, datetime.min.time()))
+    if d_to:
+        city_q = city_q.filter(Booking.booked_at <= datetime.combine(d_to, datetime.max.time()))
+    if ev_filter:
+        city_q = city_q.filter(Booking.event_id == ev_filter)
+    if col_filter:
+        city_q = city_q.filter(Event.college_id == col_filter)
+    top_cities = [{"name": n, "count": c} for n, c in
+                  city_q.group_by(City.name).order_by(func.count(Booking.id).desc()).limit(8).all()]
+
+    # Top specializations
+    user_q = db.query(User).filter(User.deleted_at.is_(None))
+    if d_from:
+        user_q = user_q.filter(User.created_at >= datetime.combine(d_from, datetime.min.time()))
+    if d_to:
+        user_q = user_q.filter(User.created_at <= datetime.combine(d_to, datetime.max.time()))
+    all_users = user_q.all()
+    spec_counts = Counter(u.domain for u in all_users if u.domain).most_common(10)
+    top_specializations = [{"name": n, "count": c} for n, c in spec_counts]
+
+    # Best sessions
+    sess_q = (
+        db.query(SessModel.title, func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
+        .join(SessionFeedback, SessionFeedback.session_id == SessModel.id)
+        .filter(SessionFeedback.rating.isnot(None))
+    )
+    if ev_filter:
+        sess_q = sess_q.filter(SessionFeedback.event_id == ev_filter)
+    if d_from:
+        sess_q = sess_q.filter(SessionFeedback.created_at >= datetime.combine(d_from, datetime.min.time()))
+    if d_to:
+        sess_q = sess_q.filter(SessionFeedback.created_at <= datetime.combine(d_to, datetime.max.time()))
+    best_sessions = [{"title": t, "avg": round(float(a), 1), "count": c}
+                     for t, a, c in sess_q.group_by(SessModel.id, SessModel.title)
+                     .having(func.count(SessionFeedback.id) >= 1)
+                     .order_by(func.avg(SessionFeedback.rating).desc()).limit(8).all()]
+
+    # Best speakers
+    spk_q = (
+        db.query(Speaker.name, func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
+        .join(SessModel, SessModel.speaker_id == Speaker.id)
+        .join(SessionFeedback, SessionFeedback.session_id == SessModel.id)
+        .filter(SessionFeedback.rating.isnot(None))
+    )
+    if ev_filter:
+        spk_q = spk_q.filter(SessionFeedback.event_id == ev_filter)
+    if d_from:
+        spk_q = spk_q.filter(SessionFeedback.created_at >= datetime.combine(d_from, datetime.min.time()))
+    if d_to:
+        spk_q = spk_q.filter(SessionFeedback.created_at <= datetime.combine(d_to, datetime.max.time()))
+    best_speakers = [{"name": n, "avg": round(float(a), 1), "count": c}
+                     for n, a, c in spk_q.group_by(Speaker.id, Speaker.name)
+                     .having(func.count(SessionFeedback.id) >= 1)
+                     .order_by(func.avg(SessionFeedback.rating).desc()).limit(8).all()]
+
+    # Most successful colleges
+    col_q = (
+        db.query(College.name, func.count(Booking.id))
+        .join(Event, Event.college_id == College.id)
+        .join(Booking, Booking.event_id == Event.id)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+    )
+    if d_from:
+        col_q = col_q.filter(Booking.booked_at >= datetime.combine(d_from, datetime.min.time()))
+    if d_to:
+        col_q = col_q.filter(Booking.booked_at <= datetime.combine(d_to, datetime.max.time()))
+    if ev_filter:
+        col_q = col_q.filter(Booking.event_id == ev_filter)
+    if col_filter:
+        col_q = col_q.filter(College.id == col_filter)
+    top_colleges = [{"name": n, "count": c} for n, c in
+                    col_q.group_by(College.id, College.name)
+                    .order_by(func.count(Booking.id).desc()).limit(8).all()]
+
+    # Monthly booking trend (last 12 months)
+    twelve_ago = now_ist() - timedelta(days=365)
+    trend_q = (
+        db.query(
+            extract("year", Booking.booked_at).label("yr"),
+            extract("month", Booking.booked_at).label("mo"),
+            func.count(Booking.id),
+        )
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False,
+                Booking.booked_at >= twelve_ago)
+    )
+    if ev_filter:
+        trend_q = trend_q.filter(Booking.event_id == ev_filter)
+    if col_filter:
+        trend_q = trend_q.join(Event, Booking.event_id == Event.id).filter(Event.college_id == col_filter)
+    booking_trend = []
+    for yr, mo, cnt in trend_q.group_by("yr", "mo").order_by("yr", "mo").all():
+        month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        booking_trend.append({"label": f"{month_names[int(mo)]} {int(yr)}", "count": cnt})
+
+    # Monthly registration trend (last 12 months)
+    reg_q = (
+        db.query(
+            extract("year", User.created_at).label("yr"),
+            extract("month", User.created_at).label("mo"),
+            func.count(User.id),
+        )
+        .filter(User.created_at >= twelve_ago, User.deleted_at.is_(None))
+    )
+    reg_trend = []
+    for yr, mo, cnt in reg_q.group_by("yr", "mo").order_by("yr", "mo").all():
+        month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+        reg_trend.append({"label": f"{month_names[int(mo)]} {int(yr)}", "count": cnt})
+
+    # Filter dropdown data
+    all_events = db.query(Event).order_by(Event.start_date.desc().nullslast()).all()
+    all_colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
+
+    return templates.TemplateResponse(
+        "admin/metrics.html",
+        _admin_ctx(
+            request,
+            active_page="metrics",
             event_statuses=event_statuses,
             top_cities=top_cities,
-            recent_bookings=enriched_bookings,
+            top_specializations=top_specializations,
+            best_sessions=best_sessions,
+            best_speakers=best_speakers,
+            top_colleges=top_colleges,
+            booking_trend=booking_trend,
+            reg_trend=reg_trend,
+            all_events=all_events,
+            all_colleges=all_colleges,
+            f_date_from=date_from,
+            f_date_to=date_to,
+            f_event_id=event_id,
+            f_college_id=college_id,
         ),
     )
 
@@ -1033,6 +1224,32 @@ async def session_create_quick(request: Request, db: Session = Depends(get_db)):
     })
 
 
+@router.post("/api/speakers/create-quick")
+async def speaker_create_quick(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": "Invalid request"}, status_code=400)
+    name = (body.get("name") or "").strip()
+    if not name:
+        return JSONResponse({"error": "Speaker name is required"}, status_code=400)
+    email = (body.get("email") or "").strip()
+    if not email:
+        return JSONResponse({"error": "Email is required"}, status_code=400)
+    sp = Speaker(name=name, email=email)
+    db.add(sp)
+    db.flush()
+    log_activity(db, category="admin", action="create",
+                 description=f"Quick-created speaker '{sp.name}'",
+                 request=request, user_id=admin.id,
+                 target_type="speaker", target_id=sp.id)
+    db.commit()
+    return JSONResponse({"id": sp.id, "name": sp.name, "title": sp.title or "", "email": sp.email})
+
+
 @router.get("/sessions/{sess_id}/edit")
 def session_edit(request: Request, sess_id: int, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
@@ -1469,12 +1686,17 @@ def bookings_list(
     q: str = Query("", alias="q"),
     status_filter: str = Query("", alias="status"),
     event_filter: str = Query("", alias="event_id"),
+    page: int = Query(1, ge=1),
 ):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    query = db.query(Booking)
+    query = (
+        db.query(Booking)
+        .outerjoin(User, Booking.user_id == User.id)
+        .outerjoin(Event, Booking.event_id == Event.id)
+    )
     if status_filter:
         query = query.filter(Booking.payment_status == status_filter)
     else:
@@ -1486,32 +1708,50 @@ def bookings_list(
         except ValueError:
             pass
 
-    bookings = query.order_by(Booking.booked_at.desc()).all()
+    if q.strip():
+        like = f"%{q.strip()}%"
+        query = query.filter(
+            or_(
+                Event.name.ilike(like),
+                Booking.booking_ref.ilike(like),
+                Booking.ticket_id.ilike(like),
+            )
+        )
+
+    total_count = query.count()
+    total_pages = max(1, (total_count + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
+    page = min(page, total_pages)
+
+    bookings = (
+        query.order_by(Booking.booked_at.desc())
+        .offset((page - 1) * ADMIN_PAGE_SIZE)
+        .limit(ADMIN_PAGE_SIZE)
+        .all()
+    )
 
     enriched = []
     for b in bookings:
         u = db.query(User).get(b.user_id)
         event = db.query(Event).get(b.event_id) if b.event_id else None
         seat = db.query(Seat).get(b.seat_id)
-        if q:
-            search = q.lower()
-            match = (
-                (u and (search in u.username.lower() or search in u.email.lower() or (u.full_name and search in u.full_name.lower())))
-                or (event and search in event.name.lower())
-                or (b.booking_ref and search in b.booking_ref.lower())
-                or (b.ticket_id and search in b.ticket_id.lower())
-            )
-            if not match:
-                continue
         enriched.append({"booking": b, "user": u, "event": event, "seat": seat})
 
     all_events = db.query(Event).order_by(Event.name).all()
 
     return templates.TemplateResponse(
         "admin/bookings.html",
-        _admin_ctx(request, active_page="bookings", bookings=enriched,
-                   q=q, status_filter=status_filter, session_filter=event_filter,
-                   all_events=all_events),
+        _admin_ctx(
+            request,
+            active_page="bookings",
+            bookings=enriched,
+            q=q,
+            status_filter=status_filter,
+            session_filter=event_filter,
+            all_events=all_events,
+            page=page,
+            total_pages=total_pages,
+            total_count=total_count,
+        ),
     )
 
 
@@ -1935,24 +2175,41 @@ def waitlist_delete(request: Request, entry_id: int, db: Session = Depends(get_d
 # ─── Users ───
 
 @router.get("/users")
-def users_list(request: Request, db: Session = Depends(get_db), q: str = Query("", alias="q")):
+def users_list(
+    request: Request,
+    db: Session = Depends(get_db),
+    q: str = Query("", alias="q"),
+    page: int = Query(1, ge=1),
+):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
-    query = db.query(User)
+    query = db.query(User).filter(User.deleted_at.is_(None))
     if q.strip():
         like = f"%{q.strip()}%"
-        query = query.filter(
-            User.username.ilike(like)
-            | User.email.ilike(like)
-            | User.full_name.ilike(like)
-            | User.college.ilike(like)
-        )
-    users = query.order_by(User.created_at.desc()).all()
+        query = query.filter(User.college.ilike(like))
+    total_count = query.count()
+    total_pages = max(1, (total_count + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
+    page = min(page, total_pages)
+    users = (
+        query.order_by(User.created_at.desc())
+        .offset((page - 1) * ADMIN_PAGE_SIZE)
+        .limit(ADMIN_PAGE_SIZE)
+        .all()
+    )
     colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
     return templates.TemplateResponse(
         "admin/users.html",
-        _admin_ctx(request, active_page="users", users=users, q=q, colleges=colleges),
+        _admin_ctx(
+            request,
+            active_page="users",
+            users=users,
+            q=q,
+            colleges=colleges,
+            page=page,
+            total_pages=total_pages,
+            total_count=total_count,
+        ),
     )
 
 
@@ -2073,6 +2330,39 @@ async def toggle_supervisor(request: Request, user_id: int, db: Session = Depend
     return RedirectResponse("/admin/users", status_code=303)
 
 
+@router.post("/users/{user_id}/delete")
+async def user_delete(request: Request, user_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    u = db.query(User).get(user_id)
+    if not u or u.id == admin.id:
+        flash(request, "Cannot delete this user.", "danger")
+        return RedirectResponse("/admin/users", status_code=303)
+
+    form = await request.form()
+    delete_type = form.get("delete_type", "soft")
+
+    if delete_type == "hard":
+        db.query(Booking).filter(Booking.user_id == user_id).update({"user_id": None})
+        db.query(Feedback).filter(Feedback.user_id == user_id).delete()
+        log_activity(db, category="admin", action="delete",
+                     description=f"Hard-deleted user '{u.username}' (id={user_id})",
+                     request=request, user_id=admin.id, target_type="user", target_id=user_id)
+        db.delete(u)
+        db.commit()
+        flash(request, f"User '{u.username}' permanently deleted.", "success")
+    else:
+        u.deleted_at = now_ist()
+        log_activity(db, category="admin", action="deactivate",
+                     description=f"Soft-deleted user '{u.username}'",
+                     request=request, user_id=admin.id, target_type="user", target_id=user_id)
+        db.commit()
+        flash(request, f"User '{u.username}' deactivated.", "success")
+
+    return RedirectResponse("/admin/users", status_code=303)
+
+
 # ─── Schedule (Admin) ───
 
 @router.get("/schedule")
@@ -2128,8 +2418,6 @@ def admin_schedule(
 
 # ─── Activity Log ───
 
-ACTIVITY_LOG_PAGE_SIZE = 50
-
 @router.get("/activity-log")
 def activity_log_page(
     request: Request,
@@ -2169,13 +2457,13 @@ def activity_log_page(
             pass
 
     total = query.count()
-    total_pages = max(1, (total + ACTIVITY_LOG_PAGE_SIZE - 1) // ACTIVITY_LOG_PAGE_SIZE)
+    total_pages = max(1, (total + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
     page = min(page, total_pages)
 
     logs = (
         query.order_by(ActivityLog.timestamp.desc())
-        .offset((page - 1) * ACTIVITY_LOG_PAGE_SIZE)
-        .limit(ACTIVITY_LOG_PAGE_SIZE)
+        .offset((page - 1) * ADMIN_PAGE_SIZE)
+        .limit(ADMIN_PAGE_SIZE)
         .all()
     )
 
@@ -4234,6 +4522,7 @@ def feedback_list(
     db: Session = Depends(get_db),
     rating_filter: str = Query("", alias="rating"),
     featured_filter: str = Query("", alias="featured"),
+    page: int = Query(1, ge=1),
 ):
     admin = _require_admin(request, db)
     if not admin:
@@ -4250,9 +4539,18 @@ def feedback_list(
     elif featured_filter == "no":
         query = query.filter(Feedback.is_featured == False)
 
-    feedback_items = query.order_by(Feedback.created_at.desc()).all()
+    total_count = query.count()
+    total_pages = max(1, (total_count + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
+    page = min(page, total_pages)
+
+    feedback_rows = (
+        query.order_by(Feedback.created_at.desc())
+        .offset((page - 1) * ADMIN_PAGE_SIZE)
+        .limit(ADMIN_PAGE_SIZE)
+        .all()
+    )
     enriched = []
-    for fb in feedback_items:
+    for fb in feedback_rows:
         user = db.query(User).get(fb.user_id)
         event = db.query(Event).get(fb.event_id) if fb.event_id else None
         enriched.append({"feedback": fb, "user": user, "event": event})
@@ -4260,10 +4558,14 @@ def feedback_list(
     return templates.TemplateResponse(
         "admin/feedback.html",
         _admin_ctx(
-            request, active_page="feedback",
+            request,
+            active_page="feedback",
             feedback_items=enriched,
             rating_filter=rating_filter,
             featured_filter=featured_filter,
+            page=page,
+            total_pages=total_pages,
+            total_count=total_count,
         ),
     )
 
@@ -4741,7 +5043,9 @@ def event_management_landing(request: Request, db: Session = Depends(get_db)):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login?next=/admin/event-management", status_code=303)
-    events = db.query(Event).order_by(Event.start_date.desc().nullslast(), Event.created_at.desc()).all()
+    events = db.query(Event).filter(
+        Event.status.notin_(["completed", "cancelled"])
+    ).order_by(Event.start_date.desc().nullslast(), Event.created_at.desc()).all()
     enriched = []
     for ev in events:
         session_count = len(ev.event_sessions) if ev.event_sessions else 0
@@ -5427,12 +5731,12 @@ def event_management_report(request: Request, event_id: int, db: Session = Depen
             Booking.is_shared_ticket == False
         ).distinct().all()
     ]
-    demographics = {"colleges": [], "disciplines": [], "years": []}
+    demographics = {"specializations": [], "disciplines": [], "years": []}
     if booked_user_ids:
         users = db.query(User).filter(User.id.in_(booked_user_ids)).all()
         from collections import Counter
-        college_counts = Counter(u.college for u in users if u.college).most_common(12)
-        demographics["colleges"] = [{"name": n, "count": c} for n, c in college_counts]
+        spec_counts = Counter(u.domain for u in users if u.domain).most_common(12)
+        demographics["specializations"] = [{"name": n, "count": c} for n, c in spec_counts]
         disc_counts = Counter(u.discipline for u in users if u.discipline).most_common(8)
         demographics["disciplines"] = [{"name": n, "count": c} for n, c in disc_counts]
         year_counts = Counter(u.year_of_study for u in users if u.year_of_study)
@@ -5469,8 +5773,10 @@ def event_management_report(request: Request, event_id: int, db: Session = Depen
     poll_summary = []
     for p in polls:
         total_votes = db.query(PollVote).filter(PollVote.poll_id == p.id).count()
+        sess_title = p.session.title if p.session else "Unknown"
         entry = {"question": p.question, "type": p.poll_type, "votes": total_votes,
-                 "active": p.is_active, "closed": p.closed_at is not None}
+                 "active": p.is_active, "closed": p.closed_at is not None,
+                 "session_title": sess_title}
         if p.poll_type in ("multiple_choice", "yes_no"):
             opts = []
             for o in p.options:

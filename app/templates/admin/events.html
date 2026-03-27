@@ -61,7 +61,7 @@
         <td data-label="Venue">{{ item.auditorium.name if item.auditorium else "—" }}</td>
         <td data-label="Sessions">{{ item.session_count }}</td>
         <td data-label="Bookings">{{ item.bookings }}</td>
-        <td data-label="Price">&#8377;{{ "%.0f"|format(ev.price) if ev.price else "—" }}</td>
+        <td data-label="Price">₹{{ "%.0f"|format(ev.price) if ev.price else "—" }}</td>
         <td data-label="Dates">{{ ev.start_date.strftime('%b %d') if ev.start_date else "—" }}{% if ev.end_date %} – {{ ev.end_date.strftime('%b %d') }}{% endif %}</td>
         <td data-label="Status">
           <button type="button" class="status-toggle badge
@@ -100,28 +100,6 @@
 {% endblock %}
 
 {% block scripts %}
-<style>
-.title-dropdown-toggle{cursor:pointer;display:inline-flex;align-items:center;gap:.4rem;user-select:none}
-.title-dropdown-toggle:hover{opacity:.8}
-.title-chevron{transition:transform .2s ease;flex-shrink:0}
-.title-dropdown.open .title-chevron{transform:rotate(180deg)}
-.title-dropdown-menu{display:none;position:absolute;left:0;top:100%;margin-top:.25rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);min-width:220px;z-index:50;padding:.25rem 0}
-.title-dropdown.open .title-dropdown-menu{display:block}
-.title-dropdown-item{display:block;padding:.6rem 1.1rem;color:var(--text);text-decoration:none;font-size:.95rem;white-space:nowrap}
-.title-dropdown-item:hover{background:var(--bg-hover)}
-.title-dropdown-item.active{font-weight:600;color:var(--primary)}
-
-.status-toggle{cursor:pointer;gap:.35rem;padding-right:.55rem;user-select:none;transition:opacity .15s}
-.status-toggle:hover{opacity:.85}
-.status-toggle.active .status-chevron{transform:rotate(180deg)}
-.status-chevron{transition:transform .2s ease;flex-shrink:0;margin-left:.1rem}
-.status-toggle.saving{opacity:.5;pointer-events:none}
-#status-float-menu{display:none;position:fixed;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-md);z-index:9999;padding:.3rem;flex-direction:column;gap:.2rem;white-space:nowrap}
-#status-float-menu.open{display:flex}
-#status-float-menu .status-option{background:none;border:none;padding:0;cursor:pointer;text-align:left;border-radius:var(--radius)}
-#status-float-menu .status-option:hover{opacity:.8}
-#status-float-menu .status-option .badge{width:100%;justify-content:center;pointer-events:none}
-</style>
 <script>
 document.addEventListener('click', function(e) {
   document.querySelectorAll('.title-dropdown.open').forEach(function(d) {
@@ -132,7 +110,11 @@ document.getElementById('import-event-btn').addEventListener('click', function()
   document.getElementById('import-event-file').click();
 });
 document.getElementById('import-event-file').addEventListener('change', function() {
-  if (this.files.length) document.getElementById('import-event-form').submit();
+  var form = document.getElementById('import-event-form');
+  if (!this.files.length) return;
+  openConfirm('Import events from this file?\nThis will process the spreadsheet and may create or update events.', function() {
+    form.submit();
+  }, { confirmLabel: 'Import', confirmClass: 'btn-primary' });
 });
 function filterEvents(q) {
   q = q.toLowerCase().trim();

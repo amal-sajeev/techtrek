@@ -17,7 +17,7 @@
     <div class="admin-stat-label">Confirmed Bookings</div>
   </div>
   <div class="admin-stat-card">
-    <div class="admin-stat-value">&#8377;{{ "%.0f"|format(total_revenue) }}</div>
+    <div class="admin-stat-value">₹{{ "%.0f"|format(total_revenue) }}</div>
     <div class="admin-stat-label">Total Revenue</div>
   </div>
   <div class="admin-stat-card">
@@ -34,82 +34,55 @@
   </div>
 </div>
 
-<!-- Event Status Breakdown & Top Cities -->
-<div class="dashboard-panels mt-3">
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Event Status Breakdown</h3>
-    {% if event_statuses %}
-    <div class="status-breakdown">
-      {% for status, count in event_statuses.items() %}
-      <div class="status-row">
-        <span class="badge {% if status == 'published' %}badge-success{% elif status == 'draft' %}badge-draft{% elif status == 'completed' %}badge-available{% elif status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">{{ status|replace('_',' ')|title }}</span>
-        <span class="status-count">{{ count }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-muted">No events created yet.</p>
-    {% endif %}
-  </div>
-
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Top Cities by Registrations</h3>
-    {% if top_cities %}
-    <div class="top-cities-list">
-      {% for city in top_cities %}
-      <div class="city-row">
-        <span class="city-name">{{ city.name }}</span>
-        <span class="city-bar-wrapper">
-          <span class="city-bar" style="width:{{ (city.count / top_cities[0].count * 100)|round(0) }}%"></span>
-        </span>
-        <span class="city-count">{{ city.count }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-muted">No city data yet. Link auditoriums to colleges with cities to see stats.</p>
-    {% endif %}
-  </div>
-</div>
-
-<!-- Recent Bookings -->
+<!-- Active Events -->
 <div class="mt-3">
   <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
-    <h3 class="panel-title" style="margin-bottom:0">Recent Bookings</h3>
-    <a href="/admin/bookings" class="btn btn-sm btn-outline">View All</a>
+    <h3 class="panel-title" style="margin-bottom:0">Active Events</h3>
+    <div style="display:flex;gap:.5rem">
+      <a href="/admin/metrics" class="btn btn-sm btn-primary">View Metrics</a>
+      <a href="/admin/event-management" class="btn btn-sm btn-outline">All Events</a>
+    </div>
   </div>
-  {% if recent_bookings %}
-  <div class="table-responsive">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>Ref</th>
-          <th>User</th>
-          <th>Event</th>
-          <th>Seat</th>
-          <th>Booked</th>
-          <th>Status</th>
-        </tr>
-      </thead>
-      <tbody>
-        {% for item in recent_bookings %}
-        <tr>
-          <td><code>{{ item.booking.booking_ref }}</code></td>
-          <td>{{ item.user.username if item.user else "—" }}</td>
-          <td>{{ item.event.name if item.event else "—" }}</td>
-          <td>{{ item.seat.label if item.seat else "—" }}</td>
-          <td>{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
-          <td>
-            <span class="badge {% if item.booking.payment_status == 'paid' %}badge-success{% elif item.booking.payment_status == 'refunded' %}badge-muted{% elif item.booking.payment_status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">{{ item.booking.payment_status }}</span>
-            {% if item.booking.checked_in %}<small class="text-muted">&#10003; checked in</small>{% endif %}
-          </td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
+  {% if active_events %}
+  <div class="em-card-grid">
+    {% for item in active_events %}
+    {% set ev = item.event %}
+    <a href="/admin/event-management/{{ ev.id }}" class="em-event-card">
+      <div class="em-card-header">
+        <h3 class="em-card-title">{{ ev.name }}</h3>
+        {% if ev.start_date %}
+        <div class="dash-cal-date">
+          <span class="dash-cal-month">{{ ev.start_date.strftime('%b') }}</span>
+          <span class="dash-cal-day">{{ ev.start_date.strftime('%d') }}</span>
+        </div>
+        {% endif %}
+      </div>
+      <div class="em-card-meta">
+        {% if ev.college %}<span>{{ ev.college.name }}{% if ev.college.city %}, {{ ev.college.city.name }}{% endif %}</span>{% endif %}
+      </div>
+      <div class="em-card-stats">
+        <div class="em-card-stat">
+          <span class="em-stat-value">{{ item.bookings }}</span>
+          <span class="em-stat-label">Bookings</span>
+        </div>
+        <div class="em-card-stat">
+          <span class="em-stat-value">{{ item.checked_in }}</span>
+          <span class="em-stat-label">Checked In</span>
+        </div>
+        <div class="em-card-stat">
+          <span class="em-stat-value">{{ item.session_count }}</span>
+          <span class="em-stat-label">Sessions</span>
+        </div>
+        <div class="em-card-stat">
+          <span class="em-stat-value">{{ item.waitlist }}</span>
+          <span class="em-stat-label">Waitlist</span>
+        </div>
+      </div>
+    </a>
+    {% endfor %}
   </div>
   {% else %}
-  <p class="text-muted">No bookings yet.</p>
+  <p class="text-muted">No published events at the moment.</p>
   {% endif %}
 </div>
 {% endblock %}

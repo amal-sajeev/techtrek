@@ -3,137 +3,7 @@
 
 {% block head_extra %}
 <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
-<style>
-  .nl-compose-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
-    align-items: start;
-  }
-  @media (max-width: 1024px) {
-    .nl-compose-grid { grid-template-columns: 1fr; }
-  }
-  .nl-editor-col, .nl-preview-col { min-width: 0; }
-  .nl-tabs {
-    display: flex;
-    gap: 0;
-    border-bottom: 2px solid var(--border);
-    margin-bottom: 1rem;
-  }
-  .nl-tab {
-    padding: .55rem 1.25rem;
-    font-family: var(--font-mono);
-    font-size: .78rem;
-    text-transform: uppercase;
-    letter-spacing: .06em;
-    background: none;
-    border: none;
-    color: var(--text-muted);
-    cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -2px;
-    transition: color .2s, border-color .2s;
-  }
-  .nl-tab.active {
-    color: var(--cyan);
-    border-bottom-color: var(--cyan);
-  }
-  .nl-quill-wrap {
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 8px);
-    overflow: hidden;
-    background: var(--bg-surface);
-  }
-  #nl-quill-editor {
-    min-height: 320px;
-    font-size: .92rem;
-    line-height: 1.6;
-    color: var(--text-primary);
-  }
-  .ql-toolbar.ql-snow {
-    border: none !important;
-    border-bottom: 1px solid var(--border) !important;
-    background: var(--bg-elevated);
-  }
-  .ql-container.ql-snow { border: none !important; }
-  .ql-editor { padding: 1rem 1.25rem; }
-  .ql-snow .ql-stroke { stroke: var(--text-secondary) !important; }
-  .ql-snow .ql-fill { fill: var(--text-secondary) !important; }
-  .ql-snow .ql-picker-label { color: var(--text-secondary) !important; }
-  .ql-snow .ql-picker-options {
-    background: var(--bg-elevated) !important;
-    border-color: var(--border) !important;
-  }
-  .ql-snow .ql-picker-item { color: var(--text-primary) !important; }
-
-  #nl-html-textarea {
-    width: 100%;
-    min-height: 380px;
-    font-family: 'Courier New', monospace;
-    font-size: .82rem;
-    line-height: 1.5;
-    padding: 1rem;
-    background: var(--bg-surface);
-    color: var(--text-primary);
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 8px);
-    resize: vertical;
-    tab-size: 2;
-  }
-  .nl-preview-frame {
-    width: 100%;
-    min-height: 500px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius, 8px);
-    background: #f4f6f8;
-  }
-  .nl-preview-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: .75rem;
-  }
-  .nl-preview-label {
-    font-family: var(--font-mono);
-    font-size: .78rem;
-    text-transform: uppercase;
-    letter-spacing: .08em;
-    color: var(--text-muted);
-  }
-  .nl-actions {
-    display: flex;
-    gap: .75rem;
-    flex-wrap: wrap;
-    margin-top: 1.25rem;
-  }
-  .nl-send-info {
-    font-size: .82rem;
-    color: var(--text-muted);
-    margin-top: .5rem;
-  }
-  .nl-progress-bar {
-    height: 6px;
-    background: var(--bg-elevated);
-    border-radius: 3px;
-    overflow: hidden;
-    margin-top: 1rem;
-    display: none;
-  }
-  .nl-progress-fill {
-    height: 100%;
-    background: linear-gradient(90deg, var(--cyan), var(--green));
-    border-radius: 3px;
-    transition: width .3s ease;
-    width: 0%;
-  }
-  .nl-progress-text {
-    font-family: var(--font-mono);
-    font-size: .75rem;
-    color: var(--text-muted);
-    margin-top: .35rem;
-    display: none;
-  }
-</style>
+<link rel="stylesheet" href="{{ url_for('static', path='css/admin-newsletter.css') }}?v=135">
 {% endblock %}
 
 {% block admin_content %}
@@ -315,24 +185,24 @@
 
   window.confirmSend = function() {
     var count = {{ subscriber_count }};
-    if (!confirm('Send this newsletter to ' + count + ' subscriber' + (count !== 1 ? 's' : '') + '?\n\nThis action cannot be undone.')) return;
+    openConfirm('Send newsletter to ' + count + ' subscriber' + (count !== 1 ? 's' : '') + '?\\nThis action cannot be undone.', function() {
+      bodyInput.value = getCurrentHtml();
 
-    bodyInput.value = getCurrentHtml();
+      var csrfToken = document.querySelector('input[name="csrf_token"]').value;
+      var fd = new FormData();
+      fd.append('csrf_token', csrfToken);
+      fd.append('subject', document.getElementById('nl-subject').value);
+      fd.append('body_html', bodyInput.value);
 
-    var csrfToken = document.querySelector('input[name="csrf_token"]').value;
-    var fd = new FormData();
-    fd.append('csrf_token', csrfToken);
-    fd.append('subject', document.getElementById('nl-subject').value);
-    fd.append('body_html', bodyInput.value);
-
-    fetch(document.getElementById('nl-form').action, { method: 'POST', body: fd })
-      .then(function() {
-        var sendForm = document.getElementById('nl-send-form');
-        if (sendForm) sendForm.submit();
-      })
-      .catch(function() {
-        alert('Failed to save draft before sending. Please try again.');
-      });
+      fetch(document.getElementById('nl-form').action, { method: 'POST', body: fd })
+        .then(function() {
+          var sendForm = document.getElementById('nl-send-form');
+          if (sendForm) sendForm.submit();
+        })
+        .catch(function() {
+          alert('Failed to save draft before sending. Please try again.');
+        });
+    }, { confirmLabel: 'Send', confirmClass: 'btn-primary' });
   };
 
   setTimeout(refreshPreview, 600);

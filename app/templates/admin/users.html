@@ -81,7 +81,8 @@
             </button>
           </form>
           {% else %}
-          <form method="post" action="/admin/users/{{ u.id }}/toggle-supervisor" style="display:inline" class="sv-assign-form">
+          <button type="button" class="btn btn-sm btn-outline sv-show-assign-btn" onclick="this.style.display='none';this.nextElementSibling.style.display='inline'">Make Supervisor</button>
+          <form method="post" action="/admin/users/{{ u.id }}/toggle-supervisor" style="display:none" class="sv-assign-form">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <select name="college_id" class="form-input form-input-sm" required style="width:auto;display:inline-block;min-width:140px;vertical-align:middle;margin-right:4px">
               <option value="">Select college...</option>
@@ -89,14 +90,15 @@
               <option value="{{ c.id }}">{{ c.name }}</option>
               {% endfor %}
             </select>
-            <button type="button" class="btn btn-sm btn-outline"
+            <button type="button" class="btn btn-sm btn-primary"
               data-confirm="Make {{ u.username }} a supervisor at the selected college?"
-              data-confirm-label="Make Supervisor"
+              data-confirm-label="Confirm"
               data-confirm-class="btn-primary">
-              Make Supervisor
+              Assign
             </button>
           </form>
           {% endif %}
+          <button type="button" class="btn btn-sm btn-danger" onclick="openDeleteUser({{ u.id }}, '{{ u.username|e }}')">Delete</button>
         </td>
         {% endif %}
       </tr>
@@ -104,6 +106,54 @@
     </tbody>
   </table>
 </div>
+<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Showing {{ users|length }} of {{ total_count }} user{{ 's' if total_count != 1 else '' }}.</p>
+
+<!-- Delete User Modal -->
+<div class="modal-overlay" id="modal-delete-user">
+  <div class="modal-dialog" style="max-width:440px">
+    <div class="modal-header">
+      <h3 class="modal-title">Delete User</h3>
+      <button class="modal-close" onclick="closeModal('modal-delete-user')">&times;</button>
+    </div>
+    <form id="delete-user-form" method="post">
+      <div class="modal-body">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <p style="margin-bottom:1rem">How do you want to delete <strong id="del-user-name"></strong>?</p>
+        <label style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.75rem;cursor:pointer">
+          <input type="radio" name="delete_type" value="soft" checked style="margin-top:3px">
+          <span><strong>Soft delete</strong><br><small class="text-muted">Deactivate account. Data is preserved and can be restored.</small></span>
+        </label>
+        <label style="display:flex;align-items:flex-start;gap:.5rem;cursor:pointer">
+          <input type="radio" name="delete_type" value="hard" style="margin-top:3px">
+          <span><strong>Hard delete</strong><br><small class="text-muted">Permanently remove the user. Bookings are preserved but unlinked. This cannot be undone.</small></span>
+        </label>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-delete-user')">Cancel</button>
+        <button type="submit" class="btn btn-danger">Delete</button>
+      </div>
+    </form>
+  </div>
+</div>
+<script>
+function openDeleteUser(userId, username) {
+  document.getElementById('del-user-name').textContent = username;
+  document.getElementById('delete-user-form').action = '/admin/users/' + userId + '/delete';
+  document.getElementById('delete-user-form').querySelector('input[value="soft"]').checked = true;
+  openModal('modal-delete-user');
+}
+</script>
+{% if total_pages > 1 %}
+<div class="log-pagination">
+  {% if page > 1 %}
+    <a href="/admin/users?page={{ page - 1 }}&q={{ q }}" class="btn btn-sm btn-outline">&laquo; Previous</a>
+  {% endif %}
+  <span class="log-pagination-info">Page {{ page }} of {{ total_pages }}</span>
+  {% if page < total_pages %}
+    <a href="/admin/users?page={{ page + 1 }}&q={{ q }}" class="btn btn-sm btn-outline">Next &raquo;</a>
+  {% endif %}
+</div>
+{% endif %}
 {% else %}
 <div class="empty-state">
   <div class="empty-state-icon">&#128101;</div>

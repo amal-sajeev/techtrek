@@ -28,7 +28,7 @@
               <div class="ticket-card-info">
                 <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
                 <span class="ticket-id">{{ booking.ticket_id }}</span>
-                <span class="booking-ref-small">Ref: {{ booking.booking_ref }} &middot; &#8377;{{ "%.0f"|format(booking.amount_paid) }}</span>
+                <span class="booking-ref-small">Ref: {{ booking.booking_ref }} &middot; ₹{{ "%.0f"|format(booking.amount_paid) }}</span>
                 {% if ticket_user %}
                 <span class="booking-ref-small">Booked by: {{ ticket_user.full_name or ticket_user.username }}</span>
                 {% endif %}
@@ -48,7 +48,7 @@
             {% for addon in purchased_addons %}
             <div style="display:flex;justify-content:space-between;padding:.35rem 0;{% if not loop.last %}border-bottom:1px dashed var(--border, #e5e7eb);{% endif %}">
               <span>{{ addon.title }}</span>
-              <span style="font-weight:600">{% if addon.price > 0 %}&#8377;{{ "%.0f"|format(addon.price) }}{% else %}Free{% endif %}</span>
+              <span style="font-weight:600">{% if addon.price > 0 %}₹{{ "%.0f"|format(addon.price) }}{% else %}Free{% endif %}</span>
             </div>
             {% endfor %}
           </div>

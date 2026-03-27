@@ -38,7 +38,7 @@
             {% endif %}
             <div class="booking-detail-row">
               <span class="booking-detail-icon">&#128176;</span>
-              <span>Total Paid: <strong>&#8377;{{ total|round(0)|int }}</strong></span>
+              <span>Total Paid: <strong>₹{{ total|round(0)|int }}</strong></span>
             </div>
           </div>
 
@@ -65,7 +65,7 @@
                 <span style="font-weight:500">{{ addon.title }}</span>
                 {% if addon.description %}<p style="font-size:.8rem;color:var(--text-muted);margin:.1rem 0 0">{{ addon.description }}</p>{% endif %}
               </div>
-              <span style="font-weight:600;white-space:nowrap;margin-left:.75rem">{% if addon.price > 0 %}&#8377;{{ "%.0f"|format(addon.price) }}{% else %}Free{% endif %}</span>
+              <span style="font-weight:600;white-space:nowrap;margin-left:.75rem">{% if addon.price > 0 %}₹{{ "%.0f"|format(addon.price) }}{% else %}Free{% endif %}</span>
             </div>
             {% endfor %}
           </div>
@@ -128,9 +128,9 @@
                   <div class="booking-detail-row">
                     <span class="booking-detail-icon">&#128176;</span>
                     {% if b.payment_status == 'refunded' %}
-                    <span>Refund: <strong>&#8377;{{ b.refund_amount|round(0)|int if b.refund_amount else 0 }}</strong></span>
+                    <span>Refund: <strong>₹{{ b.refund_amount|round(0)|int if b.refund_amount else 0 }}</strong></span>
                     {% else %}
-                    <span>Paid: <strong>&#8377;{{ b.amount_paid|round(0)|int if b.amount_paid else 0 }}</strong></span>
+                    <span>Paid: <strong>₹{{ b.amount_paid|round(0)|int if b.amount_paid else 0 }}</strong></span>
                     {% endif %}
                   </div>
                   {% if b.refund_status %}
@@ -161,7 +161,7 @@
                 <form method="post" action="/booking/cancel/{{ b.id }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
                   <button type="button" class="btn btn-sm btn-danger"
-                    data-confirm="Cancel ticket {{ seats[loop.index0].label }}?\n\nCancellation fee: &#8377;100\nRefund amount: &#8377;{{ (b.amount_paid - 100)|round(0)|int if b.amount_paid else 400 }}"
+                    data-confirm="Cancel ticket {{ seats[loop.index0].label }}?\n\nCancellation fee: ₹100\nRefund amount: ₹{{ (b.amount_paid - 100)|round(0)|int if b.amount_paid else 400 }}"
                     data-confirm-label="Cancel Ticket">Cancel</button>
                 </form>
                 {% endif %}
@@ -218,7 +218,7 @@
           <form method="post" action="/booking/cancel-group/{{ group_id }}" style="display:inline">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-danger"
-              data-confirm="Cancel ALL {{ bookings|selectattr('payment_status', 'equalto', 'paid')|list|length }} tickets in this group?\n\nCancellation fee: &#8377;100 per ticket."
+              data-confirm="Cancel ALL {{ bookings|selectattr('payment_status', 'equalto', 'paid')|list|length }} tickets in this group?\n\nCancellation fee: ₹100 per ticket."
               data-confirm-label="Cancel All Tickets">Cancel All Tickets</button>
           </form>
           {% endif %}
