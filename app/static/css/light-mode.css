@@ -1207,6 +1207,10 @@
   box-shadow: 0 4px 24px rgba(0,0,0,0.08) !important;
   backdrop-filter: none !important;
 }
+[data-theme="light"] .ed-bp-title {
+  font-family: var(--font-body, 'DM Sans', sans-serif) !important;
+  font-style: normal !important;
+}
 [data-theme="light"] .ed-bp-tier {
   background: #f9f6f1 !important;
   border-color: rgba(14,14,14,0.10) !important;
@@ -1281,8 +1285,8 @@
 [data-theme="light"] .lm-ed-header,
 [data-theme="light"] .lm-sd-header {
   background: var(--paper, #f9f6f1);
-  padding-top: calc(var(--nav-h, 64px) + 2rem);
-  padding-bottom: 3rem;
+  padding-top: 2rem;
+  padding-bottom: 1.5rem;
   border-bottom: 1px solid rgba(14,14,14,0.10);
 }
 
@@ -1315,6 +1319,7 @@
   display: flex;
   flex-direction: column;
   gap: 0;
+  min-width: 0;
 }
 
 /* Eyebrow (college / parent event) */
@@ -1355,26 +1360,60 @@
   max-width: 52ch;
 }
 
-/* Chips row */
-[data-theme="light"] .lm-ed-chips {
+/* Meta row */
+[data-theme="light"] .lm-ed-meta {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-bottom: 1.75rem;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 0;
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
 }
-[data-theme="light"] .lm-ed-chip {
+[data-theme="light"] .lm-ed-meta-item {
   display: inline-flex;
   align-items: center;
-  gap: 0.3em;
-  padding: 0.3em 0.75em;
-  background: rgba(14,14,14,0.05);
-  border: 1px solid rgba(14,14,14,0.10);
-  border-radius: 4px;
+  gap: 0.4em;
   font-family: var(--font-body, 'DM Sans', sans-serif);
-  font-size: 0.8rem;
-  font-weight: 500;
-  color: #2e2e2e;
+  font-size: 0.85rem;
+  font-weight: 450;
+  color: #4b5563;
   white-space: nowrap;
+  line-height: 1;
+}
+[data-theme="light"] .lm-ed-meta-item svg {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+[data-theme="light"] .lm-ed-meta-item + .lm-ed-meta-item::before {
+  content: '\00b7';
+  margin: 0 0.7em;
+  font-size: 1.2em;
+  font-weight: 700;
+  color: #9ca3af;
+  opacity: 0.6;
+}
+
+/* Speakers strip — light mode */
+[data-theme="light"] .ed-speakers-strip::before {
+  background: linear-gradient(to right, var(--bg-primary, #faf9f6), transparent);
+}
+[data-theme="light"] .ed-speakers-strip::after {
+  background: linear-gradient(to right, transparent, var(--bg-primary, #faf9f6));
+}
+[data-theme="light"] .ed-speaker-chip {
+  background: rgba(14,14,14,0.04);
+  border-color: rgba(14,14,14,0.10);
+}
+[data-theme="light"] .ed-speaker-chip:hover {
+  background: rgba(14,14,14,0.08);
+}
+[data-theme="light"] .ed-speaker-chip-avatar--initials {
+  background: rgba(200,80,40,0.1);
+  color: #b84c2a;
+}
+[data-theme="light"] .ed-speaker-chip-name {
+  color: #374151;
 }
 
 /* CTA button */
@@ -1494,8 +1533,8 @@
   }
   [data-theme="light"] .lm-ed-header,
   [data-theme="light"] .lm-sd-header {
-    padding-top: calc(var(--nav-h, 64px) + 1rem);
-    padding-bottom: 2rem;
+    padding-top: var(--nav-h, 64px);
+    padding-bottom: 0.25rem;
   }
   [data-theme="light"] .lm-ed-title {
     font-size: clamp(1.75rem, 6vw, 2.4rem);
@@ -1520,7 +1559,8 @@
 /* ── Editorial header — back link, eyebrow, chips, CTA ─────────────── */
 [data-theme="light"] .lm-ed-back      { font-size: 1rem !important; }
 [data-theme="light"] .lm-ed-eyebrow   { font-size: 0.85rem !important; } /* decorative mono label */
-[data-theme="light"] .lm-ed-chip      { font-size: 1rem !important; }
+[data-theme="light"] .lm-ed-meta-item { font-size: 1rem !important; }
+[data-theme="light"] .ed-speaker-chip-name { font-size: 0.85rem !important; }
 [data-theme="light"] .lm-ed-cta-btn   { font-size: 1rem !important; }
 
 /* ── Buttons (btn-sm raised to readable floor) ──────────────────────── */

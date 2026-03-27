@@ -35,27 +35,27 @@
         </div>
       </div>
       <div class="seat-legend" role="list" aria-label="Seat type key">
-        <div class="legend-item" role="listitem">
+        <div class="legend-item" role="listitem" data-legend-type="standard">
           <span class="legend-swatch legend-available" aria-hidden="true"></span>
           <span class="legend-label">Available</span>
         </div>
-        <div class="legend-item" role="listitem">
+        <div class="legend-item" role="listitem" data-legend-type="selected">
           <span class="legend-swatch legend-selected" aria-hidden="true"></span>
           <span class="legend-label">Selected</span>
         </div>
-        <div class="legend-item" role="listitem">
+        <div class="legend-item" role="listitem" data-legend-type="taken" data-legend-always>
           <span class="legend-swatch legend-taken" aria-hidden="true"></span>
           <span class="legend-label">Taken</span>
         </div>
-        <div class="legend-item" role="listitem">
+        <div class="legend-item" role="listitem" data-legend-type="vip">
           <span class="legend-swatch legend-vip" aria-hidden="true"></span>
           <span class="legend-label"><abbr title="Premium seat with extra legroom">VIP</abbr></span>
         </div>
-        <div class="legend-item" role="listitem">
+        <div class="legend-item" role="listitem" data-legend-type="accessible">
           <span class="legend-swatch legend-accessible" aria-hidden="true"></span>
           <span class="legend-label">Accessible</span>
         </div>
-        <div class="legend-item" role="listitem">
+        <div class="legend-item" role="listitem" data-legend-type="reserved" data-legend-always>
           <span class="legend-swatch legend-reserved" aria-hidden="true"></span>
           <span class="legend-label">Reserved (VVIP)</span>
         </div>
@@ -118,9 +118,30 @@
     var customTypes = {{ custom_types | tojson }};
     SeatPicker.init(seatData, pricing, {{ event.id }}, gapData, stageOpts, entryExitConfig, customTypes);
 
+    // Build set of seat types present in this layout
+    var presentTypes = {};
+    seatData.forEach(function(s) {
+      if (s.type) presentTypes[s.type] = true;
+      if (s.status === 'taken') presentTypes['taken'] = true;
+      if (s.status === 'reserved') presentTypes['reserved'] = true;
+    });
+    // "selected" shown whenever there are bookable seats
+    if (presentTypes['standard'] || presentTypes['vip'] || presentTypes['accessible'] || Object.keys(presentTypes).some(function(k) { return k.indexOf('custom_') === 0; }))
+      presentTypes['selected'] = true;
+
+    // Hide static legend items whose type isn't in the layout (unless always-shown)
+    document.querySelectorAll('.seat-legend .legend-item[data-legend-type]').forEach(function(el) {
+      if (el.hasAttribute('data-legend-always')) return;
+      if (!presentTypes[el.getAttribute('data-legend-type')]) {
+        el.style.display = 'none';
+      }
+    });
+
+    // Add custom type legend items (only for types present in layout, name only — no icon text)
     var legendContainer = document.getElementById('custom-legend-items');
     if (legendContainer && customTypes.length) {
       customTypes.forEach(function(ct) {
+        if (!presentTypes['custom_' + ct.id]) return;
         var item = document.createElement('div');
         item.className = 'legend-item';
         item.setAttribute('role', 'listitem');
@@ -128,16 +149,16 @@
         swatch.className = 'legend-swatch';
         swatch.style.background = ct.colour;
         swatch.setAttribute('aria-hidden', 'true');
+        if (ct.icon) {
+          swatch.textContent = ct.icon;
+          swatch.style.display = 'inline-flex';
+          swatch.style.alignItems = 'center';
+          swatch.style.justifyContent = 'center';
+          swatch.style.fontSize = '0.7rem';
+        }
         var label = document.createElement('span');
         label.className = 'legend-label';
         label.textContent = ct.name;
-        if (ct.icon) {
-          var iconSpan = document.createElement('span');
-          iconSpan.textContent = ct.icon;
-          iconSpan.style.marginLeft = '.25rem';
-          iconSpan.setAttribute('aria-hidden', 'true');
-          label.appendChild(iconSpan);
-        }
         item.appendChild(swatch);
         item.appendChild(label);
         legendContainer.appendChild(item);

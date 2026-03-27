@@ -102,15 +102,49 @@
         {% if event.description %}
         <p class="ed-hero-desc">{{ event.description }}</p>
         {% endif %}
-        <div class="ed-hero-pills">
-          <span class="ed-pill">&#128203; {{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}</span>
+        <ul class="ed-hero-meta">
+          <li class="ed-hero-meta-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            {{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}
+          </li>
           {% if event.start_date %}
-          <span class="ed-pill">&#128197; {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
+          <li class="ed-hero-meta-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}
+          </li>
           {% endif %}
-          {% if venue %}
-          <span class="ed-pill">&#128205; {{ venue }}</span>
+          {% if event.college %}
+          <li class="ed-hero-meta-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 4 3 6 3s6-2 6-3v-5"/></svg>
+            {{ event.college.name }}{% if event.college.city %}, {{ event.college.city.name }}{% endif %}
+          </li>
           {% endif %}
+        </ul>
+
+        {# Scrolling speakers strip #}
+        {% set ns_spk = namespace(speakers=[]) %}
+        {% for item in sessions %}
+          {% if item.speaker_obj and item.speaker_obj.name not in ns_spk.speakers|map(attribute='name')|list %}
+            {% set ns_spk.speakers = ns_spk.speakers + [item.speaker_obj] %}
+          {% endif %}
+        {% endfor %}
+        {% if ns_spk.speakers %}
+        <div class="ed-speakers-strip">
+          <div class="ed-speakers-scroll">
+            {% for spk in ns_spk.speakers %}
+            <div class="ed-speaker-chip">
+              {% if spk.photo_url %}
+              <img class="ed-speaker-chip-avatar" src="{{ spk.photo_url }}" alt="{{ spk.name }}">
+              {% else %}
+              <span class="ed-speaker-chip-avatar ed-speaker-chip-avatar--initials">{{ spk.name[0] }}</span>
+              {% endif %}
+              <span class="ed-speaker-chip-name">{{ spk.name }}</span>
+            </div>
+            {% endfor %}
+          </div>
         </div>
+        {% endif %}
+
       </div>
     </div>
   </div>
@@ -134,15 +168,49 @@
         {% if event.description %}
         <p class="lm-ed-desc">{{ event.description }}</p>
         {% endif %}
-        <div class="lm-ed-chips">
-          <span class="lm-ed-chip">{{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}</span>
+        <ul class="lm-ed-meta">
+          <li class="lm-ed-meta-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            {{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }}
+          </li>
           {% if event.start_date %}
-          <span class="lm-ed-chip">&#128197; {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
+          <li class="lm-ed-meta-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+            {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}
+          </li>
           {% endif %}
-          {% if venue %}
-          <span class="lm-ed-chip">&#128205; {{ venue }}</span>
+          {% if event.college %}
+          <li class="lm-ed-meta-item">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 1 4 3 6 3s6-2 6-3v-5"/></svg>
+            {{ event.college.name }}{% if event.college.city %}, {{ event.college.city.name }}{% endif %}
+          </li>
           {% endif %}
+        </ul>
+
+        {# Scrolling speakers strip #}
+        {% set ns_spk2 = namespace(speakers=[]) %}
+        {% for item in sessions %}
+          {% if item.speaker_obj and item.speaker_obj.name not in ns_spk2.speakers|map(attribute='name')|list %}
+            {% set ns_spk2.speakers = ns_spk2.speakers + [item.speaker_obj] %}
+          {% endif %}
+        {% endfor %}
+        {% if ns_spk2.speakers %}
+        <div class="ed-speakers-strip">
+          <div class="ed-speakers-scroll">
+            {% for spk in ns_spk2.speakers %}
+            <div class="ed-speaker-chip">
+              {% if spk.photo_url %}
+              <img class="ed-speaker-chip-avatar" src="{{ spk.photo_url }}" alt="{{ spk.name }}">
+              {% else %}
+              <span class="ed-speaker-chip-avatar ed-speaker-chip-avatar--initials">{{ spk.name[0] }}</span>
+              {% endif %}
+              <span class="ed-speaker-chip-name">{{ spk.name }}</span>
+            </div>
+            {% endfor %}
+          </div>
         </div>
+        {% endif %}
+
         {% if sessions %}
           {% if user %}
             {% if availability != 'sold-out' %}
@@ -228,6 +296,13 @@
                data-session-id="{{ s.id }}"
                style="text-decoration:none; color:inherit;">
 
+            {% if stime %}
+            <div class="ed-sc-date-badge">
+              <span class="ed-sc-date-time">{{ stime.strftime('%I:%M %p') }}</span>
+              <span class="ed-sc-date-day">{{ stime.strftime('%b %d') }}</span>
+            </div>
+            {% endif %}
+
             <div class="ed-sc-img">
               <img src="{% if d_banner %}{{ d_banner }}{% else %}https://images.unsplash.com/{{ img_id }}?w=440&auto=format&fit=crop&q=80{% endif %}"
                    alt="{{ d_title }}" loading="lazy">
@@ -240,16 +315,8 @@
               {% endif %}
               <h3 class="ed-sc-title">{{ d_title }}</h3>
               {% if d_desc %}
-              <p class="ed-sc-desc">{{ d_desc|truncate(100, True, '...') }}</p>
+              <p class="ed-sc-desc">{{ d_desc }}</p>
               {% endif %}
-              <div class="ed-sc-meta">
-                {% if stime %}
-                <span>&#128197; {{ stime.strftime('%b %d, %Y') }}</span>
-                <span>&#128336; {{ stime.strftime('%I:%M %p') }}</span>
-                {% endif %}
-                {% if venue %}<span>&#128205; {{ venue }}</span>{% endif %}
-                {% if d_dur %}<span class="meta-duration">&#9200; {{ d_dur }} min</span>{% endif %}
-              </div>
               <span class="ed-sc-view-link">View session &rarr;</span>
             </div>
 
@@ -311,22 +378,24 @@
       <div class="ed-booking-panel" id="booking-panel">
         <div class="bp-progress"><div class="bp-progress-bar" id="bp-progress-bar"></div></div>
 
-        <div class="ed-bp-header">
-          <h3 class="ed-bp-title">{{ event.name }}</h3>
-          <p class="ed-bp-sub">{{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }} &mdash; one ticket</p>
-        </div>
+        <div class="ed-bp-collapsible">
+          <div class="ed-bp-header">
+            <h3 class="ed-bp-title">{{ event.name }}</h3>
+            <p class="ed-bp-sub">{{ sessions|length }} session{{ 's' if sessions|length != 1 else '' }} &mdash; one ticket</p>
+          </div>
 
-        {% if event.start_date or venue %}
-        <div class="ed-bp-meta" style="display:flex;flex-direction:column;gap:.4rem;">
-          {% if event.start_date %}
-          <span>&#128197; {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
-          {% endif %}
-          {% if venue %}<span>&#128205; {{ venue }}</span>{% endif %}
-          {% if auditorium and auditorium.location %}
-          <span>&#127970; {{ auditorium.location }}</span>
+          {% if event.start_date or venue %}
+          <div class="ed-bp-meta" style="display:flex;flex-direction:column;gap:.4rem;">
+            {% if event.start_date %}
+            <span>&#128197; {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
+            {% endif %}
+            {% if venue %}<span>&#128205; {{ venue }}</span>{% endif %}
+            {% if auditorium and auditorium.location %}
+            <span>&#127970; {{ auditorium.location }}</span>
+            {% endif %}
+          </div>
           {% endif %}
         </div>
-        {% endif %}
 
         {% if stats.total > 0 %}
         <div class="ed-bp-meta">
@@ -372,10 +441,10 @@
         </div>
 
         {% if event_addons %}
-        <div class="ed-bp-addons" style="margin-top:1rem;padding-top:.75rem;border-top:1px solid var(--border, #e5e7eb);">
-          <p style="font-weight:600;font-size:.85rem;margin-bottom:.5rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary, #6b7280);">Optional Add-Ons</p>
+        <div class="ed-bp-addons" style="margin-top:.5rem;padding-top:.5rem;border-top:1px solid var(--border, #e5e7eb);">
+          <p style="font-weight:600;font-size:.8rem;margin-bottom:.35rem;text-transform:uppercase;letter-spacing:.04em;color:var(--text-secondary, #6b7280);">Optional Add-Ons</p>
           {% for addon in event_addons %}
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:.5rem 0;{% if not loop.last %}border-bottom:1px dashed var(--border, #e5e7eb);{% endif %}">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;padding:.35rem 0;{% if not loop.last %}border-bottom:1px dashed var(--border, #e5e7eb);{% endif %}">
             <div style="flex:1;">
               <span style="font-weight:500;">{{ addon.title }}</span>
               {% if addon.description %}<p style="font-size:.8rem;color:var(--text-secondary, #6b7280);margin:.15rem 0 0;">{{ addon.description }}</p>{% endif %}
@@ -554,7 +623,7 @@
     lmWrap.addEventListener('mouseleave', function () { lmReset(); });
   }());
 
-  /* 8 — JS-driven sticky booking panel + scroll progress */
+  /* 8 — JS-driven sticky booking panel + scroll progress + header reveal */
   (function () {
     var panel = document.getElementById('booking-panel');
     if (!panel) return;
@@ -564,6 +633,9 @@
     var progressBar = document.getElementById('bp-progress-bar');
     if (!col || !sessCol) return;
 
+    var heroRef = document.querySelector('.lm-ed-header') || document.querySelector('.ed-hero-full');
+    var headerShown = false;
+
     var GAP = 24;
     var rafId = null;
     var isMobile = function () { return window.innerWidth <= 768; };
@@ -572,7 +644,8 @@
       rafId = null;
       if (isMobile()) {
         panel.style.cssText = '';
-        panel.classList.remove('bp-fixed', 'bp-bottom');
+        panel.classList.remove('bp-fixed', 'bp-bottom', 'bp-header-visible');
+        headerShown = false;
         if (progressBar) progressBar.style.width = '0%';
         return;
       }
@@ -581,6 +654,12 @@
       var top = navH + GAP;
       var colRect = col.getBoundingClientRect();
       var panelH = panel.offsetHeight;
+
+      var shouldShowHeader = heroRef ? heroRef.getBoundingClientRect().bottom < navH +250 : false;
+      if (shouldShowHeader !== headerShown) {
+        headerShown = shouldShowHeader;
+        panel.classList.toggle('bp-header-visible', shouldShowHeader);
+      }
 
       if (colRect.top >= top) {
         panel.style.cssText = '';
@@ -621,6 +700,22 @@
     window.addEventListener('scroll', requestUpdate, { passive: true });
     window.addEventListener('resize', requestUpdate, { passive: true });
     update();
+  }());
+
+  /* 9 — Speaker ticker: duplicate chips for seamless infinite loop */
+  (function () {
+    document.querySelectorAll('.ed-speakers-scroll').forEach(function (track) {
+      var chips = track.querySelectorAll('.ed-speaker-chip');
+      if (chips.length < 2) { track.style.animation = 'none'; return; }
+      chips.forEach(function (chip) {
+        var clone = chip.cloneNode(true);
+        clone.setAttribute('aria-hidden', 'true');
+        track.appendChild(clone);
+      });
+      var totalChips = chips.length;
+      var speed = Math.max(totalChips * 3, 12);
+      track.style.animationDuration = speed + 's';
+    });
   }());
 }());
 </script>

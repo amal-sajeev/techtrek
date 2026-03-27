@@ -14,9 +14,9 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&family=Exo+2:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v=137">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v=142">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/light-mode.css') }}?v=137">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v={{ range(10000,99999)|random }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v={{ range(10000,99999)|random }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/light-mode.css') }}?v={{ range(10000,99999)|random }}">
   <script>
     (function(){
       var t = localStorage.getItem('techtrek-theme');
