@@ -112,6 +112,26 @@
     return lum > 0.5 ? "#000" : "#fff";
   }
 
+  function isMaterialIconLigatureName(s) {
+    return typeof s === "string" && /^[a-z][a-z0-9_]*$/.test(s) && s.length >= 2 && s.length <= 64;
+  }
+
+  function renderSeatTypeIcon(el, icon) {
+    el.textContent = "";
+    el.style.fontSize = "";
+    if (!icon) return;
+    if (isMaterialIconLigatureName(icon)) {
+      var sp = document.createElement("span");
+      sp.className = "seat-type-icon material-icons";
+      sp.setAttribute("aria-hidden", "true");
+      sp.textContent = icon;
+      el.appendChild(sp);
+    } else {
+      el.textContent = icon;
+      el.style.fontSize = ".75rem";
+    }
+  }
+
   function getEffectiveTool() {
     if (currentTool === "custom" && selectedCustomType) {
       return "custom_" + selectedCustomType;
@@ -142,6 +162,8 @@
       var swatch = document.createElement("span");
       swatch.className = "designer-legend-swatch";
       swatch.style.background = ct.colour;
+      swatch.style.color = contrastColor(ct.colour);
+      if (ct.icon) renderSeatTypeIcon(swatch, ct.icon);
       item.appendChild(swatch);
       item.appendChild(document.createTextNode(" " + ct.name));
       container.appendChild(item);
@@ -1307,6 +1329,7 @@
             el.style.backgroundColor = customTypes[seatType].colour;
             el.style.color = contrastColor(customTypes[seatType].colour);
             el.title = grid[key].label + " \u2014 " + customTypes[seatType].name;
+            if (customTypes[seatType].icon) renderSeatTypeIcon(el, customTypes[seatType].icon);
           } else {
             var cssClass = "seat seat-available";
             if (seatType === "vip") cssClass = "seat seat-vip";

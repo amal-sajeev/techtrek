@@ -10,10 +10,12 @@
   <h1 class="m-ph-title">METRICS</h1>
   <span class="m-ph-slash">//</span>
   <span class="m-ph-sub">PLATFORM ANALYTICS</span>
+  <button type="button" id="csv-export" class="m-range-btn" style="margin-left:auto;padding:.45rem 1.2rem;font-size:.95rem" title="Export visible data as CSV">&#128229; Export CSV</button>
 </div>
 
 {# ── Filter Bar ── #}
 <form method="get" action="/admin/metrics" class="m-fbar">
+  <div class="m-fbar-hint">Server-side &mdash; reloads all data</div>
   <div class="m-fg"><label class="m-fl">From</label><input type="date" name="date_from" class="m-fi" value="{{ f_date_from or '' }}"></div>
   <div class="m-fg"><label class="m-fl">To</label><input type="date" name="date_to" class="m-fi" value="{{ f_date_to or '' }}"></div>
   <div class="m-fg grow">
@@ -81,11 +83,33 @@
 <div class="m-tp on" id="tp-overview">
   <div class="m-cg m-cg2">
     <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">Bookings Over Time</div><div class="m-badge">12 Months</div></div>
+      <div class="m-cc-h">
+        <div class="m-cc-t">Bookings Over Time</div>
+        <div class="m-range" data-chart="mc-bkm">
+          <button class="m-range-btn" data-n="3" type="button">3M</button>
+          <button class="m-range-btn" data-n="6" type="button">6M</button>
+          <button class="m-range-btn on" data-n="12" type="button">1Y</button>
+          <button class="m-range-btn" data-n="0" type="button">All</button>
+          <button class="m-range-btn" data-n="custom" type="button">Custom</button>
+          <div class="m-range-custom"><input type="month" class="m-range-mo" data-edge="from"><span class="m-range-sep">&ndash;</span><input type="month" class="m-range-mo" data-edge="to"></div>
+          <span class="m-range-hint">client-side</span>
+        </div>
+      </div>
       <div class="m-cw" style="height:210px"><canvas id="mc-bkm"></canvas></div>
     </div>
     <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">Revenue Over Time</div><div class="m-badge g">12 Months</div></div>
+      <div class="m-cc-h">
+        <div class="m-cc-t">Revenue Over Time</div>
+        <div class="m-range" data-chart="mc-revm">
+          <button class="m-range-btn" data-n="3" type="button">3M</button>
+          <button class="m-range-btn" data-n="6" type="button">6M</button>
+          <button class="m-range-btn on" data-n="12" type="button">1Y</button>
+          <button class="m-range-btn" data-n="0" type="button">All</button>
+          <button class="m-range-btn" data-n="custom" type="button">Custom</button>
+          <div class="m-range-custom"><input type="month" class="m-range-mo" data-edge="from"><span class="m-range-sep">&ndash;</span><input type="month" class="m-range-mo" data-edge="to"></div>
+          <span class="m-range-hint">client-side</span>
+        </div>
+      </div>
       <div class="m-cw" style="height:210px"><canvas id="mc-revm"></canvas></div>
     </div>
   </div>
@@ -125,7 +149,18 @@
 <div class="m-tp" id="tp-users">
   <div class="m-cg m-cg2">
     <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">User Growth</div><div class="m-badge p">Last 12 Months</div></div>
+      <div class="m-cc-h">
+        <div class="m-cc-t">User Growth</div>
+        <div class="m-range" data-chart="mc-ugrow">
+          <button class="m-range-btn" data-n="3" type="button">3M</button>
+          <button class="m-range-btn" data-n="6" type="button">6M</button>
+          <button class="m-range-btn on" data-n="12" type="button">1Y</button>
+          <button class="m-range-btn" data-n="0" type="button">All</button>
+          <button class="m-range-btn" data-n="custom" type="button">Custom</button>
+          <div class="m-range-custom"><input type="month" class="m-range-mo" data-edge="from"><span class="m-range-sep">&ndash;</span><input type="month" class="m-range-mo" data-edge="to"></div>
+          <span class="m-range-hint">client-side</span>
+        </div>
+      </div>
       <div class="m-cw" style="height:210px"><canvas id="mc-ugrow"></canvas></div>
     </div>
     <div class="m-cc">
@@ -209,6 +244,16 @@
     <div class="m-cc">
       <div class="m-cc-h"><div class="m-cc-t">Sessions Per Event</div><div class="m-badge">Content Volume</div></div>
       {% if sessions_per_event %}
+      <div class="m-spe-bar">
+        <input type="text" class="m-spe-search" id="spe-search" placeholder="Filter events…">
+        <div class="m-spe-topn" id="spe-topn">
+          <button class="m-range-btn" data-n="5" type="button">5</button>
+          <button class="m-range-btn on" data-n="10" type="button">10</button>
+          <button class="m-range-btn" data-n="20" type="button">20</button>
+          <button class="m-range-btn" data-n="0" type="button">All</button>
+        </div>
+        <button type="button" class="m-spe-sort" id="spe-sort" title="Toggle sort order">&#9660;</button>
+      </div>
       <div class="m-cw" style="height:195px"><canvas id="mc-spe"></canvas></div>
       {% else %}<div class="m-empty">No session data.</div>{% endif %}
     </div>
@@ -238,6 +283,19 @@
         {% endfor %}
       </div>
       {% endif %}
+      {% if top_cities %}
+      <div class="m-sdiv"><div class="m-sdiv-lbl">Top Cities by Bookings</div><div class="m-sdiv-line"></div></div>
+      <div class="m-rl">
+        {% for c in top_cities %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ c.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (c.count / top_cities[0].count * 100)|round(0) }}%;--m-rc:var(--emerald, #10b981)"></div></div>
+          <div class="m-rv">{{ c.count }} bkgs</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
     </div>
   </div>
 </div>
@@ -248,7 +306,18 @@
 <div class="m-tp" id="tp-revenue">
   <div class="m-cg m-cg2">
     <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">Monthly Revenue</div><div class="m-badge g">&#8377; Trend</div></div>
+      <div class="m-cc-h">
+        <div class="m-cc-t">Monthly Revenue</div>
+        <div class="m-range" data-chart="mc-revt">
+          <button class="m-range-btn" data-n="3" type="button">3M</button>
+          <button class="m-range-btn" data-n="6" type="button">6M</button>
+          <button class="m-range-btn on" data-n="12" type="button">1Y</button>
+          <button class="m-range-btn" data-n="0" type="button">All</button>
+          <button class="m-range-btn" data-n="custom" type="button">Custom</button>
+          <div class="m-range-custom"><input type="month" class="m-range-mo" data-edge="from"><span class="m-range-sep">&ndash;</span><input type="month" class="m-range-mo" data-edge="to"></div>
+          <span class="m-range-hint">client-side</span>
+        </div>
+      </div>
       <div class="m-cw" style="height:210px"><canvas id="mc-revt"></canvas></div>
     </div>
     <div class="m-cc">
@@ -299,6 +368,7 @@
         <div class="m-si"><div class="m-si-l">Total Coupons</div><div class="m-si-v" style="color:var(--cyan)">{{ coupon_stats.total }}</div></div>
         <div class="m-si"><div class="m-si-l">Active</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ coupon_stats.active }}</div></div>
         <div class="m-si"><div class="m-si-l">Total Redeemed</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ coupon_stats.redeemed }}</div></div>
+        <div class="m-si"><div class="m-si-l">Bookings w/ Coupon</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ coupon_stats.pct }}%</div></div>
       </div>
     </div>
   </div>
@@ -435,7 +505,18 @@
 <div class="m-tp" id="tp-system">
   <div class="m-cg m-cg2">
     <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">Newsletter Subscriber Growth</div><div class="m-badge gold">Cumulative</div></div>
+      <div class="m-cc-h">
+        <div class="m-cc-t">Newsletter Subscriber Growth</div>
+        <div class="m-range" data-chart="mc-nlg">
+          <button class="m-range-btn" data-n="3" type="button">3M</button>
+          <button class="m-range-btn" data-n="6" type="button">6M</button>
+          <button class="m-range-btn on" data-n="12" type="button">1Y</button>
+          <button class="m-range-btn" data-n="0" type="button">All</button>
+          <button class="m-range-btn" data-n="custom" type="button">Custom</button>
+          <div class="m-range-custom"><input type="month" class="m-range-mo" data-edge="from"><span class="m-range-sep">&ndash;</span><input type="month" class="m-range-mo" data-edge="to"></div>
+          <span class="m-range-hint">client-side</span>
+        </div>
+      </div>
       <div class="m-cw" style="height:210px"><canvas id="mc-nlg"></canvas></div>
     </div>
     <div class="m-cc">
@@ -481,15 +562,20 @@
   const initialized = new Set();
   document.querySelectorAll('.m-tp').forEach(p => panels[p.id.replace('tp-','')]=p);
 
+  function activateTab(key) {
+    document.querySelectorAll('.m-tab-btn').forEach(b => b.classList.remove('on'));
+    document.querySelectorAll('.m-tp').forEach(p => p.classList.remove('on'));
+    const btn = document.querySelector('.m-tab-btn[data-tab="'+key+'"]');
+    if (btn) btn.classList.add('on');
+    if (panels[key]) panels[key].classList.add('on');
+    if (!initialized.has(key)) { initCharts(key); initialized.add(key); }
+    else setTimeout(() => dispatchEvent(new Event('resize')), 50);
+  }
   document.querySelectorAll('.m-tab-btn').forEach(btn => {
     btn.addEventListener('click', function(){
-      document.querySelectorAll('.m-tab-btn').forEach(b => b.classList.remove('on'));
-      document.querySelectorAll('.m-tp').forEach(p => p.classList.remove('on'));
-      this.classList.add('on');
       const key = this.dataset.tab;
-      panels[key].classList.add('on');
-      if (!initialized.has(key)) { initCharts(key); initialized.add(key); }
-      else setTimeout(() => dispatchEvent(new Event('resize')), 50);
+      history.replaceState(null, '', '#' + key);
+      activateTab(key);
     });
   });
 
@@ -505,12 +591,22 @@
   Chart.defaults.plugins.legend.labels.usePointStyle = true;
   Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
 
+  function fmtNum(v) { return Number(v).toLocaleString('en-IN'); }
   const TT = {
     backgroundColor: isLight ? 'rgba(255,255,255,.96)' : 'rgba(8,12,17,.96)',
     borderColor: 'rgba(0,212,255,.25)', borderWidth: 1,
     titleColor: isLight ? '#111' : '#e6edf3',
     bodyColor: isLight ? '#555' : '#8b949e',
-    padding: 10, cornerRadius: 8
+    padding: 10, cornerRadius: 8,
+    callbacks: {
+      label: function(ctx) {
+        const lbl = ctx.dataset.label || ctx.label || '';
+        const raw = ctx.parsed.y !== undefined ? ctx.parsed.y : ctx.parsed;
+        const isRev = /revenue|₹/i.test(lbl);
+        const val = isRev ? '₹' + fmtNum(raw) : fmtNum(raw);
+        return lbl ? lbl + ': ' + val : val;
+      }
+    }
   };
   const GRID = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.045)';
 
@@ -527,12 +623,16 @@
     plugins: { legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', padding: 12 } }, tooltip: TT }
   };
 
-  function lineChart(id, labels, data, r, g, b, label, fmt) {
-    return new Chart(id, {
+  /* ── Line chart with range support ── */
+  const lineCharts = {};
+
+  function makeLineChart(id, fullData, valueKey, r, g, b, label, fmt) {
+    const sliced = sliceData(fullData, 12);
+    const chart = new Chart(id, {
       type: 'line', data: {
-        labels: labels,
+        labels: sliced.map(d => d.label),
         datasets: [{
-          label: label, data: data,
+          label: label, data: sliced.map(d => d[valueKey]),
           borderColor: 'rgb('+r+','+g+','+b+')', borderWidth: 2,
           pointRadius: 3, pointHoverRadius: 5, tension: .4, fill: true,
           backgroundColor: ctx => grad(ctx.chart.ctx ? ctx.chart : ctx, ctx.chart, r, g, b)
@@ -544,8 +644,75 @@
         scales: { x: { grid: { color: GRID } }, y: { grid: { color: GRID }, beginAtZero: true, ticks: { callback: fmt || (v => v) } } }
       }
     });
+    lineCharts[id] = { chart, fullData, valueKey, r, g, b, label, fmt };
+    return chart;
   }
 
+  function sliceData(arr, n) {
+    if (!n || n <= 0 || n >= arr.length) return arr;
+    return arr.slice(-n);
+  }
+
+  function labelToYM(lbl) {
+    const m = lbl.match(/^(\w+)\s+(\d+)$/);
+    if (!m) return '';
+    const mi = ['','Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].indexOf(m[1]);
+    return m[2] + '-' + String(mi).padStart(2, '0');
+  }
+
+  function updateLineChart(id, data) {
+    const info = lineCharts[id];
+    if (!info) return;
+    const c = info.chart;
+    c.data.labels = data.map(d => d.label);
+    c.data.datasets[0].data = data.map(d => d[info.valueKey]);
+    c.update();
+  }
+
+  /* ── Range toggle wiring ── */
+  document.querySelectorAll('.m-range').forEach(rng => {
+    const chartId = rng.dataset.chart;
+    const customBox = rng.querySelector('.m-range-custom');
+    const fromInput = rng.querySelector('[data-edge="from"]');
+    const toInput = rng.querySelector('[data-edge="to"]');
+
+    rng.querySelectorAll('.m-range-btn').forEach(btn => {
+      btn.addEventListener('click', function() {
+        rng.querySelectorAll('.m-range-btn').forEach(b => b.classList.remove('on'));
+        this.classList.add('on');
+        const n = this.dataset.n;
+        if (n === 'custom') {
+          customBox.classList.add('on');
+          applyCustomRange(chartId, fromInput, toInput);
+        } else {
+          customBox.classList.remove('on');
+          const info = lineCharts[chartId];
+          if (info) updateLineChart(chartId, sliceData(info.fullData, parseInt(n)));
+        }
+      });
+    });
+
+    [fromInput, toInput].forEach(inp => {
+      if (inp) inp.addEventListener('change', () => applyCustomRange(chartId, fromInput, toInput));
+    });
+  });
+
+  function applyCustomRange(chartId, fromInput, toInput) {
+    const info = lineCharts[chartId];
+    if (!info) return;
+    const fv = fromInput.value;
+    const tv = toInput.value;
+    if (!fv && !tv) { updateLineChart(chartId, info.fullData); return; }
+    const filtered = info.fullData.filter(d => {
+      const ym = labelToYM(d.label);
+      if (fv && ym < fv) return false;
+      if (tv && ym > tv) return false;
+      return true;
+    });
+    updateLineChart(chartId, filtered.length ? filtered : info.fullData);
+  }
+
+  /* ── Data ── */
   const bkTrend = {{ booking_trend | tojson }};
   const revTrend = {{ revenue_trend | tojson }};
   const bkStatuses = {{ booking_statuses | tojson }};
@@ -562,74 +729,100 @@
   const alertStats = {{ alert_stats | tojson }};
 
   const DONUT_COLORS = ['#00d4ff','#3fb950','#f97316','#f85149','#8b5cf6','#f59e0b'];
+  function safeDonut(id, labels, data, colors, opts) {
+    if (!data.length || data.every(v => v === 0)) {
+      const el = document.getElementById(id);
+      if (el) { const p = el.parentNode; p.innerHTML = '<div class="m-empty" style="display:flex;align-items:center;justify-content:center;height:100%">No data yet.</div>'; }
+      return;
+    }
+    new Chart(id, { type:'doughnut', data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:0, hoverOffset:4 }] }, options:opts });
+  }
   const BAR_COLORS = ['rgba(0,212,255,.75)','rgba(168,85,247,.75)','rgba(249,115,22,.75)',
     'rgba(63,185,80,.75)','rgba(251,191,36,.75)','rgba(248,81,73,.75)','rgba(139,148,158,.75)'];
 
   function initCharts(tab) {
     if (tab === 'overview') {
-      lineChart('mc-bkm', bkTrend.map(d=>d.label), bkTrend.map(d=>d.count), 0,212,255, 'Bookings');
-      lineChart('mc-revm', revTrend.map(d=>d.label), revTrend.map(d=>d.value), 63,185,80, 'Revenue (₹)',
+      makeLineChart('mc-bkm', bkTrend, 'count', 0,212,255, 'Bookings');
+      makeLineChart('mc-revm', revTrend, 'value', 63,185,80, 'Revenue (₹)',
         v => '₹' + (v >= 1000 ? (v/1000).toFixed(0)+'K' : v));
       const bsLabels = Object.keys(bkStatuses).map(s => s.charAt(0).toUpperCase()+s.slice(1));
-      const bsData = Object.values(bkStatuses);
-      new Chart('mc-bks', { type:'doughnut', data:{ labels:bsLabels,
-        datasets:[{ data:bsData, backgroundColor:DONUT_COLORS.slice(0,bsLabels.length), borderWidth:0, hoverOffset:4 }]
-      }, options:donutBase });
+      safeDonut('mc-bks', bsLabels, Object.values(bkStatuses), DONUT_COLORS.slice(0,bsLabels.length), donutBase);
       const esLabels = Object.keys(evStatuses).map(s => s.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase()));
-      new Chart('mc-evs', { type:'doughnut', data:{ labels:esLabels,
-        datasets:[{ data:Object.values(evStatuses), backgroundColor:DONUT_COLORS.slice(0,esLabels.length), borderWidth:0, hoverOffset:4 }]
-      }, options:donutBase });
+      safeDonut('mc-evs', esLabels, Object.values(evStatuses), DONUT_COLORS.slice(0,esLabels.length), donutBase);
     }
     if (tab === 'users') {
-      lineChart('mc-ugrow', regTrend.map(d=>d.label), regTrend.map(d=>d.count), 168,85,247, 'Registrations');
+      makeLineChart('mc-ugrow', regTrend, 'count', 168,85,247, 'Registrations');
       if (yosDist.length) {
-        const yLabels = yosDist.map(d => 'Year '+d.year);
         new Chart('mc-yos', { type:'bar', data:{
-          labels:yLabels, datasets:[{ label:'Students', data:yosDist.map(d=>d.count),
+          labels:yosDist.map(d => 'Year '+d.year), datasets:[{ label:'Students', data:yosDist.map(d=>d.count),
             backgroundColor: yosDist.map((_,i) => BAR_COLORS[i%BAR_COLORS.length]),
             borderRadius:4, borderWidth:0 }]
         }, options:{ responsive:true, maintainAspectRatio:false,
           plugins:{ legend:{display:false}, tooltip:TT },
           scales:{ x:{grid:{display:false}}, y:{grid:{color:GRID}, beginAtZero:true} } } });
       }
-      new Chart('mc-auth', { type:'doughnut', data:{
-        labels:['Google OAuth','Password'],
-        datasets:[{ data:[authCounts.oauth, authCounts.password],
-          backgroundColor:['#f97316','#00d4ff'], borderWidth:0, hoverOffset:4 }]
-      }, options:donutBase });
+      safeDonut('mc-auth', ['Google OAuth','Password'], [authCounts.oauth, authCounts.password], ['#f97316','#00d4ff'], donutBase);
     }
     if (tab === 'events') {
       const esLabels2 = Object.keys(evStatuses).map(s => s.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase()));
-      new Chart('mc-evs2', { type:'doughnut', data:{ labels:esLabels2,
-        datasets:[{ data:Object.values(evStatuses), backgroundColor:DONUT_COLORS.slice(0,esLabels2.length), borderWidth:0, hoverOffset:4 }]
-      }, options:donutBase });
-      new Chart('mc-fp', { type:'doughnut', data:{
-        labels:['Paid Events','Free Events'],
-        datasets:[{ data:[freePaid.paid, freePaid.free], backgroundColor:['#a855f7','#3fb950'], borderWidth:0, hoverOffset:4 }]
-      }, options:donutBase });
+      safeDonut('mc-evs2', esLabels2, Object.values(evStatuses), DONUT_COLORS.slice(0,esLabels2.length), donutBase);
+      safeDonut('mc-fp', ['Paid Events','Free Events'], [freePaid.paid, freePaid.free], ['#a855f7','#3fb950'], donutBase);
       if (sessPerEvent.length && document.getElementById('mc-spe')) {
-        new Chart('mc-spe', { type:'bar', data:{
-          labels:sessPerEvent.map(d=>d.name), datasets:[{ label:'Sessions', data:sessPerEvent.map(d=>d.count),
-            backgroundColor:sessPerEvent.map((_,i)=>BAR_COLORS[i%BAR_COLORS.length]), borderRadius:6, borderWidth:0 }]
-        }, options:{ responsive:true, maintainAspectRatio:false,
-          plugins:{ legend:{display:false}, tooltip:TT },
-          scales:{ x:{grid:{display:false}}, y:{grid:{color:GRID}, beginAtZero:true} } } });
+        let speChart = null;
+        let speAsc = false;
+        let speTopN = 10;
+        let speSearch = '';
+
+        function renderSPE() {
+          let data = sessPerEvent.slice();
+          if (speSearch) {
+            const q = speSearch.toLowerCase();
+            data = data.filter(d => d.name.toLowerCase().includes(q));
+          }
+          data.sort((a,b) => speAsc ? a.count - b.count : b.count - a.count);
+          if (speTopN > 0) data = data.slice(0, speTopN);
+          if (speChart) speChart.destroy();
+          speChart = new Chart('mc-spe', { type:'bar', data:{
+            labels:data.map(d=>d.name), datasets:[{ label:'Sessions', data:data.map(d=>d.count),
+              backgroundColor:data.map((_,i)=>BAR_COLORS[i%BAR_COLORS.length]), borderRadius:6, borderWidth:0 }]
+          }, options:{ responsive:true, maintainAspectRatio:false,
+            plugins:{ legend:{display:false}, tooltip:TT },
+            scales:{ x:{grid:{display:false}}, y:{grid:{color:GRID}, beginAtZero:true} } } });
+        }
+        renderSPE();
+
+        let speTimer = null;
+        document.getElementById('spe-search').addEventListener('input', function() {
+          clearTimeout(speTimer);
+          speTimer = setTimeout(() => { speSearch = this.value; renderSPE(); }, 200);
+        });
+        document.querySelectorAll('#spe-topn .m-range-btn').forEach(btn => {
+          btn.addEventListener('click', function() {
+            document.querySelectorAll('#spe-topn .m-range-btn').forEach(b => b.classList.remove('on'));
+            this.classList.add('on');
+            speTopN = parseInt(this.dataset.n);
+            renderSPE();
+          });
+        });
+        const sortBtn = document.getElementById('spe-sort');
+        sortBtn.addEventListener('click', function() {
+          speAsc = !speAsc;
+          this.innerHTML = speAsc ? '&#9650;' : '&#9660;';
+          this.classList.toggle('on', speAsc);
+          renderSPE();
+        });
       }
     }
     if (tab === 'revenue') {
-      lineChart('mc-revt', revTrend.map(d=>d.label), revTrend.map(d=>d.value), 63,185,80, 'Revenue (₹)',
+      makeLineChart('mc-revt', revTrend, 'value', 63,185,80, 'Revenue (₹)',
         v => '₹' + (v >= 1000 ? (v/1000).toFixed(0)+'K' : v));
       const psLabels = Object.keys(bkStatuses).map(s => s.charAt(0).toUpperCase()+s.slice(1));
-      new Chart('mc-ps', { type:'doughnut', data:{ labels:psLabels,
-        datasets:[{ data:Object.values(bkStatuses), backgroundColor:DONUT_COLORS.slice(0,psLabels.length), borderWidth:0, hoverOffset:4 }]
-      }, options:donutBase });
+      safeDonut('mc-ps', psLabels, Object.values(bkStatuses), DONUT_COLORS.slice(0,psLabels.length), donutBase);
     }
     if (tab === 'feedback') {
-      new Chart('mc-fdisp', { type:'doughnut', data:{
-        labels:['Submitted','Dismissed','Pending'],
-        datasets:[{ data:[feedbackDisp.submitted, feedbackDisp.dismissed, feedbackDisp.pending],
-          backgroundColor:['#3fb950','#f85149','#8b949e'], borderWidth:0, hoverOffset:4 }]
-      }, options:donutBase });
+      safeDonut('mc-fdisp', ['Submitted','Dismissed','Pending'],
+        [feedbackDisp.submitted, feedbackDisp.dismissed, feedbackDisp.pending],
+        ['#3fb950','#f85149','#8b949e'], donutBase);
     }
     if (tab === 'sessions') {
       if (checkinHrs.length && document.getElementById('mc-cit')) {
@@ -643,7 +836,7 @@
       }
     }
     if (tab === 'system') {
-      lineChart('mc-nlg', subTrend.map(d=>d.label), subTrend.map(d=>d.count), 251,191,36, 'Subscribers');
+      makeLineChart('mc-nlg', subTrend, 'count', 251,191,36, 'Subscribers');
       if (actByCat.length && document.getElementById('mc-act')) {
         new Chart('mc-act', { type:'bar', data:{
           labels:actByCat.map(d=>(d.category||'other').replace(/\b\w/g,c=>c.toUpperCase())),
@@ -655,15 +848,43 @@
       }
       const altLabels = Object.keys(alertStats).map(s => s.charAt(0).toUpperCase()+s.slice(1));
       const altData = Object.values(alertStats);
-      if (altLabels.length) {
-        new Chart('mc-alt', { type:'doughnut', data:{ labels:altLabels,
-          datasets:[{ data:altData, backgroundColor:['#00d4ff','#f97316','#f85149','#8b949e'].slice(0,altLabels.length), borderWidth:0, hoverOffset:4 }]
-        }, options:donutBase });
-      }
+      safeDonut('mc-alt', altLabels, altData, ['#00d4ff','#f97316','#f85149','#8b949e'].slice(0,altLabels.length), donutBase);
     }
   }
 
-  initCharts('overview'); initialized.add('overview');
+  const hashTab = location.hash.replace('#','');
+  const startTab = panels[hashTab] ? hashTab : 'overview';
+  activateTab(startTab);
+
+  document.getElementById('csv-export').addEventListener('click', function() {
+    const activePanel = document.querySelector('.m-tp.on');
+    if (!activePanel) return;
+    const tabName = activePanel.id.replace('tp-','');
+    const rows = [['Section','Label','Value']];
+    activePanel.querySelectorAll('.m-si').forEach(si => {
+      const l = (si.querySelector('.m-si-l')||{}).textContent||'';
+      const v = (si.querySelector('.m-si-v')||{}).textContent||'';
+      rows.push([tabName, l.trim(), v.trim()]);
+    });
+    activePanel.querySelectorAll('.m-ri').forEach(ri => {
+      const n = (ri.querySelector('.m-rname')||{}).textContent||'';
+      const v = (ri.querySelector('.m-rv')||{}).textContent||'';
+      rows.push([tabName, n.trim(), v.trim()]);
+    });
+    for (const [id, obj] of Object.entries(lineCharts)) {
+      if (!activePanel.querySelector('#'+id)) continue;
+      const chart = obj.chart;
+      chart.data.labels.forEach((l,i) => {
+        rows.push([chart.options.plugins?.legend?.display===false ? id : tabName, l, chart.data.datasets[0].data[i]]);
+      });
+    }
+    const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'metrics_' + tabName + '_' + new Date().toISOString().slice(0,10) + '.csv';
+    a.click();
+  });
 })();
 </script>
 {% endblock %}

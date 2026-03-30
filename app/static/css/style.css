@@ -1594,8 +1594,18 @@ td code {
 .seat-yours      { background:var(--seat-yours);      box-shadow:0 0 10px rgba(139,92,246,.5) }
 .seat-accessible { background:var(--seat-accessible) }
 .seat-reserved   { background:var(--seat-reserved); cursor:not-allowed; opacity:.45 }
-.seat-custom { border-radius:var(--radius-sm); box-shadow:0 0 6px rgba(0,0,0,.25); transition:transform .15s,box-shadow .15s }
+.seat-custom { border-radius:var(--radius-sm); box-shadow:0 0 6px rgba(0,0,0,.25); transition:transform .15s,box-shadow .15s; display:inline-flex; align-items:center; justify-content:center }
 .seat-custom:hover { transform:translateY(-3px) scale(1.12); box-shadow:0 6px 16px rgba(0,0,0,.35) }
+/* .seat { font-size:0 } hides text; Material Icons need explicit size */
+.seat.seat-custom .seat-type-icon.material-icons,
+button.seat.seat-custom .seat-type-icon.material-icons {
+  font-size:15px !important;
+  line-height:1;
+  font-weight:normal;
+  letter-spacing:normal;
+}
+.legend-swatch .seat-type-icon.material-icons { font-size:14px !important; line-height:1 }
+.designer-legend-swatch .seat-type-icon.material-icons { font-size:13px !important; line-height:1 }
 .seat-available:hover { transform:translateY(-3px) scale(1.12); box-shadow:0 6px 16px rgba(16,185,129,.5) }
 .seat-legend {
   display: flex;

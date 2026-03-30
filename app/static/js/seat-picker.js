@@ -46,6 +46,27 @@
     return lum > 0.5 ? "#000" : "#fff";
   }
 
+  /** Material Icons use ligatures (e.g. "star"); emoji/unicode stay as plain text. */
+  function isMaterialIconLigatureName(s) {
+    return typeof s === "string" && /^[a-z][a-z0-9_]*$/.test(s) && s.length >= 2 && s.length <= 64;
+  }
+
+  function renderSeatTypeIcon(el, icon) {
+    el.textContent = "";
+    el.style.fontSize = "";
+    if (!icon) return;
+    if (isMaterialIconLigatureName(icon)) {
+      var sp = document.createElement("span");
+      sp.className = "seat-type-icon material-icons";
+      sp.setAttribute("aria-hidden", "true");
+      sp.textContent = icon;
+      el.appendChild(sp);
+    } else {
+      el.textContent = icon;
+      el.style.fontSize = ".75rem";
+    }
+  }
+
   function init(data, pricing, evtId, gaps, stageOpts, entryExit, initialCustomTypes) {
     seatMap = data;
     if (typeof pricing === "object" && pricing !== null) {
@@ -182,10 +203,7 @@
             el.style.backgroundColor = customTypes[seat.type].colour;
             el.style.color = contrastColor(customTypes[seat.type].colour);
             var ctIcon = customTypes[seat.type].icon;
-            if (ctIcon) {
-              el.textContent = ctIcon;
-              el.style.fontSize = ".75rem";
-            }
+            if (ctIcon) renderSeatTypeIcon(el, ctIcon);
           } else {
             el.className = "seat seat-" + statusClass;
           }
@@ -415,6 +433,7 @@
         btn.classList.add("seat-custom");
         btn.style.backgroundColor = customTypes[t].colour;
         btn.style.color = contrastColor(customTypes[t].colour);
+        if (customTypes[t].icon) renderSeatTypeIcon(btn, customTypes[t].icon);
       } else if (t === "vip") {
         btn.classList.add("seat-vip");
       } else if (t === "accessible") {
@@ -500,5 +519,5 @@
     }, 120);
   });
 
-  window.SeatPicker = { init: init };
+  window.SeatPicker = { init: init, renderSeatTypeIcon: renderSeatTypeIcon };
 })();

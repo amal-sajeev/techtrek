@@ -317,10 +317,11 @@ def phase1_db_seed(force: bool):
     db.commit()
 
     # ── Seat types ─────────────────────────────────────────────────────
+    # Icons match options in admin/seat_type_form.html (emoji picker, not Material ligatures)
     seat_types = [
-        SeatType(name="Premium", colour="#f59e0b", icon="star",
+        SeatType(name="Premium", colour="#f59e0b", icon="⭐",
                  price=800, is_custom=True),
-        SeatType(name="Balcony", colour="#8b5cf6", icon="building",
+        SeatType(name="Balcony", colour="#8b5cf6", icon="🎭",
                  price=600, is_custom=True),
     ]
     db.add_all(seat_types)

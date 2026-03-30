@@ -428,36 +428,39 @@
     <h2 class="section-title"><span class="dark-only">What Attendees Say</span><span class="light-only-inline">Voices from the Summit</span></h2>
     <p class="section-subtitle">Real experiences from students who attended TechTrek events.</p>
 
-    <div class="testimonials-grid">
-      {% for fb in featured_feedback %}
-      <div class="testimonial-card reveal">
-        <div class="testimonial-stars">
-          {% for i in range(fb.rating|int) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating|int) %}&#9734;{% endfor %}
-        </div>
-        <blockquote class="testimonial-quote">&ldquo;{{ fb.comment }}&rdquo;</blockquote>
-        <div class="testimonial-author">
-          <div class="testimonial-avatar">{{ fb.user_name[0]|upper }}</div>
-          <div>
-            <p class="testimonial-name">{{ fb.user_name }}</p>
-            {% if fb.college %}<p class="testimonial-college">{{ fb.college }}</p>{% endif %}
-            <p class="testimonial-event">{{ fb.event_name }}</p>
+    <div class="voices-carousel" id="voices-carousel">
+      <div class="voices-track" id="voices-track">
+        {% for fb in featured_feedback %}
+        <div class="testimonial-card" data-voice>
+          <div class="testimonial-stars">
+            {% for i in range(fb.rating|int) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating|int) %}&#9734;{% endfor %}
+          </div>
+          <blockquote class="testimonial-quote">&ldquo;{{ fb.comment }}&rdquo;</blockquote>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">{{ fb.user_name[0]|upper }}</div>
+            <div>
+              <p class="testimonial-name">{{ fb.user_name }}</p>
+              {% if fb.college %}<p class="testimonial-college">{{ fb.college }}</p>{% endif %}
+              <p class="testimonial-event">{{ fb.event_name }}</p>
+            </div>
           </div>
         </div>
-      </div>
-      {% endfor %}
-      {% for t in testimonials %}
-      <div class="testimonial-card reveal">
-        <blockquote class="testimonial-quote">&ldquo;{{ t.quote }}&rdquo;</blockquote>
-        <div class="testimonial-author">
-          <div class="testimonial-avatar">{{ t.student_name[0]|upper }}</div>
-          <div>
-            <p class="testimonial-name">{{ t.student_name }}</p>
-            {% if t.college %}<p class="testimonial-college">{{ t.college }}</p>{% endif %}
+        {% endfor %}
+        {% for t in testimonials %}
+        <div class="testimonial-card" data-voice>
+          <blockquote class="testimonial-quote">&ldquo;{{ t.quote }}&rdquo;</blockquote>
+          <div class="testimonial-author">
+            <div class="testimonial-avatar">{{ t.student_name[0]|upper }}</div>
+            <div>
+              <p class="testimonial-name">{{ t.student_name }}</p>
+              {% if t.college %}<p class="testimonial-college">{{ t.college }}</p>{% endif %}
+            </div>
           </div>
         </div>
+        {% endfor %}
       </div>
-      {% endfor %}
     </div>
+    <div class="voices-dots" id="voices-dots"></div>
   </div>
 </section>
 {% endif %}
@@ -602,8 +605,181 @@
     });
   }
 
+  function initVoicesCarousel() {
+    var container = document.getElementById('voices-carousel');
+    var track = document.getElementById('voices-track');
+    var dotsWrap = document.getElementById('voices-dots');
+    if (!container || !track) return;
+
+    var rawCards = track.querySelectorAll('[data-voice]');
+    if (!rawCards.length) return;
+
+    var cardHtmls = [];
+    for (var i = 0; i < rawCards.length; i++) {
+      cardHtmls.push(rawCards[i].outerHTML);
+    }
+
+    function getPerPage() {
+      var w = container.getBoundingClientRect().width;
+      if (w < 641) return 2;
+      if (w < 1025) return 4;
+      return 6;
+    }
+
+    var perPage, totalReal, current, autoTimer, transitioning;
+
+    function buildAndRender() {
+      perPage = getPerPage();
+
+      var pool = cardHtmls.slice();
+      while (pool.length > 0 && pool.length < perPage * 2) {
+        for (var k = 0, kl = cardHtmls.length; k < kl && pool.length < perPage * 2; k++) {
+          pool.push(cardHtmls[k]);
+        }
+      }
+
+      var pages = [];
+      for (var i = 0; i < pool.length; i += perPage) {
+        pages.push(pool.slice(i, i + perPage));
+      }
+
+      totalReal = pages.length;
+      current = 0;
+      transitioning = false;
+
+      function pageHtml(cards) {
+        return '<div class="voices-page">' + cards.join('') + '</div>';
+      }
+
+      var html = '';
+
+      if (totalReal <= 1) {
+        html = pageHtml(pages[0] || []);
+        track.innerHTML = html;
+        track.classList.add('voices-track--static');
+        track.style.transform = '';
+        track.style.transition = '';
+        if (dotsWrap) dotsWrap.innerHTML = '';
+        return false;
+      }
+
+      track.classList.remove('voices-track--static');
+
+      for (var p = 0; p < pages.length; p++) {
+        html += pageHtml(pages[p]);
+      }
+      html += pageHtml(pages[0]);
+
+      track.innerHTML = html;
+
+      var cw = container.getBoundingClientRect().width;
+      var allPages = track.querySelectorAll('.voices-page');
+      for (var j = 0; j < allPages.length; j++) {
+        allPages[j].style.width = cw + 'px';
+        allPages[j].style.minWidth = cw + 'px';
+      }
+
+      if (dotsWrap) {
+        dotsWrap.innerHTML = '';
+        for (var d = 0; d < totalReal; d++) {
+          var dot = document.createElement('button');
+          dot.className = 'voices-dot' + (d === 0 ? ' active' : '');
+          dot.setAttribute('aria-label', 'Page ' + (d + 1));
+          dot.dataset.idx = d;
+          dot.addEventListener('click', function() {
+            goTo(parseInt(this.dataset.idx), true);
+            resetAuto();
+          });
+          dotsWrap.appendChild(dot);
+        }
+      }
+
+      goTo(0, false);
+      return true;
+    }
+
+    function updateDots() {
+      if (!dotsWrap) return;
+      var dots = dotsWrap.querySelectorAll('.voices-dot');
+      var activeIdx = current % totalReal;
+      for (var i = 0; i < dots.length; i++) {
+        dots[i].classList.toggle('active', i === activeIdx);
+      }
+    }
+
+    function goTo(index, smooth) {
+      current = index;
+      var cw = container.getBoundingClientRect().width;
+      track.style.transition = smooth
+        ? 'transform 0.9s cubic-bezier(0.4, 0, 0.2, 1)'
+        : 'none';
+      track.style.transform = 'translateX(' + (-current * cw) + 'px)';
+      if (!smooth) void track.offsetHeight;
+      updateDots();
+    }
+
+    function advance() {
+      if (transitioning) return;
+      current++;
+      transitioning = true;
+      goTo(current, true);
+      if (current >= totalReal) {
+        setTimeout(function() {
+          goTo(0, false);
+          transitioning = false;
+        }, 950);
+      } else {
+        setTimeout(function() { transitioning = false; }, 950);
+      }
+    }
+
+    function startAuto() { stopAuto(); autoTimer = setInterval(advance, 5000); }
+    function stopAuto() { if (autoTimer) { clearInterval(autoTimer); autoTimer = null; } }
+    function resetAuto() { stopAuto(); setTimeout(startAuto, 8000); }
+
+    container.addEventListener('mouseenter', stopAuto);
+    container.addEventListener('mouseleave', function() {
+      if (totalReal > 1) startAuto();
+    });
+
+    var startX = 0;
+    container.addEventListener('touchstart', function(e) {
+      startX = e.touches[0].clientX; stopAuto();
+    }, { passive: true });
+    container.addEventListener('touchend', function(e) {
+      var dx = startX - e.changedTouches[0].clientX;
+      if (Math.abs(dx) > 50) {
+        if (dx > 0) {
+          current++;
+          if (current > totalReal) current = 0;
+          goTo(current, true);
+          if (current >= totalReal) {
+            setTimeout(function() { goTo(0, false); }, 950);
+          }
+        } else {
+          current--;
+          if (current < 0) current = totalReal - 1;
+          goTo(current, true);
+        }
+      }
+      resetAuto();
+    }, { passive: true });
+
+    var resizeTimer;
+    window.addEventListener('resize', function() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function() {
+        stopAuto();
+        if (buildAndRender()) startAuto();
+      }, 250);
+    });
+
+    if (buildAndRender()) startAuto();
+  }
+
   document.addEventListener('DOMContentLoaded', function() {
     initCarousel('talks-track', 'talks-prev', 'talks-next', 4000);
+    initVoicesCarousel();
   });
 })();
 </script>

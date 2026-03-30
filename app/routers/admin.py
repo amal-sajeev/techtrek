@@ -207,8 +207,7 @@ MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"
 
 
 def _monthly_trend(db, model_cls, date_col, extra_filters=None, value_col=None):
-    """Build [{label, count}] or [{label, value}] for last 12 months."""
-    twelve_ago = now_ist() - timedelta(days=365)
+    """Build [{label, count}] or [{label, value}] for all available months."""
     cols = [
         extract("year", date_col).label("yr"),
         extract("month", date_col).label("mo"),
@@ -217,7 +216,7 @@ def _monthly_trend(db, model_cls, date_col, extra_filters=None, value_col=None):
         cols.append(func.coalesce(func.sum(value_col), 0))
     else:
         cols.append(func.count(model_cls.id))
-    q = db.query(*cols).filter(date_col >= twelve_ago)
+    q = db.query(*cols).filter(date_col.isnot(None))
     if extra_filters:
         for f in extra_filters:
             q = q.filter(f)
@@ -313,7 +312,6 @@ def metrics_page(
     event_statuses = {s: c for s, c in ev_status_q.group_by(Event.status).all()}
 
     # ── Overview tab ──
-    twelve_ago = now_ist() - timedelta(days=365)
     bk_trend_filters = [Booking.payment_status == "paid", Booking.is_shared_ticket == False]
     if ev_filter:
         bk_trend_filters.append(Booking.event_id == ev_filter)
@@ -385,7 +383,7 @@ def metrics_page(
     )
     spe_q = _ev_filters(spe_q)
     sessions_per_event = [{"name": n, "count": c} for n, c in
-                          spe_q.group_by(Event.id, Event.name).order_by(func.count(EventSession.id).desc()).limit(10).all()]
+                          spe_q.group_by(Event.id, Event.name).order_by(func.count(EventSession.id).desc()).all()]
 
     ebc_q = (
         db.query(City.name, func.count(Event.id))
@@ -396,6 +394,25 @@ def metrics_page(
     ebc_q = _ev_filters(ebc_q)
     events_by_city = [{"name": n, "count": c} for n, c in
                       ebc_q.group_by(City.name).order_by(func.count(Event.id).desc()).limit(8).all()]
+
+    city_bk_q = (
+        db.query(City.name, func.count(Booking.id))
+        .select_from(Booking)
+        .join(Event, Booking.event_id == Event.id)
+        .join(College, Event.college_id == College.id)
+        .join(City, College.city_id == City.id)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+    )
+    if dt_from:
+        city_bk_q = city_bk_q.filter(Booking.booked_at >= dt_from)
+    if dt_to:
+        city_bk_q = city_bk_q.filter(Booking.booked_at <= dt_to)
+    if ev_filter:
+        city_bk_q = city_bk_q.filter(Booking.event_id == ev_filter)
+    if col_filter:
+        city_bk_q = city_bk_q.filter(Event.college_id == col_filter)
+    top_cities = [{"name": n, "count": c} for n, c in
+                  city_bk_q.group_by(City.name).order_by(func.count(Booking.id).desc()).limit(8).all()]
 
     top_col_q = (
         db.query(College.name, func.count(Booking.id))
@@ -455,7 +472,11 @@ def metrics_page(
     coupon_total = db.query(func.count(Coupon.id)).scalar() or 0
     coupon_active = db.query(func.count(Coupon.id)).filter(Coupon.is_active == True).scalar() or 0
     coupon_redeemed = db.query(func.coalesce(func.sum(Coupon.used_count), 0)).scalar() or 0
-    coupon_stats = {"total": coupon_total, "active": coupon_active, "redeemed": int(coupon_redeemed)}
+    bk_with_coupon = db.query(func.count(Booking.id)).filter(
+        Booking.coupon_id.isnot(None), Booking.payment_status == "paid"
+    ).scalar() or 0
+    coupon_pct = round(bk_with_coupon / total_bookings * 100, 1) if total_bookings else 0
+    coupon_stats = {"total": coupon_total, "active": coupon_active, "redeemed": int(coupon_redeemed), "pct": coupon_pct}
 
     # ── Feedback tab ──
     sess_q = (
@@ -628,7 +649,8 @@ def metrics_page(
             role_counts=role_counts, top_user_colleges=top_user_colleges,
             free_paid=free_paid, event_features=event_features,
             sessions_per_event=sessions_per_event,
-            events_by_city=events_by_city, top_colleges=top_colleges,
+            events_by_city=events_by_city, top_cities=top_cities,
+            top_colleges=top_colleges,
             revenue_by_event=revenue_by_event,
             revenue_by_seat_type=revenue_by_seat_type,
             refund_stats=refund_stats, coupon_stats=coupon_stats,
