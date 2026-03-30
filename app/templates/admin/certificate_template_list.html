@@ -1,0 +1,92 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}Certificate Templates — Admin{% endblock %}
+
+{% block admin_content %}
+<style>
+  /* Auto column widths so header labels don’t collide; actions stay one row via min-width */
+  .cert-tpl-list-table { width: 100%; }
+  .cert-tpl-list-table thead th {
+    white-space: normal;
+    line-height: 1.25;
+    vertical-align: bottom;
+    padding: 0.5rem 0.45rem;
+  }
+  .cert-tpl-list-table td.col-cert-title {
+    max-width: 14rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .cert-tpl-list-table th.col-actions,
+  .cert-tpl-list-table td.col-actions {
+    min-width: 17rem;
+    width: 1%;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .cert-tpl-list-table .cert-tpl-actions-row {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.35rem;
+    align-items: center;
+    justify-content: flex-start;
+  }
+  .cert-tpl-list-table .cert-tpl-actions-row form {
+    display: inline-flex;
+    margin: 0;
+    flex-shrink: 0;
+  }
+</style>
+<div class="admin-header">
+  <h1 class="admin-page-title">Certificate Templates</h1>
+  <a href="/admin/certificate-templates/new" class="btn btn-primary btn-sm">+ New Template</a>
+</div>
+
+{% if cert_templates %}
+<div class="table-wrapper">
+  <table class="table table-cards-mobile cert-tpl-list-table">
+    <thead>
+      <tr>
+        <th>Name</th>
+        <th class="col-cert-title">Cert Title</th>
+        <th class="col-scheme">Color Scheme</th>
+        <th class="col-layout">Visual Layout</th>
+        <th class="col-used" title="How many events use this template">Events</th>
+        <th class="col-created">Created</th>
+        <th class="col-actions">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in cert_templates %}
+      <tr>
+        <td>
+          <strong>{{ t.name }}</strong>
+          {% if t.description %}<br><small class="text-muted">{{ t.description|truncate(60) }}</small>{% endif %}
+        </td>
+        <td class="col-cert-title">{{ t.cert_title or '—' }}</td>
+        <td class="col-scheme">{{ t.cert_color_scheme or 'Teal (default)' }}</td>
+        <td class="col-layout">{% if t.cert_style %}<span style="color:#16a34a">✓ Yes</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        <td class="col-used">{{ t.events|length }}</td>
+        <td class="col-created">{{ t.created_at.strftime('%b %d, %Y') if t.created_at else '—' }}</td>
+        <td class="col-actions">
+          <div class="cert-tpl-actions-row">
+            <a href="/admin/certificate-templates/{{ t.id }}/edit" class="btn btn-xs btn-outline">Edit</a>
+            <a href="/admin/certificate-templates/{{ t.id }}/designer" class="btn btn-xs btn-outline">Designer</a>
+            <form method="post" action="/admin/certificate-templates/{{ t.id }}/delete">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button type="button" class="btn btn-xs btn-danger" data-confirm="Delete template '{{ t.name }}'?" data-confirm-label="Delete">Delete</button>
+            </form>
+          </div>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="empty-state">
+  <p>No certificate templates yet. Create one to build a reusable certificate design you can apply to any event.</p>
+  <a href="/admin/certificate-templates/new" class="btn btn-primary">Create Template</a>
+</div>
+{% endif %}
+{% endblock %}

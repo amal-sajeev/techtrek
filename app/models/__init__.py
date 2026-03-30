@@ -26,6 +26,7 @@ from app.models.gallery_image import GalleryImage
 from app.models.event_break import EventBreak
 from app.models.event_addon import EventAddOn, BookingAddOn
 from app.models.ticket_share import TicketShare
+from app.models.certificate_template import CertificateTemplate
 from app.models.feedback_template import FeedbackTemplate, TemplateQuestion, FeedbackResponse, QuestionResponse
 from app.models.poll import Poll, PollOption, PollVote
 from app.models.event_alert import EventAlert
@@ -37,6 +38,7 @@ __all__ = [
     "SessionRecording", "EventSession", "SiteSetting", "Event", "Coupon", "Feedback",
     "SessionFeedback", "SessionRating", "Newsletter", "UploadedImage", "GalleryImage",
     "EventBreak", "EventAddOn", "BookingAddOn", "TicketShare",
+    "CertificateTemplate",
     "FeedbackTemplate", "TemplateQuestion", "FeedbackResponse", "QuestionResponse",
     "Poll", "PollOption", "PollVote", "EventAlert",
 ]

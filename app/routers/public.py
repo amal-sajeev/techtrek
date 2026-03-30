@@ -1544,3 +1544,30 @@ def poll_display(request: Request, poll_id: int, db: DbSession = Depends(get_db)
             "event_id": poll.event_id or 0,
         },
     )
+
+
+@router.get("/certificate/verify/{ticket_id}")
+def certificate_verify(ticket_id: str, request: Request, db: DbSession = Depends(get_db)):
+    booking = db.query(Booking).filter(Booking.ticket_id == ticket_id).first()
+    if not booking:
+        return templates.TemplateResponse(
+            "public/certificate_verify.html",
+            {**template_ctx(request), "valid": False, "ticket_id": ticket_id},
+            status_code=404,
+        )
+    user = db.query(User).get(booking.user_id)
+    seat = db.query(Seat).get(booking.seat_id) if booking.seat_id else None
+    event = db.query(Event).get(booking.event_id) if booking.event_id else None
+    auditorium = db.query(Auditorium).get(event.auditorium_id) if event and event.auditorium_id else None
+    return templates.TemplateResponse(
+        "public/certificate_verify.html",
+        {
+            **template_ctx(request),
+            "valid": True,
+            "booking": booking,
+            "user": user,
+            "event": event,
+            "auditorium": auditorium,
+            "seat": seat,
+        },
+    )

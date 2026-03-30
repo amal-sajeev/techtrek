@@ -82,6 +82,8 @@ python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().d
 
 See `.env.example` for the full list of optional settings (Razorpay, SMTP, Google OAuth, SSL, etc.).
 
+**Certificate designer (optional):** set `OPENAI_API_KEY` to enable **Generate with AI** in the admin certificate visual designer. Each run performs **two** sequential OpenAI calls (image generation, then vision layout), so expect **billable cost** and **roughly 30–90 seconds** latency. Override models with `OPENAI_CERT_IMAGE_MODEL`, `OPENAI_CERT_IMAGE_QUALITY`, and `OPENAI_CERT_LAYOUT_MODEL` if needed (see `.env.example`).
+
 ## Tech Stack
 
 - **Backend**: FastAPI, SQLAlchemy, Jinja2

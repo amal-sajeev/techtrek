@@ -7,8 +7,35 @@
   var canvasEl = document.getElementById("cert-designer-canvas");
   if (!bootEl || !canvasEl || typeof fabric === "undefined") return;
 
-  var bootstrap = JSON.parse(bootEl.textContent || "{}");
+  var bootstrap = {};
+  try {
+    bootstrap = JSON.parse((bootEl.textContent || "{}").trim());
+  } catch (e) {
+    console.error("certificate-designer: invalid bootstrap JSON", e);
+    window.alert("Certificate designer failed to load configuration. Reload the page.");
+    return;
+  }
   var eventId = bootstrap.eventId;
+  var templateId = bootstrap.templateId;
+  var designerSaveUrl =
+    bootstrap.saveUrl ||
+    bootstrap.designerSaveUrl ||
+    (eventId != null ? "/admin/events/" + eventId + "/certificate/designer" : null) ||
+    (templateId != null
+      ? "/admin/certificate-templates/" + templateId + "/certificate/designer"
+      : null);
+  var designerLegacyUrl =
+    bootstrap.legacyConvertUrl ||
+    bootstrap.designerLegacyUrl ||
+    (eventId != null ? "/admin/events/" + eventId + "/certificate/legacy-to-freeform" : null) ||
+    (templateId != null
+      ? "/admin/certificate-templates/" + templateId + "/certificate/legacy-to-freeform"
+      : null);
+  var aiGenerateUrl = bootstrap.aiGenerateUrl || "/admin/certificate-ai/generate-template";
+  if (!designerSaveUrl || !designerLegacyUrl) {
+    console.error("certificate-designer: missing saveUrl/legacyConvertUrl (or legacy designer* keys) in bootstrap");
+    return;
+  }
   var doc = bootstrap.initialStyle || {};
 
   var PDF_W = (doc.page && doc.page.widthPt) || 842;
@@ -135,6 +162,112 @@
     objs.forEach(function (o) {
       canvas.remove(o);
     });
+  }
+
+  function removePageBg() {
+    canvas.getObjects().filter(function (o) {
+      return o.certPageBg;
+    }).forEach(function (o) {
+      canvas.remove(o);
+    });
+  }
+
+  /** Match _draw_freeform_background in certificate.py (ReportLab bottom-left for draw_x, draw_y). */
+  function computeFreeformBgLayout(iw, ih, pageW, pageH, bgMode, ox, oy) {
+    var draw_x;
+    var draw_y;
+    var draw_w;
+    var draw_h;
+    if (bgMode === "stretch") {
+      draw_w = pageW;
+      draw_h = pageH;
+      draw_x = 0;
+      draw_y = 0;
+    } else {
+      var scale =
+        bgMode === "contain"
+          ? Math.min(pageW / iw, pageH / ih)
+          : Math.max(pageW / iw, pageH / ih);
+      draw_w = iw * scale;
+      draw_h = ih * scale;
+      draw_x = (pageW - draw_w) / 2;
+      draw_y = (pageH - draw_h) / 2;
+    }
+    draw_x += ox || 0;
+    draw_y += oy || 0;
+    return { draw_x: draw_x, draw_y: draw_y, draw_w: draw_w, draw_h: draw_h };
+  }
+
+  var pageBgLoadToken = 0;
+
+  function drawPageBackground() {
+    removePageBg();
+    var urlEl = document.getElementById("cert-dz-page-bg-url");
+    var url = urlEl ? (urlEl.value || "").trim() : "";
+    if (!url) {
+      canvas.requestRenderAll();
+      return;
+    }
+    var bgMode = (document.getElementById("cert-dz-bg-size").value || "cover").toLowerCase();
+    var ox = parseFloat(doc.bg_offset_x) || 0;
+    var oy = parseFloat(doc.bg_offset_y) || 0;
+    var myTok = ++pageBgLoadToken;
+    var imgOpts = {};
+    if (/^https?:\/\//i.test(url)) {
+      imgOpts.crossOrigin = "anonymous";
+    }
+    fabric.Image.fromURL(
+      url,
+      function (img, isError) {
+        if (myTok !== pageBgLoadToken) return;
+        if (isError || !img) return;
+        var cur = urlEl ? (urlEl.value || "").trim() : "";
+        if (cur !== url) return;
+        var iw = img.width || 1;
+        var ih = img.height || 1;
+        var L = computeFreeformBgLayout(iw, ih, PDF_W, PDF_H, bgMode, ox, oy);
+        var fabricTop = PDF_H - L.draw_y - L.draw_h;
+        img.set({
+          left: L.draw_x,
+          top: fabricTop,
+          scaleX: L.draw_w / iw,
+          scaleY: L.draw_h / ih,
+          selectable: false,
+          evented: false,
+          certPageBg: true,
+          excludeFromExport: true,
+          objectCaching: false,
+          hoverCursor: "default",
+        });
+        canvas.add(img);
+        canvas.sendToBack(img);
+        canvas.requestRenderAll();
+      },
+      imgOpts
+    );
+  }
+
+  function uploadCertImage(file, onUrl) {
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      window.alert("File too large (max 5 MB)");
+      return;
+    }
+    var fd = new FormData();
+    fd.append("image", file);
+    var csrfEl = document.querySelector('input[name="csrf_token"]');
+    if (csrfEl) fd.append("csrf_token", csrfEl.value);
+    fetch("/admin/upload-image", { method: "POST", body: fd, credentials: "same-origin" })
+      .then(function (r) {
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.url) onUrl(data.url);
+        else window.alert(data.error || "Upload failed");
+      })
+      .catch(function (e) {
+        window.alert("Upload failed: " + (e.message || e));
+      });
   }
 
   /**
@@ -380,6 +513,8 @@
     doc.border_style = document.getElementById("cert-dz-border-style").value;
     doc.border_width = parseFloat(document.getElementById("cert-dz-border-width").value) || 1;
     doc.bg_size = document.getElementById("cert-dz-bg-size").value;
+    var pbg = document.getElementById("cert-dz-page-bg-url");
+    if (pbg) doc.background_image_url = (pbg.value || "").trim();
   }
 
   var grid = 5;
@@ -537,12 +672,18 @@
     out.version = 2;
     out.layout = "freeform";
     out.page = { widthPt: PDF_W, heightPt: PDF_H };
-    out.border_style = document.getElementById("cert-dz-border-style").value;
-    out.border_width = parseFloat(document.getElementById("cert-dz-border-width").value) || 1;
-    out.bg_size = document.getElementById("cert-dz-bg-size").value;
+    var borderStyleEl = document.getElementById("cert-dz-border-style");
+    var borderWidthEl = document.getElementById("cert-dz-border-width");
+    var bgSizeEl = document.getElementById("cert-dz-bg-size");
+    out.border_style = borderStyleEl ? borderStyleEl.value : "classic";
+    out.border_width = borderWidthEl ? parseFloat(borderWidthEl.value) || 1 : 1;
+    out.bg_size = bgSizeEl ? bgSizeEl.value : "cover";
+    var bgUrlEl = document.getElementById("cert-dz-page-bg-url");
+    out.background_image_url = bgUrlEl ? (bgUrlEl.value || "").trim() : "";
     var layers = [];
     canvas.getObjects().forEach(function (obj, i) {
       if (obj.certChrome) return;
+      if (obj.certPageBg) return;
       var L = serializeObject(obj, i);
       if (L) layers.push(L);
     });
@@ -619,7 +760,190 @@
     canvas.add(grp);
     canvas.setActiveObject(grp);
     canvas.requestRenderAll();
+    if ((url || "").trim()) {
+      hydrateCertImageLayer(grp);
+    }
     pushHistory();
+  }
+
+  var _certDzImageHydrateTok = {};
+
+  function canvasIndexOf(obj) {
+    return canvas.getObjects().indexOf(obj);
+  }
+
+  function replaceCertImageGroup(oldG, newG) {
+    var ix = canvasIndexOf(oldG);
+    if (ix < 0) ix = canvas.getObjects().length;
+    canvas.remove(oldG);
+    if (typeof canvas.insertAt === "function") {
+      canvas.insertAt(newG, ix);
+    } else {
+      canvas.add(newG);
+    }
+  }
+
+  function makeImagePlaceholderParts(innerW, innerH, role) {
+    var rect = new fabric.Rect({
+      left: 0,
+      top: 0,
+      width: innerW,
+      height: innerH,
+      fill: "#f1f5f9",
+      stroke: "#94a3b8",
+      strokeWidth: 1,
+      originX: "left",
+      originY: "top",
+    });
+    var glabel =
+      role === "logo" ? "Logo" : role === "signature" ? "Signature" : "Image";
+    var lt = new fabric.Text(glabel, {
+      fontSize: 11,
+      fill: "#64748b",
+      originX: "center",
+      originY: "center",
+      left: innerW / 2,
+      top: innerH / 2,
+    });
+    return [rect, lt];
+  }
+
+  function buildCertImageGroup(parts, layout) {
+    var g = new fabric.Group(parts, {
+      left: layout.left,
+      top: layout.top,
+      originX: layout.originX || "left",
+      originY: layout.originY || "top",
+      angle: layout.angle || 0,
+      scaleX: layout.scaleX != null ? layout.scaleX : 1,
+      scaleY: layout.scaleY != null ? layout.scaleY : 1,
+    });
+    g.layerId = layout.layerId;
+    g.certLayerType = "image";
+    g.imageRole = layout.imageRole || "custom";
+    g.imageUrl = layout.imageUrl != null ? layout.imageUrl : "";
+    if (layout._certDzLoadedUrl != null) g._certDzLoadedUrl = layout._certDzLoadedUrl;
+    return g;
+  }
+
+  function scaleInnerImageToGroupBounds(grp) {
+    var inner = grp.getObjects && grp.getObjects();
+    if (!inner || inner.length !== 1 || inner[0].type !== "image") return false;
+    var fi = inner[0];
+    var L2 = captureImageGroupLayout(grp);
+    var iw0 = fi.width || 1;
+    var ih0 = fi.height || 1;
+    fi.set({ scaleX: L2.gw / iw0, scaleY: L2.gh / ih0 });
+    grp.set({ dirty: true });
+    if (typeof grp.addWithUpdate === "function") grp.addWithUpdate(fi);
+    return true;
+  }
+
+  function captureImageGroupLayout(grp) {
+    var sx = Math.abs(grp.scaleX || 1) || 1;
+    var sy = Math.abs(grp.scaleY || 1) || 1;
+    return {
+      left: grp.left,
+      top: grp.top,
+      originX: grp.originX || "left",
+      originY: grp.originY || "top",
+      angle: grp.angle || 0,
+      scaleX: grp.scaleX || 1,
+      scaleY: grp.scaleY || 1,
+      layerId: grp.layerId,
+      imageRole: grp.imageRole || "custom",
+      imageUrl: grp.imageUrl || "",
+      gw: grp.getScaledWidth(),
+      gh: grp.getScaledHeight(),
+      innerW: grp.getScaledWidth() / sx,
+      innerH: grp.getScaledHeight() / sy,
+    };
+  }
+
+  /**
+   * Load bitmap for image layers so uploads / URLs show on canvas (PDF already drew from url).
+   */
+  function hydrateCertImageLayer(grp) {
+    if (!grp || grp.certLayerType !== "image" || grp.type !== "group") return;
+    var layout = captureImageGroupLayout(grp);
+    var url = (layout.imageUrl || "").trim();
+    var lid = layout.layerId;
+    _certDzImageHydrateTok[lid] = (_certDzImageHydrateTok[lid] || 0) + 1;
+    var myTok = _certDzImageHydrateTok[lid];
+
+    if (!url) {
+      var iw = Math.max(20, layout.innerW || 80);
+      var ih = Math.max(16, layout.innerH || 40);
+      var parts = makeImagePlaceholderParts(iw, ih, layout.imageRole);
+      var newG = buildCertImageGroup(parts, {
+        left: layout.left,
+        top: layout.top,
+        originX: layout.originX,
+        originY: layout.originY,
+        angle: layout.angle,
+        scaleX: 1,
+        scaleY: 1,
+        layerId: layout.layerId,
+        imageRole: layout.imageRole,
+        imageUrl: "",
+        _certDzLoadedUrl: "",
+      });
+      var wasActive = canvas.getActiveObject() === grp;
+      replaceCertImageGroup(grp, newG);
+      if (wasActive) canvas.setActiveObject(newG);
+      canvas.requestRenderAll();
+      return;
+    }
+
+    var imgOpts = {};
+    if (/^https?:\/\//i.test(url)) {
+      imgOpts.crossOrigin = "anonymous";
+    }
+
+    fabric.Image.fromURL(
+      url,
+      function (fimg, isError) {
+        if (_certDzImageHydrateTok[lid] !== myTok) return;
+        if (isError || !fimg) return;
+        var cur = canvas.getObjects().filter(function (o) {
+          return o.layerId === lid && o.certLayerType === "image" && o.type === "group";
+        })[0];
+        if (!cur) return;
+
+        var L = captureImageGroupLayout(cur);
+        var gw = L.gw;
+        var gh = L.gh;
+        var iw0 = fimg.width || 1;
+        var ih0 = fimg.height || 1;
+        fimg.set({
+          originX: "left",
+          originY: "top",
+          left: 0,
+          top: 0,
+          scaleX: gw / iw0,
+          scaleY: gh / ih0,
+        });
+        var trimmed = (L.imageUrl || "").trim();
+        var newG = buildCertImageGroup([fimg], {
+          left: L.left,
+          top: L.top,
+          originX: L.originX,
+          originY: L.originY,
+          angle: L.angle,
+          scaleX: 1,
+          scaleY: 1,
+          layerId: L.layerId,
+          imageRole: L.imageRole,
+          imageUrl: L.imageUrl,
+          _certDzLoadedUrl: trimmed,
+        });
+        var wasActive = canvas.getActiveObject() === cur;
+        replaceCertImageGroup(cur, newG);
+        if (wasActive) canvas.setActiveObject(newG);
+        canvas.requestRenderAll();
+      },
+      imgOpts
+    );
   }
 
   function addQrLayer() {
@@ -776,6 +1100,9 @@
       grp.imageUrl = rect.imageUrl;
       if ((L.rotation || 0) !== 0) grp.set({ angle: L.rotation });
       canvas.add(grp);
+      if ((grp.imageUrl || "").trim()) {
+        hydrateCertImageLayer(grp);
+      }
       return;
     }
     if (t === "qr") {
@@ -861,6 +1188,7 @@
     });
     layers.forEach(loadLayer);
     drawPageChrome();
+    drawPageBackground();
     canvas.requestRenderAll();
   }
 
@@ -868,11 +1196,21 @@
     document.getElementById("cert-dz-border-style").value = doc.border_style || "classic";
     document.getElementById("cert-dz-border-width").value = doc.border_width != null ? doc.border_width : 1;
     document.getElementById("cert-dz-bg-size").value = doc.bg_size || "cover";
+    var pbg = document.getElementById("cert-dz-page-bg-url");
+    if (pbg) pbg.value = doc.background_image_url != null ? doc.background_image_url : "";
   }
 
   function fillToHex(fill) {
-    if (typeof fill === "string" && fill.charAt(0) === "#" && fill.length >= 7) return fill.slice(0, 7);
+    if (typeof fill === "string" && fill.charAt(0) === "#" && fill.length >= 7) return fill.slice(0, 7).toLowerCase();
     return "#0a1628";
+  }
+
+  function setColorAndHex(hexVal) {
+    var cEl = document.getElementById("cert-dz-prop-color");
+    var hEl = document.getElementById("cert-dz-prop-color-hex");
+    var h = fillToHex(hexVal);
+    if (cEl) cEl.value = h;
+    if (hEl) hEl.value = h;
   }
 
   var varSelect = document.getElementById("cert-dz-prop-variable");
@@ -904,15 +1242,25 @@
     none.style.display = "none";
     panel.style.display = "block";
     var t = o.certLayerType;
+
+    /* Geometry first: cert-dz-prop-align dispatches "change" below, which runs applyPropsFromForm and
+       must see this selection's w/h — not the previous object's (stale values caused scaleX squash). */
+    var geomW = o.getScaledWidth();
+    var geomH = o.getScaledHeight();
+    document.getElementById("cert-dz-prop-w").value = Math.round(geomW);
+    document.getElementById("cert-dz-prop-h").value = Math.round(geomH);
+    document.getElementById("cert-dz-prop-rot").value = Math.round(o.angle || 0);
+
     document.getElementById("cert-dz-prop-variable").disabled = t !== "text";
     document.getElementById("cert-dz-prop-text").disabled = t !== "text";
     document.getElementById("cert-dz-prop-font").disabled = t !== "text";
     document.getElementById("cert-dz-prop-fontsize").disabled = t !== "text";
     document.getElementById("cert-dz-prop-color").disabled = t !== "text" && t !== "rect" && t !== "line";
+    var hHexEl = document.getElementById("cert-dz-prop-color-hex");
+    if (hHexEl) hHexEl.disabled = t !== "text" && t !== "rect" && t !== "line";
     document.getElementById("cert-dz-prop-bold").disabled = t !== "text";
     document.getElementById("cert-dz-prop-italic").disabled = t !== "text";
     document.getElementById("cert-dz-prop-underline").disabled = t !== "text";
-    document.getElementById("cert-dz-prop-align").disabled = t !== "text";
     document.getElementById("cert-dz-prop-imgurl").disabled = t !== "image";
     document.getElementById("cert-dz-prop-qrcaption").disabled = t !== "qr";
 
@@ -926,11 +1274,15 @@
             ? "times"
             : "arial";
       document.getElementById("cert-dz-prop-fontsize").value = o.fontSize || 16;
-      document.getElementById("cert-dz-prop-color").value = fillToHex(o.fill);
+      setColorAndHex(o.fill);
       document.getElementById("cert-dz-prop-bold").checked = o.fontWeight === "bold";
       document.getElementById("cert-dz-prop-italic").checked = o.fontStyle === "italic";
       document.getElementById("cert-dz-prop-underline").checked = !!o.underline;
-      document.getElementById("cert-dz-prop-align").value = o.textAlign || "left";
+      var al = document.getElementById("cert-dz-prop-align");
+      if (al) {
+        al.value = o.textAlign || "left";
+        al.dispatchEvent(new Event("change", { bubbles: true }));
+      }
     }
     if (t === "image") {
       document.getElementById("cert-dz-prop-imgurl").value = o.imageUrl || "";
@@ -938,11 +1290,12 @@
     if (t === "qr") {
       document.getElementById("cert-dz-prop-qrcaption").checked = o.showCaption !== false;
     }
-    var w = o.getScaledWidth();
-    var h = o.getScaledHeight();
-    document.getElementById("cert-dz-prop-w").value = Math.round(w);
-    document.getElementById("cert-dz-prop-h").value = Math.round(h);
-    document.getElementById("cert-dz-prop-rot").value = Math.round(o.angle || 0);
+    if (t === "rect" || t === "line") {
+      var fillOrStroke = t === "line" ? o.fill || o.stroke : o.fill;
+      if (fillOrStroke) setColorAndHex(fillOrStroke);
+    }
+
+    if (typeof window._certDzApplyTypeVis === "function") window._certDzApplyTypeVis(t);
   }
 
   function applyPropsFromForm() {
@@ -968,21 +1321,47 @@
     if (t === "qr") {
       o.set({ showCaption: document.getElementById("cert-dz-prop-qrcaption").checked });
     }
+    if (t === "rect" || t === "line") {
+      var cFill = document.getElementById("cert-dz-prop-color");
+      if (cFill) o.set({ fill: cFill.value });
+    }
     var nw = parseFloat(document.getElementById("cert-dz-prop-w").value);
     var nh = parseFloat(document.getElementById("cert-dz-prop-h").value);
     if (nw > 0 && nh > 0) {
       var cw = o.getScaledWidth();
       var ch = o.getScaledHeight();
       if (cw > 0 && ch > 0) {
-        o.set({
-          scaleX: (o.scaleX || 1) * (nw / cw),
-          scaleY: (o.scaleY || 1) * (nh / ch),
-        });
+        if (t === "text" && (o.type === "textbox" || o.type === "i-text")) {
+          var sx = Math.abs(o.scaleX) || 1;
+          o.set({
+            width: Math.max(20, nw / sx),
+            scaleX: 1,
+            scaleY: (o.scaleY || 1) * (nh / ch),
+          });
+        } else {
+          o.set({
+            scaleX: (o.scaleX || 1) * (nw / cw),
+            scaleY: (o.scaleY || 1) * (nh / ch),
+          });
+        }
       }
     }
     var rot = parseFloat(document.getElementById("cert-dz-prop-rot").value);
     if (!isNaN(rot)) o.set({ angle: rot });
     o.setCoords();
+    if (t === "image") {
+      var tg = getTargetObject();
+      if (tg && tg.certLayerType === "image") {
+        var wanted = (tg.imageUrl || "").trim();
+        if (!wanted) {
+          hydrateCertImageLayer(tg);
+        } else if ((tg._certDzLoadedUrl || "") === wanted && scaleInnerImageToGroupBounds(tg)) {
+          /* resized in place */
+        } else {
+          hydrateCertImageLayer(tg);
+        }
+      }
+    }
     canvas.requestRenderAll();
   }
 
@@ -992,6 +1371,7 @@
     "cert-dz-prop-font",
     "cert-dz-prop-fontsize",
     "cert-dz-prop-color",
+    "cert-dz-prop-color-hex",
     "cert-dz-prop-bold",
     "cert-dz-prop-italic",
     "cert-dz-prop-underline",
@@ -1009,7 +1389,13 @@
       pushHistory();
     });
     el.addEventListener("input", function () {
-      if (id.indexOf("rot") >= 0 || id.indexOf("prop-w") >= 0 || id.indexOf("prop-h") >= 0) {
+      if (
+        id.indexOf("rot") >= 0 ||
+        id.indexOf("prop-w") >= 0 ||
+        id.indexOf("prop-h") >= 0 ||
+        id === "cert-dz-prop-color" ||
+        id === "cert-dz-prop-color-hex"
+      ) {
         applyPropsFromForm();
       }
     });
@@ -1023,21 +1409,37 @@
     updatePropsPanel();
   });
 
-  document.getElementById("cert-dz-toolbar").addEventListener("click", function (e) {
+  var certDzToolbar = document.getElementById("cert-dz-toolbar");
+  if (certDzToolbar) {
+  certDzToolbar.addEventListener("click", function (e) {
+    var vItem = e.target.closest(".cert-dz-varfield-item");
+    if (vItem) {
+      e.preventDefault();
+      e.stopPropagation();
+      var vk = vItem.getAttribute("data-varkey") || "attendee_name";
+      addTextLayer(vk, "");
+      var menu = document.getElementById("cert-dz-varfield-menu");
+      var trigger = document.getElementById("cert-dz-varfield-trigger");
+      if (menu) menu.hidden = true;
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+      return;
+    }
     var btn = e.target.closest("[data-add]");
     if (!btn) return;
     var k = btn.getAttribute("data-add");
     if (k === "text") addTextLayer("static", "Your text");
-    else if (k === "vartext") addTextLayer("attendee_name", "");
     else if (k === "image-logo") addImagePlaceholder("logo", "");
     else if (k === "image-sig") addImagePlaceholder("signature", "");
     else if (k === "image-url") {
-      var u = window.prompt("Image URL (https only)", "https://");
+      var u = window.prompt("Image URL (https or site path)", "https://");
       if (u) addImagePlaceholder("custom", u);
     } else if (k === "qr") addQrLayer();
     else if (k === "line") addLineLayer();
     else if (k === "rect") addRectLayer();
   });
+  } else {
+    console.error("certificate-designer: #cert-dz-toolbar missing");
+  }
 
   document.getElementById("cert-dz-delete").addEventListener("click", function () {
     var o = getTargetObject();
@@ -1059,6 +1461,7 @@
       cloned.variable = o.variable;
       cloned.imageRole = o.imageRole;
       cloned.imageUrl = o.imageUrl;
+      if (o.certLayerType === "image") cloned._certDzLoadedUrl = o._certDzLoadedUrl;
       cloned.showCaption = o.showCaption;
       canvas.add(cloned);
       canvas.setActiveObject(cloned);
@@ -1094,7 +1497,7 @@
 
   document.getElementById("cert-dz-convert").addEventListener("click", function () {
     if (!window.confirm("Replace the current canvas with layers converted from the saved legacy template?")) return;
-    fetch("/admin/events/" + eventId + "/certificate/legacy-to-freeform", { credentials: "same-origin" })
+    fetch(designerLegacyUrl, { credentials: "same-origin" })
       .then(function (r) {
         return r.json();
       })
@@ -1114,32 +1517,163 @@
     location.reload();
   });
 
-  document.getElementById("cert-dz-save").addEventListener("click", function () {
-    var payload = serializeDocument();
-    var btn = document.getElementById("cert-dz-save");
-    btn.disabled = true;
-    fetch("/admin/events/" + eventId + "/certificate/designer", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      credentials: "same-origin",
-      body: JSON.stringify({ cert_style: payload }),
-    })
-      .then(function (r) {
-        if (!r.ok) throw new Error("Save failed");
-        return r.json();
+  function certDzParseJsonSafe(text) {
+    try {
+      return JSON.parse(text);
+    } catch (ignore) {
+      return null;
+    }
+  }
+
+  function certDzErrorMessageFromBody(text, status) {
+    var j = certDzParseJsonSafe(text);
+    if (j && j.detail != null) {
+      if (typeof j.detail === "string") return j.detail;
+      return JSON.stringify(j.detail);
+    }
+    if (j && j.error) return String(j.error);
+    if (text && text.indexOf("<!DOCTYPE") !== -1) {
+      return "Server returned a login or error page (HTTP " + status + "). Try signing in again.";
+    }
+    return text ? String(text).slice(0, 240) : "Save failed (HTTP " + status + ")";
+  }
+
+  function certDzToast(msg, kind) {
+    try {
+      if (window.TechTrek && typeof TechTrek.showToast === "function") {
+        TechTrek.showToast(msg, kind || "info");
+      } else {
+        window.alert(msg);
+      }
+    } catch (e) {
+      window.alert(msg);
+    }
+  }
+
+  var aiGenBtn = document.getElementById("cert-dz-ai-generate");
+  if (aiGenBtn) {
+    aiGenBtn.addEventListener("click", function () {
+      if (
+        !window.confirm(
+          "Generate a new background with AI and replace the canvas? This runs two OpenAI API calls (billable latency ~30–90s)."
+        )
+      ) {
+        return;
+      }
+      var hint = window.prompt("Optional style hint (leave blank for default):", "") || "";
+      hint = String(hint).slice(0, 2000);
+      var btn = aiGenBtn;
+      var prevLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = "Generating artwork…";
+      var phaseTimer = window.setTimeout(function () {
+        if (!btn.disabled) return;
+        btn.textContent = "Placing text fields…";
+      }, 4500);
+      fetch(aiGenerateUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ prompt_hint: hint }),
       })
-      .then(function () {
-        doc = payload;
-        if (window.TechTrek && TechTrek.showToast) TechTrek.showToast("Layout saved.", "success");
-        else window.alert("Saved.");
+        .then(function (r) {
+          return r.text().then(function (text) {
+            if (!r.ok) throw new Error(certDzErrorMessageFromBody(text, r.status));
+            var data = certDzParseJsonSafe(text);
+            if (!data || typeof data.cert_style !== "object") {
+              throw new Error("Invalid response from server.");
+            }
+            return data;
+          });
+        })
+        .then(function (data) {
+          loadDocument(data.cert_style);
+          syncPageFields();
+          pushHistory();
+          if (data.layout_fallback) {
+            certDzToast(
+              "Vision step used default text/QR positions. Adjust layers in the designer if needed.",
+              "warning"
+            );
+          } else {
+            certDzToast("AI template loaded. Review the layout, then save.", "success");
+          }
+        })
+        .catch(function (err) {
+          window.alert(err.message || err);
+        })
+        .finally(function () {
+          window.clearTimeout(phaseTimer);
+          btn.disabled = false;
+          btn.textContent = prevLabel;
+        });
+    });
+  }
+
+  var saveBtn = document.getElementById("cert-dz-save");
+  if (saveBtn) {
+    saveBtn.addEventListener("click", function () {
+      var btn = saveBtn;
+      var payload;
+      try {
+        payload = serializeDocument();
+      } catch (err) {
+        console.error(err);
+        window.alert("Could not build layout: " + (err.message || String(err)));
+        return;
+      }
+      var body;
+      try {
+        body = JSON.stringify({ cert_style: payload });
+      } catch (err) {
+        console.error(err);
+        window.alert("Could not serialize layout. Try removing a problematic layer or reload the page.");
+        return;
+      }
+      btn.disabled = true;
+      fetch(designerSaveUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Accept: "application/json" },
+        credentials: "same-origin",
+        body: body,
       })
-      .catch(function (e) {
-        window.alert(e.message || "Save failed");
-      })
-      .finally(function () {
-        btn.disabled = false;
-      });
-  });
+        .then(function (r) {
+          return r.text().then(function (text) {
+            if (!r.ok) {
+              throw new Error(certDzErrorMessageFromBody(text, r.status));
+            }
+            var data = certDzParseJsonSafe(text);
+            if (data == null && (!text || !text.trim())) {
+              return { ok: true };
+            }
+            if (data == null) {
+              throw new Error(
+                "Save succeeded but response was not JSON. Check that you are still logged in as admin."
+              );
+            }
+            return data;
+          });
+        })
+        .then(function () {
+          doc = payload;
+          try {
+            if (window.TechTrek && typeof TechTrek.showToast === "function") {
+              TechTrek.showToast("Layout saved.", "success");
+            } else {
+              window.alert("Saved.");
+            }
+          } catch (toastErr) {
+            window.alert("Saved.");
+          }
+        })
+        .catch(function (e) {
+          window.alert(e.message || "Save failed");
+        })
+        .finally(function () {
+          btn.disabled = false;
+        });
+    });
+  }
 
   canvas.on("object:moving", function (opt) {
     if (!document.getElementById("cert-dz-snap").checked) return;
@@ -1165,10 +1699,41 @@
     function onPageFieldInput() {
       syncDocPageFieldsFromForm();
       drawPageChrome();
+      drawPageBackground();
     }
     el.addEventListener("change", onPageFieldInput);
     if (id === "cert-dz-border-width") el.addEventListener("input", onPageFieldInput);
   });
+
+  var pageBgUrlEl = document.getElementById("cert-dz-page-bg-url");
+  if (pageBgUrlEl) {
+    function onPageBgField() {
+      syncDocPageFieldsFromForm();
+      drawPageBackground();
+    }
+    pageBgUrlEl.addEventListener("change", function () {
+      onPageBgField();
+      pushHistory();
+    });
+    pageBgUrlEl.addEventListener("input", onPageBgField);
+  }
+
+  var toolbarImgFile = document.getElementById("cert-dz-toolbar-img-file");
+  var toolbarImgUploadBtn = document.getElementById("cert-dz-image-upload");
+  if (toolbarImgUploadBtn && toolbarImgFile) {
+    toolbarImgUploadBtn.addEventListener("click", function () {
+      toolbarImgFile.click();
+    });
+    toolbarImgFile.addEventListener("change", function (ev) {
+      var f = ev.target.files && ev.target.files[0];
+      if (!f) return;
+      uploadCertImage(f, function (relUrl) {
+        addImagePlaceholder("custom", relUrl);
+        pushHistory();
+      });
+      ev.target.value = "";
+    });
+  }
 
   var canvasShell = document.querySelector(".cert-dz-canvas-shell");
   if (canvasShell) {

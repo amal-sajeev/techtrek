@@ -11,10 +11,12 @@
   <span class="m-ph-slash">//</span>
   <span class="m-ph-sub">PLATFORM ANALYTICS</span>
   <button type="button" id="csv-export" class="m-range-btn" style="margin-left:auto;padding:.45rem 1.2rem;font-size:.95rem" title="Export visible data as CSV">&#128229; Export CSV</button>
+  <button type="button" id="metrics-pdf-export" class="m-range-btn" style="margin-left:.45rem;padding:.45rem 1.2rem;font-size:.95rem" title="A4 PDF with charts, tables, and AI narrative (uses current filters; may take up to a minute)">&#128196; AI report (PDF)</button>
 </div>
 
 {# ── Filter Bar ── #}
-<form method="get" action="/admin/metrics" class="m-fbar">
+<form method="get" action="/admin/metrics" class="m-fbar" id="metrics-filter-form">
+  <input type="hidden" name="tab" id="metrics-tab-preserve" value="{{ f_tab }}">
   <div class="m-fbar-hint">Server-side &mdash; reloads all data</div>
   <div class="m-fg"><label class="m-fl">From</label><input type="date" name="date_from" class="m-fi" value="{{ f_date_from or '' }}"></div>
   <div class="m-fg"><label class="m-fl">To</label><input type="date" name="date_to" class="m-fi" value="{{ f_date_to or '' }}"></div>
@@ -221,25 +223,6 @@
    EVENTS TAB
    ══════════════════════════════════════════════ #}
 <div class="m-tp" id="tp-events">
-  <div class="m-cg m-cg3">
-    <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">Event Status</div><div class="m-badge">Breakdown</div></div>
-      <div class="m-cw" style="height:195px"><canvas id="mc-evs2"></canvas></div>
-    </div>
-    <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">Free vs Paid</div><div class="m-badge g">Ticket Type</div></div>
-      <div class="m-cw" style="height:195px"><canvas id="mc-fp"></canvas></div>
-    </div>
-    <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">Event Features</div><div class="m-badge o">Configured</div></div>
-      <div class="m-sg" style="margin-top:.3rem">
-        <div class="m-si"><div class="m-si-l">VIP Pricing</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ event_features.vip }}</div></div>
-        <div class="m-si"><div class="m-si-l">Certificates</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ event_features.certs }}</div></div>
-        <div class="m-si"><div class="m-si-l">With Feedback</div><div class="m-si-v" style="color:var(--cyan)">{{ event_features.feedback }}</div></div>
-        <div class="m-si"><div class="m-si-l">Custom Pricing</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ event_features.custom }}</div></div>
-      </div>
-    </div>
-  </div>
   <div class="m-cg m-cg2">
     <div class="m-cc">
       <div class="m-cc-h"><div class="m-cc-t">Sessions Per Event</div><div class="m-badge">Content Volume</div></div>
@@ -257,6 +240,12 @@
       <div class="m-cw" style="height:195px"><canvas id="mc-spe"></canvas></div>
       {% else %}<div class="m-empty">No session data.</div>{% endif %}
     </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Event Status</div><div class="m-badge">Breakdown</div></div>
+      <div class="m-cw" style="height:195px"><canvas id="mc-evs2"></canvas></div>
+    </div>
+  </div>
+  <div class="m-cg m-cg2">
     <div class="m-cc">
       <div class="m-cc-h"><div class="m-cc-t">Events by City &amp; Top Colleges</div><div class="m-badge p">Geography</div></div>
       {% if events_by_city %}
@@ -297,6 +286,38 @@
       </div>
       {% endif %}
     </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Demand &amp; Popularity</div><div class="m-badge g">Ranked</div></div>
+      {% if top_events_by_bookings %}
+      <div class="m-sdiv"><div class="m-sdiv-lbl">Top by paid bookings</div><div class="m-sdiv-line"></div></div>
+      <div class="m-rl">
+        {% for e in top_events_by_bookings %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ e.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (e.count / top_events_by_bookings[0].count * 100)|round(0) if top_events_by_bookings[0].count else 0 }}%;--m-rc:var(--green, #10b981)"></div></div>
+          <div class="m-rv">{{ e.count }} bkgs</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if top_events_by_waitlist %}
+      <div class="m-sdiv"><div class="m-sdiv-lbl">Most waitlist interest</div><div class="m-sdiv-line"></div></div>
+      <div class="m-rl">
+        {% for e in top_events_by_waitlist %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ e.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (e.count / top_events_by_waitlist[0].count * 100)|round(0) if top_events_by_waitlist[0].count else 0 }}%;--m-rc:var(--violet, #8b5cf6)"></div></div>
+          <div class="m-rv">{{ e.count }} waitlist</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      {% if not top_events_by_bookings and not top_events_by_waitlist %}
+      <div class="m-empty">No booking or waitlist data for this filter.</div>
+      {% endif %}
+    </div>
   </div>
 </div>
 
@@ -307,6 +328,10 @@
   <div class="m-cg m-cg2">
     <div class="m-cc">
       <div class="m-cc-h">
+        {% if f_event_id %}
+        <div class="m-cc-t">Seat distribution</div>
+        <div class="m-badge">By type</div>
+        {% else %}
         <div class="m-cc-t">Monthly Revenue</div>
         <div class="m-range" data-chart="mc-revt">
           <button class="m-range-btn" data-n="3" type="button">3M</button>
@@ -317,11 +342,13 @@
           <div class="m-range-custom"><input type="month" class="m-range-mo" data-edge="from"><span class="m-range-sep">&ndash;</span><input type="month" class="m-range-mo" data-edge="to"></div>
           <span class="m-range-hint">client-side</span>
         </div>
+        {% endif %}
       </div>
+      {% if f_event_id %}<p class="m-rev-hint" style="margin:0 0 .5rem;font-size:.85rem;opacity:.72">Booked seats by type; remainder shown as Unsold (bookable capacity only).</p>{% endif %}
       <div class="m-cw" style="height:210px"><canvas id="mc-revt"></canvas></div>
     </div>
     <div class="m-cc">
-      <div class="m-cc-h"><div class="m-cc-t">Revenue by Event</div><div class="m-badge g">Breakdown</div></div>
+      <div class="m-cc-h"><div class="m-cc-t">{% if f_event_id %}Revenue (selected event){% else %}Revenue by Event{% endif %}</div><div class="m-badge g">Breakdown</div></div>
       {% if revenue_by_event %}
       <div class="m-rl">
         {% for e in revenue_by_event %}
@@ -339,7 +366,7 @@
       <div class="m-rl">
         {% for s in revenue_by_seat_type %}
         <div class="m-ri">
-          <div class="m-rname">{{ s.type|title }}</div>
+          <div class="m-rname">{{ s.display_label }}</div>
           <div class="m-rbw"><div class="m-rb" style="width:{{ (s.revenue / revenue_by_seat_type[0].revenue * 100)|round(0) if revenue_by_seat_type[0].revenue else 0 }}%"></div></div>
           <div class="m-rv">&#8377;{{ "{:,.0f}".format(s.revenue) }}</div>
         </div>
@@ -568,16 +595,28 @@
     const btn = document.querySelector('.m-tab-btn[data-tab="'+key+'"]');
     if (btn) btn.classList.add('on');
     if (panels[key]) panels[key].classList.add('on');
+    const tabField = document.getElementById('metrics-tab-preserve');
+    if (tabField) tabField.value = key;
     if (!initialized.has(key)) { initCharts(key); initialized.add(key); }
     else setTimeout(() => dispatchEvent(new Event('resize')), 50);
   }
   document.querySelectorAll('.m-tab-btn').forEach(btn => {
     btn.addEventListener('click', function(){
       const key = this.dataset.tab;
-      history.replaceState(null, '', '#' + key);
+      const tabField = document.getElementById('metrics-tab-preserve');
+      if (tabField) tabField.value = key;
+      history.replaceState(null, '', location.pathname + location.search + '#' + key);
       activateTab(key);
     });
   });
+  const metricsFilterForm = document.getElementById('metrics-filter-form');
+  if (metricsFilterForm) {
+    metricsFilterForm.addEventListener('submit', function() {
+      const on = document.querySelector('.m-tp.on');
+      const tabField = document.getElementById('metrics-tab-preserve');
+      if (on && tabField) tabField.value = on.id.replace(/^tp-/, '');
+    });
+  }
 
   const cs = getComputedStyle(document.documentElement);
   const isLight = document.documentElement.getAttribute('data-theme') === 'light';
@@ -720,8 +759,9 @@
   const regTrend = {{ reg_trend | tojson }};
   const yosDist = {{ yos_dist | tojson }};
   const authCounts = {{ auth_counts | tojson }};
-  const freePaid = {{ free_paid | tojson }};
   const sessPerEvent = {{ sessions_per_event | tojson }};
+  const revenueSeatMode = {{ 'true' if f_event_id else 'false' }};
+  const seatDistribution = {{ seat_distribution | tojson }};
   const feedbackDisp = {{ feedback_disp | tojson }};
   const checkinHrs = {{ checkin_hours | tojson }};
   const subTrend = {{ subscriber_trend | tojson }};
@@ -766,7 +806,6 @@
     if (tab === 'events') {
       const esLabels2 = Object.keys(evStatuses).map(s => s.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase()));
       safeDonut('mc-evs2', esLabels2, Object.values(evStatuses), DONUT_COLORS.slice(0,esLabels2.length), donutBase);
-      safeDonut('mc-fp', ['Paid Events','Free Events'], [freePaid.paid, freePaid.free], ['#a855f7','#3fb950'], donutBase);
       if (sessPerEvent.length && document.getElementById('mc-spe')) {
         let speChart = null;
         let speAsc = false;
@@ -814,8 +853,44 @@
       }
     }
     if (tab === 'revenue') {
-      makeLineChart('mc-revt', revTrend, 'value', 63,185,80, 'Revenue (₹)',
-        v => '₹' + (v >= 1000 ? (v/1000).toFixed(0)+'K' : v));
+      if (revenueSeatMode) {
+        const sd = seatDistribution || {};
+        const labels = (sd.segments || []).map(s => s.label);
+        const data = (sd.segments || []).map(s => s.count);
+        if (sd.unsold > 0) { labels.push('Unsold'); data.push(sd.unsold); }
+        const totalCap = sd.total_capacity || 0;
+        const el = document.getElementById('mc-revt');
+        if (!data.length || data.every(v => v === 0)) {
+          if (el && el.parentNode) {
+            el.parentNode.innerHTML = '<div class="m-empty" style="display:flex;align-items:center;justify-content:center;height:100%">No seat layout or no bookable seats for this event.</div>';
+          }
+        } else {
+          const colors = labels.map((lbl, i) =>
+            lbl === 'Unsold' ? 'rgba(139,148,158,.85)' : DONUT_COLORS[i % DONUT_COLORS.length]);
+          const seatTT = {
+            backgroundColor: TT.backgroundColor, borderColor: TT.borderColor, borderWidth: 1,
+            titleColor: TT.titleColor, bodyColor: TT.bodyColor, padding: 10, cornerRadius: 8,
+            callbacks: {
+              label(ctx) {
+                const v = ctx.raw;
+                const pct = totalCap ? ((Number(v) / totalCap) * 100).toFixed(1) : '0';
+                return ctx.label + ': ' + fmtNum(v) + ' (' + pct + '% of capacity)';
+              }
+            }
+          };
+          new Chart('mc-revt', {
+            type: 'doughnut',
+            data: { labels, datasets: [{ data, backgroundColor: colors, borderWidth: 0, hoverOffset: 4 }] },
+            options: {
+              responsive: true, maintainAspectRatio: false, cutout: '68%',
+              plugins: { legend: donutBase.plugins.legend, tooltip: seatTT }
+            }
+          });
+        }
+      } else {
+        makeLineChart('mc-revt', revTrend, 'value', 63,185,80, 'Revenue (₹)',
+          v => '₹' + (v >= 1000 ? (v/1000).toFixed(0)+'K' : v));
+      }
       const psLabels = Object.keys(bkStatuses).map(s => s.charAt(0).toUpperCase()+s.slice(1));
       safeDonut('mc-ps', psLabels, Object.values(bkStatuses), DONUT_COLORS.slice(0,psLabels.length), donutBase);
     }
@@ -852,9 +927,15 @@
     }
   }
 
-  const hashTab = location.hash.replace('#','');
-  const startTab = panels[hashTab] ? hashTab : 'overview';
+  const serverTab = {{ f_tab | tojson }};
+  const hashTab = location.hash.replace(/^#/, '');
+  let startTab = 'overview';
+  if (serverTab && panels[serverTab]) startTab = serverTab;
+  else if (hashTab && panels[hashTab]) startTab = hashTab;
   activateTab(startTab);
+  if (startTab && (location.hash !== '#' + startTab)) {
+    history.replaceState(null, '', location.pathname + location.search + '#' + startTab);
+  }
 
   document.getElementById('csv-export').addEventListener('click', function() {
     const activePanel = document.querySelector('.m-tp.on');
@@ -878,12 +959,30 @@
         rows.push([chart.options.plugins?.legend?.display===false ? id : tabName, l, chart.data.datasets[0].data[i]]);
       });
     }
+    if (tabName === 'revenue' && revenueSeatMode && seatDistribution) {
+      const sd = seatDistribution;
+      (sd.segments || []).forEach(s => { rows.push(['revenue', 'Seat: ' + s.label, s.count]); });
+      if (sd.unsold > 0) rows.push(['revenue', 'Unsold', sd.unsold]);
+    }
     const csv = rows.map(r => r.map(c => '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n');
     const blob = new Blob([csv], {type:'text/csv'});
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
     a.download = 'metrics_' + tabName + '_' + new Date().toISOString().slice(0,10) + '.csv';
     a.click();
+  });
+
+  document.getElementById('metrics-pdf-export').addEventListener('click', function() {
+    const f = document.getElementById('metrics-filter-form');
+    if (!f) return;
+    const fd = new FormData(f);
+    const params = new URLSearchParams();
+    if (fd.get('date_from')) params.set('date_from', fd.get('date_from'));
+    if (fd.get('date_to')) params.set('date_to', fd.get('date_to'));
+    if (fd.get('event_id')) params.set('event_id', fd.get('event_id'));
+    if (fd.get('college_id')) params.set('college_id', fd.get('college_id'));
+    const q = params.toString();
+    window.open('/admin/metrics/report.pdf' + (q ? '?' + q : ''), '_blank');
   });
 })();
 </script>

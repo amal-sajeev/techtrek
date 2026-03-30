@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Certificate Verification — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:640px;margin:0 auto;padding:2rem 1rem">
+
+    {% if valid %}
+    <div style="text-align:center;margin-bottom:2rem">
+      <div style="width:72px;height:72px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:2rem">&#10003;</div>
+      <h1 style="font-size:1.5rem;font-weight:700;color:#15803d;margin:0 0 .25rem">Certificate Verified</h1>
+      <p style="color:#64748b;margin:0">This is a legitimate TechTrek certificate.</p>
+    </div>
+
+    <div style="background:#fff;border:1px solid #e2e8f0;border-radius:12px;overflow:hidden">
+      <div style="background:linear-gradient(135deg,#0d9488,#0f766e);padding:1.25rem 1.5rem">
+        <p style="color:rgba(255,255,255,.7);font-size:.75rem;text-transform:uppercase;letter-spacing:.08em;margin:0 0 .25rem">Certificate holder</p>
+        <p style="color:#fff;font-size:1.25rem;font-weight:700;margin:0">{{ user.name if user else "—" }}</p>
+        {% if user and user.email %}
+        <p style="color:rgba(255,255,255,.75);font-size:.85rem;margin:.2rem 0 0">{{ user.email }}</p>
+        {% endif %}
+      </div>
+
+      <div style="padding:1.25rem 1.5rem;display:grid;gap:.75rem">
+        <div>
+          <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 .2rem">Event</p>
+          <p style="font-weight:600;margin:0">{{ event.name if event else "—" }}</p>
+        </div>
+        {% if event and event.start_date %}
+        <div>
+          <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 .2rem">Event date</p>
+          <p style="font-weight:600;margin:0">{{ event.start_date.strftime('%B %d, %Y') }}</p>
+        </div>
+        {% endif %}
+        {% if auditorium %}
+        <div>
+          <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 .2rem">Venue</p>
+          <p style="font-weight:600;margin:0">{{ auditorium.name }}</p>
+        </div>
+        {% endif %}
+        <div>
+          <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 .2rem">Booking reference</p>
+          <p style="font-weight:600;margin:0;font-family:monospace">{{ booking.booking_ref }}</p>
+        </div>
+        <div>
+          <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 .2rem">Ticket ID</p>
+          <p style="font-weight:600;margin:0;font-family:monospace;font-size:.82rem;word-break:break-all">{{ booking.ticket_id }}</p>
+        </div>
+        {% if booking.booked_at %}
+        <div>
+          <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 .2rem">Issued</p>
+          <p style="font-weight:600;margin:0">{{ booking.booked_at.strftime('%B %d, %Y') }}</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <p style="text-align:center;font-size:.8rem;color:#94a3b8;margin:1.5rem 0 0">
+      Verified by TechTrek &mdash; <a href="/" style="color:#0d9488">techtrek.in</a>
+    </p>
+
+    {% else %}
+    <div style="text-align:center;margin-bottom:2rem">
+      <div style="width:72px;height:72px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:2rem">&#10007;</div>
+      <h1 style="font-size:1.5rem;font-weight:700;color:#dc2626;margin:0 0 .25rem">Certificate Not Found</h1>
+      <p style="color:#64748b;margin:0 0 1rem">No certificate was found for this QR code.</p>
+      <p style="color:#94a3b8;font-size:.85rem;font-family:monospace;word-break:break-all">ID: {{ ticket_id }}</p>
+    </div>
+    <p style="text-align:center;font-size:.8rem;color:#94a3b8">
+      If you believe this is an error, contact the event organiser.
+    </p>
+    {% endif %}
+
+  </div>
+</section>
+{% endblock %}

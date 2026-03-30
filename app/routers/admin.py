@@ -6,12 +6,16 @@ from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
-from fastapi.responses import JSONResponse, RedirectResponse, StreamingResponse
-from sqlalchemy import extract, func, or_
+from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.csrf import csrf_protection
+from app.config import settings
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
+from app.services.admin_metrics_bundle import build_admin_metrics_bundle
+from app.services.metrics_report_ai import finalize_metrics_narrative, run_metrics_report_ai
+from app.services.metrics_report_pdf import generate_platform_metrics_report_pdf
 from app.services.activity_log import log_activity
 from app.models.activity_log import ActivityLog
 from app.models.auditorium import Auditorium
@@ -27,6 +31,8 @@ from app.models.speaker import Speaker
 from app.models.agenda import AgendaItem
 from app.models.session_recording import SessionRecording
 from app.models.event import Event
+from app.models.certificate_template import CertificateTemplate
+from app.services.certificate import merge_cert_scalar_from_template, normalize_cert_scalar_for_storage
 from app.models.coupon import Coupon
 from app.models.feedback import Feedback
 from app.models.testimonial import Testimonial
@@ -47,7 +53,6 @@ from app.models.event_alert import EventAlert
 from app.models.session_feedback import SessionFeedback
 from app.models.webhook_log import WebhookLog
 from app.models.ticket_share import TicketShare
-from app.config import settings
 
 
 RECORDING_ALLOWED_HOSTS = {
@@ -141,6 +146,23 @@ def _custom_types_map(db) -> dict:
     return {f"custom_{ct.id}": {"id": ct.id, "name": ct.name, "colour": ct.colour} for ct in cts}
 
 
+def _seat_type_display_name(seat_type_key: str | None, custom_map: dict) -> str:
+    """Human label for Seat.seat_type; custom_* keys use SeatType.name from custom_map."""
+    k = (seat_type_key or "standard").strip() or "standard"
+    if k in custom_map:
+        return custom_map[k]["name"]
+    builtin = {
+        "standard": "Standard",
+        "vip": "VIP",
+        "accessible": "Accessible",
+        "aisle": "Aisle",
+        "reserved": "Reserved",
+    }
+    if k in builtin:
+        return builtin[k]
+    return k.replace("_", " ").strip().title()
+
+
 # ─── Dashboard ───
 
 @router.get("/")
@@ -203,31 +225,53 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
 # ─── Metrics ───
 
-MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-
-
-def _monthly_trend(db, model_cls, date_col, extra_filters=None, value_col=None):
-    """Build [{label, count}] or [{label, value}] for all available months."""
-    cols = [
-        extract("year", date_col).label("yr"),
-        extract("month", date_col).label("mo"),
-    ]
-    if value_col is not None:
-        cols.append(func.coalesce(func.sum(value_col), 0))
-    else:
-        cols.append(func.count(model_cls.id))
-    q = db.query(*cols).filter(date_col.isnot(None))
-    if extra_filters:
-        for f in extra_filters:
-            q = q.filter(f)
-    rows = q.group_by("yr", "mo").order_by("yr", "mo").all()
-    key = "value" if value_col is not None else "count"
-    return [{"label": f"{MONTH_NAMES[int(mo)]} {int(yr)}", key: float(v) if value_col else v}
-            for yr, mo, v in rows]
+_METRICS_TAB_IDS = frozenset(
+    {"overview", "users", "events", "revenue", "feedback", "sessions", "system"}
+)
 
 
 @router.get("/metrics")
 def metrics_page(
+    request: Request,
+    db: Session = Depends(get_db),
+    date_from: str = Query("", alias="date_from"),
+    date_to: str = Query("", alias="date_to"),
+    event_id: str = Query("", alias="event_id"),
+    college_id: str = Query("", alias="college_id"),
+    tab: str = Query("", alias="tab"),
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login?next=/admin/metrics", status_code=303)
+
+    f_tab = tab if tab in _METRICS_TAB_IDS else ""
+
+    bundle = build_admin_metrics_bundle(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        event_id=event_id,
+        college_id=college_id,
+    )
+    all_events = db.query(Event).order_by(Event.start_date.desc().nullslast()).all()
+    all_colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
+    metrics_ctx = {k: v for k, v in bundle.items() if k not in ("filter_params", "single_event_selected")}
+
+    return templates.TemplateResponse(
+        "admin/metrics.html",
+        _admin_ctx(
+            request,
+            active_page="metrics",
+            all_events=all_events, all_colleges=all_colleges,
+            f_date_from=date_from, f_date_to=date_to,
+            f_event_id=event_id, f_college_id=college_id, f_tab=f_tab,
+            **metrics_ctx,
+        ),
+    )
+
+
+@router.get("/metrics/report.pdf")
+def metrics_report_pdf(
     request: Request,
     db: Session = Depends(get_db),
     date_from: str = Query("", alias="date_from"),
@@ -239,436 +283,22 @@ def metrics_page(
     if not admin:
         return RedirectResponse("/auth/login?next=/admin/metrics", status_code=303)
 
-    SessModel = SessionModel
-
-    d_from = d_to = ev_filter = col_filter = None
-    try:
-        if date_from:
-            d_from = date.fromisoformat(date_from)
-        if date_to:
-            d_to = date.fromisoformat(date_to)
-        if event_id:
-            ev_filter = int(event_id)
-        if college_id:
-            col_filter = int(college_id)
-    except (ValueError, TypeError):
-        pass
-
-    dt_from = datetime.combine(d_from, datetime.min.time()) if d_from else None
-    dt_to = datetime.combine(d_to, datetime.max.time()) if d_to else None
-
-    def _bk_filters(q, *, join_event=False):
-        q = q.filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-        if dt_from:
-            q = q.filter(Booking.booked_at >= dt_from)
-        if dt_to:
-            q = q.filter(Booking.booked_at <= dt_to)
-        if ev_filter:
-            q = q.filter(Booking.event_id == ev_filter)
-        if col_filter:
-            if not join_event:
-                q = q.join(Event, Booking.event_id == Event.id)
-            q = q.filter(Event.college_id == col_filter)
-        return q
-
-    def _ev_filters(q):
-        if col_filter:
-            q = q.filter(Event.college_id == col_filter)
-        if d_from:
-            q = q.filter(Event.start_date >= d_from)
-        if d_to:
-            q = q.filter(Event.start_date <= d_to)
-        if ev_filter:
-            q = q.filter(Event.id == ev_filter)
-        return q
-
-    def _fb_date(q, col):
-        if dt_from:
-            q = q.filter(col >= dt_from)
-        if dt_to:
-            q = q.filter(col <= dt_to)
-        return q
-
-    # ── KPI ──
-    total_users = db.query(func.count(User.id)).filter(User.deleted_at.is_(None)).scalar() or 0
-    total_revenue = float(_bk_filters(
-        db.query(func.coalesce(func.sum(Booking.amount_paid), 0))
-    ).scalar() or 0)
-    total_bookings = _bk_filters(db.query(func.count(Booking.id))).scalar() or 0
-    checked_in_count = _bk_filters(
-        db.query(func.count(Booking.id)).filter(Booking.checked_in == True)
-    ).scalar() or 0
-    checkin_rate = round(checked_in_count / total_bookings * 100, 1) if total_bookings else 0.0
-
-    fb_avg_q = db.query(func.avg(Feedback.rating)).filter(Feedback.submitted_at.isnot(None), Feedback.rating.isnot(None))
-    if ev_filter:
-        fb_avg_q = fb_avg_q.filter(Feedback.event_id == ev_filter)
-    fb_avg_q = _fb_date(fb_avg_q, Feedback.submitted_at)
-    avg_rating = round(float(fb_avg_q.scalar() or 0), 1)
-
-    total_fb_count = db.query(func.count(Feedback.id)).filter(Feedback.submitted_at.isnot(None)).scalar() or 0
-
-    ev_status_q = _ev_filters(db.query(Event.status, func.count(Event.id)))
-    event_statuses = {s: c for s, c in ev_status_q.group_by(Event.status).all()}
-
-    # ── Overview tab ──
-    bk_trend_filters = [Booking.payment_status == "paid", Booking.is_shared_ticket == False]
-    if ev_filter:
-        bk_trend_filters.append(Booking.event_id == ev_filter)
-    booking_trend = _monthly_trend(db, Booking, Booking.booked_at, bk_trend_filters)
-    revenue_trend = _monthly_trend(db, Booking, Booking.booked_at, bk_trend_filters, value_col=Booking.amount_paid)
-
-    bk_status_q = db.query(Booking.payment_status, func.count(Booking.id)).filter(Booking.is_shared_ticket == False)
-    if dt_from:
-        bk_status_q = bk_status_q.filter(Booking.booked_at >= dt_from)
-    if dt_to:
-        bk_status_q = bk_status_q.filter(Booking.booked_at <= dt_to)
-    if ev_filter:
-        bk_status_q = bk_status_q.filter(Booking.event_id == ev_filter)
-    booking_statuses = {s: c for s, c in bk_status_q.group_by(Booking.payment_status).all()}
-
-    rating_q = db.query(Feedback.rating, func.count(Feedback.id)).filter(
-        Feedback.submitted_at.isnot(None), Feedback.rating.isnot(None))
-    if ev_filter:
-        rating_q = rating_q.filter(Feedback.event_id == ev_filter)
-    rating_q = _fb_date(rating_q, Feedback.submitted_at)
-    rating_dist = {r: c for r, c in rating_q.group_by(Feedback.rating).all()}
-
-    # ── Users tab ──
-    reg_filters = [User.deleted_at.is_(None)]
-    reg_trend = _monthly_trend(db, User, User.created_at, reg_filters)
-
-    user_q = db.query(User).filter(User.deleted_at.is_(None))
-    if dt_from:
-        user_q = user_q.filter(User.created_at >= dt_from)
-    if dt_to:
-        user_q = user_q.filter(User.created_at <= dt_to)
-    all_users = user_q.all()
-    spec_counts = Counter(u.domain for u in all_users if u.domain).most_common(10)
-    top_specializations = [{"name": n, "count": c} for n, c in spec_counts]
-
-    yos_counts = Counter(u.year_of_study for u in all_users if u.year_of_study)
-    yos_dist = [{"year": y, "count": c} for y, c in sorted(yos_counts.items())]
-
-    oauth_count = sum(1 for u in all_users if u.oauth_provider)
-    password_count = len(all_users) - oauth_count
-    auth_counts = {"oauth": oauth_count, "password": password_count}
-
-    role_counts = {
-        "active": db.query(func.count(User.id)).filter(User.deleted_at.is_(None)).scalar() or 0,
-        "admins": db.query(func.count(User.id)).filter(User.is_admin == True, User.deleted_at.is_(None)).scalar() or 0,
-        "supervisors": db.query(func.count(User.id)).filter(User.is_supervisor == True, User.deleted_at.is_(None)).scalar() or 0,
-        "deleted": db.query(func.count(User.id)).filter(User.deleted_at.isnot(None)).scalar() or 0,
-    }
-
-    college_counts = Counter(u.college for u in all_users if u.college).most_common(8)
-    top_user_colleges = [{"name": n, "count": c} for n, c in college_counts]
-
-    # ── Events tab ──
-    ev_base = _ev_filters(db.query(Event))
-    ev_list = ev_base.all()
-    free_paid = {"free": sum(1 for e in ev_list if (e.price or 0) == 0),
-                 "paid": sum(1 for e in ev_list if (e.price or 0) > 0)}
-
-    event_features = {
-        "vip": sum(1 for e in ev_list if e.price_vip is not None),
-        "certs": sum(1 for e in ev_list if e.cert_title),
-        "feedback": sum(1 for e in ev_list if e.feedback_template_id),
-        "custom": sum(1 for e in ev_list if e.custom_prices),
-    }
-
-    spe_q = (
-        db.query(Event.name, func.count(EventSession.id))
-        .join(EventSession, EventSession.event_id == Event.id)
+    bundle = build_admin_metrics_bundle(
+        db,
+        date_from=date_from,
+        date_to=date_to,
+        event_id=event_id,
+        college_id=college_id,
     )
-    spe_q = _ev_filters(spe_q)
-    sessions_per_event = [{"name": n, "count": c} for n, c in
-                          spe_q.group_by(Event.id, Event.name).order_by(func.count(EventSession.id).desc()).all()]
-
-    ebc_q = (
-        db.query(City.name, func.count(Event.id))
-        .select_from(Event)
-        .join(College, Event.college_id == College.id)
-        .join(City, College.city_id == City.id)
+    ai_run = run_metrics_report_ai(settings, bundle)
+    narrative = finalize_metrics_narrative(
+        bundle, ai_run.narrative, ai_failure_reason=ai_run.failure_reason
     )
-    ebc_q = _ev_filters(ebc_q)
-    events_by_city = [{"name": n, "count": c} for n, c in
-                      ebc_q.group_by(City.name).order_by(func.count(Event.id).desc()).limit(8).all()]
-
-    city_bk_q = (
-        db.query(City.name, func.count(Booking.id))
-        .select_from(Booking)
-        .join(Event, Booking.event_id == Event.id)
-        .join(College, Event.college_id == College.id)
-        .join(City, College.city_id == City.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-    )
-    if dt_from:
-        city_bk_q = city_bk_q.filter(Booking.booked_at >= dt_from)
-    if dt_to:
-        city_bk_q = city_bk_q.filter(Booking.booked_at <= dt_to)
-    if ev_filter:
-        city_bk_q = city_bk_q.filter(Booking.event_id == ev_filter)
-    if col_filter:
-        city_bk_q = city_bk_q.filter(Event.college_id == col_filter)
-    top_cities = [{"name": n, "count": c} for n, c in
-                  city_bk_q.group_by(City.name).order_by(func.count(Booking.id).desc()).limit(8).all()]
-
-    top_col_q = (
-        db.query(College.name, func.count(Booking.id))
-        .join(Event, Event.college_id == College.id)
-        .join(Booking, Booking.event_id == Event.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-    )
-    if dt_from:
-        top_col_q = top_col_q.filter(Booking.booked_at >= dt_from)
-    if dt_to:
-        top_col_q = top_col_q.filter(Booking.booked_at <= dt_to)
-    if ev_filter:
-        top_col_q = top_col_q.filter(Booking.event_id == ev_filter)
-    if col_filter:
-        top_col_q = top_col_q.filter(College.id == col_filter)
-    top_colleges = [{"name": n, "count": c} for n, c in
-                    top_col_q.group_by(College.id, College.name)
-                    .order_by(func.count(Booking.id).desc()).limit(8).all()]
-
-    # ── Revenue tab ──
-    rev_by_ev_q = (
-        db.query(Event.name, func.sum(Booking.amount_paid), func.count(Booking.id))
-        .join(Booking, Booking.event_id == Event.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-    )
-    if dt_from:
-        rev_by_ev_q = rev_by_ev_q.filter(Booking.booked_at >= dt_from)
-    if dt_to:
-        rev_by_ev_q = rev_by_ev_q.filter(Booking.booked_at <= dt_to)
-    if col_filter:
-        rev_by_ev_q = rev_by_ev_q.filter(Event.college_id == col_filter)
-    revenue_by_event = [{"name": n, "revenue": float(r or 0), "bookings": c}
-                        for n, r, c in rev_by_ev_q.group_by(Event.id, Event.name)
-                        .order_by(func.sum(Booking.amount_paid).desc()).limit(8).all()]
-
-    rev_seat_q = (
-        db.query(Seat.seat_type, func.sum(Booking.amount_paid), func.count(Booking.id))
-        .join(Seat, Booking.seat_id == Seat.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-    )
-    if dt_from:
-        rev_seat_q = rev_seat_q.filter(Booking.booked_at >= dt_from)
-    if dt_to:
-        rev_seat_q = rev_seat_q.filter(Booking.booked_at <= dt_to)
-    if ev_filter:
-        rev_seat_q = rev_seat_q.filter(Booking.event_id == ev_filter)
-    revenue_by_seat_type = [{"type": t or "standard", "revenue": float(r or 0), "count": c}
-                            for t, r, c in rev_seat_q.group_by(Seat.seat_type)
-                            .order_by(func.sum(Booking.amount_paid).desc()).all()]
-
-    refund_count = db.query(func.count(Booking.id)).filter(Booking.payment_status == "refunded").scalar() or 0
-    refund_total = float(db.query(func.coalesce(func.sum(Booking.refund_amount), 0)).scalar() or 0)
-    cancel_fees = float(db.query(func.coalesce(func.sum(Booking.cancellation_fee), 0)).scalar() or 0)
-    shared_ticket_count = db.query(func.count(Booking.id)).filter(Booking.is_shared_ticket == True).scalar() or 0
-    refund_stats = {"count": refund_count, "total": refund_total, "cancel_fees": cancel_fees, "shared": shared_ticket_count}
-
-    coupon_total = db.query(func.count(Coupon.id)).scalar() or 0
-    coupon_active = db.query(func.count(Coupon.id)).filter(Coupon.is_active == True).scalar() or 0
-    coupon_redeemed = db.query(func.coalesce(func.sum(Coupon.used_count), 0)).scalar() or 0
-    bk_with_coupon = db.query(func.count(Booking.id)).filter(
-        Booking.coupon_id.isnot(None), Booking.payment_status == "paid"
-    ).scalar() or 0
-    coupon_pct = round(bk_with_coupon / total_bookings * 100, 1) if total_bookings else 0
-    coupon_stats = {"total": coupon_total, "active": coupon_active, "redeemed": int(coupon_redeemed), "pct": coupon_pct}
-
-    # ── Feedback tab ──
-    sess_q = (
-        db.query(SessModel.title, func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
-        .join(SessionFeedback, SessionFeedback.session_id == SessModel.id)
-        .filter(SessionFeedback.rating.isnot(None))
-    )
-    if ev_filter:
-        sess_q = sess_q.filter(SessionFeedback.event_id == ev_filter)
-    sess_q = _fb_date(sess_q, SessionFeedback.created_at)
-    best_sessions = [{"title": t, "avg": round(float(a), 1), "count": c}
-                     for t, a, c in sess_q.group_by(SessModel.id, SessModel.title)
-                     .having(func.count(SessionFeedback.id) >= 1)
-                     .order_by(func.avg(SessionFeedback.rating).desc()).limit(8).all()]
-
-    spk_q = (
-        db.query(Speaker.name, func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
-        .join(SessModel, SessModel.speaker_id == Speaker.id)
-        .join(SessionFeedback, SessionFeedback.session_id == SessModel.id)
-        .filter(SessionFeedback.rating.isnot(None))
-    )
-    if ev_filter:
-        spk_q = spk_q.filter(SessionFeedback.event_id == ev_filter)
-    spk_q = _fb_date(spk_q, SessionFeedback.created_at)
-    best_speakers = [{"name": n, "avg": round(float(a), 1), "count": c}
-                     for n, a, c in spk_q.group_by(Speaker.id, Speaker.name)
-                     .having(func.count(SessionFeedback.id) >= 1)
-                     .order_by(func.avg(SessionFeedback.rating).desc()).limit(8).all()]
-
-    fb_submitted = db.query(func.count(Feedback.id)).filter(Feedback.submitted_at.isnot(None))
-    if ev_filter:
-        fb_submitted = fb_submitted.filter(Feedback.event_id == ev_filter)
-    fb_submitted = _fb_date(fb_submitted, Feedback.submitted_at).scalar() or 0
-    fb_total_eligible = _bk_filters(db.query(func.count(Booking.id))).scalar() or 0
-    fb_response_rate = round(fb_submitted / fb_total_eligible * 100, 1) if fb_total_eligible else 0.0
-    fb_with_comments = db.query(func.count(Feedback.id)).filter(
-        Feedback.submitted_at.isnot(None), Feedback.comment.isnot(None), Feedback.comment != "").scalar() or 0
-    fb_featured = db.query(func.count(Feedback.id)).filter(Feedback.is_featured == True).scalar() or 0
-    feedback_stats = {"submitted": fb_submitted, "rate": fb_response_rate,
-                      "with_comments": fb_with_comments, "featured": fb_featured}
-
-    fb_dismissed = db.query(func.count(Feedback.id)).filter(
-        Feedback.dismissed == True, Feedback.submitted_at.is_(None)).scalar() or 0
-    fb_pending = db.query(func.count(Feedback.id)).filter(
-        Feedback.dismissed == False, Feedback.submitted_at.is_(None)).scalar() or 0
-    feedback_disp = {"submitted": fb_submitted, "dismissed": fb_dismissed, "pending": fb_pending}
-
-    poll_total = db.query(func.count(Poll.id)).scalar() or 0
-    poll_active = db.query(func.count(Poll.id)).filter(Poll.is_active == True).scalar() or 0
-    poll_votes_total = db.query(func.count(PollVote.id)).scalar() or 0
-    poll_stats = {"total": poll_total, "active": poll_active, "votes": poll_votes_total}
-
-    # ── Sessions tab ──
-    ci_q = (
-        db.query(extract("hour", Booking.checked_in_at).label("hr"), func.count(Booking.id))
-        .filter(Booking.checked_in == True, Booking.checked_in_at.isnot(None))
-    )
-    if ev_filter:
-        ci_q = ci_q.filter(Booking.event_id == ev_filter)
-    checkin_hours = [{"hour": int(h), "count": c}
-                     for h, c in ci_q.group_by("hr").order_by("hr").all() if h is not None]
-
-    wl_ev_q = (
-        db.query(Event.name, func.count(Waitlist.id))
-        .join(Waitlist, Waitlist.event_id == Event.id)
-    )
-    wl_ev_q = _ev_filters(wl_ev_q)
-    waitlist_by_event = [{"name": n, "count": c} for n, c in
-                         wl_ev_q.group_by(Event.id, Event.name)
-                         .order_by(func.count(Waitlist.id).desc()).limit(8).all()]
-
-    wl_total = db.query(func.count(Waitlist.id)).scalar() or 0
-    wl_notified = db.query(func.count(Waitlist.id)).filter(Waitlist.notified == True).scalar() or 0
-    wl_converted = (
-        db.query(func.count(Waitlist.id))
-        .join(Booking, (Booking.user_id == Waitlist.user_id) & (Booking.event_id == Waitlist.event_id))
-        .filter(Waitlist.notified == True, Booking.payment_status == "paid")
-        .scalar() or 0
-    )
-    wl_conv_rate = round(wl_converted / wl_notified * 100, 1) if wl_notified else 0.0
-    waitlist_stats = {"total": wl_total, "notified": wl_notified,
-                      "converted": wl_converted, "rate": wl_conv_rate}
-
-    spk_total = db.query(func.count(Speaker.id)).scalar() or 0
-    spk_with_acct = db.query(func.count(Speaker.id)).filter(Speaker.user_id.isnot(None)).scalar() or 0
-    spk_pending = db.query(func.count(Speaker.id)).filter(
-        Speaker.invite_token.isnot(None), Speaker.invite_token_expires > now_ist()).scalar() or 0
-    spk_avg_sess = 0.0
-    if spk_total:
-        total_speaker_sessions = db.query(func.count(SessModel.id)).filter(SessModel.speaker_id.isnot(None)).scalar() or 0
-        spk_avg_sess = round(total_speaker_sessions / spk_total, 1)
-    speaker_stats = {"total": spk_total, "with_accounts": spk_with_acct,
-                     "pending": spk_pending, "avg_sessions": spk_avg_sess}
-
-    total_sessions = db.query(func.count(SessModel.id)).scalar() or 0
-    recorded_sessions = db.query(func.count(SessModel.id)).filter(
-        SessModel.recording_url.isnot(None)).scalar() or 0
-    public_recordings = db.query(func.count(SessionRecording.id)).filter(
-        SessionRecording.is_public == True).scalar() or 0
-    multi_speaker = (
-        db.query(func.count(func.distinct(SessionSpeaker.session_id)))
-        .filter(
-            SessionSpeaker.session_id.in_(
-                db.query(SessionSpeaker.session_id)
-                .group_by(SessionSpeaker.session_id)
-                .having(func.count(SessionSpeaker.id) > 1)
-            )
-        ).scalar() or 0
-    )
-    recording_stats = {"total": total_sessions, "recorded": recorded_sessions,
-                       "public": public_recordings, "multi_speaker": multi_speaker}
-
-    total_seats = db.query(func.count(Seat.id)).scalar() or 0
-    bookable_seats = db.query(func.count(Seat.id)).filter(
-        Seat.is_active == True, Seat.seat_type.notin_(["aisle", "reserved"])).scalar() or 0
-    booked_seats = _bk_filters(db.query(func.count(func.distinct(Booking.seat_id)))).scalar() or 0
-    occupancy = round(booked_seats / bookable_seats * 100, 1) if bookable_seats else 0.0
-    venue_stats = {"total_seats": total_seats, "bookable": bookable_seats,
-                   "booked": booked_seats, "occupancy": occupancy}
-
-    # ── System tab ──
-    subscriber_trend = _monthly_trend(db, NewsletterSubscriber, NewsletterSubscriber.subscribed_at)
-
-    act_q = (
-        db.query(ActivityLog.category, func.count(ActivityLog.id))
-        .group_by(ActivityLog.category)
-        .order_by(func.count(ActivityLog.id).desc()).limit(10)
-    )
-    activity_by_cat = [{"category": c, "count": n} for c, n in act_q.all()]
-
-    nl_subscribers = db.query(func.count(NewsletterSubscriber.id)).scalar() or 0
-    nl_sent = db.query(func.count(Newsletter.id)).filter(Newsletter.status == "sent").scalar() or 0
-    nl_avg_recip = float(
-        db.query(func.coalesce(func.avg(Newsletter.total_recipients), 0)).scalar() or 0)
-    nl_failed = int(
-        db.query(func.coalesce(func.sum(Newsletter.failed_count), 0)).scalar() or 0)
-    newsletter_stats = {"subscribers": nl_subscribers, "sent": nl_sent,
-                        "avg_recipients": round(nl_avg_recip), "failed": nl_failed}
-
-    wh_total = db.query(func.count(WebhookLog.id)).scalar() or 0
-    wh_processed = db.query(func.count(WebhookLog.id)).filter(WebhookLog.processed == True).scalar() or 0
-    wh_pending = wh_total - wh_processed
-    wh_rate = round(wh_processed / wh_total * 100, 1) if wh_total else 0.0
-    webhook_stats = {"total": wh_total, "processed": wh_processed,
-                     "pending": wh_pending, "rate": wh_rate}
-
-    alert_q = db.query(EventAlert.alert_type, func.count(EventAlert.id)).group_by(EventAlert.alert_type)
-    alert_stats = {t: c for t, c in alert_q.all()}
-
-    # ── Filter dropdowns ──
-    all_events = db.query(Event).order_by(Event.start_date.desc().nullslast()).all()
-    all_colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
-
-    return templates.TemplateResponse(
-        "admin/metrics.html",
-        _admin_ctx(
-            request,
-            active_page="metrics",
-            all_events=all_events, all_colleges=all_colleges,
-            f_date_from=date_from, f_date_to=date_to,
-            f_event_id=event_id, f_college_id=college_id,
-            total_users=total_users, total_revenue=total_revenue,
-            total_bookings=total_bookings, checkin_rate=checkin_rate,
-            avg_rating=avg_rating, total_feedback=total_fb_count,
-            event_statuses=event_statuses,
-            booking_trend=booking_trend, revenue_trend=revenue_trend,
-            booking_statuses=booking_statuses, rating_dist=rating_dist,
-            reg_trend=reg_trend, top_specializations=top_specializations,
-            yos_dist=yos_dist, auth_counts=auth_counts,
-            role_counts=role_counts, top_user_colleges=top_user_colleges,
-            free_paid=free_paid, event_features=event_features,
-            sessions_per_event=sessions_per_event,
-            events_by_city=events_by_city, top_cities=top_cities,
-            top_colleges=top_colleges,
-            revenue_by_event=revenue_by_event,
-            revenue_by_seat_type=revenue_by_seat_type,
-            refund_stats=refund_stats, coupon_stats=coupon_stats,
-            best_sessions=best_sessions, best_speakers=best_speakers,
-            feedback_stats=feedback_stats, feedback_disp=feedback_disp,
-            poll_stats=poll_stats,
-            checkin_hours=checkin_hours,
-            waitlist_by_event=waitlist_by_event,
-            waitlist_stats=waitlist_stats,
-            speaker_stats=speaker_stats,
-            recording_stats=recording_stats,
-            venue_stats=venue_stats,
-            subscriber_trend=subscriber_trend,
-            activity_by_cat=activity_by_cat,
-            newsletter_stats=newsletter_stats,
-            webhook_stats=webhook_stats,
-            alert_stats=alert_stats,
-        ),
+    pdf_bytes = generate_platform_metrics_report_pdf(bundle, narrative)
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": 'attachment; filename="techtrek-platform-metrics-report.pdf"'},
     )
 
 
@@ -1862,20 +1492,81 @@ async def event_certificate_save(
         return RedirectResponse("/admin/events", status_code=303)
 
     form = await request.form()
-    event.cert_title = form.get("cert_title", "").strip() or None
-    event.cert_subtitle = form.get("cert_subtitle", "").strip() or None
-    event.cert_footer = form.get("cert_footer", "").strip() or None
-    event.cert_signer_name = form.get("cert_signer_name", "").strip() or None
-    event.cert_signer_designation = form.get("cert_signer_designation", "").strip() or None
-    event.cert_signature_url = form.get("cert_signature_url", "").strip() or None
-    event.cert_logo_url = form.get("cert_logo_url", "").strip() or None
-    event.cert_bg_url = form.get("cert_bg_url", "").strip() or None
-    event.cert_color_scheme = form.get("cert_color_scheme", "").strip() or None
-    event.cert_style = form.get("cert_style", "").strip() or None
+    event.cert_title = normalize_cert_scalar_for_storage(form.get("cert_title"))
+    event.cert_subtitle = normalize_cert_scalar_for_storage(form.get("cert_subtitle"))
+    event.cert_footer = normalize_cert_scalar_for_storage(form.get("cert_footer"))
+    event.cert_signer_name = normalize_cert_scalar_for_storage(form.get("cert_signer_name"))
+    event.cert_signer_designation = normalize_cert_scalar_for_storage(form.get("cert_signer_designation"))
+    event.cert_signature_url = normalize_cert_scalar_for_storage(form.get("cert_signature_url"))
+    event.cert_logo_url = normalize_cert_scalar_for_storage(form.get("cert_logo_url"))
+    event.cert_bg_url = normalize_cert_scalar_for_storage(form.get("cert_bg_url"))
+    event.cert_color_scheme = normalize_cert_scalar_for_storage(form.get("cert_color_scheme"))
+    event.cert_style = normalize_cert_scalar_for_storage(form.get("cert_style"))
     db.commit()
 
     flash(request, "Certificate template saved.", "success")
-    return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
+    return RedirectResponse(f"/admin/events/{event_id}/edit?step=5", status_code=303)
+
+
+def _apply_certificate_template_to_event(event: Event, tpl: CertificateTemplate) -> None:
+    event.cert_template_id = tpl.id
+    event.cert_style = tpl.cert_style
+    event.cert_title = merge_cert_scalar_from_template(tpl.cert_title, event.cert_title)
+    event.cert_subtitle = merge_cert_scalar_from_template(tpl.cert_subtitle, event.cert_subtitle)
+    event.cert_footer = merge_cert_scalar_from_template(tpl.cert_footer, event.cert_footer)
+    event.cert_signer_name = merge_cert_scalar_from_template(tpl.cert_signer_name, event.cert_signer_name)
+    event.cert_signer_designation = merge_cert_scalar_from_template(
+        tpl.cert_signer_designation, event.cert_signer_designation
+    )
+    event.cert_logo_url = merge_cert_scalar_from_template(tpl.cert_logo_url, event.cert_logo_url)
+    event.cert_bg_url = merge_cert_scalar_from_template(tpl.cert_bg_url, event.cert_bg_url)
+    event.cert_signature_url = merge_cert_scalar_from_template(
+        tpl.cert_signature_url, event.cert_signature_url
+    )
+    event.cert_color_scheme = merge_cert_scalar_from_template(
+        tpl.cert_color_scheme, event.cert_color_scheme
+    )
+
+
+@router.post("/events/{event_id}/certificate/apply-template")
+async def event_certificate_apply_template(
+    request: Request, event_id: int, db: Session = Depends(get_db)
+):
+    """Copy a saved certificate template onto the event and record cert_template_id."""
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    event = db.query(Event).get(event_id)
+    if not event:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+
+    form = await request.form()
+    raw_id = (form.get("template_id") or "").strip()
+    if not raw_id.isdigit():
+        flash(request, "Select a certificate template.", "warning")
+        return RedirectResponse(f"/admin/events/{event_id}/edit?step=5", status_code=303)
+
+    tpl = db.query(CertificateTemplate).get(int(raw_id))
+    if not tpl:
+        flash(request, "Certificate template not found.", "danger")
+        return RedirectResponse(f"/admin/events/{event_id}/edit?step=5", status_code=303)
+
+    _apply_certificate_template_to_event(event, tpl)
+    log_activity(
+        db,
+        category="admin",
+        action="update",
+        description=f"Applied certificate template '{tpl.name}' to event '{event.name}'",
+        request=request,
+        user_id=admin.id,
+        target_type="event",
+        target_id=event.id,
+    )
+    db.commit()
+    flash(request, f"Applied template “{tpl.name}”.", "success")
+    return RedirectResponse(f"/admin/events/{event_id}/edit?step=5", status_code=303)
 
 
 @router.get("/events/{event_id}/certificate/designer")
@@ -1885,7 +1576,7 @@ def certificate_designer_page(
     from app.services.certificate import (
         _raw_cert_style_dict,
         default_freeform_cert_style_dict,
-        is_freeform_cert_style,
+        should_render_certificate_as_freeform,
         _parse_cert_style,
     )
 
@@ -1898,7 +1589,7 @@ def certificate_designer_page(
         return RedirectResponse("/admin/events", status_code=303)
 
     raw = _raw_cert_style_dict(event)
-    if is_freeform_cert_style(raw):
+    if should_render_certificate_as_freeform(raw):
         initial_style = raw
     else:
         initial_style = default_freeform_cert_style_dict()
@@ -1916,11 +1607,26 @@ def certificate_designer_page(
             if sty.get(sk):
                 initial_style[k] = sty[sk]
 
+    if not str(initial_style.get("background_image_url") or "").strip():
+        bg = getattr(event, "cert_bg_url", None) or None
+        if bg:
+            initial_style = dict(initial_style)
+            initial_style["background_image_url"] = bg
+
+    eid = event.id
+    _save = f"/admin/events/{eid}/certificate/designer"
+    _leg = f"/admin/events/{eid}/certificate/legacy-to-freeform"
     designer_bootstrap = {
-        "eventId": event.id,
+        "eventId": eid,
+        "templateId": None,
         "eventName": event.name or "",
-        "isPersistedFreeform": is_freeform_cert_style(raw),
+        "isPersistedFreeform": should_render_certificate_as_freeform(raw),
         "initialStyle": initial_style,
+        "saveUrl": _save,
+        "legacyConvertUrl": _leg,
+        "designerSaveUrl": _save,
+        "designerLegacyUrl": _leg,
+        "aiGenerateUrl": "/admin/certificate-ai/generate-template",
     }
     return templates.TemplateResponse(
         "admin/certificate_designer.html",
@@ -1928,6 +1634,7 @@ def certificate_designer_page(
             request,
             active_page="events",
             event=event,
+            cert_template=None,
             designer_bootstrap=designer_bootstrap,
         ),
     )
@@ -1937,19 +1644,19 @@ def certificate_designer_page(
 async def certificate_designer_save(
     request: Request, event_id: int, db: Session = Depends(get_db)
 ):
+    ct = (request.headers.get("content-type") or "").lower()
     admin = _require_admin(request, db)
     if not admin:
-        if request.headers.get("content-type", "").startswith("application/json"):
+        if "application/json" in ct:
             return JSONResponse({"error": "Unauthorized"}, status_code=401)
         return RedirectResponse("/auth/login", status_code=303)
     event = db.query(Event).get(event_id)
     if not event:
-        if request.headers.get("content-type", "").startswith("application/json"):
+        if "application/json" in ct:
             return JSONResponse({"error": "Not found"}, status_code=404)
         flash(request, "Event not found.", "danger")
         return RedirectResponse("/admin/events", status_code=303)
 
-    ct = request.headers.get("content-type", "")
     if "application/json" in ct:
         body = await request.json()
         payload = body.get("cert_style")
@@ -2011,7 +1718,11 @@ async def event_certificate_preview_image(
     import io as _io
     from types import SimpleNamespace
     import pypdfium2
-    from app.services.certificate import generate_certificate_pdf
+    from app.services.certificate import (
+        generate_certificate_pdf,
+        should_render_certificate_as_freeform,
+        _raw_cert_style_dict,
+    )
     from fastapi.responses import Response
 
     admin = _require_admin(request, db)
@@ -2025,19 +1736,31 @@ async def event_certificate_preview_image(
     if aud_id and aud_id.strip().isdigit():
         auditorium = db.query(Auditorium).get(int(aud_id))
 
+    form_cert_style = normalize_cert_scalar_for_storage(form.get("cert_style"))
+    cert_style_for_pdf = form_cert_style
+    raw_from_form = _raw_cert_style_dict(SimpleNamespace(cert_style=form_cert_style or ""))
+    if not should_render_certificate_as_freeform(raw_from_form):
+        peid = (form.get("preview_event_id") or "").strip()
+        if peid.isdigit():
+            ev_row = db.query(Event).get(int(peid))
+            if ev_row and ev_row.cert_style:
+                raw_db = _raw_cert_style_dict(ev_row)
+                if should_render_certificate_as_freeform(raw_db):
+                    cert_style_for_pdf = ev_row.cert_style
+
     draft_event = SimpleNamespace(
         name=form.get("name", "").strip() or "Event Title",
         start_date=date.today(),
-        cert_title=form.get("cert_title", "").strip() or None,
-        cert_subtitle=form.get("cert_subtitle", "").strip() or None,
-        cert_footer=form.get("cert_footer", "").strip() or None,
-        cert_signer_name=form.get("cert_signer_name", "").strip() or None,
-        cert_signer_designation=form.get("cert_signer_designation", "").strip() or None,
-        cert_signature_url=form.get("cert_signature_url", "").strip() or None,
-        cert_logo_url=form.get("cert_logo_url", "").strip() or None,
-        cert_bg_url=form.get("cert_bg_url", "").strip() or None,
-        cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
-        cert_style=form.get("cert_style", "").strip() or None,
+        cert_title=normalize_cert_scalar_for_storage(form.get("cert_title")),
+        cert_subtitle=normalize_cert_scalar_for_storage(form.get("cert_subtitle")),
+        cert_footer=normalize_cert_scalar_for_storage(form.get("cert_footer")),
+        cert_signer_name=normalize_cert_scalar_for_storage(form.get("cert_signer_name")),
+        cert_signer_designation=normalize_cert_scalar_for_storage(form.get("cert_signer_designation")),
+        cert_signature_url=normalize_cert_scalar_for_storage(form.get("cert_signature_url")),
+        cert_logo_url=normalize_cert_scalar_for_storage(form.get("cert_logo_url")),
+        cert_bg_url=normalize_cert_scalar_for_storage(form.get("cert_bg_url")),
+        cert_color_scheme=normalize_cert_scalar_for_storage(form.get("cert_color_scheme")),
+        cert_style=cert_style_for_pdf,
     )
     dummy_booking = SimpleNamespace(
         booking_ref="PREVIEW",
@@ -2147,6 +1870,33 @@ def bookings_list(
             total_count=total_count,
         ),
     )
+
+
+@router.post("/bookings/backfill-qr-urls")
+async def bookings_backfill_qr_urls(request: Request, db: Session = Depends(get_db)):
+    """One-time style fix: set qr_code_data to public verification URL for bookings still using legacy payloads."""
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    base = settings.base_url.rstrip("/") if getattr(settings, "base_url", None) else ""
+    if not base:
+        flash(request, "base_url is not configured in settings.", "danger")
+        return RedirectResponse("/admin/bookings", status_code=303)
+    updated = 0
+    for b in db.query(Booking).all():
+        if not b.ticket_id:
+            continue
+        want = f"{base}/certificate/verify/{b.ticket_id}"
+        cur = (b.qr_code_data or "").strip()
+        if cur.startswith("http"):
+            continue
+        if cur == want:
+            continue
+        b.qr_code_data = want
+        updated += 1
+    db.commit()
+    flash(request, f"Updated {updated} booking(s) with certificate verification URL for QR.", "success")
+    return RedirectResponse("/admin/bookings", status_code=303)
 
 
 def _csv_safe(val, default=""):
@@ -3082,12 +2832,14 @@ def event_new_form(request: Request, db: Session = Depends(get_db)):
     ct_map = _custom_types_map(db)
     fb_templates = db.query(FeedbackTemplate).order_by(FeedbackTemplate.name).all()
     all_events = db.query(Event).order_by(Event.name).all()
+    cert_templates = db.query(CertificateTemplate).order_by(CertificateTemplate.name).all()
     return templates.TemplateResponse(
         "admin/event_form.html",
         _admin_ctx(request, active_page="events", event=None, colleges=colleges,
                    auditoriums=auditoriums, all_sessions=all_sessions, speakers=speakers,
                    aud_seat_types=aud_seat_types, custom_types_map=ct_map,
-                   fb_templates=fb_templates, all_events=all_events),
+                   fb_templates=fb_templates, all_events=all_events,
+                   cert_templates=cert_templates),
     )
 
 
@@ -3114,20 +2866,26 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
         processing_fee_pct=float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None,
         custom_prices=_extract_custom_prices(form),
         status=form.get("status", "draft"),
-        cert_title=form.get("cert_title", "").strip() or None,
-        cert_subtitle=form.get("cert_subtitle", "").strip() or None,
-        cert_footer=form.get("cert_footer", "").strip() or None,
-        cert_signer_name=form.get("cert_signer_name", "").strip() or None,
-        cert_signer_designation=form.get("cert_signer_designation", "").strip() or None,
-        cert_signature_url=form.get("cert_signature_url", "").strip() or None,
-        cert_logo_url=form.get("cert_logo_url", "").strip() or None,
-        cert_bg_url=form.get("cert_bg_url", "").strip() or None,
-        cert_color_scheme=form.get("cert_color_scheme", "").strip() or None,
-        cert_style=form.get("cert_style", "").strip() or None,
+        cert_title=normalize_cert_scalar_for_storage(form.get("cert_title")),
+        cert_subtitle=normalize_cert_scalar_for_storage(form.get("cert_subtitle")),
+        cert_footer=normalize_cert_scalar_for_storage(form.get("cert_footer")),
+        cert_signer_name=normalize_cert_scalar_for_storage(form.get("cert_signer_name")),
+        cert_signer_designation=normalize_cert_scalar_for_storage(form.get("cert_signer_designation")),
+        cert_signature_url=normalize_cert_scalar_for_storage(form.get("cert_signature_url")),
+        cert_logo_url=normalize_cert_scalar_for_storage(form.get("cert_logo_url")),
+        cert_bg_url=normalize_cert_scalar_for_storage(form.get("cert_bg_url")),
+        cert_color_scheme=normalize_cert_scalar_for_storage(form.get("cert_color_scheme")),
+        cert_style=normalize_cert_scalar_for_storage(form.get("cert_style")),
         feedback_template_id=int(form["feedback_template_id"]) if form.get("feedback_template_id", "").strip() else None,
     )
     db.add(ev)
     db.flush()
+
+    ctid = (form.get("cert_template_id") or "").strip()
+    if ctid.isdigit():
+        tpl = db.query(CertificateTemplate).get(int(ctid))
+        if tpl:
+            _apply_certificate_template_to_event(ev, tpl)
 
     _save_gallery_images(db, form, "event", ev.id)
 
@@ -3178,6 +2936,7 @@ def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_d
     event_addons = db.query(EventAddOn).filter(EventAddOn.event_id == event_id).all()
     fb_templates = db.query(FeedbackTemplate).order_by(FeedbackTemplate.name).all()
     all_events = db.query(Event).filter(Event.id != event_id).order_by(Event.name).all()
+    cert_templates = db.query(CertificateTemplate).order_by(CertificateTemplate.name).all()
     return templates.TemplateResponse(
         "admin/event_form.html",
         _admin_ctx(request, active_page="events", event=ev, colleges=colleges, auditoriums=auditoriums,
@@ -3186,7 +2945,7 @@ def event_edit_form(request: Request, event_id: int, db: Session = Depends(get_d
                    aud_seat_types=aud_seat_types, custom_types_map=ct_map,
                    gallery_images=gallery, event_breaks=event_breaks,
                    event_addons=event_addons, fb_templates=fb_templates,
-                   all_events=all_events),
+                   all_events=all_events, cert_templates=cert_templates),
     )
 
 
@@ -3221,16 +2980,26 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     ev.custom_prices = _extract_custom_prices(form)
     ev.status = form.get("status", "draft")
 
-    ev.cert_title = form.get("cert_title", "").strip() or ev.cert_title
-    ev.cert_subtitle = form.get("cert_subtitle", "").strip() or ev.cert_subtitle
-    ev.cert_footer = form.get("cert_footer", "").strip() or ev.cert_footer
-    ev.cert_signer_name = form.get("cert_signer_name", "").strip() or ev.cert_signer_name
-    ev.cert_signer_designation = form.get("cert_signer_designation", "").strip() or ev.cert_signer_designation
-    ev.cert_signature_url = form.get("cert_signature_url", "").strip() or ev.cert_signature_url
-    ev.cert_logo_url = form.get("cert_logo_url", "").strip() or ev.cert_logo_url
-    ev.cert_bg_url = form.get("cert_bg_url", "").strip() or ev.cert_bg_url
-    ev.cert_color_scheme = form.get("cert_color_scheme", "").strip() or ev.cert_color_scheme
-    ev.cert_style = form.get("cert_style", "").strip() or ev.cert_style
+    if "cert_title" in form:
+        ev.cert_title = normalize_cert_scalar_for_storage(form.get("cert_title"))
+    if "cert_subtitle" in form:
+        ev.cert_subtitle = normalize_cert_scalar_for_storage(form.get("cert_subtitle"))
+    if "cert_footer" in form:
+        ev.cert_footer = normalize_cert_scalar_for_storage(form.get("cert_footer"))
+    if "cert_signer_name" in form:
+        ev.cert_signer_name = normalize_cert_scalar_for_storage(form.get("cert_signer_name"))
+    if "cert_signer_designation" in form:
+        ev.cert_signer_designation = normalize_cert_scalar_for_storage(form.get("cert_signer_designation"))
+    if "cert_signature_url" in form:
+        ev.cert_signature_url = normalize_cert_scalar_for_storage(form.get("cert_signature_url"))
+    if "cert_logo_url" in form:
+        ev.cert_logo_url = normalize_cert_scalar_for_storage(form.get("cert_logo_url"))
+    if "cert_bg_url" in form:
+        ev.cert_bg_url = normalize_cert_scalar_for_storage(form.get("cert_bg_url"))
+    if "cert_color_scheme" in form:
+        ev.cert_color_scheme = normalize_cert_scalar_for_storage(form.get("cert_color_scheme"))
+    if "cert_style" in form:
+        ev.cert_style = normalize_cert_scalar_for_storage(form.get("cert_style"))
     ev.feedback_template_id = int(form["feedback_template_id"]) if form.get("feedback_template_id", "").strip() else None
 
     from app.models.event_session import EventSession
@@ -5213,6 +4982,360 @@ def admin_delete_poll(request: Request, poll_id: int, db: Session = Depends(get_
     return RedirectResponse(f"/admin/sessions/{sid}/polls?event_id={eid}", status_code=303)
 
 
+# ─── Certificate Templates (library) ───
+
+
+def _certificate_template_designer_bootstrap(tpl: CertificateTemplate) -> dict:
+    from app.services.certificate import (
+        _raw_cert_style_dict,
+        default_freeform_cert_style_dict,
+        should_render_certificate_as_freeform,
+        _parse_cert_style,
+    )
+
+    raw = _raw_cert_style_dict(tpl)
+    if should_render_certificate_as_freeform(raw):
+        initial_style = raw
+    else:
+        initial_style = default_freeform_cert_style_dict()
+        sty = _parse_cert_style(tpl)
+        initial_style["border_style"] = sty.get("border_style", initial_style["border_style"])
+        initial_style["border_width"] = float(sty.get("border_width", initial_style["border_width"]))
+        initial_style["bg_size"] = sty.get("bg_size", initial_style["bg_size"])
+        initial_style["bg_offset_x"] = float(sty.get("bg_offset_x", 0))
+        initial_style["bg_offset_y"] = float(sty.get("bg_offset_y", 0))
+        for k, sk in (
+            ("border_color_primary", "border_color_primary"),
+            ("border_color_secondary", "border_color_secondary"),
+            ("border_color_tertiary", "border_color_tertiary"),
+        ):
+            if sty.get(sk):
+                initial_style[k] = sty[sk]
+
+    if not str(initial_style.get("background_image_url") or "").strip():
+        bg = getattr(tpl, "cert_bg_url", None) or None
+        if bg:
+            initial_style = dict(initial_style)
+            initial_style["background_image_url"] = bg
+
+    tid = tpl.id
+    _save = f"/admin/certificate-templates/{tid}/certificate/designer"
+    _leg = f"/admin/certificate-templates/{tid}/certificate/legacy-to-freeform"
+    return {
+        "eventId": None,
+        "templateId": tid,
+        "isPersistedFreeform": should_render_certificate_as_freeform(raw),
+        "initialStyle": initial_style,
+        "saveUrl": _save,
+        "legacyConvertUrl": _leg,
+        "designerSaveUrl": _save,
+        "designerLegacyUrl": _leg,
+        "aiGenerateUrl": "/admin/certificate-ai/generate-template",
+    }
+
+
+@router.get("/certificate-templates/{template_id}/apply-payload")
+def certificate_template_apply_payload(
+    request: Request, template_id: int, db: Session = Depends(get_db)
+):
+    """JSON for admin event form (new event): merge template into certificate fields client-side."""
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    tpl = db.query(CertificateTemplate).get(template_id)
+    if not tpl:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    return JSONResponse(
+        {
+            "cert_style": tpl.cert_style or "",
+            "cert_title": tpl.cert_title,
+            "cert_subtitle": tpl.cert_subtitle,
+            "cert_footer": tpl.cert_footer,
+            "cert_signer_name": tpl.cert_signer_name,
+            "cert_signer_designation": tpl.cert_signer_designation,
+            "cert_signature_url": tpl.cert_signature_url,
+            "cert_logo_url": tpl.cert_logo_url,
+            "cert_bg_url": tpl.cert_bg_url,
+            "cert_color_scheme": tpl.cert_color_scheme,
+        }
+    )
+
+
+@router.get("/certificate-templates")
+def certificate_template_list(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    cert_templates = (
+        db.query(CertificateTemplate)
+        .options(joinedload(CertificateTemplate.events))
+        .order_by(CertificateTemplate.name)
+        .all()
+    )
+    return templates.TemplateResponse(
+        "admin/certificate_template_list.html",
+        _admin_ctx(request, active_page="cert-templates", cert_templates=cert_templates),
+    )
+
+
+@router.get("/certificate-templates/new")
+def certificate_template_new(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    return templates.TemplateResponse(
+        "admin/certificate_template_form.html",
+        _admin_ctx(request, active_page="cert-templates", tpl=None),
+    )
+
+
+@router.post("/certificate-templates/new")
+async def certificate_template_create(request: Request, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    form = await _form(request)
+    name = (form.get("name") or "").strip()
+    if not name:
+        flash(request, "Template name is required.", "danger")
+        return RedirectResponse("/admin/certificate-templates/new", status_code=303)
+    tpl = CertificateTemplate(
+        name=name,
+        description=(form.get("description") or "").strip() or None,
+        created_by=admin.id,
+    )
+    db.add(tpl)
+    db.flush()
+    log_activity(
+        db,
+        category="admin",
+        action="create",
+        description=f"Created certificate template '{tpl.name}'",
+        request=request,
+        user_id=admin.id,
+        target_type="certificate_template",
+        target_id=tpl.id,
+    )
+    db.commit()
+    flash(request, f"Template “{tpl.name}” created — open the designer to build the layout.", "success")
+    return RedirectResponse(f"/admin/certificate-templates/{tpl.id}/designer", status_code=303)
+
+
+@router.get("/certificate-templates/{template_id}/edit")
+def certificate_template_edit(request: Request, template_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    tpl = db.query(CertificateTemplate).get(template_id)
+    if not tpl:
+        flash(request, "Template not found.", "danger")
+        return RedirectResponse("/admin/certificate-templates", status_code=303)
+    return templates.TemplateResponse(
+        "admin/certificate_template_form.html",
+        _admin_ctx(request, active_page="cert-templates", tpl=tpl),
+    )
+
+
+@router.post("/certificate-templates/{template_id}/edit")
+async def certificate_template_update(request: Request, template_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    tpl = db.query(CertificateTemplate).get(template_id)
+    if not tpl:
+        flash(request, "Template not found.", "danger")
+        return RedirectResponse("/admin/certificate-templates", status_code=303)
+    form = await _form(request)
+    tpl.name = (form.get("name") or "").strip() or tpl.name
+    tpl.description = (form.get("description") or "").strip() or None
+    tpl.cert_title = normalize_cert_scalar_for_storage(form.get("cert_title"))
+    tpl.cert_subtitle = normalize_cert_scalar_for_storage(form.get("cert_subtitle"))
+    tpl.cert_footer = normalize_cert_scalar_for_storage(form.get("cert_footer"))
+    tpl.cert_signer_name = normalize_cert_scalar_for_storage(form.get("cert_signer_name"))
+    tpl.cert_signer_designation = normalize_cert_scalar_for_storage(form.get("cert_signer_designation"))
+    tpl.cert_signature_url = normalize_cert_scalar_for_storage(form.get("cert_signature_url"))
+    tpl.cert_logo_url = normalize_cert_scalar_for_storage(form.get("cert_logo_url"))
+    tpl.cert_bg_url = normalize_cert_scalar_for_storage(form.get("cert_bg_url"))
+    tpl.cert_color_scheme = normalize_cert_scalar_for_storage(form.get("cert_color_scheme"))
+    tpl.cert_style = normalize_cert_scalar_for_storage(form.get("cert_style"))
+    log_activity(
+        db,
+        category="admin",
+        action="update",
+        description=f"Updated certificate template '{tpl.name}'",
+        request=request,
+        user_id=admin.id,
+        target_type="certificate_template",
+        target_id=tpl.id,
+    )
+    db.commit()
+    flash(request, f"Template “{tpl.name}” saved.", "success")
+    return RedirectResponse("/admin/certificate-templates", status_code=303)
+
+
+@router.post("/certificate-templates/{template_id}/delete")
+def certificate_template_delete(request: Request, template_id: int, db: Session = Depends(get_db)):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    tpl = db.query(CertificateTemplate).get(template_id)
+    if not tpl:
+        flash(request, "Template not found.", "danger")
+        return RedirectResponse("/admin/certificate-templates", status_code=303)
+    name = tpl.name
+    db.query(Event).filter(Event.cert_template_id == tpl.id).update({Event.cert_template_id: None})
+    log_activity(
+        db,
+        category="admin",
+        action="delete",
+        description=f"Deleted certificate template '{name}'",
+        request=request,
+        user_id=admin.id,
+        target_type="certificate_template",
+        target_id=template_id,
+    )
+    db.delete(tpl)
+    db.commit()
+    flash(request, "Certificate template deleted.", "success")
+    return RedirectResponse("/admin/certificate-templates", status_code=303)
+
+
+@router.get("/certificate-templates/{template_id}/designer")
+def certificate_template_designer_page(
+    request: Request, template_id: int, db: Session = Depends(get_db)
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    tpl = db.query(CertificateTemplate).get(template_id)
+    if not tpl:
+        flash(request, "Template not found.", "danger")
+        return RedirectResponse("/admin/certificate-templates", status_code=303)
+    designer_bootstrap = _certificate_template_designer_bootstrap(tpl)
+    return templates.TemplateResponse(
+        "admin/certificate_designer.html",
+        _admin_ctx(
+            request,
+            active_page="cert-templates",
+            cert_template=tpl,
+            event=None,
+            designer_bootstrap=designer_bootstrap,
+        ),
+    )
+
+
+@router.post("/certificate-templates/{template_id}/certificate/designer")
+async def certificate_template_designer_save(
+    request: Request, template_id: int, db: Session = Depends(get_db)
+):
+    ct = (request.headers.get("content-type") or "").lower()
+    admin = _require_admin(request, db)
+    if not admin:
+        if "application/json" in ct:
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        return RedirectResponse("/auth/login", status_code=303)
+    tpl = db.query(CertificateTemplate).get(template_id)
+    if not tpl:
+        if "application/json" in ct:
+            return JSONResponse({"error": "Not found"}, status_code=404)
+        flash(request, "Template not found.", "danger")
+        return RedirectResponse("/admin/certificate-templates", status_code=303)
+
+    if "application/json" in ct:
+        body = await request.json()
+        payload = body.get("cert_style")
+        if isinstance(payload, dict):
+            tpl.cert_style = json.dumps(payload)
+        elif payload is None or payload == "":
+            tpl.cert_style = None
+        else:
+            tpl.cert_style = str(payload).strip() or None
+        log_activity(
+            db,
+            category="admin",
+            action="update",
+            description=f"Updated certificate visual layout for template '{tpl.name}'",
+            request=request,
+            user_id=admin.id,
+            target_type="certificate_template",
+            target_id=tpl.id,
+        )
+        db.commit()
+        return JSONResponse({"ok": True})
+    form = await request.form()
+    tpl.cert_style = (form.get("cert_style") or "").strip() or None
+    log_activity(
+        db,
+        category="admin",
+        action="update",
+        description=f"Updated certificate visual layout for template '{tpl.name}'",
+        request=request,
+        user_id=admin.id,
+        target_type="certificate_template",
+        target_id=tpl.id,
+    )
+    db.commit()
+    flash(request, "Certificate layout saved.", "success")
+    return RedirectResponse(f"/admin/certificate-templates/{template_id}/designer", status_code=303)
+
+
+@router.get("/certificate-templates/{template_id}/certificate/legacy-to-freeform")
+def certificate_template_legacy_to_freeform(
+    request: Request, template_id: int, db: Session = Depends(get_db)
+):
+    from app.services.certificate import legacy_cert_style_to_freeform_dict
+
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    tpl = db.query(CertificateTemplate).get(template_id)
+    if not tpl:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    return JSONResponse(legacy_cert_style_to_freeform_dict(tpl))
+
+
+@router.get("/certificate-templates/{template_id}/certificate/preview")
+def certificate_template_certificate_preview(
+    request: Request, template_id: int, db: Session = Depends(get_db)
+):
+    import io as _io
+    from types import SimpleNamespace
+    from app.services.certificate import generate_certificate_pdf
+
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+
+    tpl = db.query(CertificateTemplate).get(template_id)
+    if not tpl:
+        flash(request, "Template not found.", "danger")
+        return RedirectResponse("/admin/certificate-templates", status_code=303)
+
+    dummy_booking = SimpleNamespace(
+        booking_ref="PREVIEW",
+        qr_code_data="CERT-PREVIEW-SAMPLE",
+    )
+    dummy_user = SimpleNamespace(
+        full_name="Sample Attendee",
+        username="sample_attendee",
+    )
+    dummy_event = SimpleNamespace(
+        name=tpl.name or "Certificate Template",
+        start_date=date.today(),
+    )
+
+    pdf_bytes = generate_certificate_pdf(dummy_booking, dummy_user, tpl, dummy_event, None)
+
+    return StreamingResponse(
+        _io.BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": 'inline; filename="certificate-template-preview.pdf"',
+            "Cache-Control": "no-store",
+        },
+    )
+
+
 # ─── Feedback Templates ───
 
 
@@ -5552,6 +5675,48 @@ async def admin_upload_image(request: Request, db: Session = Depends(get_db)):
     db.refresh(img)
 
     return JSONResponse({"url": f"/uploads/{img.id}"})
+
+
+@router.post("/certificate-ai/generate-template")
+async def certificate_ai_generate_template(request: Request, db: Session = Depends(get_db)):
+    """Two-step OpenAI pipeline: decorative background image + vision layout → cert_style v2."""
+    from app.services.certificate_ai_template import CertificateAiImageError, run_ai_certificate_template_pipeline
+
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    if not (settings.openai_api_key or "").strip():
+        return JSONResponse(
+            {"error": "OpenAI is not configured (set OPENAI_API_KEY)."},
+            status_code=503,
+        )
+    body: dict = {}
+    ct = (request.headers.get("content-type") or "").lower()
+    if "application/json" in ct:
+        try:
+            body = await request.json()
+            if not isinstance(body, dict):
+                body = {}
+        except Exception:
+            body = {}
+    prompt_hint = (body.get("prompt_hint") or body.get("hint") or "") if isinstance(body, dict) else ""
+    if isinstance(prompt_hint, str):
+        prompt_hint = prompt_hint.strip()[:2000]
+    else:
+        prompt_hint = ""
+
+    try:
+        result = run_ai_certificate_template_pipeline(db, settings, prompt_hint=prompt_hint)
+    except CertificateAiImageError as exc:
+        return JSONResponse({"error": str(exc), "step": "image"}, status_code=502)
+
+    return JSONResponse(
+        {
+            "cert_style": result["cert_style"],
+            "upload_url": result["upload_url"],
+            "layout_fallback": result["layout_fallback"],
+        }
+    )
 
 
 @router.post("/newsletters/upload-image")

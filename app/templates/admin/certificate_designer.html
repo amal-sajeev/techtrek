@@ -1,6 +1,9 @@
 {% extends "admin/base_admin.html" %}
+{% set is_template_mode = designer_bootstrap.templateId is not none %}
+{% block title %}{% if is_template_mode %}Certificate Template Designer{% else %}Event Certificate Designer{% endif %} — Admin{% endblock %}
 
 {% block admin_content %}
+<input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 <style>
 .cert-dz-header {
   display: flex;
@@ -11,27 +14,77 @@
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--color-border, #e2e8f0);
 }
-.cert-dz-header h1 {
-  margin: 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-}
+.cert-dz-header h1 { margin: 0; font-size: 1.25rem; font-weight: 600; }
 .cert-dz-toolbar {
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem;
   align-items: center;
+  gap: .5rem .65rem;
+  margin-bottom: 1rem;
+}
+.cert-dz-tb-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+  padding-right: .65rem;
+  border-right: 1px solid var(--color-border, #e2e8f0);
+}
+.cert-dz-tb-group:last-of-type { border-right: none; }
+.cert-dz-tb-controls { margin-left: auto; border-right: none; padding-right: 0; flex-wrap: nowrap; }
+.cert-dz-tb-label {
+  font-size: .72rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  margin-right: .25rem;
 }
 .cert-dz-toolbar .btn { font-size: .78rem; padding: .35rem .65rem; }
+.cert-dz-dropdown-wrap { position: relative; display: inline-block; }
+.cert-dz-varfield-menu {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  z-index: 50;
+  min-width: 280px;
+  max-height: min(70vh, 420px);
+  overflow: auto;
+  margin-top: 4px;
+  padding: .5rem 0;
+  background: var(--bg-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.12);
+}
+.cert-dz-varfield-menu[hidden] { display: none !important; }
+.cert-dz-varfield-cat {
+  font-size: .68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  color: #94a3b8;
+  padding: .35rem .75rem .2rem;
+}
+.cert-dz-varfield-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: .4rem .75rem;
+  border: none;
+  background: transparent;
+  font-size: .82rem;
+  cursor: pointer;
+  color: var(--text, #0f172a);
+}
+.cert-dz-varfield-item:hover { background: var(--bg-muted, #f1f5f9); }
 .cert-dz-layout {
   display: grid;
-  grid-template-columns: 1fr 280px;
+  grid-template-columns: 1fr 300px;
   gap: 1rem;
   align-items: start;
 }
-@media (max-width: 960px) {
-  .cert-dz-layout { grid-template-columns: 1fr; }
-}
+@media (max-width: 960px) { .cert-dz-layout { grid-template-columns: 1fr; } }
 .cert-dz-canvas-shell {
   background: #1e293b;
   border-radius: 10px;
@@ -46,12 +99,8 @@
   line-height: 0;
   font-size: 0;
 }
-/* Fabric adds .canvas-container + two canvases; kill inline gap so the page isn’t visually shifted */
 .cert-dz-canvas-inner .canvas-container,
-.cert-dz-canvas-inner canvas {
-  display: block;
-  vertical-align: top;
-}
+.cert-dz-canvas-inner canvas { display: block; vertical-align: top; }
 .cert-dz-props {
   background: var(--bg-surface, #fff);
   border: 1px solid var(--color-border, #e2e8f0);
@@ -61,10 +110,7 @@
   max-height: calc(100vh - 220px);
   overflow: auto;
 }
-.cert-dz-props h3 {
-  margin: 0 0 .75rem;
-  font-size: .95rem;
-}
+.cert-dz-props h3 { margin: 0 0 .75rem; font-size: .95rem; }
 .cert-dz-props label { display: block; margin-top: .5rem; font-size: .75rem; color: var(--text-muted, #64748b); }
 .cert-dz-props input, .cert-dz-props select {
   width: 100%;
@@ -74,48 +120,149 @@
   border: 1px solid var(--color-border, #e2e8f0);
   font-size: .82rem;
 }
+.cert-dz-type-badge {
+  display: inline-block;
+  font-size: .72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  padding: .2rem .5rem;
+  border-radius: 6px;
+  background: var(--bg-muted, #f1f5f9);
+  color: #475569;
+  margin-bottom: .75rem;
+}
+.cert-dz-toggle-row {
+  display: flex;
+  gap: .35rem;
+  flex-wrap: wrap;
+  margin-top: .5rem;
+}
+.cert-dz-toggle-row input { position: absolute; opacity: 0; pointer-events: none; }
+.cert-dz-toggle-row label {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2rem;
+  height: 2rem;
+  margin: 0;
+  padding: 0 .45rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: var(--bg-surface, #fff);
+}
+.cert-dz-toggle-row input:checked + span { background: #0e7490; color: #fff; border-color: #0e7490; }
+.cert-dz-toggle-row label:has(input:checked) { background: #0e7490; color: #fff; border-color: #0e7490; }
+.cert-dz-align-group { display: flex; gap: 0; margin-top: .35rem; }
+.cert-dz-align-group .cert-dz-align-btn {
+  flex: 1;
+  padding: .35rem;
+  font-size: .75rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  background: var(--bg-surface);
+  cursor: pointer;
+}
+.cert-dz-align-group .cert-dz-align-btn:first-child { border-radius: 6px 0 0 6px; }
+.cert-dz-align-group .cert-dz-align-btn:last-child { border-radius: 0 6px 6px 0; }
+.cert-dz-align-group .cert-dz-align-btn + .cert-dz-align-btn { border-left: 0; }
+.cert-dz-align-group .cert-dz-align-btn.is-active {
+  background: #0e7490;
+  color: #fff;
+  border-color: #0e7490;
+}
+.cert-dz-align-group .cert-dz-align-btn:disabled { opacity: .45; cursor: not-allowed; }
+.cert-dz-color-row { display: flex; gap: .5rem; align-items: center; margin-top: .2rem; }
+.cert-dz-color-row input[type="color"] { width: 44px; height: 36px; padding: 2px; cursor: pointer; flex-shrink: 0; }
+.cert-dz-color-row .cert-dz-hex-input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; }
 .cert-dz-status { font-size: .8rem; color: var(--text-muted); }
 .cert-dz-grid-hint { font-size: .72rem; color: #94a3b8; margin-top: .5rem; }
 </style>
 
 <div class="cert-dz-header">
   <div>
-    <h1>Certificate visual designer</h1>
-    <p class="cert-dz-status" style="margin:.25rem 0 0">{{ event.name }} · Landscape A4 (842×595 pt)</p>
+    <h1>{% if is_template_mode %}Certificate Template Designer{% else %}Event Certificate Designer{% endif %}</h1>
+    <p class="cert-dz-status" style="margin:.25rem 0 0">
+      {% if cert_template %}{{ cert_template.name }}{% else %}{{ event.name }}{% endif %} · Landscape A4 (842×595 pt)
+    </p>
   </div>
   <div style="flex:1"></div>
+  {% if cert_template %}
+  <a href="/admin/certificate-templates/{{ cert_template.id }}/edit" class="btn btn-outline btn-sm">Back to template</a>
+  <a href="/admin/certificate-templates/{{ cert_template.id }}/certificate/preview" target="_blank" class="btn btn-outline btn-sm">Preview PDF</a>
+  {% else %}
   <a href="/admin/events/{{ event.id }}/edit?step=5" class="btn btn-outline btn-sm">Back to event</a>
   <a href="/admin/events/{{ event.id }}/certificate/preview" target="_blank" class="btn btn-outline btn-sm">Preview PDF</a>
+  {% endif %}
 </div>
 
 <div class="cert-dz-toolbar" id="cert-dz-toolbar">
-  <span style="font-size:.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Add</span>
-  <button type="button" class="btn btn-outline" data-add="text">Static text</button>
-  <button type="button" class="btn btn-outline" data-add="vartext">Variable text</button>
-  <button type="button" class="btn btn-outline" data-add="image-logo">Logo</button>
-  <button type="button" class="btn btn-outline" data-add="image-sig">Signature</button>
-  <button type="button" class="btn btn-outline" data-add="image-url">Image (URL)</button>
-  <button type="button" class="btn btn-outline" data-add="qr">QR code</button>
-  <button type="button" class="btn btn-outline" data-add="line">Line</button>
-  <button type="button" class="btn btn-outline" data-add="rect">Rectangle</button>
-  <span style="width:1px;height:24px;background:#e2e8f0;margin:0 .25rem"></span>
-  <button type="button" class="btn btn-outline" id="cert-dz-duplicate">Duplicate</button>
-  <button type="button" class="btn btn-outline" id="cert-dz-delete">Delete</button>
-  <button type="button" class="btn btn-outline" id="cert-dz-front">Bring forward</button>
-  <button type="button" class="btn btn-outline" id="cert-dz-back">Send back</button>
-  <span style="width:1px;height:24px;background:#e2e8f0;margin:0 .25rem"></span>
-  <button type="button" class="btn btn-outline" id="cert-dz-undo" title="Undo">Undo</button>
-  <button type="button" class="btn btn-outline" id="cert-dz-redo" title="Redo">Redo</button>
-  <button type="button" class="btn btn-outline" id="cert-dz-convert" title="Seed layers from legacy template">Convert legacy layout</button>
-  <button type="button" class="btn btn-outline" id="cert-dz-reset">Reset canvas</button>
-  <span style="flex:1"></span>
-  <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;margin:0">
-    <input type="checkbox" id="cert-dz-snap" checked> Snap 5pt
-  </label>
-  <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;margin:0">
-    Zoom <input type="range" id="cert-dz-zoom" min="0.35" max="2" step="0.05" value="0.75" style="width:90px">
-  </label>
-  <button type="button" class="btn btn-primary" id="cert-dz-save">Save layout</button>
+  <div class="cert-dz-tb-group">
+    <span class="cert-dz-tb-label">Add</span>
+    <button type="button" class="btn btn-outline" data-add="text">Static text</button>
+    <div class="cert-dz-dropdown-wrap">
+      <button type="button" class="btn btn-outline" id="cert-dz-varfield-trigger" aria-expanded="false" aria-haspopup="true">Dynamic field ▾</button>
+      <div id="cert-dz-varfield-menu" class="cert-dz-varfield-menu" hidden>
+        <div class="cert-dz-varfield-cat">Attendee</div>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="attendee_name">Attendee name</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="attending_line">Attending line</button>
+        <div class="cert-dz-varfield-cat">Event details</div>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="event_name">Event name</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="event_date">Event date</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="venue">Venue</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="venue_line">Venue line</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="event_session_title">Session title</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="details_line">Details line</button>
+        <div class="cert-dz-varfield-cat">Certificate text</div>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="title_text">Title</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="subtitle_text">Subtitle</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="footer_text">Footer text</button>
+        <div class="cert-dz-varfield-cat">Signer</div>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="signer_name">Signer name</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="signer_designation">Signer designation</button>
+        <div class="cert-dz-varfield-cat">IDs &amp; codes</div>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="cert_id">Certificate ID</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="cert_id_line">Certificate ID line</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="booking_ref">Booking ref</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="brand_text">Brand (TECHTREK)</button>
+        <button type="button" class="cert-dz-varfield-item" data-varkey="speaker_name">Speaker</button>
+      </div>
+    </div>
+    <button type="button" class="btn btn-outline" data-add="image-logo">Logo</button>
+    <button type="button" class="btn btn-outline" data-add="image-sig">Signature</button>
+    <button type="button" class="btn btn-outline" data-add="image-url">Image (URL)</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-image-upload">Upload image</button>
+    <input type="file" id="cert-dz-toolbar-img-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden aria-hidden="true">
+    <button type="button" class="btn btn-outline" data-add="qr">QR code</button>
+    <button type="button" class="btn btn-outline" data-add="line">Line</button>
+    <button type="button" class="btn btn-outline" data-add="rect">Rectangle</button>
+  </div>
+  <div class="cert-dz-tb-group">
+    <span class="cert-dz-tb-label">Arrange</span>
+    <button type="button" class="btn btn-outline" id="cert-dz-duplicate">Duplicate</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-delete">Delete</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-front">Bring forward</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-back">Send back</button>
+  </div>
+  <div class="cert-dz-tb-group">
+    <span class="cert-dz-tb-label">History</span>
+    <button type="button" class="btn btn-outline" id="cert-dz-undo" title="Undo">Undo</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-redo" title="Redo">Redo</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-convert" title="Seed layers from legacy template">Convert legacy layout</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-ai-generate" title="OpenAI: generate background + suggest text/QR positions (two API calls)">Generate with AI</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-reset">Reset canvas</button>
+  </div>
+  <div class="cert-dz-tb-group cert-dz-tb-controls">
+    <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;margin:0;white-space:nowrap">
+      <input type="checkbox" id="cert-dz-snap" checked> Snap 5pt
+    </label>
+    <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;margin:0;white-space:nowrap">
+      Zoom <input type="range" id="cert-dz-zoom" min="0.35" max="2" step="0.05" value="0.75" style="width:90px">
+    </label>
+    <button type="button" class="btn btn-primary" id="cert-dz-save">Save layout</button>
+  </div>
 </div>
 
 <div class="cert-dz-layout" style="margin-top:1rem">
@@ -123,7 +270,7 @@
     <div class="cert-dz-canvas-inner">
       <canvas id="cert-designer-canvas" width="842" height="595"></canvas>
     </div>
-    <p class="cert-dz-grid-hint">Drag to position. Resize handles rotate from corners. Units match PDF points. Border preview matches PDF frame (approx.). <strong>Ctrl</strong> (or <strong>⌘</strong>) + <strong>scroll</strong> to zoom. Save updates <code>cert_style</code> on the event.</p>
+    <p class="cert-dz-grid-hint">Drag to position. Resize handles rotate from corners. Units match PDF points. Border preview matches PDF frame (approx.). <strong>Ctrl</strong> (or <strong>⌘</strong>) + <strong>scroll</strong> to zoom. Save updates <code>cert_style</code> {% if cert_template %}on this template{% else %}on the event{% endif %}.</p>
   </div>
   <aside class="cert-dz-props">
     <h3>Page &amp; border</h3>
@@ -144,57 +291,175 @@
       <option value="contain">Contain</option>
       <option value="stretch">Stretch</option>
     </select>
+    <label>Background image</label>
+    <input type="text" id="cert-dz-page-bg-url" placeholder="/uploads/… or https://…" autocomplete="off">
+    <p class="cert-dz-grid-hint" style="margin:.35rem 0 0;font-size:.72rem">Optional full-page background (same scaling as PDF). Upload: JPEG/PNG/GIF/WebP, max 5&nbsp;MB.</p>
+
     <h3 style="margin-top:1.25rem">Selection</h3>
     <p id="cert-dz-sel-none" style="color:#94a3b8;font-size:.8rem">Select an object to edit.</p>
     <div id="cert-dz-sel-panel" style="display:none">
-      <label>Variable (text)</label>
-      <select id="cert-dz-prop-variable"></select>
-      <label>Text (static / fallback)</label>
-      <input type="text" id="cert-dz-prop-text" placeholder="Optional">
-      <label>Font</label>
-      <select id="cert-dz-prop-font">
-        <option value="arial">Arial</option>
-        <option value="georgia">Georgia</option>
-        <option value="times">Times</option>
-        <option value="verdana">Verdana</option>
-        <option value="calibri">Calibri</option>
-        <option value="courier">Courier</option>
-      </select>
-      <label>Font size (pt)</label>
-      <input type="number" id="cert-dz-prop-fontsize" min="6" max="120" step="1">
-      <label>Color</label>
-      <input type="color" id="cert-dz-prop-color" value="#0a1628">
-      <label style="display:flex;align-items:center;gap:.5rem;margin-top:.65rem">
-        <input type="checkbox" id="cert-dz-prop-bold"> Bold
-      </label>
-      <label style="display:flex;align-items:center;gap:.5rem">
-        <input type="checkbox" id="cert-dz-prop-italic"> Italic
-      </label>
-      <label style="display:flex;align-items:center;gap:.5rem">
-        <input type="checkbox" id="cert-dz-prop-underline"> Underline
-      </label>
-      <label>Align</label>
-      <select id="cert-dz-prop-align">
-        <option value="left">Left</option>
-        <option value="center">Center</option>
-        <option value="right">Right</option>
-      </select>
-      <label>Image URL (custom image)</label>
-      <input type="text" id="cert-dz-prop-imgurl" placeholder="https://…">
-      <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
-        <input type="checkbox" id="cert-dz-prop-qrcaption" checked> QR “Scan to verify” caption
-      </label>
-      <label>Width (pt)</label>
-      <input type="number" id="cert-dz-prop-w" step="1">
-      <label>Height (pt)</label>
-      <input type="number" id="cert-dz-prop-h" step="1">
-      <label>Rotation (°)</label>
-      <input type="number" id="cert-dz-prop-rot" step="1">
+      <div class="cert-dz-type-badge" id="cert-dz-type-badge">—</div>
+
+      <div class="cert-sel-text-only">
+        <label>Variable (text)</label>
+        <select id="cert-dz-prop-variable"></select>
+        <label>Text (static / fallback)</label>
+        <input type="text" id="cert-dz-prop-text" placeholder="Optional">
+        <label>Font</label>
+        <select id="cert-dz-prop-font">
+          <option value="arial">Arial</option>
+          <option value="georgia">Georgia</option>
+          <option value="times">Times</option>
+          <option value="verdana">Verdana</option>
+          <option value="calibri">Calibri</option>
+          <option value="courier">Courier</option>
+        </select>
+        <label>Font size (pt)</label>
+        <input type="number" id="cert-dz-prop-fontsize" min="6" max="120" step="1">
+        <label>Alignment</label>
+        <input type="hidden" id="cert-dz-prop-align" value="left">
+        <div class="cert-dz-align-group" id="cert-dz-align-group" role="group" aria-label="Text alignment">
+          <button type="button" class="cert-dz-align-btn" data-align-value="left" title="Left">Left</button>
+          <button type="button" class="cert-dz-align-btn" data-align-value="center" title="Center">Center</button>
+          <button type="button" class="cert-dz-align-btn" data-align-value="right" title="Right">Right</button>
+        </div>
+        <div class="cert-dz-toggle-row" id="cert-dz-biu-row">
+          <label><input type="checkbox" id="cert-dz-prop-bold"><span>B</span></label>
+          <label><input type="checkbox" id="cert-dz-prop-italic"><span>I</span></label>
+          <label><input type="checkbox" id="cert-dz-prop-underline"><span>U</span></label>
+        </div>
+      </div>
+
+      <div class="cert-sel-color-block">
+        <label>Color</label>
+        <div class="cert-dz-color-row">
+          <input type="color" id="cert-dz-prop-color" value="#0a1628">
+          <input type="text" class="form-input cert-dz-hex-input" id="cert-dz-prop-color-hex" maxlength="7" placeholder="#0a1628" autocomplete="off">
+        </div>
+      </div>
+
+      <div class="cert-sel-image-only" style="display:none">
+        <label>Image URL (custom image)</label>
+        <input type="text" id="cert-dz-prop-imgurl" placeholder="/uploads/… or https://…">
+      </div>
+
+      <div class="cert-sel-qr-only" style="display:none">
+        <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
+          <input type="checkbox" id="cert-dz-prop-qrcaption" checked> QR “Scan to verify” caption
+        </label>
+      </div>
+
+      <div class="cert-sel-geometry">
+        <label>Width (pt)</label>
+        <input type="number" id="cert-dz-prop-w" step="1">
+        <label>Height (pt)</label>
+        <input type="number" id="cert-dz-prop-h" step="1">
+        <label>Rotation (°)</label>
+        <input type="number" id="cert-dz-prop-rot" step="1">
+      </div>
     </div>
   </aside>
 </div>
 
 <script type="application/json" id="cert-designer-bootstrap">{{ designer_bootstrap | tojson }}</script>
+<script>
+(function () {
+  window._certDzApplyTypeVis = function (t) {
+    var te = document.querySelector(".cert-sel-text-only");
+    var im = document.querySelector(".cert-sel-image-only");
+    var qr = document.querySelector(".cert-sel-qr-only");
+    var cb = document.querySelector(".cert-sel-color-block");
+    var ge = document.querySelector(".cert-sel-geometry");
+    var badge = document.getElementById("cert-dz-type-badge");
+    var labels = { text: "Text", image: "Image", qr: "QR code", line: "Line", rect: "Rectangle" };
+    if (badge) badge.textContent = labels[t] || (t ? String(t) : "—");
+    if (te) te.style.display = t === "text" ? "block" : "none";
+    if (im) im.style.display = t === "image" ? "block" : "none";
+    if (qr) qr.style.display = t === "qr" ? "block" : "none";
+    if (cb) cb.style.display = t === "text" || t === "rect" || t === "line" ? "block" : "none";
+    if (ge) ge.style.display = t ? "block" : "none";
+    var alignGrp = document.getElementById("cert-dz-align-group");
+    if (alignGrp) {
+      alignGrp.querySelectorAll(".cert-dz-align-btn").forEach(function (b) {
+        b.disabled = t !== "text";
+      });
+    }
+  };
+
+  var menu = document.getElementById("cert-dz-varfield-menu");
+  var trigger = document.getElementById("cert-dz-varfield-trigger");
+  function closeMenu() {
+    if (!menu || !trigger) return;
+    menu.hidden = true;
+    trigger.setAttribute("aria-expanded", "false");
+  }
+  if (trigger && menu) {
+    trigger.addEventListener("click", function (e) {
+      e.stopPropagation();
+      var open = menu.hidden;
+      menu.hidden = !open;
+      trigger.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    document.addEventListener("click", function (e) {
+      if (e.target.closest("#cert-dz-varfield-trigger") || e.target.closest("#cert-dz-varfield-menu")) return;
+      closeMenu();
+    });
+    /* Do not stopPropagation on the menu — clicks must bubble to #cert-dz-toolbar so certificate-designer.js can handle .cert-dz-varfield-item */
+  }
+
+  function normHex(h) {
+    if (!h || typeof h !== "string") return "";
+    h = h.trim();
+    if (/^#[0-9A-Fa-f]{6}$/.test(h)) return h.toLowerCase();
+    return "";
+  }
+  var cIn = document.getElementById("cert-dz-prop-color");
+  var hIn = document.getElementById("cert-dz-prop-color-hex");
+  if (cIn && hIn) {
+    cIn.addEventListener("input", function () {
+      hIn.value = cIn.value;
+    });
+    hIn.addEventListener("change", function () {
+      var v = normHex(hIn.value);
+      if (v) { cIn.value = v; hIn.value = v; }
+    });
+    hIn.addEventListener("input", function () {
+      var v = normHex(hIn.value);
+      if (v) cIn.value = v;
+    });
+  }
+
+  var alignHidden = document.getElementById("cert-dz-prop-align");
+  var alignBtns = document.querySelectorAll(".cert-dz-align-btn");
+  function syncAlignButtons() {
+    var cur = (alignHidden && alignHidden.value) || "left";
+    alignBtns.forEach(function (b) {
+      b.classList.toggle("is-active", b.getAttribute("data-align-value") === cur);
+    });
+  }
+  alignBtns.forEach(function (b) {
+    b.addEventListener("click", function () {
+      var v = b.getAttribute("data-align-value");
+      if (alignHidden && v) {
+        alignHidden.value = v;
+        alignHidden.dispatchEvent(new Event("change", { bubbles: true }));
+      }
+      syncAlignButtons();
+    });
+  });
+  if (alignHidden) alignHidden.addEventListener("change", syncAlignButtons);
+  syncAlignButtons();
+})();
+</script>
+<script src="/static/js/image-upload.js?v={{ asset_version }}"></script>
+<script>
+(function () {
+  if (typeof initImageUpload === "function") {
+    initImageUpload("cert-dz-page-bg-url", "/admin/upload-image");
+    initImageUpload("cert-dz-prop-imgurl", "/admin/upload-image");
+  }
+})();
+</script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js" crossorigin="anonymous"></script>
 <script src="/static/js/certificate-designer.js?v={{ asset_version }}"></script>
 {% endblock %}

@@ -230,12 +230,32 @@
         <a href="/admin/events/{{ event.id }}/certificate/designer" class="btn btn-primary btn-sm">Open visual designer</a>
         <span class="text-muted" style="font-size:.8rem">Drag, resize, and rotate layers · saves into certificate style JSON</span>
       </p>
+      {% else %}
+      <p class="text-muted" style="font-size:.82rem;margin:0 0 1rem;padding:.6rem .75rem;background:var(--bg-muted,#f1f5f9);border-radius:8px;border:1px solid var(--color-border,#e2e8f0)">The <strong>visual designer</strong> opens after the event exists. Create the event, then use <strong>Edit Event</strong> → step 5 → <strong>Open visual designer</strong>. You can still choose a <strong>certificate library</strong> layout below; click <strong>Apply Template</strong> to load it into this form, and it will be stored when you save the new event.</p>
+      {% endif %}
+      {% if cert_templates|default([])|length %}
+      <div class="form-group" style="margin-bottom:1rem">
+        <label class="form-label" for="cert-template-select">Certificate library</label>
+        <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
+          <select id="cert-template-select" class="form-input" style="max-width:min(100%,320px)" data-no-tomselect {% if not event %}name="cert_template_id"{% endif %}>
+            <option value="">Select a template…</option>
+            {% for t in cert_templates %}
+            <option value="{{ t.id }}" {% if event and event.cert_template_id == t.id %}selected{% endif %}>{{ t.name }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" id="cert-apply-template-btn" class="btn btn-outline btn-sm">Apply Template</button>
+        </div>
+        <p class="text-muted" style="font-size:.78rem;margin:.35rem 0 0">Imports the template’s <strong>visual layout</strong> (<code>cert_style</code>). Title, logo, background, signer, and other fields on this event are <strong>kept</strong> when the template leaves those blank; non-blank template values override. You can edit afterwards.{% if not event %} On a new event, the same layout is applied automatically when you save if a template stays selected.{% endif %}</p>
+      </div>
+      {% endif %}
       <div id="cert-freeform-banner" class="text-muted" style="display:none;font-size:.82rem;margin:-.5rem 0 1rem;padding:.6rem .75rem;background:var(--bg-muted,#f1f5f9);border-radius:8px;border:1px solid var(--color-border,#e2e8f0)">
         This event uses a <strong>visual (freeform)</strong> certificate layout. Open the designer to change positions. Legacy “per-element” typography controls below are hidden for this mode.
       </div>
-      <script type="application/json" id="ev-cert-style-saved">{{ {'s': event.cert_style or ''} | tojson }}</script>
-      {% endif %}
+      <script type="application/json" id="ev-cert-style-saved">{{ {'s': (event.cert_style if event else '') or ''} | tojson }}</script>
       <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
+      {% if event %}
+      <input type="hidden" id="cert-preview-event-id" value="{{ event.id }}">
+      {% endif %}
 
       <div class="cert-editor-layout">
       <div class="cert-editor-form">
@@ -303,6 +323,8 @@
           Preview PDF &#8599;
         </a>
       </div>
+      {% else %}
+      <p class="text-muted" style="font-size:.82rem;margin:1rem 0 0"><strong>Preview PDF</strong> is available after the event is created (Edit Event → Certificate).</p>
       {% endif %}
 
       <!-- Advanced Styling (legacy layout only — hidden when cert_style is v2 freeform) -->
@@ -2091,17 +2113,60 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
   });
 });
 
-// ─── Restore cert_style hidden from server (supports large JSON / freeform) ───
-(function () {
+// ─── cert_style from server (large JSON / freeform) — always a string for #cert-style-hidden ───
+function _readEmbeddedCertStyleSaved() {
   var el = document.getElementById('ev-cert-style-saved');
-  var hid = document.getElementById('cert-style-hidden');
-  if (el && hid) {
-    try {
-      var wrap = JSON.parse(el.textContent);
-      if (wrap && wrap.s) hid.value = wrap.s;
-    } catch (e) {}
+  if (!el) return '';
+  try {
+    var wrap = JSON.parse(el.textContent);
+    if (!wrap || !Object.prototype.hasOwnProperty.call(wrap, 's')) return '';
+    var s = wrap.s;
+    if (s === null || s === undefined) return '';
+    return typeof s === 'string' ? s : JSON.stringify(s);
+  } catch (e) {
+    return '';
   }
+}
+
+(function () {
+  var hid = document.getElementById('cert-style-hidden');
+  if (!hid) return;
+  var v = _readEmbeddedCertStyleSaved();
+  if (document.getElementById('ev-cert-style-saved')) hid.value = v;
 })();
+
+function _certRefreshCertificateChromeFromParsed(sty) {
+  if (!sty || typeof sty !== 'object') sty = {};
+  var hasLayers = Array.isArray(sty.layers) && sty.layers.length > 0;
+  var isFf = sty.version === 2 && String(sty.layout || '').toLowerCase() === 'freeform' && hasLayers;
+  var ban = document.getElementById('cert-freeform-banner');
+  if (ban) ban.style.display = isFf ? 'block' : 'none';
+  document.querySelectorAll('.cert-legacy-advanced-block').forEach(function (x) {
+    x.style.display = isFf ? 'none' : '';
+  });
+  function setVal(id, val) {
+    var el = document.getElementById(id);
+    if (el) el.value = val;
+  }
+  if (isFf) {
+    setVal('cert-style-border', sty.border_style || 'modern');
+    if (typeof _syncBorderPicker === 'function') _syncBorderPicker();
+    setVal('cert-style-border-width', sty.border_width != null ? sty.border_width : 1);
+    setVal('cert-style-bg-size', sty.bg_size || 'cover');
+    setVal('cert-style-bg-offset-x', (sty.bg_offset_x || 0));
+    setVal('cert-style-bg-offset-y', (sty.bg_offset_y || 0));
+  }
+}
+
+function _certRefreshCertificateChromeFromHidden() {
+  var hid = document.getElementById('cert-style-hidden');
+  var raw = (hid && hid.value) ? hid.value : '';
+  if (!raw && typeof _readEmbeddedCertStyleSaved === 'function') raw = _readEmbeddedCertStyleSaved();
+  var sty = {};
+  try { sty = JSON.parse(raw || '{}'); } catch (e) {}
+  _certRefreshCertificateChromeFromParsed(sty);
+  if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
+}
 
 // ─── Advanced Styling: init from cert_style JSON + toggle buttons ───
 (function () {
@@ -2123,11 +2188,8 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
   var raw = hidInit && hidInit.value ? hidInit.value : {{ ((event.cert_style if event else '') or '{}')|tojson }};
   var sty = {};
   try { sty = JSON.parse(raw); } catch(e) {}
-  if (sty.version === 2 && String(sty.layout || '').toLowerCase() === 'freeform') {
-    var ban = document.getElementById('cert-freeform-banner');
-    if (ban) ban.style.display = 'block';
-    document.querySelectorAll('.cert-legacy-advanced-block').forEach(function (x) { x.style.display = 'none'; });
-  }
+  var _certHasFreeformLayers = Array.isArray(sty.layers) && sty.layers.length > 0;
+  _certRefreshCertificateChromeFromParsed(sty);
   var elems = sty.elements || {};
 
   function setVal(id, val) {
@@ -2135,13 +2197,7 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
     if (el) el.value = val;
   }
 
-  if (sty.version === 2 && String(sty.layout || '').toLowerCase() === 'freeform') {
-    setVal('cert-style-border', sty.border_style || 'modern');
-    _syncBorderPicker();
-    setVal('cert-style-border-width', sty.border_width != null ? sty.border_width : 1);
-    setVal('cert-style-bg-size', sty.bg_size || 'cover');
-    setVal('cert-style-bg-offset-x', (sty.bg_offset_x || 0));
-    setVal('cert-style-bg-offset-y', (sty.bg_offset_y || 0));
+  if (sty.version === 2 && String(sty.layout || '').toLowerCase() === 'freeform' && _certHasFreeformLayers) {
     return;
   }
 
@@ -2317,6 +2373,9 @@ var _certPreviewSchedule = null;
     var styleJson = _buildCertStyleJson();
     fd.append('cert_style', styleJson);
 
+    var pe = document.getElementById('cert-preview-event-id');
+    if (pe && pe.value) fd.append('preview_event_id', pe.value);
+
     var csrfEl = document.querySelector('input[name="csrf_token"]');
     if (csrfEl) fd.append('csrf_token', csrfEl.value);
 
@@ -2361,11 +2420,17 @@ function _isColorCustom(id) {
 // ─── Build cert_style JSON from form fields ───
 function _buildCertStyleJson() {
   var hid = document.getElementById('cert-style-hidden');
-  if (hid && hid.value) {
+  var raw = (hid && hid.value) ? hid.value : '';
+  if (!raw && typeof _readEmbeddedCertStyleSaved === 'function') {
+    raw = _readEmbeddedCertStyleSaved();
+    if (raw && hid) hid.value = raw;
+  }
+  if (raw) {
     try {
-      var parsed = JSON.parse(hid.value);
-      if (parsed && parsed.version === 2 && String(parsed.layout || '').toLowerCase() === 'freeform') {
-        return hid.value;
+      var parsed = JSON.parse(raw);
+      var okLayers = Array.isArray(parsed.layers) && parsed.layers.length > 0;
+      if (parsed && parsed.version === 2 && String(parsed.layout || '').toLowerCase() === 'freeform' && okLayers) {
+        return raw;
       }
     } catch (e) {}
   }
@@ -2424,6 +2489,91 @@ function _buildCertStyleJson() {
     form.action = '/admin/events/' + evId[1] + '/certificate/save';
     form.submit();
     form.action = origAction;
+  });
+})();
+
+// ─── Apply certificate template (library) — POST for edit; fetch + merge for new event ───
+(function () {
+  function _certTplMeaningful(v) {
+    if (v == null) return false;
+    var s = String(v).trim();
+    if (!s) return false;
+    var l = s.toLowerCase();
+    return l !== 'none' && l !== 'null';
+  }
+  function _certMergeTplScalar(id, templateVal) {
+    if (!_certTplMeaningful(templateVal)) return;
+    var el = document.getElementById(id);
+    if (el) el.value = String(templateVal).trim();
+  }
+  var btn = document.getElementById('cert-apply-template-btn');
+  var sel = document.getElementById('cert-template-select');
+  if (!btn || !sel) return;
+  btn.addEventListener('click', function () {
+    var tid = sel.value;
+    if (!tid) {
+      if (window.TechTrek && typeof TechTrek.showToast === 'function') {
+        TechTrek.showToast('Select a template first.', 'warning');
+      } else {
+        alert('Select a template first.');
+      }
+      return;
+    }
+    var evMatch = (document.getElementById('event-form') && document.getElementById('event-form').action || '').match(/events\/(\d+)\/edit/);
+    if (evMatch) {
+      var csrf = document.querySelector('#event-form input[name="csrf_token"]');
+      var f = document.createElement('form');
+      f.method = 'POST';
+      f.action = '/admin/events/' + evMatch[1] + '/certificate/apply-template';
+      var cs = document.createElement('input');
+      cs.type = 'hidden';
+      cs.name = 'csrf_token';
+      cs.value = csrf ? csrf.value : '';
+      var ti = document.createElement('input');
+      ti.type = 'hidden';
+      ti.name = 'template_id';
+      ti.value = tid;
+      f.appendChild(cs);
+      f.appendChild(ti);
+      document.body.appendChild(f);
+      f.submit();
+      return;
+    }
+    fetch('/admin/certificate-templates/' + encodeURIComponent(tid) + '/apply-payload', {
+      credentials: 'same-origin',
+      headers: { Accept: 'application/json' },
+    })
+      .then(function (r) {
+        if (!r.ok) throw new Error('Could not load template');
+        return r.json();
+      })
+      .then(function (data) {
+        if (data.error) throw new Error(data.error);
+        var hid = document.getElementById('cert-style-hidden');
+        if (hid && data.cert_style != null) hid.value = typeof data.cert_style === 'string' ? data.cert_style : '';
+        var embed = document.getElementById('ev-cert-style-saved');
+        if (embed) embed.textContent = JSON.stringify({ s: (data.cert_style != null && data.cert_style) || '' });
+        _certMergeTplScalar('cert-title', data.cert_title);
+        _certMergeTplScalar('cert-subtitle', data.cert_subtitle);
+        _certMergeTplScalar('cert-footer', data.cert_footer);
+        _certMergeTplScalar('cert-signer-name', data.cert_signer_name);
+        _certMergeTplScalar('cert-signer-desg', data.cert_signer_designation);
+        _certMergeTplScalar('cert-signature-url', data.cert_signature_url);
+        _certMergeTplScalar('cert-logo-url', data.cert_logo_url);
+        _certMergeTplScalar('cert-bg-url', data.cert_bg_url);
+        if (_certTplMeaningful(data.cert_color_scheme)) {
+          var csel = document.getElementById('cert-color');
+          if (csel) csel.value = String(data.cert_color_scheme).trim();
+        }
+        if (typeof _certRefreshCertificateChromeFromHidden === 'function') _certRefreshCertificateChromeFromHidden();
+        else if (typeof _certPreviewSchedule === 'function') _certPreviewSchedule();
+        if (window.TechTrek && typeof TechTrek.showToast === 'function') {
+          TechTrek.showToast('Template applied to this form. Save the event to store it.', 'success');
+        }
+      })
+      .catch(function (e) {
+        alert(e.message || 'Failed to apply template');
+      });
   });
 })();
 

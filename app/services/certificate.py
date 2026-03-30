@@ -601,6 +601,7 @@ def _raw_cert_style_dict(cert_source) -> dict:
 
 
 def is_freeform_cert_style(d: dict) -> bool:
+    """True when JSON declares v2 freeform (layers key must be a list; may be empty)."""
     if not isinstance(d, dict):
         return False
     return (
@@ -608,6 +609,11 @@ def is_freeform_cert_style(d: dict) -> bool:
         and str(d.get("layout") or "").lower() == "freeform"
         and isinstance(d.get("layers"), list)
     )
+
+
+def should_render_certificate_as_freeform(d: dict) -> bool:
+    """PDF uses freeform only when there is at least one layer (avoids legacy fallback for broken saves)."""
+    return is_freeform_cert_style(d) and len(d.get("layers") or []) > 0
 
 
 def default_freeform_cert_style_dict() -> dict:
@@ -674,6 +680,34 @@ def default_freeform_cert_style_dict() -> dict:
     }
 
 
+def _normalize_cert_scalar_raw(value) -> str | None:
+    """Treat None, blank, and literal 'none'/'null' as missing (bad imports / ORM artifacts)."""
+    if value is None:
+        return None
+    s = str(value).strip()
+    if not s:
+        return None
+    if s.lower() in ("none", "null"):
+        return None
+    return s
+
+
+def merge_cert_scalar_from_template(template_value, event_value):
+    """
+    When applying a library certificate template: copy a scalar from the template only if it is
+    meaningful; otherwise keep the event's existing value (visual-only templates often have NULLs).
+    """
+    t = _normalize_cert_scalar_raw(template_value)
+    if t is not None:
+        return t
+    return event_value
+
+
+def normalize_cert_scalar_for_storage(value) -> str | None:
+    """Normalize form/API values before persisting to cert_* columns."""
+    return _normalize_cert_scalar_raw("" if value is None else value)
+
+
 def _freeform_top_level(raw: dict) -> dict:
     """Border / background keys for v2 (mirrors legacy merged top-level)."""
     return {
@@ -689,11 +723,17 @@ def _freeform_top_level(raw: dict) -> dict:
 
 
 def _build_cert_variable_context(booking, user, event, auditorium, cert_source) -> dict:
-    cert_title = getattr(cert_source, "cert_title", None) or "CERTIFICATE OF ATTENDANCE"
-    cert_subtitle = getattr(cert_source, "cert_subtitle", None) or "This certificate is proudly presented to"
-    cert_footer_txt = getattr(cert_source, "cert_footer", None) or "\u00a9 2026 TechTrek. All rights reserved."
-    signer_name = (getattr(cert_source, "cert_signer_name", None) or "").strip()
-    signer_desg = (getattr(cert_source, "cert_signer_designation", None) or "").strip()
+    cert_title = _normalize_cert_scalar_raw(getattr(cert_source, "cert_title", None)) or "CERTIFICATE OF ATTENDANCE"
+    cert_subtitle = (
+        _normalize_cert_scalar_raw(getattr(cert_source, "cert_subtitle", None))
+        or "This certificate is proudly presented to"
+    )
+    cert_footer_txt = (
+        _normalize_cert_scalar_raw(getattr(cert_source, "cert_footer", None))
+        or "\u00a9 2026 TechTrek. All rights reserved."
+    )
+    signer_name = _normalize_cert_scalar_raw(getattr(cert_source, "cert_signer_name", None)) or ""
+    signer_desg = _normalize_cert_scalar_raw(getattr(cert_source, "cert_signer_designation", None)) or ""
 
     attendee_name = user.full_name or user.username
     session_title = getattr(event, "name", "Event") if event else "Event"
@@ -863,9 +903,8 @@ def _generate_certificate_freeform(
     auditorium,
     raw: dict,
 ) -> bytes:
-    logo_url = getattr(cert_source, "cert_logo_url", None) or ""
-    signature_url = getattr(cert_source, "cert_signature_url", None) or ""
-    bg_url = getattr(cert_source, "cert_bg_url", None) or ""
+    logo_url = _normalize_cert_scalar_raw(getattr(cert_source, "cert_logo_url", None)) or ""
+    signature_url = _normalize_cert_scalar_raw(getattr(cert_source, "cert_signature_url", None)) or ""
     color_scheme = getattr(cert_source, "cert_color_scheme", None)
     qr_data = getattr(booking, "qr_code_data", None) or f"CERT-{booking.booking_ref}"
 
@@ -897,6 +936,9 @@ def _generate_certificate_freeform(
     buf = io.BytesIO()
     c = pdf_canvas.Canvas(buf, pagesize=(page_w, page_h))
 
+    raw_bg = _normalize_cert_scalar_raw(raw.get("background_image_url"))
+    fallback_bg = _normalize_cert_scalar_raw(getattr(cert_source, "cert_bg_url", None)) or ""
+    bg_url = (raw_bg or "") or fallback_bg
     _draw_freeform_background(c, page_w, page_h, bg_url, top)
 
     border_fn = BORDER_STYLES.get(top.get("border_style", "classic"), _border_classic)
@@ -916,11 +958,13 @@ def _generate_certificate_freeform(
 
         if t == "image":
             role = str(layer.get("imageRole") or "custom").lower()
-            url = (layer.get("url") or "").strip()
+            layer_url = (layer.get("url") or "").strip()
             if role == "logo":
-                url = logo_url
+                url = layer_url or logo_url
             elif role == "signature":
-                url = signature_url
+                url = layer_url or signature_url
+            else:
+                url = layer_url
             img = _try_load_image(url)
             if not img:
                 continue
@@ -936,7 +980,8 @@ def _generate_certificate_freeform(
                 c.translate(cx, cy)
                 c.rotate(-rot)
                 c.translate(-cx, -cy)
-            c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=True, mask="auto")
+            # Match certificate-designer.js (Fabric scales image to fill widthPt×heightPt; no letterboxing).
+            c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=False, mask="auto")
             c.restoreState()
             continue
 
@@ -1179,7 +1224,7 @@ def legacy_cert_style_to_freeform_dict(cert_source) -> dict:
 def generate_certificate_pdf(booking, user, cert_source, event, auditorium) -> bytes:
     _register_fonts()
     raw = _raw_cert_style_dict(cert_source)
-    if is_freeform_cert_style(raw):
+    if should_render_certificate_as_freeform(raw):
         return _generate_certificate_freeform(booking, user, cert_source, event, auditorium, raw)
     return _generate_certificate_legacy(booking, user, cert_source, event, auditorium)
 
@@ -1187,14 +1232,20 @@ def generate_certificate_pdf(booking, user, cert_source, event, auditorium) -> b
 def _generate_certificate_legacy(booking, user, cert_source, event, auditorium) -> bytes:
     _register_fonts()
 
-    cert_title      = getattr(cert_source, "cert_title", None) or "CERTIFICATE OF ATTENDANCE"
-    cert_subtitle   = getattr(cert_source, "cert_subtitle", None) or "This certificate is proudly presented to"
-    cert_footer_txt = getattr(cert_source, "cert_footer", None) or "\u00a9 2026 TechTrek. All rights reserved."
-    signer_name     = (getattr(cert_source, "cert_signer_name", None) or "").strip()
-    signer_desg     = (getattr(cert_source, "cert_signer_designation", None) or "").strip()
-    signature_url   = getattr(cert_source, "cert_signature_url", None) or ""
-    logo_url        = getattr(cert_source, "cert_logo_url", None) or ""
-    bg_url          = getattr(cert_source, "cert_bg_url", None) or ""
+    cert_title = _normalize_cert_scalar_raw(getattr(cert_source, "cert_title", None)) or "CERTIFICATE OF ATTENDANCE"
+    cert_subtitle = (
+        _normalize_cert_scalar_raw(getattr(cert_source, "cert_subtitle", None))
+        or "This certificate is proudly presented to"
+    )
+    cert_footer_txt = (
+        _normalize_cert_scalar_raw(getattr(cert_source, "cert_footer", None))
+        or "\u00a9 2026 TechTrek. All rights reserved."
+    )
+    signer_name = _normalize_cert_scalar_raw(getattr(cert_source, "cert_signer_name", None)) or ""
+    signer_desg = _normalize_cert_scalar_raw(getattr(cert_source, "cert_signer_designation", None)) or ""
+    signature_url = _normalize_cert_scalar_raw(getattr(cert_source, "cert_signature_url", None)) or ""
+    logo_url = _normalize_cert_scalar_raw(getattr(cert_source, "cert_logo_url", None)) or ""
+    bg_url = _normalize_cert_scalar_raw(getattr(cert_source, "cert_bg_url", None)) or ""
     color_scheme    = getattr(cert_source, "cert_color_scheme", None)
 
     clr = _get_colors(color_scheme)

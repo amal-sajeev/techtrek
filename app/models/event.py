@@ -33,6 +33,7 @@ class Event(Base):
     cert_signature_url = Column(String(500), nullable=True)
     cert_color_scheme = Column(String(20), nullable=True)
     cert_style = Column(Text, nullable=True)
+    cert_template_id = Column(Integer, ForeignKey("certificate_templates.id"), nullable=True)
     feedback_template_id = Column(Integer, ForeignKey("feedback_templates.id"), nullable=True)
     created_at = Column(DateTime, default=now_ist)
 
@@ -44,4 +45,5 @@ class Event(Base):
     breaks = relationship("EventBreak", back_populates="event", cascade="all, delete-orphan", order_by="EventBreak.order, EventBreak.start_time")
     addons = relationship("EventAddOn", back_populates="event", cascade="all, delete-orphan")
     waitlist_entries = relationship("Waitlist", back_populates="event")
+    cert_template = relationship("CertificateTemplate", back_populates="events", foreign_keys=[cert_template_id])
     feedback_template = relationship("FeedbackTemplate", back_populates="events")

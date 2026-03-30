@@ -28,7 +28,7 @@ async def csrf_protection(request: Request, csrf_token: str = Form(default="")) 
     """Router-level dependency: skip CSRF for safe methods and JSON requests."""
     if request.method not in ("POST", "PUT", "PATCH", "DELETE"):
         return
-    content_type = request.headers.get("content-type", "")
+    content_type = (request.headers.get("content-type") or "").lower()
     if "application/json" in content_type:
         # JSON/XHR endpoints are protected by SameSite=lax + session auth
         return

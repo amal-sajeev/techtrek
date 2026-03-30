@@ -1,0 +1,138 @@
+{% extends "admin/base_admin.html" %}
+{% block title %}{% if tpl %}Edit Certificate Template{% else %}New Certificate Template{% endif %} — Admin{% endblock %}
+
+{% block admin_content %}
+<div class="admin-header">
+  <h1 class="admin-page-title">{% if tpl %}Edit Certificate Template{% else %}New Certificate Template{% endif %}</h1>
+  <a href="/admin/certificate-templates" class="btn btn-outline btn-sm">← Back to Templates</a>
+</div>
+
+<form method="post" action="/admin/certificate-templates/{% if tpl %}{{ tpl.id }}/edit{% else %}new{% endif %}" id="cert-tpl-form">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
+
+  {% if tpl %}
+  <script type="application/json" id="tpl-cert-style-saved">{{ {'s': tpl.cert_style or ''} | tojson }}</script>
+  {% endif %}
+
+  <div style="max-width:860px">
+
+    <div class="form-group">
+      <label class="form-label" for="tpl-name">Template Name <span style="color:#ef4444">*</span></label>
+      <input type="text" name="name" id="tpl-name" class="form-input" required
+             value="{{ tpl.name if tpl else '' }}" placeholder="e.g. Standard Attendance Certificate">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="tpl-desc">Description</label>
+      <input type="text" name="description" id="tpl-desc" class="form-input"
+             value="{{ tpl.description if tpl else '' }}" placeholder="Optional note about this template">
+    </div>
+
+    {% if not tpl %}
+    {# New template: just name + description, then straight to the designer #}
+    <div style="margin-top:1.5rem;display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
+      <button type="submit" class="btn btn-primary">Create &amp; open designer →</button>
+      <a href="/admin/certificate-templates" class="btn btn-outline">Cancel</a>
+    </div>
+
+    {% else %}
+    {# Existing template: show all cert fields + designer link #}
+    <hr style="margin:1.5rem 0;border-color:var(--color-border,#e2e8f0)">
+    <h3 style="font-size:1rem;font-weight:600;margin:0 0 .25rem">Certificate Content</h3>
+    <p class="text-muted" style="font-size:.82rem;margin:0 0 1rem">These fields are copied to an event when you apply this template. You can freely edit them on the event afterwards without affecting this template.</p>
+
+    <div style="margin-bottom:1rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
+      <a href="/admin/certificate-templates/{{ tpl.id }}/designer" class="btn btn-primary btn-sm">Open visual designer</a>
+      <a href="/admin/certificate-templates/{{ tpl.id }}/certificate/preview" target="_blank" class="btn btn-outline btn-sm">Preview PDF ↗</a>
+    </div>
+    {% if tpl.cert_style %}
+    <div style="font-size:.82rem;margin:-.25rem 0 1rem;padding:.6rem .75rem;background:var(--bg-muted,#f1f5f9);border-radius:8px;border:1px solid var(--color-border,#e2e8f0);color:var(--text-muted)">
+      This template has a <strong>visual (freeform)</strong> layout saved. Use the designer to edit it.
+    </div>
+    {% endif %}
+
+    <div style="display:grid;grid-template-columns:1fr auto;gap:.75rem;align-items:end">
+      <div class="form-group" style="margin:0">
+        <label class="form-label" for="tpl-cert-title">Certificate Title</label>
+        <input type="text" name="cert_title" id="tpl-cert-title" class="form-input"
+               value="{{ tpl.cert_title or '' }}" placeholder="Certificate of Attendance">
+      </div>
+      <div class="form-group" style="margin:0;min-width:180px">
+        <label class="form-label" for="tpl-cert-color">Color Scheme</label>
+        <select name="cert_color_scheme" id="tpl-cert-color" class="form-input" data-no-tomselect>
+          {% set schemes = [('', 'Teal (Default)'), ('teal', 'Teal'), ('navy', 'Navy'), ('emerald', 'Emerald'), ('royal', 'Royal Purple'), ('crimson', 'Crimson')] %}
+          {% for val, label in schemes %}
+          <option value="{{ val }}" {% if tpl.cert_color_scheme == val %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="tpl-cert-subtitle">Custom Subtitle / Message</label>
+      <textarea name="cert_subtitle" id="tpl-cert-subtitle" class="form-input" rows="2"
+                placeholder="This certificate is proudly presented to">{{ tpl.cert_subtitle or '' }}</textarea>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div class="form-group">
+        <label class="form-label" for="tpl-cert-signer-name">Signer Name</label>
+        <input type="text" name="cert_signer_name" id="tpl-cert-signer-name" class="form-input"
+               value="{{ tpl.cert_signer_name or '' }}" placeholder="e.g. Dr. Priya Sharma">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="tpl-cert-signer-desg">Signer Designation</label>
+        <input type="text" name="cert_signer_designation" id="tpl-cert-signer-desg" class="form-input"
+               value="{{ tpl.cert_signer_designation or '' }}" placeholder="e.g. Program Director">
+      </div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+      <div class="form-group">
+        <label class="form-label" for="tpl-cert-logo-url">Logo Image URL</label>
+        <input type="text" name="cert_logo_url" id="tpl-cert-logo-url" class="form-input"
+               value="{{ tpl.cert_logo_url or '' }}" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label class="form-label" for="tpl-cert-signature-url">Signature Image URL</label>
+        <input type="text" name="cert_signature_url" id="tpl-cert-signature-url" class="form-input"
+               value="{{ tpl.cert_signature_url or '' }}" placeholder="https://...">
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="tpl-cert-bg-url">Background Image URL</label>
+      <input type="text" name="cert_bg_url" id="tpl-cert-bg-url" class="form-input"
+             value="{{ tpl.cert_bg_url or '' }}" placeholder="https://...">
+    </div>
+
+    <div class="form-group">
+      <label class="form-label" for="tpl-cert-footer">Custom Footer Text</label>
+      <input type="text" name="cert_footer" id="tpl-cert-footer" class="form-input"
+             value="{{ tpl.cert_footer or '' }}" placeholder="© 2026 TechTrek. All rights reserved.">
+    </div>
+
+    <div style="margin-top:1.5rem;display:flex;gap:.75rem;flex-wrap:wrap">
+      <button type="submit" class="btn btn-primary">Save changes</button>
+      <a href="/admin/certificate-templates" class="btn btn-outline">Back to list</a>
+    </div>
+
+    {% endif %}
+
+  </div>
+</form>
+
+<script>
+(function () {
+  var hiddenInput = document.getElementById('cert-style-hidden');
+  var savedEl = document.getElementById('tpl-cert-style-saved');
+  if (savedEl) {
+    try {
+      var saved = JSON.parse(savedEl.textContent).s || '';
+      hiddenInput.value = saved;
+    } catch (e) {}
+  }
+})();
+</script>
+{% endblock %}

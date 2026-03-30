@@ -267,7 +267,7 @@ def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None) -> 
             b.coupon_id = coupon.id
         b.ticket_id = _generate_ticket_id()
         b.invoice_number = invoice_num
-        b.qr_code_data = _generate_qr_base64(b.ticket_id)
+        b.qr_code_data = f"{settings.base_url}/certificate/verify/{b.ticket_id}"
         b.booking_group = group_id
         if group_qr:
             b.group_qr_data = group_qr

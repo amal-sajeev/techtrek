@@ -16,6 +16,7 @@ cryptography
 authlib
 pytest
 httpx
+openai>=1.55
 requests
 openpyxl
 pypdfium2

@@ -1,5 +1,10 @@
-from pydantic import model_validator
-from pydantic_settings import BaseSettings
+from pathlib import Path
+
+from pydantic import field_validator, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# Resolve .env from the repo root so OPENAI_API_KEY etc. load correctly even if cwd is not the project folder.
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
 
 class Settings(BaseSettings):
@@ -64,10 +69,32 @@ class Settings(BaseSettings):
 
     base_url: str = "https://192.168.10.82:8000"
 
+    # Optional: admin certificate AI (two OpenAI calls per generation — image + vision layout).
+    # Stripped below; surrounding quotes removed so OPENAI_API_KEY="sk-..." in .env works.
+    openai_api_key: str = ""
+
+    @field_validator("openai_api_key", mode="before")
+    @classmethod
+    def _normalize_openai_api_key(cls, v: object) -> str:
+        if v is None:
+            return ""
+        s = str(v).strip()
+        if len(s) >= 2 and s[0] == s[-1] and s[0] in "\"'":
+            s = s[1:-1].strip()
+        return s
+    openai_cert_image_model: str = "gpt-image-1.5"
+    openai_cert_image_quality: str = "medium"
+    openai_cert_layout_model: str = "gpt-5.4-mini"
+    openai_metrics_report_model: str = "gpt-5.4-mini"
+
     google_client_id: str = ""
     google_client_secret: str = ""
 
-    model_config = {"env_file": ".env"}
+    model_config = SettingsConfigDict(
+        env_file=_PROJECT_ROOT / ".env",
+        env_file_encoding="utf-8",
+        extra="ignore",
+    )
 
 
 settings = Settings()
