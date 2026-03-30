@@ -27,6 +27,6 @@ if __name__ == "__main__":
         print(f"  [HTTPS] enabled — https://localhost:8000")
         print(f"           From other devices: https://<this-PC-IP>:8000 (run: python scripts/gen_cert.py to include LAN IP in cert)")
     else:
-        print(f"  [HTTP] No certs at {cert_dir} — running plain HTTP")
+        print(f"  [HTTP] No certs at {default_cert.parent} — running plain HTTP")
 
     uvicorn.run("app.main:app", **kwargs)

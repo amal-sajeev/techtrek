@@ -22,9 +22,15 @@ async def razorpay_webhook(request: Request):
     body = await request.body()
     signature = request.headers.get("X-Razorpay-Signature", "")
 
-    if settings.razorpay_key_secret and signature:
-        if not verify_webhook_signature(body, signature, settings.razorpay_key_secret):
-            return JSONResponse({"error": "Invalid signature"}, status_code=400)
+    if not settings.razorpay_key_secret:
+        log.warning("Razorpay webhook received but razorpay_key_secret is not configured")
+        return JSONResponse({"error": "Webhook not configured"}, status_code=503)
+
+    if not signature:
+        return JSONResponse({"error": "Missing signature header"}, status_code=400)
+
+    if not verify_webhook_signature(body, signature, settings.razorpay_key_secret):
+        return JSONResponse({"error": "Invalid signature"}, status_code=400)
 
     try:
         payload = json.loads(body)

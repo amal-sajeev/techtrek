@@ -91,7 +91,8 @@ application.mount("/static", StaticFiles(directory=str(BASE_DIR / "static")), na
 
 from app import models as _models  # noqa: F401, E402
 
-Base.metadata.create_all(bind=engine)
+if settings.debug:
+    Base.metadata.create_all(bind=engine)
 
 from app.routers import auth, public, booking, admin, supervisor, speaker  # noqa: E402
 from app.routers import webhook  # noqa: E402

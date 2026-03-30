@@ -121,7 +121,7 @@
             applyResults(data.poll);
           }
         })
-        .catch(function(){});
+        .catch(function(){ console.warn('Poll refresh failed'); });
     }
 
     function applyResults(d){

@@ -400,7 +400,7 @@
           {% endif %}
           {% if item.embed_url %}
             <div class="video-embed-wrap">
-              <iframe src="{{ item.embed_url }}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
+              <iframe src="{{ item.embed_url }}" title="Recording: {{ item.title or 'Session recording' }}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
             </div>
           {% else %}
             <a href="{{ item.rec.url }}" target="_blank" rel="noopener" class="btn btn-primary">&#9654; Watch Recording</a>
@@ -928,7 +928,7 @@
           currentPollId = null;
         }
       })
-      .catch(function() {});
+      .catch(function() { console.warn('Poll refresh failed'); });
   }
   refreshPoll();
   setInterval(refreshPoll, 2000);

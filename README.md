@@ -62,61 +62,25 @@ Open [http://127.0.0.1:8000](http://127.0.0.1:8000) in your browser.
 
 ## Configuration
 
-Settings are loaded from `.env`:
+Copy `.env.example` to `.env` and fill in real values. The following are **required**:
 
 ```
-DATABASE_URL=sqlite:///./techtrak.db
-SECRET_KEY=your-secret-key
-DEBUG=true
+SECRET_KEY=<at-least-32-char-hex-string>
+FIELD_ENCRYPTION_KEY=<fernet-key-44-char-base64>
+DATABASE_URL=postgresql+psycopg2://user:password@localhost:5432/techtrek
 ```
 
-For PostgreSQL, change `DATABASE_URL`:
-
-```
-DATABASE_URL=postgresql://user:pass@localhost:5432/techtrek
-```
-
-And add `psycopg2-binary` to your dependencies:
+Generate the keys:
 
 ```bash
-pip install psycopg2-binary
+# SECRET_KEY
+python -c "import secrets; print(secrets.token_hex(32))"
+
+# FIELD_ENCRYPTION_KEY
+python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
 ```
 
-## Internationalization (i18n) — Planning
-
-### Decision
-
-Since TechTrek uses **FastAPI** (not Flask), Flask-Babel is not directly usable. The chosen
-approach is **Babel** (the core Python i18n library) with custom Jinja2 integration:
-
-- Template strings are marked with `_()` / `gettext()` markers
-- Extraction uses `pybabel extract -F babel.cfg -o messages.pot .`
-- Translation files stored in `app/translations/<locale>/LC_MESSAGES/`
-- Locale switching middleware and UI will be added in a future sprint
-
-### Supported Locales (initial rollout)
-
-| Locale | Language | Status |
-|--------|----------|--------|
-| `en` | English | Default — all strings authored in English |
-| `hi` | Hindi | Planned — pending stakeholder confirmation |
-| TBD | Regional language | Planned — to be decided with stakeholders |
-
-### Configuration
-
-Add to `.env`:
-
-```
-BABEL_DEFAULT_LOCALE=en
-BABEL_DEFAULT_TIMEZONE=Asia/Kolkata
-```
-
-### Current Status
-
-- `babel.cfg` extraction config created
-- `BABEL_DEFAULT_LOCALE` and `BABEL_DEFAULT_TIMEZONE` added to `config.py`
-- Template string audit and `_()` marking is in progress as a preparatory step
-- Full translation file authoring and locale switching UI deferred to an upcoming sprint
+See `.env.example` for the full list of optional settings (Razorpay, SMTP, Google OAuth, SSL, etc.).
 
 ## Tech Stack
 
@@ -124,4 +88,3 @@ BABEL_DEFAULT_TIMEZONE=Asia/Kolkata
 - **Frontend**: HTML/CSS/JS (no frameworks)
 - **Database**: SQLite (development) / PostgreSQL (production)
 - **Auth**: Session-based with bcrypt password hashing
-- **i18n**: Babel (planned)

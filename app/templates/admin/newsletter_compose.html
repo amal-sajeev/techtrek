@@ -65,7 +65,7 @@
         <span class="nl-preview-label">Email Preview</span>
         <button type="button" class="btn btn-outline btn-sm" onclick="refreshPreview()">Refresh</button>
       </div>
-      <iframe id="nl-preview-frame" class="nl-preview-frame" sandbox="allow-same-origin"></iframe>
+      <iframe id="nl-preview-frame" class="nl-preview-frame" title="Newsletter preview" sandbox="allow-same-origin"></iframe>
     </div>
 
   </div>
@@ -149,7 +149,7 @@
         var frame = document.getElementById('nl-preview-frame');
         frame.srcdoc = previewHtml;
       })
-      .catch(function() {});
+      .catch(function() { if (window.TechTrek) TechTrek.showToast('Preview failed.', 'error'); });
   };
 
   function uploadImage() {

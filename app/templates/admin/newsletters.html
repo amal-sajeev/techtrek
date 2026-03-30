@@ -107,7 +107,7 @@
             ids = ids.filter(function(x) { return x !== id; });
           }
         })
-        .catch(function() {});
+        .catch(function() { console.warn('Newsletter status poll failed'); });
     });
     if (ids.length > 0) setTimeout(poll, 3000);
   }

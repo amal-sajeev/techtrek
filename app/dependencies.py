@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 from typing import Any, Optional
 
@@ -13,6 +14,8 @@ from app.database import SessionLocal
 from app.models.speaker import Speaker
 from app.models.user import User
 from app.utils import now_ist  # noqa: F401 — re-exported for routers
+
+ASSET_VERSION = str(int(time.time()))
 
 BASE_DIR = Path(__file__).resolve().parent
 
@@ -48,6 +51,7 @@ def _gettext_noop(s: str) -> str:
 
 templates.env.globals["_"] = _gettext_noop
 templates.env.globals["gettext"] = _gettext_noop
+templates.env.globals["asset_version"] = ASSET_VERSION
 
 
 def get_db():

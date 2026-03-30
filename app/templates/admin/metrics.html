@@ -1,202 +1,669 @@
 {% extends "admin/base_admin.html" %}
 {% block title %}Metrics — Admin — TechTrek{% endblock %}
 
+{% block head_extra %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% endblock %}
+
 {% block admin_content %}
-<div class="admin-header">
-  <h1 class="admin-page-title">Metrics</h1>
+<div class="m-ph">
+  <h1 class="m-ph-title">METRICS</h1>
+  <span class="m-ph-slash">//</span>
+  <span class="m-ph-sub">PLATFORM ANALYTICS</span>
 </div>
 
-<!-- Filter Bar -->
-<form method="get" action="/admin/metrics" class="metrics-filter-bar">
-  <div class="metrics-filter-group">
-    <label class="metrics-filter-label">From</label>
-    <input type="date" name="date_from" class="form-input" value="{{ f_date_from or '' }}">
-  </div>
-  <div class="metrics-filter-group">
-    <label class="metrics-filter-label">To</label>
-    <input type="date" name="date_to" class="form-input" value="{{ f_date_to or '' }}">
-  </div>
-  <div class="metrics-filter-group metrics-filter-grow">
-    <label class="metrics-filter-label">Event</label>
-    <select name="event_id" class="form-input">
+{# ── Filter Bar ── #}
+<form method="get" action="/admin/metrics" class="m-fbar">
+  <div class="m-fg"><label class="m-fl">From</label><input type="date" name="date_from" class="m-fi" value="{{ f_date_from or '' }}"></div>
+  <div class="m-fg"><label class="m-fl">To</label><input type="date" name="date_to" class="m-fi" value="{{ f_date_to or '' }}"></div>
+  <div class="m-fg grow">
+    <label class="m-fl">Event</label>
+    <select name="event_id" class="m-fi">
       <option value="">All Events</option>
-      {% for ev in all_events %}
-      <option value="{{ ev.id }}" {% if f_event_id == ev.id|string %}selected{% endif %}>{{ ev.name }}</option>
-      {% endfor %}
+      {% for ev in all_events %}<option value="{{ ev.id }}" {% if f_event_id == ev.id|string %}selected{% endif %}>{{ ev.name }}</option>{% endfor %}
     </select>
   </div>
-  <div class="metrics-filter-group">
-    <label class="metrics-filter-label">College</label>
-    <select name="college_id" class="form-input">
+  <div class="m-fg">
+    <label class="m-fl">College</label>
+    <select name="college_id" class="m-fi">
       <option value="">All Colleges</option>
-      {% for c in all_colleges %}
-      <option value="{{ c.id }}" {% if f_college_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>
-      {% endfor %}
+      {% for c in all_colleges %}<option value="{{ c.id }}" {% if f_college_id == c.id|string %}selected{% endif %}>{{ c.name }}</option>{% endfor %}
     </select>
   </div>
-  <div class="metrics-filter-actions">
+  <div class="m-fa">
     <button type="submit" class="btn btn-sm btn-primary">Apply</button>
     <a href="/admin/metrics" class="btn btn-sm btn-outline">Reset</a>
   </div>
 </form>
 
-<!-- Row 1: Status + Cities + Specializations -->
-<div class="dashboard-panels dashboard-panels-3 mt-3">
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Event Status Breakdown</h3>
-    {% if event_statuses %}
-    <div class="status-breakdown">
-      {% for status, count in event_statuses.items() %}
-      <div class="status-row">
-        <span class="badge {% if status == 'published' %}badge-success{% elif status == 'draft' %}badge-draft{% elif status == 'completed' %}badge-available{% elif status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">{{ status|replace('_',' ')|title }}</span>
-        <span class="status-count">{{ count }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-muted">No events match the filters.</p>
-    {% endif %}
+{# ── KPI Cards ── #}
+<div class="m-kpi-grid">
+  <div class="m-kpi" style="--m-kc:var(--cyan)">
+    <div class="m-kpi-top"><div class="m-kpi-ico">&#128101;</div><div class="m-kpi-lbl">Total Users</div></div>
+    <div class="m-kpi-val">{{ "{:,}".format(total_users) }}</div>
   </div>
-
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Top Cities</h3>
-    {% if top_cities %}
-    <div class="top-cities-list">
-      {% for city in top_cities %}
-      <div class="city-row">
-        <span class="city-name">{{ city.name }}</span>
-        <span class="city-bar-wrapper">
-          <span class="city-bar" style="width:{{ (city.count / top_cities[0].count * 100)|round(0) }}%"></span>
-        </span>
-        <span class="city-count">{{ city.count }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-muted">No city data for this filter.</p>
-    {% endif %}
+  <div class="m-kpi" style="--m-kc:var(--green, #10b981)">
+    <div class="m-kpi-top"><div class="m-kpi-ico">&#8377;</div><div class="m-kpi-lbl">Total Revenue</div></div>
+    <div class="m-kpi-val" style="font-size:1.88rem">&#8377;{{ "{:,.0f}".format(total_revenue) }}</div>
   </div>
-
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Top Specializations</h3>
-    {% if top_specializations %}
-    <div class="top-cities-list">
-      {% for spec in top_specializations %}
-      <div class="city-row">
-        <span class="city-name">{{ spec.name }}</span>
-        <span class="city-bar-wrapper">
-          <span class="city-bar" style="width:{{ (spec.count / top_specializations[0].count * 100)|round(0) }}%"></span>
-        </span>
-        <span class="city-count">{{ spec.count }}</span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-muted">No specialization data.</p>
-    {% endif %}
+  <div class="m-kpi" style="--m-kc:var(--violet, #8b5cf6)">
+    <div class="m-kpi-top"><div class="m-kpi-ico">&#127915;</div><div class="m-kpi-lbl">Total Bookings</div></div>
+    <div class="m-kpi-val">{{ "{:,}".format(total_bookings) }}</div>
+  </div>
+  <div class="m-kpi" style="--m-kc:var(--amber, #f59e0b)">
+    <div class="m-kpi-top"><div class="m-kpi-ico">&#10003;</div><div class="m-kpi-lbl">Check-in Rate</div></div>
+    <div class="m-kpi-val">{{ checkin_rate }}%</div>
+  </div>
+  <div class="m-kpi" style="--m-kc:var(--amber, #f59e0b)">
+    <div class="m-kpi-top"><div class="m-kpi-ico">&#11088;</div><div class="m-kpi-lbl">Avg Rating</div></div>
+    <div class="m-kpi-val">{{ avg_rating }}<small style="font-size:1.35rem">/5</small></div>
+  </div>
+  <div class="m-kpi" style="--m-kc:var(--cyan)">
+    <div class="m-kpi-top"><div class="m-kpi-ico">&#127942;</div><div class="m-kpi-lbl">Active Events</div></div>
+    <div class="m-kpi-val">{{ event_statuses.get('published', 0) }}</div>
   </div>
 </div>
 
-<!-- Row 2: Best Sessions + Speakers + Colleges -->
-<div class="dashboard-panels dashboard-panels-3 mt-3">
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Best Rated Sessions</h3>
-    {% if best_sessions %}
-    <div class="top-cities-list">
-      {% for s in best_sessions %}
-      <div class="city-row">
-        <span class="city-name">{{ s.title }}</span>
-        <span class="city-bar-wrapper">
-          <span class="city-bar" style="width:{{ (s.avg / 5 * 100)|round(0) }}%"></span>
-        </span>
-        <span class="city-count">{{ s.avg }}<small>/5</small></span>
-      </div>
-      {% endfor %}
-    </div>
-    {% else %}
-    <p class="text-muted">No session feedback data.</p>
-    {% endif %}
-  </div>
+{# ── Tabs ── #}
+<div class="m-tabs">
+  <button class="m-tab-btn on" data-tab="overview" type="button">&#128202; Overview</button>
+  <button class="m-tab-btn" data-tab="users" type="button">&#128101; Users</button>
+  <button class="m-tab-btn" data-tab="events" type="button">&#127942; Events</button>
+  <button class="m-tab-btn" data-tab="revenue" type="button">&#8377; Revenue</button>
+  <button class="m-tab-btn" data-tab="feedback" type="button">&#11088; Feedback</button>
+  <button class="m-tab-btn" data-tab="sessions" type="button">&#127916; Sessions</button>
+  <button class="m-tab-btn" data-tab="system" type="button">&#9881; System</button>
+</div>
 
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Best Rated Speakers</h3>
-    {% if best_speakers %}
-    <div class="top-cities-list">
-      {% for s in best_speakers %}
-      <div class="city-row">
-        <span class="city-name">{{ s.name }}</span>
-        <span class="city-bar-wrapper">
-          <span class="city-bar" style="width:{{ (s.avg / 5 * 100)|round(0) }}%"></span>
-        </span>
-        <span class="city-count">{{ s.avg }}<small>/5</small></span>
-      </div>
-      {% endfor %}
+{# ══════════════════════════════════════════════
+   OVERVIEW TAB
+   ══════════════════════════════════════════════ #}
+<div class="m-tp on" id="tp-overview">
+  <div class="m-cg m-cg2">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Bookings Over Time</div><div class="m-badge">12 Months</div></div>
+      <div class="m-cw" style="height:210px"><canvas id="mc-bkm"></canvas></div>
     </div>
-    {% else %}
-    <p class="text-muted">No speaker feedback data.</p>
-    {% endif %}
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Revenue Over Time</div><div class="m-badge g">12 Months</div></div>
+      <div class="m-cw" style="height:210px"><canvas id="mc-revm"></canvas></div>
+    </div>
   </div>
-
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Most Successful Colleges</h3>
-    {% if top_colleges %}
-    <div class="top-cities-list">
-      {% for c in top_colleges %}
-      <div class="city-row">
-        <span class="city-name">{{ c.name }}</span>
-        <span class="city-bar-wrapper">
-          <span class="city-bar" style="width:{{ (c.count / top_colleges[0].count * 100)|round(0) }}%"></span>
-        </span>
-        <span class="city-count">{{ c.count }}</span>
-      </div>
-      {% endfor %}
+  <div class="m-cg m-cg3">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Booking Status</div><div class="m-badge">Distribution</div></div>
+      <div class="m-cw" style="height:190px"><canvas id="mc-bks"></canvas></div>
     </div>
-    {% else %}
-    <p class="text-muted">No college booking data.</p>
-    {% endif %}
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Event Status</div><div class="m-badge p">Breakdown</div></div>
+      <div class="m-cw" style="height:190px"><canvas id="mc-evs"></canvas></div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Rating Distribution</div><div class="m-badge gold">All Events</div></div>
+      <div style="padding:.3rem 0">
+        {% set max_r = rating_dist.values()|max if rating_dist.values()|list else 1 %}
+        {% for star in [5,4,3,2,1] %}
+        {% set cnt = rating_dist.get(star, 0) %}
+        <div class="m-star-row">
+          <div class="m-star-lbl">{{ star }}&#9733;</div>
+          <div class="m-star-bg"><div class="m-star-fill" style="width:{{ (cnt / max_r * 100)|round(0) if max_r else 0 }}%"></div></div>
+          <div class="m-star-n">{{ cnt }}</div>
+        </div>
+        {% endfor %}
+        <div style="margin-top:.8rem">
+          <div class="m-bnum">{{ avg_rating }}</div>
+          <div class="m-blbl">avg rating &middot; {{ total_feedback }} responses</div>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 
-<!-- Row 3: Trends -->
-<div class="dashboard-panels mt-3">
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Monthly Bookings</h3>
-    {% if booking_trend %}
-    <div class="top-cities-list">
-      {% set max_b = booking_trend|map(attribute='count')|max %}
-      {% for m in booking_trend %}
-      <div class="city-row">
-        <span class="city-name" style="min-width:70px">{{ m.label }}</span>
-        <span class="city-bar-wrapper">
-          <span class="city-bar" style="width:{{ (m.count / max_b * 100)|round(0) if max_b else 0 }}%"></span>
-        </span>
-        <span class="city-count">{{ m.count }}</span>
-      </div>
-      {% endfor %}
+{# ══════════════════════════════════════════════
+   USERS TAB
+   ══════════════════════════════════════════════ #}
+<div class="m-tp" id="tp-users">
+  <div class="m-cg m-cg2">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">User Growth</div><div class="m-badge p">Last 12 Months</div></div>
+      <div class="m-cw" style="height:210px"><canvas id="mc-ugrow"></canvas></div>
     </div>
-    {% else %}
-    <p class="text-muted">No booking data in the last 12 months.</p>
-    {% endif %}
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Top Specializations</div><div class="m-badge">By Domain</div></div>
+      {% if top_specializations %}
+      <div class="m-rl" style="margin-top:.15rem">
+        {% for s in top_specializations %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ s.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (s.count / top_specializations[0].count * 100)|round(0) }}%"></div></div>
+          <div class="m-rv">{{ s.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="m-empty">No specialization data.</div>{% endif %}
+    </div>
   </div>
-
-  <div class="dashboard-panel">
-    <h3 class="panel-title">Monthly Registrations</h3>
-    {% if reg_trend %}
-    <div class="top-cities-list">
-      {% set max_r = reg_trend|map(attribute='count')|max %}
-      {% for m in reg_trend %}
-      <div class="city-row">
-        <span class="city-name" style="min-width:70px">{{ m.label }}</span>
-        <span class="city-bar-wrapper">
-          <span class="city-bar" style="width:{{ (m.count / max_r * 100)|round(0) if max_r else 0 }}%"></span>
-        </span>
-        <span class="city-count">{{ m.count }}</span>
-      </div>
-      {% endfor %}
+  <div class="m-cg m-cg3">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Year of Study</div><div class="m-badge p">Distribution</div></div>
+      <div class="m-cw" style="height:195px"><canvas id="mc-yos"></canvas></div>
     </div>
-    {% else %}
-    <p class="text-muted">No registration data in the last 12 months.</p>
-    {% endif %}
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Auth Method</div><div class="m-badge">OAuth vs Password</div></div>
+      <div class="m-cw" style="height:195px"><canvas id="mc-auth"></canvas></div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Account Roles</div><div class="m-badge o">Breakdown</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Active Users</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ "{:,}".format(role_counts.active) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Admins</div><div class="m-si-v" style="color:var(--cyan)">{{ role_counts.admins }}</div></div>
+        <div class="m-si"><div class="m-si-l">Supervisors</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ role_counts.supervisors }}</div></div>
+        <div class="m-si"><div class="m-si-l">Deleted</div><div class="m-si-v" style="color:var(--red, #f43f5e)">{{ role_counts.deleted }}</div></div>
+      </div>
+    </div>
+  </div>
+  {% if top_user_colleges %}
+  <div class="m-cg">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Top Colleges (Self-Reported)</div><div class="m-badge p">Registration Source</div></div>
+      <div class="m-rl">
+        {% for c in top_user_colleges %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ c.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (c.count / top_user_colleges[0].count * 100)|round(0) }}%;--m-rc:var(--violet, #8b5cf6)"></div></div>
+          <div class="m-rv">{{ c.count }}</div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+</div>
+
+{# ══════════════════════════════════════════════
+   EVENTS TAB
+   ══════════════════════════════════════════════ #}
+<div class="m-tp" id="tp-events">
+  <div class="m-cg m-cg3">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Event Status</div><div class="m-badge">Breakdown</div></div>
+      <div class="m-cw" style="height:195px"><canvas id="mc-evs2"></canvas></div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Free vs Paid</div><div class="m-badge g">Ticket Type</div></div>
+      <div class="m-cw" style="height:195px"><canvas id="mc-fp"></canvas></div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Event Features</div><div class="m-badge o">Configured</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">VIP Pricing</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ event_features.vip }}</div></div>
+        <div class="m-si"><div class="m-si-l">Certificates</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ event_features.certs }}</div></div>
+        <div class="m-si"><div class="m-si-l">With Feedback</div><div class="m-si-v" style="color:var(--cyan)">{{ event_features.feedback }}</div></div>
+        <div class="m-si"><div class="m-si-l">Custom Pricing</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ event_features.custom }}</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="m-cg m-cg2">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Sessions Per Event</div><div class="m-badge">Content Volume</div></div>
+      {% if sessions_per_event %}
+      <div class="m-cw" style="height:195px"><canvas id="mc-spe"></canvas></div>
+      {% else %}<div class="m-empty">No session data.</div>{% endif %}
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Events by City &amp; Top Colleges</div><div class="m-badge p">Geography</div></div>
+      {% if events_by_city %}
+      <div class="m-rl">
+        {% for c in events_by_city %}
+        <div class="m-ri">
+          <div class="m-rname">{{ c.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (c.count / events_by_city[0].count * 100)|round(0) }}%;--m-rc:var(--amber, #f59e0b)"></div></div>
+          <div class="m-rv">{{ c.count }} event{{ 's' if c.count != 1 }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="m-empty">No city data.</div>{% endif %}
+      {% if top_colleges %}
+      <div class="m-sdiv"><div class="m-sdiv-lbl">Most Successful Colleges</div><div class="m-sdiv-line"></div></div>
+      <div class="m-rl">
+        {% for c in top_colleges %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ c.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (c.count / top_colleges[0].count * 100)|round(0) }}%"></div></div>
+          <div class="m-rv">{{ c.count }} bkgs</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
   </div>
 </div>
+
+{# ══════════════════════════════════════════════
+   REVENUE TAB
+   ══════════════════════════════════════════════ #}
+<div class="m-tp" id="tp-revenue">
+  <div class="m-cg m-cg2">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Monthly Revenue</div><div class="m-badge g">&#8377; Trend</div></div>
+      <div class="m-cw" style="height:210px"><canvas id="mc-revt"></canvas></div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Revenue by Event</div><div class="m-badge g">Breakdown</div></div>
+      {% if revenue_by_event %}
+      <div class="m-rl">
+        {% for e in revenue_by_event %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ e.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (e.revenue / revenue_by_event[0].revenue * 100)|round(0) if revenue_by_event[0].revenue else 0 }}%;--m-rc:var(--green, #10b981)"></div></div>
+          <div class="m-rv">&#8377;{{ "{:,.0f}".format(e.revenue) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="m-empty">No revenue data.</div>{% endif %}
+      {% if revenue_by_seat_type %}
+      <div class="m-sdiv"><div class="m-sdiv-lbl">Revenue by Seat Type</div><div class="m-sdiv-line"></div></div>
+      <div class="m-rl">
+        {% for s in revenue_by_seat_type %}
+        <div class="m-ri">
+          <div class="m-rname">{{ s.type|title }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (s.revenue / revenue_by_seat_type[0].revenue * 100)|round(0) if revenue_by_seat_type[0].revenue else 0 }}%"></div></div>
+          <div class="m-rv">&#8377;{{ "{:,.0f}".format(s.revenue) }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  <div class="m-cg m-cg3">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Payment Status Split</div><div class="m-badge">States</div></div>
+      <div class="m-cw" style="height:195px"><canvas id="mc-ps"></canvas></div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Refunds &amp; Cancellations</div><div class="m-badge r">Losses</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Refund Count</div><div class="m-si-v" style="color:var(--red, #f43f5e)">{{ refund_stats.count }}</div></div>
+        <div class="m-si"><div class="m-si-l">Refund Total</div><div class="m-si-v" style="color:var(--red, #f43f5e);font-size:1.35rem">&#8377;{{ "{:,.0f}".format(refund_stats.total) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Cancel Fees</div><div class="m-si-v" style="color:var(--amber, #f59e0b);font-size:1.35rem">&#8377;{{ "{:,.0f}".format(refund_stats.cancel_fees) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Shared Tickets</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ refund_stats.shared }}</div></div>
+      </div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Coupon Usage</div><div class="m-badge p">Discounts</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Total Coupons</div><div class="m-si-v" style="color:var(--cyan)">{{ coupon_stats.total }}</div></div>
+        <div class="m-si"><div class="m-si-l">Active</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ coupon_stats.active }}</div></div>
+        <div class="m-si"><div class="m-si-l">Total Redeemed</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ coupon_stats.redeemed }}</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════
+   FEEDBACK TAB
+   ══════════════════════════════════════════════ #}
+<div class="m-tp" id="tp-feedback">
+  <div class="m-cg m-cg2">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Best Rated Sessions</div><div class="m-badge gold">By Avg Rating</div></div>
+      {% if best_sessions %}
+      <div class="m-rl" style="margin-top:.15rem">
+        {% for s in best_sessions %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ s.title }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (s.avg / 5 * 100)|round(0) }}%;--m-rc:var(--amber, #f59e0b)"></div></div>
+          <div class="m-rv">{{ s.avg }}/5</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="m-empty">No session feedback data.</div>{% endif %}
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Best Rated Speakers</div><div class="m-badge gold">By Avg Rating</div></div>
+      {% if best_speakers %}
+      <div class="m-rl" style="margin-top:.15rem">
+        {% for s in best_speakers %}
+        <div class="m-ri">
+          <div class="m-rn">{{ loop.index }}</div>
+          <div class="m-rname">{{ s.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (s.avg / 5 * 100)|round(0) }}%;--m-rc:var(--cyan)"></div></div>
+          <div class="m-rv">{{ s.avg }}/5</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="m-empty">No speaker feedback data.</div>{% endif %}
+    </div>
+  </div>
+  <div class="m-cg m-cg3">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Feedback Stats</div><div class="m-badge">Response Metrics</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Total Submitted</div><div class="m-si-v" style="color:var(--cyan)">{{ "{:,}".format(feedback_stats.submitted) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Response Rate</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ feedback_stats.rate }}%</div></div>
+        <div class="m-si"><div class="m-si-l">With Comments</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ "{:,}".format(feedback_stats.with_comments) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Featured</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ feedback_stats.featured }}</div></div>
+      </div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Feedback Disposition</div><div class="m-badge o">Submitted vs Dismissed</div></div>
+      <div class="m-cw" style="height:155px"><canvas id="mc-fdisp"></canvas></div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Poll Participation</div><div class="m-badge p">Votes</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Total Polls</div><div class="m-si-v" style="color:var(--cyan)">{{ poll_stats.total }}</div></div>
+        <div class="m-si"><div class="m-si-l">Active</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ poll_stats.active }}</div></div>
+        <div class="m-si"><div class="m-si-l">Total Votes</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ "{:,}".format(poll_stats.votes) }}</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════
+   SESSIONS TAB
+   ══════════════════════════════════════════════ #}
+<div class="m-tp" id="tp-sessions">
+  <div class="m-cg m-cg2">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Check-in Time Distribution</div><div class="m-badge">By Hour of Day</div></div>
+      {% if checkin_hours %}
+      <div class="m-cw" style="height:210px"><canvas id="mc-cit"></canvas></div>
+      {% else %}<div class="m-empty">No check-in time data.</div>{% endif %}
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Waitlist by Event</div><div class="m-badge p">Demand Signal</div></div>
+      {% if waitlist_by_event %}
+      <div class="m-rl" style="margin-top:.4rem">
+        {% for w in waitlist_by_event %}
+        <div class="m-ri">
+          <div class="m-rname">{{ w.name }}</div>
+          <div class="m-rbw"><div class="m-rb" style="width:{{ (w.count / waitlist_by_event[0].count * 100)|round(0) }}%;--m-rc:var(--violet, #8b5cf6)"></div></div>
+          <div class="m-rv">{{ w.count }} waiting</div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}<div class="m-empty">No waitlist data.</div>{% endif %}
+      <div class="m-sdiv"><div class="m-sdiv-lbl">Waitlist Conversion</div><div class="m-sdiv-line"></div></div>
+      <div class="m-sg">
+        <div class="m-si"><div class="m-si-l">Total Waitlist</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ waitlist_stats.total }}</div></div>
+        <div class="m-si"><div class="m-si-l">Notified</div><div class="m-si-v" style="color:var(--cyan)">{{ waitlist_stats.notified }}</div></div>
+        <div class="m-si"><div class="m-si-l">Converted</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ waitlist_stats.converted }}</div></div>
+        <div class="m-si"><div class="m-si-l">Conv. Rate</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ waitlist_stats.rate }}%</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="m-cg m-cg3">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Speaker Overview</div><div class="m-badge">Roster Stats</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Total Speakers</div><div class="m-si-v" style="color:var(--cyan)">{{ speaker_stats.total }}</div></div>
+        <div class="m-si"><div class="m-si-l">With Accounts</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ speaker_stats.with_accounts }}</div></div>
+        <div class="m-si"><div class="m-si-l">Pending Invite</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ speaker_stats.pending }}</div></div>
+        <div class="m-si"><div class="m-si-l">Avg Sessions</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ speaker_stats.avg_sessions }}</div></div>
+      </div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Session Recordings</div><div class="m-badge g">Content Library</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Total Sessions</div><div class="m-si-v" style="color:var(--cyan)">{{ recording_stats.total }}</div></div>
+        <div class="m-si"><div class="m-si-l">Recorded</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ recording_stats.recorded }}</div></div>
+        <div class="m-si"><div class="m-si-l">Public</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ recording_stats.public }}</div></div>
+        <div class="m-si"><div class="m-si-l">Multi-Speaker</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ recording_stats.multi_speaker }}</div></div>
+      </div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Venue Capacity</div><div class="m-badge o">Utilization</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Total Seats</div><div class="m-si-v" style="color:var(--cyan)">{{ "{:,}".format(venue_stats.total_seats) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Bookable</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ "{:,}".format(venue_stats.bookable) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Booked</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ "{:,}".format(venue_stats.booked) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Occupancy</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ venue_stats.occupancy }}%</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════
+   SYSTEM TAB
+   ══════════════════════════════════════════════ #}
+<div class="m-tp" id="tp-system">
+  <div class="m-cg m-cg2">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Newsletter Subscriber Growth</div><div class="m-badge gold">Cumulative</div></div>
+      <div class="m-cw" style="height:210px"><canvas id="mc-nlg"></canvas></div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Activity Log by Category</div><div class="m-badge p">System Events</div></div>
+      {% if activity_by_cat %}
+      <div class="m-cw" style="height:210px"><canvas id="mc-act"></canvas></div>
+      {% else %}<div class="m-empty">No activity data.</div>{% endif %}
+    </div>
+  </div>
+  <div class="m-cg m-cg3">
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Newsletter Stats</div><div class="m-badge">Campaigns</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Subscribers</div><div class="m-si-v" style="color:var(--cyan)">{{ "{:,}".format(newsletter_stats.subscribers) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Sent</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ newsletter_stats.sent }}</div></div>
+        <div class="m-si"><div class="m-si-l">Avg Recipients</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ "{:,}".format(newsletter_stats.avg_recipients) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Failed</div><div class="m-si-v" style="color:var(--red, #f43f5e)">{{ newsletter_stats.failed }}</div></div>
+      </div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Webhook Health</div><div class="m-badge g">Integrations</div></div>
+      <div class="m-sg" style="margin-top:.3rem">
+        <div class="m-si"><div class="m-si-l">Total Logs</div><div class="m-si-v" style="color:var(--cyan)">{{ "{:,}".format(webhook_stats.total) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Processed</div><div class="m-si-v" style="color:var(--green, #10b981)">{{ "{:,}".format(webhook_stats.processed) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Pending</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ webhook_stats.pending }}</div></div>
+        <div class="m-si"><div class="m-si-l">Success Rate</div><div class="m-si-v" style="color:var(--amber, #f59e0b)">{{ webhook_stats.rate }}%</div></div>
+      </div>
+    </div>
+    <div class="m-cc">
+      <div class="m-cc-h"><div class="m-cc-t">Alerts Sent</div><div class="m-badge o">By Type</div></div>
+      <div class="m-cw" style="height:155px"><canvas id="mc-alt"></canvas></div>
+    </div>
+  </div>
+</div>
+
+<div class="m-fnote">&#9889; TECHTREK METRICS // DATA REFRESHED ON PAGE LOAD</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const panels = {};
+  const initialized = new Set();
+  document.querySelectorAll('.m-tp').forEach(p => panels[p.id.replace('tp-','')]=p);
+
+  document.querySelectorAll('.m-tab-btn').forEach(btn => {
+    btn.addEventListener('click', function(){
+      document.querySelectorAll('.m-tab-btn').forEach(b => b.classList.remove('on'));
+      document.querySelectorAll('.m-tp').forEach(p => p.classList.remove('on'));
+      this.classList.add('on');
+      const key = this.dataset.tab;
+      panels[key].classList.add('on');
+      if (!initialized.has(key)) { initCharts(key); initialized.add(key); }
+      else setTimeout(() => dispatchEvent(new Event('resize')), 50);
+    });
+  });
+
+  const cs = getComputedStyle(document.documentElement);
+  const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+
+  Chart.defaults.color = isLight ? '#555' : '#8b949e';
+  Chart.defaults.borderColor = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.06)';
+  Chart.defaults.font.family = cs.getPropertyValue('--font-body').trim() || "'Exo 2',sans-serif";
+  Chart.defaults.font.size = 16;
+  Chart.defaults.plugins.legend.position = 'bottom';
+  Chart.defaults.plugins.legend.labels.padding = 14;
+  Chart.defaults.plugins.legend.labels.usePointStyle = true;
+  Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
+
+  const TT = {
+    backgroundColor: isLight ? 'rgba(255,255,255,.96)' : 'rgba(8,12,17,.96)',
+    borderColor: 'rgba(0,212,255,.25)', borderWidth: 1,
+    titleColor: isLight ? '#111' : '#e6edf3',
+    bodyColor: isLight ? '#555' : '#8b949e',
+    padding: 10, cornerRadius: 8
+  };
+  const GRID = isLight ? 'rgba(0,0,0,0.06)' : 'rgba(255,255,255,0.045)';
+
+  function grad(ctx, chart, r, g, b) {
+    if (!chart.chartArea) return 'rgba('+r+','+g+','+b+',.08)';
+    const grd = chart.ctx.createLinearGradient(0, chart.chartArea.top, 0, chart.chartArea.bottom);
+    grd.addColorStop(0, 'rgba('+r+','+g+','+b+',.28)');
+    grd.addColorStop(1, 'rgba('+r+','+g+','+b+',0)');
+    return grd;
+  }
+
+  const donutBase = {
+    responsive: true, maintainAspectRatio: false, cutout: '68%',
+    plugins: { legend: { position: 'right', labels: { usePointStyle: true, pointStyle: 'circle', padding: 12 } }, tooltip: TT }
+  };
+
+  function lineChart(id, labels, data, r, g, b, label, fmt) {
+    return new Chart(id, {
+      type: 'line', data: {
+        labels: labels,
+        datasets: [{
+          label: label, data: data,
+          borderColor: 'rgb('+r+','+g+','+b+')', borderWidth: 2,
+          pointRadius: 3, pointHoverRadius: 5, tension: .4, fill: true,
+          backgroundColor: ctx => grad(ctx.chart.ctx ? ctx.chart : ctx, ctx.chart, r, g, b)
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false }, tooltip: TT },
+        scales: { x: { grid: { color: GRID } }, y: { grid: { color: GRID }, beginAtZero: true, ticks: { callback: fmt || (v => v) } } }
+      }
+    });
+  }
+
+  const bkTrend = {{ booking_trend | tojson }};
+  const revTrend = {{ revenue_trend | tojson }};
+  const bkStatuses = {{ booking_statuses | tojson }};
+  const evStatuses = {{ event_statuses | tojson }};
+  const regTrend = {{ reg_trend | tojson }};
+  const yosDist = {{ yos_dist | tojson }};
+  const authCounts = {{ auth_counts | tojson }};
+  const freePaid = {{ free_paid | tojson }};
+  const sessPerEvent = {{ sessions_per_event | tojson }};
+  const feedbackDisp = {{ feedback_disp | tojson }};
+  const checkinHrs = {{ checkin_hours | tojson }};
+  const subTrend = {{ subscriber_trend | tojson }};
+  const actByCat = {{ activity_by_cat | tojson }};
+  const alertStats = {{ alert_stats | tojson }};
+
+  const DONUT_COLORS = ['#00d4ff','#3fb950','#f97316','#f85149','#8b5cf6','#f59e0b'];
+  const BAR_COLORS = ['rgba(0,212,255,.75)','rgba(168,85,247,.75)','rgba(249,115,22,.75)',
+    'rgba(63,185,80,.75)','rgba(251,191,36,.75)','rgba(248,81,73,.75)','rgba(139,148,158,.75)'];
+
+  function initCharts(tab) {
+    if (tab === 'overview') {
+      lineChart('mc-bkm', bkTrend.map(d=>d.label), bkTrend.map(d=>d.count), 0,212,255, 'Bookings');
+      lineChart('mc-revm', revTrend.map(d=>d.label), revTrend.map(d=>d.value), 63,185,80, 'Revenue (₹)',
+        v => '₹' + (v >= 1000 ? (v/1000).toFixed(0)+'K' : v));
+      const bsLabels = Object.keys(bkStatuses).map(s => s.charAt(0).toUpperCase()+s.slice(1));
+      const bsData = Object.values(bkStatuses);
+      new Chart('mc-bks', { type:'doughnut', data:{ labels:bsLabels,
+        datasets:[{ data:bsData, backgroundColor:DONUT_COLORS.slice(0,bsLabels.length), borderWidth:0, hoverOffset:4 }]
+      }, options:donutBase });
+      const esLabels = Object.keys(evStatuses).map(s => s.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase()));
+      new Chart('mc-evs', { type:'doughnut', data:{ labels:esLabels,
+        datasets:[{ data:Object.values(evStatuses), backgroundColor:DONUT_COLORS.slice(0,esLabels.length), borderWidth:0, hoverOffset:4 }]
+      }, options:donutBase });
+    }
+    if (tab === 'users') {
+      lineChart('mc-ugrow', regTrend.map(d=>d.label), regTrend.map(d=>d.count), 168,85,247, 'Registrations');
+      if (yosDist.length) {
+        const yLabels = yosDist.map(d => 'Year '+d.year);
+        new Chart('mc-yos', { type:'bar', data:{
+          labels:yLabels, datasets:[{ label:'Students', data:yosDist.map(d=>d.count),
+            backgroundColor: yosDist.map((_,i) => BAR_COLORS[i%BAR_COLORS.length]),
+            borderRadius:4, borderWidth:0 }]
+        }, options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:TT },
+          scales:{ x:{grid:{display:false}}, y:{grid:{color:GRID}, beginAtZero:true} } } });
+      }
+      new Chart('mc-auth', { type:'doughnut', data:{
+        labels:['Google OAuth','Password'],
+        datasets:[{ data:[authCounts.oauth, authCounts.password],
+          backgroundColor:['#f97316','#00d4ff'], borderWidth:0, hoverOffset:4 }]
+      }, options:donutBase });
+    }
+    if (tab === 'events') {
+      const esLabels2 = Object.keys(evStatuses).map(s => s.replace('_',' ').replace(/\b\w/g,c=>c.toUpperCase()));
+      new Chart('mc-evs2', { type:'doughnut', data:{ labels:esLabels2,
+        datasets:[{ data:Object.values(evStatuses), backgroundColor:DONUT_COLORS.slice(0,esLabels2.length), borderWidth:0, hoverOffset:4 }]
+      }, options:donutBase });
+      new Chart('mc-fp', { type:'doughnut', data:{
+        labels:['Paid Events','Free Events'],
+        datasets:[{ data:[freePaid.paid, freePaid.free], backgroundColor:['#a855f7','#3fb950'], borderWidth:0, hoverOffset:4 }]
+      }, options:donutBase });
+      if (sessPerEvent.length && document.getElementById('mc-spe')) {
+        new Chart('mc-spe', { type:'bar', data:{
+          labels:sessPerEvent.map(d=>d.name), datasets:[{ label:'Sessions', data:sessPerEvent.map(d=>d.count),
+            backgroundColor:sessPerEvent.map((_,i)=>BAR_COLORS[i%BAR_COLORS.length]), borderRadius:6, borderWidth:0 }]
+        }, options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:TT },
+          scales:{ x:{grid:{display:false}}, y:{grid:{color:GRID}, beginAtZero:true} } } });
+      }
+    }
+    if (tab === 'revenue') {
+      lineChart('mc-revt', revTrend.map(d=>d.label), revTrend.map(d=>d.value), 63,185,80, 'Revenue (₹)',
+        v => '₹' + (v >= 1000 ? (v/1000).toFixed(0)+'K' : v));
+      const psLabels = Object.keys(bkStatuses).map(s => s.charAt(0).toUpperCase()+s.slice(1));
+      new Chart('mc-ps', { type:'doughnut', data:{ labels:psLabels,
+        datasets:[{ data:Object.values(bkStatuses), backgroundColor:DONUT_COLORS.slice(0,psLabels.length), borderWidth:0, hoverOffset:4 }]
+      }, options:donutBase });
+    }
+    if (tab === 'feedback') {
+      new Chart('mc-fdisp', { type:'doughnut', data:{
+        labels:['Submitted','Dismissed','Pending'],
+        datasets:[{ data:[feedbackDisp.submitted, feedbackDisp.dismissed, feedbackDisp.pending],
+          backgroundColor:['#3fb950','#f85149','#8b949e'], borderWidth:0, hoverOffset:4 }]
+      }, options:donutBase });
+    }
+    if (tab === 'sessions') {
+      if (checkinHrs.length && document.getElementById('mc-cit')) {
+        const hrLabels = checkinHrs.map(d => { let h=d.hour; return (h===0?'12':h>12?h-12:h)+(h<12?'am':'pm'); });
+        new Chart('mc-cit', { type:'bar', data:{
+          labels:hrLabels, datasets:[{ label:'Check-ins', data:checkinHrs.map(d=>d.count),
+            backgroundColor:'rgba(0,212,255,.6)', hoverBackgroundColor:'#00d4ff', borderRadius:4, borderWidth:0 }]
+        }, options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:TT },
+          scales:{ x:{grid:{display:false}}, y:{grid:{color:GRID}, beginAtZero:true} } } });
+      }
+    }
+    if (tab === 'system') {
+      lineChart('mc-nlg', subTrend.map(d=>d.label), subTrend.map(d=>d.count), 251,191,36, 'Subscribers');
+      if (actByCat.length && document.getElementById('mc-act')) {
+        new Chart('mc-act', { type:'bar', data:{
+          labels:actByCat.map(d=>(d.category||'other').replace(/\b\w/g,c=>c.toUpperCase())),
+          datasets:[{ label:'Events', data:actByCat.map(d=>d.count),
+            backgroundColor:actByCat.map((_,i)=>BAR_COLORS[i%BAR_COLORS.length]), borderRadius:4, borderWidth:0 }]
+        }, options:{ responsive:true, maintainAspectRatio:false,
+          plugins:{ legend:{display:false}, tooltip:TT },
+          scales:{ x:{grid:{display:false}}, y:{grid:{color:GRID}, beginAtZero:true} } } });
+      }
+      const altLabels = Object.keys(alertStats).map(s => s.charAt(0).toUpperCase()+s.slice(1));
+      const altData = Object.values(alertStats);
+      if (altLabels.length) {
+        new Chart('mc-alt', { type:'doughnut', data:{ labels:altLabels,
+          datasets:[{ data:altData, backgroundColor:['#00d4ff','#f97316','#f85149','#8b949e'].slice(0,altLabels.length), borderWidth:0, hoverOffset:4 }]
+        }, options:donutBase });
+      }
+    }
+  }
+
+  initCharts('overview'); initialized.add('overview');
+})();
+</script>
 {% endblock %}

@@ -9,14 +9,14 @@
   <meta name="theme-color" content="#00d4ff">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="apple-touch-icon" href="/static/icons/icon-192.png">
+  <!-- Apple touch icon: add /static/icons/icon-192.png when available -->
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.4.3/dist/css/tom-select.css">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&family=Exo+2:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v={{ range(10000,99999)|random }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v={{ range(10000,99999)|random }}">
-  <link rel="stylesheet" href="{{ url_for('static', path='css/light-mode.css') }}?v={{ range(10000,99999)|random }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v={{ asset_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v={{ asset_version }}">
+  <link rel="stylesheet" href="{{ url_for('static', path='css/light-mode.css') }}?v={{ asset_version }}">
   <script>
     (function(){
       var t = localStorage.getItem('techtrek-theme');
@@ -196,12 +196,12 @@
 
 <!-- Live poll popup (for attendees with a ticket) -->
 {% if user %}
-<div class="modal-wrapper" id="poll-popup-modal" style="display:none;">
+<div class="modal-wrapper" id="poll-popup-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="poll-popup-heading">
   <div class="modal-backdrop" id="poll-popup-backdrop"></div>
   <div class="modal-dialog" style="max-width:420px;">
     <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;">
       <span style="font-size:1.25rem;">&#128202;</span>
-      <h3 style="margin:0;font-size:1.1rem;">Live poll</h3>
+      <h3 id="poll-popup-heading" style="margin:0;font-size:1.1rem;">Live poll</h3>
     </div>
     <p id="poll-popup-session" class="text-muted" style="font-size:.85rem;margin:0 0 .5rem;"></p>
     <div id="poll-popup-question" style="font-weight:600;font-size:1rem;margin-bottom:1rem;"></div>
@@ -215,7 +215,7 @@
   </div>
 </div>
 <!-- Alert popup (for attendees receiving real-time alerts) -->
-<div class="modal-wrapper" id="alert-popup-modal" style="display:none;">
+<div class="modal-wrapper" id="alert-popup-modal" style="display:none;" role="dialog" aria-modal="true" aria-labelledby="alert-popup-title">
   <div class="modal-backdrop" id="alert-popup-backdrop"></div>
   <div class="modal-dialog" style="max-width:420px;">
     <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;">

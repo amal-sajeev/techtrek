@@ -1,7 +1,7 @@
 import csv
 import io
 import json
-from collections import defaultdict
+from collections import Counter, defaultdict
 from datetime import date, datetime, timedelta
 from urllib.parse import urlparse
 
@@ -39,10 +39,14 @@ from app.models.testimonial import NewsletterSubscriber
 from app.models.gallery_image import GalleryImage
 from app.models.uploaded_image import UploadedImage
 from app.models.event_break import EventBreak
-from app.models.event_addon import EventAddOn
+from app.models.event_addon import EventAddOn, BookingAddOn
+from app.models.event_session import EventSession
 from app.models.feedback_template import FeedbackTemplate, TemplateQuestion, FeedbackResponse, QuestionResponse
 from app.models.poll import Poll, PollOption, PollVote
 from app.models.event_alert import EventAlert
+from app.models.session_feedback import SessionFeedback
+from app.models.webhook_log import WebhookLog
+from app.models.ticket_share import TicketShare
 from app.config import settings
 
 
@@ -199,6 +203,30 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
 
 # ─── Metrics ───
 
+MONTH_NAMES = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _monthly_trend(db, model_cls, date_col, extra_filters=None, value_col=None):
+    """Build [{label, count}] or [{label, value}] for last 12 months."""
+    twelve_ago = now_ist() - timedelta(days=365)
+    cols = [
+        extract("year", date_col).label("yr"),
+        extract("month", date_col).label("mo"),
+    ]
+    if value_col is not None:
+        cols.append(func.coalesce(func.sum(value_col), 0))
+    else:
+        cols.append(func.count(model_cls.id))
+    q = db.query(*cols).filter(date_col >= twelve_ago)
+    if extra_filters:
+        for f in extra_filters:
+            q = q.filter(f)
+    rows = q.group_by("yr", "mo").order_by("yr", "mo").all()
+    key = "value" if value_col is not None else "count"
+    return [{"label": f"{MONTH_NAMES[int(mo)]} {int(yr)}", key: float(v) if value_col else v}
+            for yr, mo, v in rows]
+
+
 @router.get("/metrics")
 def metrics_page(
     request: Request,
@@ -212,15 +240,9 @@ def metrics_page(
     if not admin:
         return RedirectResponse("/auth/login?next=/admin/metrics", status_code=303)
 
-    from collections import Counter
-    from app.models.session_feedback import SessionFeedback
-    from app.models.session import Session as SessModel
+    SessModel = SessionModel
 
-    # Parse filters
-    d_from = None
-    d_to = None
-    ev_filter = None
-    col_filter = None
+    d_from = d_to = ev_filter = col_filter = None
     try:
         if date_from:
             d_from = date.fromisoformat(date_from)
@@ -233,61 +255,209 @@ def metrics_page(
     except (ValueError, TypeError):
         pass
 
-    # Base booking filter
-    def booking_filters(q):
+    dt_from = datetime.combine(d_from, datetime.min.time()) if d_from else None
+    dt_to = datetime.combine(d_to, datetime.max.time()) if d_to else None
+
+    def _bk_filters(q, *, join_event=False):
         q = q.filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-        if d_from:
-            q = q.filter(Booking.booked_at >= datetime.combine(d_from, datetime.min.time()))
-        if d_to:
-            q = q.filter(Booking.booked_at <= datetime.combine(d_to, datetime.max.time()))
+        if dt_from:
+            q = q.filter(Booking.booked_at >= dt_from)
+        if dt_to:
+            q = q.filter(Booking.booked_at <= dt_to)
         if ev_filter:
             q = q.filter(Booking.event_id == ev_filter)
         if col_filter:
-            q = q.join(Event, Booking.event_id == Event.id).filter(Event.college_id == col_filter)
+            if not join_event:
+                q = q.join(Event, Booking.event_id == Event.id)
+            q = q.filter(Event.college_id == col_filter)
         return q
 
-    # Event status breakdown
-    status_q = db.query(Event.status, func.count(Event.id))
-    if col_filter:
-        status_q = status_q.filter(Event.college_id == col_filter)
-    if d_from:
-        status_q = status_q.filter(Event.start_date >= d_from)
-    if d_to:
-        status_q = status_q.filter(Event.start_date <= d_to)
-    status_counts = status_q.group_by(Event.status).all()
-    event_statuses = {s: c for s, c in status_counts}
+    def _ev_filters(q):
+        if col_filter:
+            q = q.filter(Event.college_id == col_filter)
+        if d_from:
+            q = q.filter(Event.start_date >= d_from)
+        if d_to:
+            q = q.filter(Event.start_date <= d_to)
+        if ev_filter:
+            q = q.filter(Event.id == ev_filter)
+        return q
 
-    # Top cities
-    city_q = (
-        db.query(City.name, func.count(Booking.id))
-        .select_from(Booking)
-        .join(Event, Booking.event_id == Event.id)
-        .join(College, Event.college_id == College.id)
-        .join(City, College.city_id == City.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-    )
-    if d_from:
-        city_q = city_q.filter(Booking.booked_at >= datetime.combine(d_from, datetime.min.time()))
-    if d_to:
-        city_q = city_q.filter(Booking.booked_at <= datetime.combine(d_to, datetime.max.time()))
+    def _fb_date(q, col):
+        if dt_from:
+            q = q.filter(col >= dt_from)
+        if dt_to:
+            q = q.filter(col <= dt_to)
+        return q
+
+    # ── KPI ──
+    total_users = db.query(func.count(User.id)).filter(User.deleted_at.is_(None)).scalar() or 0
+    total_revenue = float(_bk_filters(
+        db.query(func.coalesce(func.sum(Booking.amount_paid), 0))
+    ).scalar() or 0)
+    total_bookings = _bk_filters(db.query(func.count(Booking.id))).scalar() or 0
+    checked_in_count = _bk_filters(
+        db.query(func.count(Booking.id)).filter(Booking.checked_in == True)
+    ).scalar() or 0
+    checkin_rate = round(checked_in_count / total_bookings * 100, 1) if total_bookings else 0.0
+
+    fb_avg_q = db.query(func.avg(Feedback.rating)).filter(Feedback.submitted_at.isnot(None), Feedback.rating.isnot(None))
     if ev_filter:
-        city_q = city_q.filter(Booking.event_id == ev_filter)
-    if col_filter:
-        city_q = city_q.filter(Event.college_id == col_filter)
-    top_cities = [{"name": n, "count": c} for n, c in
-                  city_q.group_by(City.name).order_by(func.count(Booking.id).desc()).limit(8).all()]
+        fb_avg_q = fb_avg_q.filter(Feedback.event_id == ev_filter)
+    fb_avg_q = _fb_date(fb_avg_q, Feedback.submitted_at)
+    avg_rating = round(float(fb_avg_q.scalar() or 0), 1)
 
-    # Top specializations
+    total_fb_count = db.query(func.count(Feedback.id)).filter(Feedback.submitted_at.isnot(None)).scalar() or 0
+
+    ev_status_q = _ev_filters(db.query(Event.status, func.count(Event.id)))
+    event_statuses = {s: c for s, c in ev_status_q.group_by(Event.status).all()}
+
+    # ── Overview tab ──
+    twelve_ago = now_ist() - timedelta(days=365)
+    bk_trend_filters = [Booking.payment_status == "paid", Booking.is_shared_ticket == False]
+    if ev_filter:
+        bk_trend_filters.append(Booking.event_id == ev_filter)
+    booking_trend = _monthly_trend(db, Booking, Booking.booked_at, bk_trend_filters)
+    revenue_trend = _monthly_trend(db, Booking, Booking.booked_at, bk_trend_filters, value_col=Booking.amount_paid)
+
+    bk_status_q = db.query(Booking.payment_status, func.count(Booking.id)).filter(Booking.is_shared_ticket == False)
+    if dt_from:
+        bk_status_q = bk_status_q.filter(Booking.booked_at >= dt_from)
+    if dt_to:
+        bk_status_q = bk_status_q.filter(Booking.booked_at <= dt_to)
+    if ev_filter:
+        bk_status_q = bk_status_q.filter(Booking.event_id == ev_filter)
+    booking_statuses = {s: c for s, c in bk_status_q.group_by(Booking.payment_status).all()}
+
+    rating_q = db.query(Feedback.rating, func.count(Feedback.id)).filter(
+        Feedback.submitted_at.isnot(None), Feedback.rating.isnot(None))
+    if ev_filter:
+        rating_q = rating_q.filter(Feedback.event_id == ev_filter)
+    rating_q = _fb_date(rating_q, Feedback.submitted_at)
+    rating_dist = {r: c for r, c in rating_q.group_by(Feedback.rating).all()}
+
+    # ── Users tab ──
+    reg_filters = [User.deleted_at.is_(None)]
+    reg_trend = _monthly_trend(db, User, User.created_at, reg_filters)
+
     user_q = db.query(User).filter(User.deleted_at.is_(None))
-    if d_from:
-        user_q = user_q.filter(User.created_at >= datetime.combine(d_from, datetime.min.time()))
-    if d_to:
-        user_q = user_q.filter(User.created_at <= datetime.combine(d_to, datetime.max.time()))
+    if dt_from:
+        user_q = user_q.filter(User.created_at >= dt_from)
+    if dt_to:
+        user_q = user_q.filter(User.created_at <= dt_to)
     all_users = user_q.all()
     spec_counts = Counter(u.domain for u in all_users if u.domain).most_common(10)
     top_specializations = [{"name": n, "count": c} for n, c in spec_counts]
 
-    # Best sessions
+    yos_counts = Counter(u.year_of_study for u in all_users if u.year_of_study)
+    yos_dist = [{"year": y, "count": c} for y, c in sorted(yos_counts.items())]
+
+    oauth_count = sum(1 for u in all_users if u.oauth_provider)
+    password_count = len(all_users) - oauth_count
+    auth_counts = {"oauth": oauth_count, "password": password_count}
+
+    role_counts = {
+        "active": db.query(func.count(User.id)).filter(User.deleted_at.is_(None)).scalar() or 0,
+        "admins": db.query(func.count(User.id)).filter(User.is_admin == True, User.deleted_at.is_(None)).scalar() or 0,
+        "supervisors": db.query(func.count(User.id)).filter(User.is_supervisor == True, User.deleted_at.is_(None)).scalar() or 0,
+        "deleted": db.query(func.count(User.id)).filter(User.deleted_at.isnot(None)).scalar() or 0,
+    }
+
+    college_counts = Counter(u.college for u in all_users if u.college).most_common(8)
+    top_user_colleges = [{"name": n, "count": c} for n, c in college_counts]
+
+    # ── Events tab ──
+    ev_base = _ev_filters(db.query(Event))
+    ev_list = ev_base.all()
+    free_paid = {"free": sum(1 for e in ev_list if (e.price or 0) == 0),
+                 "paid": sum(1 for e in ev_list if (e.price or 0) > 0)}
+
+    event_features = {
+        "vip": sum(1 for e in ev_list if e.price_vip is not None),
+        "certs": sum(1 for e in ev_list if e.cert_title),
+        "feedback": sum(1 for e in ev_list if e.feedback_template_id),
+        "custom": sum(1 for e in ev_list if e.custom_prices),
+    }
+
+    spe_q = (
+        db.query(Event.name, func.count(EventSession.id))
+        .join(EventSession, EventSession.event_id == Event.id)
+    )
+    spe_q = _ev_filters(spe_q)
+    sessions_per_event = [{"name": n, "count": c} for n, c in
+                          spe_q.group_by(Event.id, Event.name).order_by(func.count(EventSession.id).desc()).limit(10).all()]
+
+    ebc_q = (
+        db.query(City.name, func.count(Event.id))
+        .select_from(Event)
+        .join(College, Event.college_id == College.id)
+        .join(City, College.city_id == City.id)
+    )
+    ebc_q = _ev_filters(ebc_q)
+    events_by_city = [{"name": n, "count": c} for n, c in
+                      ebc_q.group_by(City.name).order_by(func.count(Event.id).desc()).limit(8).all()]
+
+    top_col_q = (
+        db.query(College.name, func.count(Booking.id))
+        .join(Event, Event.college_id == College.id)
+        .join(Booking, Booking.event_id == Event.id)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+    )
+    if dt_from:
+        top_col_q = top_col_q.filter(Booking.booked_at >= dt_from)
+    if dt_to:
+        top_col_q = top_col_q.filter(Booking.booked_at <= dt_to)
+    if ev_filter:
+        top_col_q = top_col_q.filter(Booking.event_id == ev_filter)
+    if col_filter:
+        top_col_q = top_col_q.filter(College.id == col_filter)
+    top_colleges = [{"name": n, "count": c} for n, c in
+                    top_col_q.group_by(College.id, College.name)
+                    .order_by(func.count(Booking.id).desc()).limit(8).all()]
+
+    # ── Revenue tab ──
+    rev_by_ev_q = (
+        db.query(Event.name, func.sum(Booking.amount_paid), func.count(Booking.id))
+        .join(Booking, Booking.event_id == Event.id)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+    )
+    if dt_from:
+        rev_by_ev_q = rev_by_ev_q.filter(Booking.booked_at >= dt_from)
+    if dt_to:
+        rev_by_ev_q = rev_by_ev_q.filter(Booking.booked_at <= dt_to)
+    if col_filter:
+        rev_by_ev_q = rev_by_ev_q.filter(Event.college_id == col_filter)
+    revenue_by_event = [{"name": n, "revenue": float(r or 0), "bookings": c}
+                        for n, r, c in rev_by_ev_q.group_by(Event.id, Event.name)
+                        .order_by(func.sum(Booking.amount_paid).desc()).limit(8).all()]
+
+    rev_seat_q = (
+        db.query(Seat.seat_type, func.sum(Booking.amount_paid), func.count(Booking.id))
+        .join(Seat, Booking.seat_id == Seat.id)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+    )
+    if dt_from:
+        rev_seat_q = rev_seat_q.filter(Booking.booked_at >= dt_from)
+    if dt_to:
+        rev_seat_q = rev_seat_q.filter(Booking.booked_at <= dt_to)
+    if ev_filter:
+        rev_seat_q = rev_seat_q.filter(Booking.event_id == ev_filter)
+    revenue_by_seat_type = [{"type": t or "standard", "revenue": float(r or 0), "count": c}
+                            for t, r, c in rev_seat_q.group_by(Seat.seat_type)
+                            .order_by(func.sum(Booking.amount_paid).desc()).all()]
+
+    refund_count = db.query(func.count(Booking.id)).filter(Booking.payment_status == "refunded").scalar() or 0
+    refund_total = float(db.query(func.coalesce(func.sum(Booking.refund_amount), 0)).scalar() or 0)
+    cancel_fees = float(db.query(func.coalesce(func.sum(Booking.cancellation_fee), 0)).scalar() or 0)
+    shared_ticket_count = db.query(func.count(Booking.id)).filter(Booking.is_shared_ticket == True).scalar() or 0
+    refund_stats = {"count": refund_count, "total": refund_total, "cancel_fees": cancel_fees, "shared": shared_ticket_count}
+
+    coupon_total = db.query(func.count(Coupon.id)).scalar() or 0
+    coupon_active = db.query(func.count(Coupon.id)).filter(Coupon.is_active == True).scalar() or 0
+    coupon_redeemed = db.query(func.coalesce(func.sum(Coupon.used_count), 0)).scalar() or 0
+    coupon_stats = {"total": coupon_total, "active": coupon_active, "redeemed": int(coupon_redeemed)}
+
+    # ── Feedback tab ──
     sess_q = (
         db.query(SessModel.title, func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
         .join(SessionFeedback, SessionFeedback.session_id == SessModel.id)
@@ -295,16 +465,12 @@ def metrics_page(
     )
     if ev_filter:
         sess_q = sess_q.filter(SessionFeedback.event_id == ev_filter)
-    if d_from:
-        sess_q = sess_q.filter(SessionFeedback.created_at >= datetime.combine(d_from, datetime.min.time()))
-    if d_to:
-        sess_q = sess_q.filter(SessionFeedback.created_at <= datetime.combine(d_to, datetime.max.time()))
+    sess_q = _fb_date(sess_q, SessionFeedback.created_at)
     best_sessions = [{"title": t, "avg": round(float(a), 1), "count": c}
                      for t, a, c in sess_q.group_by(SessModel.id, SessModel.title)
                      .having(func.count(SessionFeedback.id) >= 1)
                      .order_by(func.avg(SessionFeedback.rating).desc()).limit(8).all()]
 
-    # Best speakers
     spk_q = (
         db.query(Speaker.name, func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
         .join(SessModel, SessModel.speaker_id == Speaker.id)
@@ -313,69 +479,133 @@ def metrics_page(
     )
     if ev_filter:
         spk_q = spk_q.filter(SessionFeedback.event_id == ev_filter)
-    if d_from:
-        spk_q = spk_q.filter(SessionFeedback.created_at >= datetime.combine(d_from, datetime.min.time()))
-    if d_to:
-        spk_q = spk_q.filter(SessionFeedback.created_at <= datetime.combine(d_to, datetime.max.time()))
+    spk_q = _fb_date(spk_q, SessionFeedback.created_at)
     best_speakers = [{"name": n, "avg": round(float(a), 1), "count": c}
                      for n, a, c in spk_q.group_by(Speaker.id, Speaker.name)
                      .having(func.count(SessionFeedback.id) >= 1)
                      .order_by(func.avg(SessionFeedback.rating).desc()).limit(8).all()]
 
-    # Most successful colleges
-    col_q = (
-        db.query(College.name, func.count(Booking.id))
-        .join(Event, Event.college_id == College.id)
-        .join(Booking, Booking.event_id == Event.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
-    )
-    if d_from:
-        col_q = col_q.filter(Booking.booked_at >= datetime.combine(d_from, datetime.min.time()))
-    if d_to:
-        col_q = col_q.filter(Booking.booked_at <= datetime.combine(d_to, datetime.max.time()))
+    fb_submitted = db.query(func.count(Feedback.id)).filter(Feedback.submitted_at.isnot(None))
     if ev_filter:
-        col_q = col_q.filter(Booking.event_id == ev_filter)
-    if col_filter:
-        col_q = col_q.filter(College.id == col_filter)
-    top_colleges = [{"name": n, "count": c} for n, c in
-                    col_q.group_by(College.id, College.name)
-                    .order_by(func.count(Booking.id).desc()).limit(8).all()]
+        fb_submitted = fb_submitted.filter(Feedback.event_id == ev_filter)
+    fb_submitted = _fb_date(fb_submitted, Feedback.submitted_at).scalar() or 0
+    fb_total_eligible = _bk_filters(db.query(func.count(Booking.id))).scalar() or 0
+    fb_response_rate = round(fb_submitted / fb_total_eligible * 100, 1) if fb_total_eligible else 0.0
+    fb_with_comments = db.query(func.count(Feedback.id)).filter(
+        Feedback.submitted_at.isnot(None), Feedback.comment.isnot(None), Feedback.comment != "").scalar() or 0
+    fb_featured = db.query(func.count(Feedback.id)).filter(Feedback.is_featured == True).scalar() or 0
+    feedback_stats = {"submitted": fb_submitted, "rate": fb_response_rate,
+                      "with_comments": fb_with_comments, "featured": fb_featured}
 
-    # Monthly booking trend (last 12 months)
-    twelve_ago = now_ist() - timedelta(days=365)
-    trend_q = (
-        db.query(
-            extract("year", Booking.booked_at).label("yr"),
-            extract("month", Booking.booked_at).label("mo"),
-            func.count(Booking.id),
-        )
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False,
-                Booking.booked_at >= twelve_ago)
+    fb_dismissed = db.query(func.count(Feedback.id)).filter(
+        Feedback.dismissed == True, Feedback.submitted_at.is_(None)).scalar() or 0
+    fb_pending = db.query(func.count(Feedback.id)).filter(
+        Feedback.dismissed == False, Feedback.submitted_at.is_(None)).scalar() or 0
+    feedback_disp = {"submitted": fb_submitted, "dismissed": fb_dismissed, "pending": fb_pending}
+
+    poll_total = db.query(func.count(Poll.id)).scalar() or 0
+    poll_active = db.query(func.count(Poll.id)).filter(Poll.is_active == True).scalar() or 0
+    poll_votes_total = db.query(func.count(PollVote.id)).scalar() or 0
+    poll_stats = {"total": poll_total, "active": poll_active, "votes": poll_votes_total}
+
+    # ── Sessions tab ──
+    ci_q = (
+        db.query(extract("hour", Booking.checked_in_at).label("hr"), func.count(Booking.id))
+        .filter(Booking.checked_in == True, Booking.checked_in_at.isnot(None))
     )
     if ev_filter:
-        trend_q = trend_q.filter(Booking.event_id == ev_filter)
-    if col_filter:
-        trend_q = trend_q.join(Event, Booking.event_id == Event.id).filter(Event.college_id == col_filter)
-    booking_trend = []
-    for yr, mo, cnt in trend_q.group_by("yr", "mo").order_by("yr", "mo").all():
-        month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        booking_trend.append({"label": f"{month_names[int(mo)]} {int(yr)}", "count": cnt})
+        ci_q = ci_q.filter(Booking.event_id == ev_filter)
+    checkin_hours = [{"hour": int(h), "count": c}
+                     for h, c in ci_q.group_by("hr").order_by("hr").all() if h is not None]
 
-    # Monthly registration trend (last 12 months)
-    reg_q = (
-        db.query(
-            extract("year", User.created_at).label("yr"),
-            extract("month", User.created_at).label("mo"),
-            func.count(User.id),
-        )
-        .filter(User.created_at >= twelve_ago, User.deleted_at.is_(None))
+    wl_ev_q = (
+        db.query(Event.name, func.count(Waitlist.id))
+        .join(Waitlist, Waitlist.event_id == Event.id)
     )
-    reg_trend = []
-    for yr, mo, cnt in reg_q.group_by("yr", "mo").order_by("yr", "mo").all():
-        month_names = ["", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
-        reg_trend.append({"label": f"{month_names[int(mo)]} {int(yr)}", "count": cnt})
+    wl_ev_q = _ev_filters(wl_ev_q)
+    waitlist_by_event = [{"name": n, "count": c} for n, c in
+                         wl_ev_q.group_by(Event.id, Event.name)
+                         .order_by(func.count(Waitlist.id).desc()).limit(8).all()]
 
-    # Filter dropdown data
+    wl_total = db.query(func.count(Waitlist.id)).scalar() or 0
+    wl_notified = db.query(func.count(Waitlist.id)).filter(Waitlist.notified == True).scalar() or 0
+    wl_converted = (
+        db.query(func.count(Waitlist.id))
+        .join(Booking, (Booking.user_id == Waitlist.user_id) & (Booking.event_id == Waitlist.event_id))
+        .filter(Waitlist.notified == True, Booking.payment_status == "paid")
+        .scalar() or 0
+    )
+    wl_conv_rate = round(wl_converted / wl_notified * 100, 1) if wl_notified else 0.0
+    waitlist_stats = {"total": wl_total, "notified": wl_notified,
+                      "converted": wl_converted, "rate": wl_conv_rate}
+
+    spk_total = db.query(func.count(Speaker.id)).scalar() or 0
+    spk_with_acct = db.query(func.count(Speaker.id)).filter(Speaker.user_id.isnot(None)).scalar() or 0
+    spk_pending = db.query(func.count(Speaker.id)).filter(
+        Speaker.invite_token.isnot(None), Speaker.invite_token_expires > now_ist()).scalar() or 0
+    spk_avg_sess = 0.0
+    if spk_total:
+        total_speaker_sessions = db.query(func.count(SessModel.id)).filter(SessModel.speaker_id.isnot(None)).scalar() or 0
+        spk_avg_sess = round(total_speaker_sessions / spk_total, 1)
+    speaker_stats = {"total": spk_total, "with_accounts": spk_with_acct,
+                     "pending": spk_pending, "avg_sessions": spk_avg_sess}
+
+    total_sessions = db.query(func.count(SessModel.id)).scalar() or 0
+    recorded_sessions = db.query(func.count(SessModel.id)).filter(
+        SessModel.recording_url.isnot(None)).scalar() or 0
+    public_recordings = db.query(func.count(SessionRecording.id)).filter(
+        SessionRecording.is_public == True).scalar() or 0
+    multi_speaker = (
+        db.query(func.count(func.distinct(SessionSpeaker.session_id)))
+        .filter(
+            SessionSpeaker.session_id.in_(
+                db.query(SessionSpeaker.session_id)
+                .group_by(SessionSpeaker.session_id)
+                .having(func.count(SessionSpeaker.id) > 1)
+            )
+        ).scalar() or 0
+    )
+    recording_stats = {"total": total_sessions, "recorded": recorded_sessions,
+                       "public": public_recordings, "multi_speaker": multi_speaker}
+
+    total_seats = db.query(func.count(Seat.id)).scalar() or 0
+    bookable_seats = db.query(func.count(Seat.id)).filter(
+        Seat.is_active == True, Seat.seat_type.notin_(["aisle", "reserved"])).scalar() or 0
+    booked_seats = _bk_filters(db.query(func.count(func.distinct(Booking.seat_id)))).scalar() or 0
+    occupancy = round(booked_seats / bookable_seats * 100, 1) if bookable_seats else 0.0
+    venue_stats = {"total_seats": total_seats, "bookable": bookable_seats,
+                   "booked": booked_seats, "occupancy": occupancy}
+
+    # ── System tab ──
+    subscriber_trend = _monthly_trend(db, NewsletterSubscriber, NewsletterSubscriber.subscribed_at)
+
+    act_q = (
+        db.query(ActivityLog.category, func.count(ActivityLog.id))
+        .group_by(ActivityLog.category)
+        .order_by(func.count(ActivityLog.id).desc()).limit(10)
+    )
+    activity_by_cat = [{"category": c, "count": n} for c, n in act_q.all()]
+
+    nl_subscribers = db.query(func.count(NewsletterSubscriber.id)).scalar() or 0
+    nl_sent = db.query(func.count(Newsletter.id)).filter(Newsletter.status == "sent").scalar() or 0
+    nl_avg_recip = float(
+        db.query(func.coalesce(func.avg(Newsletter.total_recipients), 0)).scalar() or 0)
+    nl_failed = int(
+        db.query(func.coalesce(func.sum(Newsletter.failed_count), 0)).scalar() or 0)
+    newsletter_stats = {"subscribers": nl_subscribers, "sent": nl_sent,
+                        "avg_recipients": round(nl_avg_recip), "failed": nl_failed}
+
+    wh_total = db.query(func.count(WebhookLog.id)).scalar() or 0
+    wh_processed = db.query(func.count(WebhookLog.id)).filter(WebhookLog.processed == True).scalar() or 0
+    wh_pending = wh_total - wh_processed
+    wh_rate = round(wh_processed / wh_total * 100, 1) if wh_total else 0.0
+    webhook_stats = {"total": wh_total, "processed": wh_processed,
+                     "pending": wh_pending, "rate": wh_rate}
+
+    alert_q = db.query(EventAlert.alert_type, func.count(EventAlert.id)).group_by(EventAlert.alert_type)
+    alert_stats = {t: c for t, c in alert_q.all()}
+
+    # ── Filter dropdowns ──
     all_events = db.query(Event).order_by(Event.start_date.desc().nullslast()).all()
     all_colleges = db.query(College).filter(College.is_active == True).order_by(College.name).all()
 
@@ -384,20 +614,38 @@ def metrics_page(
         _admin_ctx(
             request,
             active_page="metrics",
+            all_events=all_events, all_colleges=all_colleges,
+            f_date_from=date_from, f_date_to=date_to,
+            f_event_id=event_id, f_college_id=college_id,
+            total_users=total_users, total_revenue=total_revenue,
+            total_bookings=total_bookings, checkin_rate=checkin_rate,
+            avg_rating=avg_rating, total_feedback=total_fb_count,
             event_statuses=event_statuses,
-            top_cities=top_cities,
-            top_specializations=top_specializations,
-            best_sessions=best_sessions,
-            best_speakers=best_speakers,
-            top_colleges=top_colleges,
-            booking_trend=booking_trend,
-            reg_trend=reg_trend,
-            all_events=all_events,
-            all_colleges=all_colleges,
-            f_date_from=date_from,
-            f_date_to=date_to,
-            f_event_id=event_id,
-            f_college_id=college_id,
+            booking_trend=booking_trend, revenue_trend=revenue_trend,
+            booking_statuses=booking_statuses, rating_dist=rating_dist,
+            reg_trend=reg_trend, top_specializations=top_specializations,
+            yos_dist=yos_dist, auth_counts=auth_counts,
+            role_counts=role_counts, top_user_colleges=top_user_colleges,
+            free_paid=free_paid, event_features=event_features,
+            sessions_per_event=sessions_per_event,
+            events_by_city=events_by_city, top_colleges=top_colleges,
+            revenue_by_event=revenue_by_event,
+            revenue_by_seat_type=revenue_by_seat_type,
+            refund_stats=refund_stats, coupon_stats=coupon_stats,
+            best_sessions=best_sessions, best_speakers=best_speakers,
+            feedback_stats=feedback_stats, feedback_disp=feedback_disp,
+            poll_stats=poll_stats,
+            checkin_hours=checkin_hours,
+            waitlist_by_event=waitlist_by_event,
+            waitlist_stats=waitlist_stats,
+            speaker_stats=speaker_stats,
+            recording_stats=recording_stats,
+            venue_stats=venue_stats,
+            subscriber_trend=subscriber_trend,
+            activity_by_cat=activity_by_cat,
+            newsletter_stats=newsletter_stats,
+            webhook_stats=webhook_stats,
+            alert_stats=alert_stats,
         ),
     )
 
@@ -4772,7 +5020,7 @@ async def admin_toggle_poll(request: Request, poll_id: int, db: Session = Depend
         poll.is_active = False
     db.commit()
     from app.services.poll_events import publish
-    from app.routers.public import _poll_results, _notify_event_attendees_of_poll, _notify_event_attendees_poll_closed
+    from app.services.polls import poll_results as _poll_results, notify_event_attendees_of_poll as _notify_event_attendees_of_poll, notify_event_attendees_poll_closed as _notify_event_attendees_poll_closed
     if poll.is_active:
         results = _poll_results(db, poll)
         await publish(poll.session_id, poll.event_id, results)
@@ -4795,7 +5043,7 @@ async def admin_close_poll(request: Request, poll_id: int, db: Session = Depends
     poll.closed_at = now_ist()
     db.commit()
     from app.services.poll_events import publish
-    from app.routers.public import _notify_event_attendees_poll_closed
+    from app.services.polls import notify_event_attendees_poll_closed as _notify_event_attendees_poll_closed
     await publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True})
     _notify_event_attendees_poll_closed(db, poll)
     return JSONResponse({"ok": True})
@@ -5566,7 +5814,7 @@ async def event_management_create_poll(request: Request, event_id: int, db: Sess
 
 @router.get("/event-management/{event_id}/recordings")
 def event_management_recordings(request: Request, event_id: int, db: Session = Depends(get_db)):
-    from app.routers.public import _build_embed_url
+    from app.services.polls import build_embed_url as _build_embed_url
     from app.models.event_session import EventSession
     admin = _require_admin(request, db)
     if not admin:

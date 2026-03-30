@@ -371,7 +371,8 @@ function dismissFeedback(eventId, dontAsk) {
   var csrfMeta = document.querySelector('meta[name="csrf-token"]');
   if (csrfMeta) fd.append('csrf_token', csrfMeta.content);
   if (dontAsk) fd.append('dont_ask', '1');
-  fetch('/feedback/' + eventId + '/dismiss', { method: 'POST', body: fd });
+  fetch('/feedback/' + eventId + '/dismiss', { method: 'POST', body: fd })
+    .catch(function() { console.warn('Failed to dismiss feedback for event ' + eventId); });
 }
 window.TechTrek = { showToast: showToast, confirmAction: openConfirm, dismissFeedback: dismissFeedback };
 
@@ -544,7 +545,10 @@ if (document.body.dataset.user) {
         renderPollBody(res.poll);
         if (window.TechTrek && window.TechTrek.showToast) window.TechTrek.showToast('Vote recorded.', 'success', 3000);
       }
-    }).catch(function() { voteBtn.disabled = false; });
+    }).catch(function() {
+      voteBtn.disabled = false;
+      if (window.TechTrek && window.TechTrek.showToast) window.TechTrek.showToast('Vote failed — check your connection.', 'error', 4000);
+    });
   }
 
   voteBtn.addEventListener('click', function() {

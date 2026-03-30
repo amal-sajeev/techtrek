@@ -521,12 +521,12 @@ async def toggle_poll(request: Request, poll_id: int, db: Session = Depends(get_
 
     from app.services.poll_events import publish
     if poll.is_active:
-        from app.routers.public import _poll_results, _notify_event_attendees_of_poll
+        from app.services.polls import poll_results as _poll_results, notify_event_attendees_of_poll as _notify_event_attendees_of_poll
         results = _poll_results(db, poll)
         await publish(poll.session_id, poll.event_id, results)
         _notify_event_attendees_of_poll(db, poll, results)
     else:
-        from app.routers.public import _notify_event_attendees_poll_closed
+        from app.services.polls import notify_event_attendees_poll_closed as _notify_event_attendees_poll_closed
         await publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True})
         _notify_event_attendees_poll_closed(db, poll)
 
@@ -548,7 +548,7 @@ async def close_poll(request: Request, poll_id: int, db: Session = Depends(get_d
     db.commit()
 
     from app.services.poll_events import publish
-    from app.routers.public import _notify_event_attendees_poll_closed
+    from app.services.polls import notify_event_attendees_poll_closed as _notify_event_attendees_poll_closed
     await publish(poll.session_id, poll.event_id, {"poll_id": poll.id, "is_active": False, "closed": True})
     _notify_event_attendees_poll_closed(db, poll)
     return JSONResponse({"ok": True})

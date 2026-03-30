@@ -11,11 +11,9 @@ pydantic-settings
 qrcode[pil]
 razorpay
 reportlab
-babel
 alembic
 cryptography
 authlib
-slowapi
 pytest
 httpx
 requests

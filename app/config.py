@@ -67,9 +67,6 @@ class Settings(BaseSettings):
     google_client_id: str = ""
     google_client_secret: str = ""
 
-    babel_default_locale: str = "en"
-    babel_default_timezone: str = "Asia/Kolkata"
-
     model_config = {"env_file": ".env"}
 
 

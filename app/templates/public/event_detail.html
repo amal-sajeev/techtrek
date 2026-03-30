@@ -85,7 +85,7 @@
 
   {% if event.college and event.college.logo_url %}
   <div class="college-logo-watermark">
-    <img src="{{ event.college.logo_url }}" alt="">
+    <img src="{{ event.college.logo_url }}" alt="{{ event.college.name }} logo">
   </div>
   {% endif %}
 
@@ -268,7 +268,7 @@
         </div>
         {% if event.college and event.college.logo_url %}
         <div class="college-logo-watermark">
-          <img src="{{ event.college.logo_url }}" alt="">
+          <img src="{{ event.college.logo_url }}" alt="{{ event.college.name }} logo">
         </div>
         {% endif %}
       </div>

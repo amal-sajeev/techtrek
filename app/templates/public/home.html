@@ -27,7 +27,7 @@
       alt="{{ fev.name }}" loading="eager">
     {% if fev.college and fev.college.logo_url %}
     <div class="college-logo-watermark">
-      <img src="{{ fev.college.logo_url }}" alt="">
+      <img src="{{ fev.college.logo_url }}" alt="{{ fev.college.name }} logo">
     </div>
     {% endif %}
     <div class="hero-session-fade"></div>
@@ -188,7 +188,7 @@
                alt="{{ fev.name }}" loading="eager">
           {% if fev.college and fev.college.logo_url %}
           <div class="college-logo-watermark">
-            <img src="{{ fev.college.logo_url }}" alt="">
+            <img src="{{ fev.college.logo_url }}" alt="{{ fev.college.name }} logo">
           </div>
           {% endif %}
           <div class="lm-featured-content">
