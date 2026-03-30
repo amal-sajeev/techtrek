@@ -1,0 +1,200 @@
+{% extends "admin/base_admin.html" %}
+
+{% block admin_content %}
+<style>
+.cert-dz-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .75rem 1rem;
+  margin-bottom: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+}
+.cert-dz-header h1 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.cert-dz-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  align-items: center;
+}
+.cert-dz-toolbar .btn { font-size: .78rem; padding: .35rem .65rem; }
+.cert-dz-layout {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  gap: 1rem;
+  align-items: start;
+}
+@media (max-width: 960px) {
+  .cert-dz-layout { grid-template-columns: 1fr; }
+}
+.cert-dz-canvas-shell {
+  background: #1e293b;
+  border-radius: 10px;
+  padding: 12px;
+  overflow: auto;
+  max-height: calc(100vh - 220px);
+}
+.cert-dz-canvas-inner {
+  margin: 0 auto;
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+  width: fit-content;
+  line-height: 0;
+  font-size: 0;
+}
+/* Fabric adds .canvas-container + two canvases; kill inline gap so the page isn’t visually shifted */
+.cert-dz-canvas-inner .canvas-container,
+.cert-dz-canvas-inner canvas {
+  display: block;
+  vertical-align: top;
+}
+.cert-dz-props {
+  background: var(--bg-surface, #fff);
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 10px;
+  padding: 1rem;
+  font-size: .85rem;
+  max-height: calc(100vh - 220px);
+  overflow: auto;
+}
+.cert-dz-props h3 {
+  margin: 0 0 .75rem;
+  font-size: .95rem;
+}
+.cert-dz-props label { display: block; margin-top: .5rem; font-size: .75rem; color: var(--text-muted, #64748b); }
+.cert-dz-props input, .cert-dz-props select {
+  width: 100%;
+  margin-top: .2rem;
+  padding: .35rem .5rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #e2e8f0);
+  font-size: .82rem;
+}
+.cert-dz-status { font-size: .8rem; color: var(--text-muted); }
+.cert-dz-grid-hint { font-size: .72rem; color: #94a3b8; margin-top: .5rem; }
+</style>
+
+<div class="cert-dz-header">
+  <div>
+    <h1>Certificate visual designer</h1>
+    <p class="cert-dz-status" style="margin:.25rem 0 0">{{ event.name }} · Landscape A4 (842×595 pt)</p>
+  </div>
+  <div style="flex:1"></div>
+  <a href="/admin/events/{{ event.id }}/edit?step=5" class="btn btn-outline btn-sm">Back to event</a>
+  <a href="/admin/events/{{ event.id }}/certificate/preview" target="_blank" class="btn btn-outline btn-sm">Preview PDF</a>
+</div>
+
+<div class="cert-dz-toolbar" id="cert-dz-toolbar">
+  <span style="font-size:.72rem;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.04em">Add</span>
+  <button type="button" class="btn btn-outline" data-add="text">Static text</button>
+  <button type="button" class="btn btn-outline" data-add="vartext">Variable text</button>
+  <button type="button" class="btn btn-outline" data-add="image-logo">Logo</button>
+  <button type="button" class="btn btn-outline" data-add="image-sig">Signature</button>
+  <button type="button" class="btn btn-outline" data-add="image-url">Image (URL)</button>
+  <button type="button" class="btn btn-outline" data-add="qr">QR code</button>
+  <button type="button" class="btn btn-outline" data-add="line">Line</button>
+  <button type="button" class="btn btn-outline" data-add="rect">Rectangle</button>
+  <span style="width:1px;height:24px;background:#e2e8f0;margin:0 .25rem"></span>
+  <button type="button" class="btn btn-outline" id="cert-dz-duplicate">Duplicate</button>
+  <button type="button" class="btn btn-outline" id="cert-dz-delete">Delete</button>
+  <button type="button" class="btn btn-outline" id="cert-dz-front">Bring forward</button>
+  <button type="button" class="btn btn-outline" id="cert-dz-back">Send back</button>
+  <span style="width:1px;height:24px;background:#e2e8f0;margin:0 .25rem"></span>
+  <button type="button" class="btn btn-outline" id="cert-dz-undo" title="Undo">Undo</button>
+  <button type="button" class="btn btn-outline" id="cert-dz-redo" title="Redo">Redo</button>
+  <button type="button" class="btn btn-outline" id="cert-dz-convert" title="Seed layers from legacy template">Convert legacy layout</button>
+  <button type="button" class="btn btn-outline" id="cert-dz-reset">Reset canvas</button>
+  <span style="flex:1"></span>
+  <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;margin:0">
+    <input type="checkbox" id="cert-dz-snap" checked> Snap 5pt
+  </label>
+  <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;margin:0">
+    Zoom <input type="range" id="cert-dz-zoom" min="0.35" max="2" step="0.05" value="0.75" style="width:90px">
+  </label>
+  <button type="button" class="btn btn-primary" id="cert-dz-save">Save layout</button>
+</div>
+
+<div class="cert-dz-layout" style="margin-top:1rem">
+  <div class="cert-dz-canvas-shell">
+    <div class="cert-dz-canvas-inner">
+      <canvas id="cert-designer-canvas" width="842" height="595"></canvas>
+    </div>
+    <p class="cert-dz-grid-hint">Drag to position. Resize handles rotate from corners. Units match PDF points. Border preview matches PDF frame (approx.). <strong>Ctrl</strong> (or <strong>⌘</strong>) + <strong>scroll</strong> to zoom. Save updates <code>cert_style</code> on the event.</p>
+  </div>
+  <aside class="cert-dz-props">
+    <h3>Page &amp; border</h3>
+    <label>Border style</label>
+    <select id="cert-dz-border-style">
+      <option value="classic">Classic</option>
+      <option value="modern">Modern</option>
+      <option value="elegant">Elegant</option>
+      <option value="minimal">Minimal</option>
+      <option value="ornate">Ornate</option>
+      <option value="none">None</option>
+    </select>
+    <label>Border width</label>
+    <input type="number" id="cert-dz-border-width" min="0.25" max="10" step="0.25" value="1">
+    <label>Background size</label>
+    <select id="cert-dz-bg-size">
+      <option value="cover">Cover</option>
+      <option value="contain">Contain</option>
+      <option value="stretch">Stretch</option>
+    </select>
+    <h3 style="margin-top:1.25rem">Selection</h3>
+    <p id="cert-dz-sel-none" style="color:#94a3b8;font-size:.8rem">Select an object to edit.</p>
+    <div id="cert-dz-sel-panel" style="display:none">
+      <label>Variable (text)</label>
+      <select id="cert-dz-prop-variable"></select>
+      <label>Text (static / fallback)</label>
+      <input type="text" id="cert-dz-prop-text" placeholder="Optional">
+      <label>Font</label>
+      <select id="cert-dz-prop-font">
+        <option value="arial">Arial</option>
+        <option value="georgia">Georgia</option>
+        <option value="times">Times</option>
+        <option value="verdana">Verdana</option>
+        <option value="calibri">Calibri</option>
+        <option value="courier">Courier</option>
+      </select>
+      <label>Font size (pt)</label>
+      <input type="number" id="cert-dz-prop-fontsize" min="6" max="120" step="1">
+      <label>Color</label>
+      <input type="color" id="cert-dz-prop-color" value="#0a1628">
+      <label style="display:flex;align-items:center;gap:.5rem;margin-top:.65rem">
+        <input type="checkbox" id="cert-dz-prop-bold"> Bold
+      </label>
+      <label style="display:flex;align-items:center;gap:.5rem">
+        <input type="checkbox" id="cert-dz-prop-italic"> Italic
+      </label>
+      <label style="display:flex;align-items:center;gap:.5rem">
+        <input type="checkbox" id="cert-dz-prop-underline"> Underline
+      </label>
+      <label>Align</label>
+      <select id="cert-dz-prop-align">
+        <option value="left">Left</option>
+        <option value="center">Center</option>
+        <option value="right">Right</option>
+      </select>
+      <label>Image URL (custom image)</label>
+      <input type="text" id="cert-dz-prop-imgurl" placeholder="https://…">
+      <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
+        <input type="checkbox" id="cert-dz-prop-qrcaption" checked> QR “Scan to verify” caption
+      </label>
+      <label>Width (pt)</label>
+      <input type="number" id="cert-dz-prop-w" step="1">
+      <label>Height (pt)</label>
+      <input type="number" id="cert-dz-prop-h" step="1">
+      <label>Rotation (°)</label>
+      <input type="number" id="cert-dz-prop-rot" step="1">
+    </div>
+  </aside>
+</div>
+
+<script type="application/json" id="cert-designer-bootstrap">{{ designer_bootstrap | tojson }}</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.0/fabric.min.js" crossorigin="anonymous"></script>
+<script src="/static/js/certificate-designer.js?v={{ asset_version }}"></script>
+{% endblock %}

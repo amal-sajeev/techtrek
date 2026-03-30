@@ -565,7 +565,626 @@ def _parse_cert_style(lecture) -> dict:
     return merged
 
 
+# ── cert_style v2 (freeform layout) ───────────────────────────────────────────
+# JSON shape (Event.cert_style):
+#   version: 2, layout: "freeform"
+#   page: { widthPt, heightPt }     # default landscape A4 ≈ 842 × 595
+#   border_style, border_width, border_color_{primary,secondary,tertiary},
+#   bg_size, bg_offset_x, bg_offset_y  — same semantics as legacy top-level keys
+#   layers: [
+#     { id, type, zIndex,
+#       type "text":   variable, text, xPt, yPt, widthPt, heightPt, rotation,
+#                      font, fontSize (alias: size), color, bold, italic, align, underline
+#       type "image":  imageRole logo|signature|custom, url (when custom), xPt, yPt, widthPt, heightPt, rotation
+#       type "qr":     xPt, yPt, widthPt, heightPt, rotation, showCaption?
+#       type "line":   xPt, yPt, x2Pt, y2Pt, lineWidth, color
+#       type "rect":   xPt, yPt, widthPt, heightPt, fillColor?, strokeColor?, strokeWidth?, rotation
+#     }, ...
+#   ]
+#
+# Variable → resolved string (_build_cert_variable_context keys):
+#   static (use text only), attendee_name, event_name, event_date, venue, cert_id, booking_ref,
+#   title_text, subtitle_text, footer_text, signer_name, signer_designation,
+#   event_session_title, attending_line, brand_text, details_line, venue_line, cert_id_line, speaker_name
+
+CERT_STYLE_VERSION_FREEFORM = 2
+
+
+def _raw_cert_style_dict(cert_source) -> dict:
+    raw = getattr(cert_source, "cert_style", None) or ""
+    if not raw:
+        return {}
+    try:
+        return json.loads(raw) if isinstance(raw, str) else dict(raw)
+    except (json.JSONDecodeError, TypeError):
+        return {}
+
+
+def is_freeform_cert_style(d: dict) -> bool:
+    if not isinstance(d, dict):
+        return False
+    return (
+        int(d.get("version") or 0) == CERT_STYLE_VERSION_FREEFORM
+        and str(d.get("layout") or "").lower() == "freeform"
+        and isinstance(d.get("layers"), list)
+    )
+
+
+def default_freeform_cert_style_dict() -> dict:
+    pw, ph = landscape(A4)
+    m = 14 * mm + 4 * mm
+    qr_size = 70.0
+    qr_x = pw - m - 10 - qr_size
+
+    def tb(var, z, x, y_bottom, w, h, fs, color, bold, italic, align="center"):
+        return {
+            "id": f"t-{var}-{z}",
+            "type": "text",
+            "zIndex": z,
+            "variable": var,
+            "text": "",
+            "xPt": x,
+            "yPt": y_bottom,
+            "widthPt": w,
+            "heightPt": h,
+            "font": "arial",
+            "fontSize": fs,
+            "color": color,
+            "bold": bold,
+            "italic": italic,
+            "align": align,
+            "underline": False,
+            "rotation": 0,
+        }
+
+    return {
+        "version": CERT_STYLE_VERSION_FREEFORM,
+        "layout": "freeform",
+        "page": {"widthPt": pw, "heightPt": ph},
+        "border_style": DEFAULT_STYLE["border_style"],
+        "border_width": float(DEFAULT_STYLE["border_width"]),
+        "bg_size": DEFAULT_STYLE["bg_size"],
+        "bg_offset_x": 0.0,
+        "bg_offset_y": 0.0,
+        "layers": [
+            tb("brand_text", 10, 171, 455, 500, 40, 30, "#0e7490", True, False),
+            tb("title_text", 11, 121, 388, 600, 40, 28, "#0a1628", True, False),
+            tb("subtitle_text", 12, 121, 358, 600, 28, 12, "#475569", False, False),
+            tb("attendee_name", 20, 121, 262, 600, 60, 50, "#0a1628", True, False),
+            tb("attending_line", 21, 121, 247, 600, 24, 15, "#475569", False, True),
+            tb("event_session_title", 22, 121, 211, 600, 36, 22, "#0e7490", True, False),
+            tb("details_line", 23, 121, 132, 600, 26, 16, "#334155", False, False),
+            tb("venue_line", 24, 121, 100, 600, 26, 16, "#334155", False, False),
+            tb("signer_name", 25, 50, 62, 200, 40, 11, "#0a1628", True, False, "left"),
+            tb("signer_designation", 26, 50, 48, 200, 30, 9, "#475569", False, True, "left"),
+            tb("cert_id_line", 30, 121, 60, 600, 16, 8, "#94a3b8", False, False),
+            tb("footer_text", 31, 121, 44, 600, 20, 8, "#94a3b8", False, False),
+            {
+                "id": "qr-1",
+                "type": "qr",
+                "zIndex": 40,
+                "xPt": qr_x,
+                "yPt": 88,
+                "widthPt": qr_size,
+                "heightPt": qr_size,
+                "rotation": 0,
+                "showCaption": True,
+            },
+        ],
+    }
+
+
+def _freeform_top_level(raw: dict) -> dict:
+    """Border / background keys for v2 (mirrors legacy merged top-level)."""
+    return {
+        "border_style": raw.get("border_style", DEFAULT_STYLE["border_style"]),
+        "border_width": float(raw.get("border_width", DEFAULT_STYLE["border_width"])),
+        "border_color_primary": raw.get("border_color_primary") or "",
+        "border_color_secondary": raw.get("border_color_secondary") or "",
+        "border_color_tertiary": raw.get("border_color_tertiary") or "",
+        "bg_size": raw.get("bg_size", DEFAULT_STYLE["bg_size"]),
+        "bg_offset_x": float(raw.get("bg_offset_x", 0)),
+        "bg_offset_y": float(raw.get("bg_offset_y", 0)),
+    }
+
+
+def _build_cert_variable_context(booking, user, event, auditorium, cert_source) -> dict:
+    cert_title = getattr(cert_source, "cert_title", None) or "CERTIFICATE OF ATTENDANCE"
+    cert_subtitle = getattr(cert_source, "cert_subtitle", None) or "This certificate is proudly presented to"
+    cert_footer_txt = getattr(cert_source, "cert_footer", None) or "\u00a9 2026 TechTrek. All rights reserved."
+    signer_name = (getattr(cert_source, "cert_signer_name", None) or "").strip()
+    signer_desg = (getattr(cert_source, "cert_signer_designation", None) or "").strip()
+
+    attendee_name = user.full_name or user.username
+    session_title = getattr(event, "name", "Event") if event else "Event"
+    speaker_name = ""
+    session_date = event.start_date.strftime("%d %B %Y") if event and event.start_date else ""
+    venue = f"{auditorium.name}, {auditorium.location}" if auditorium else "TechTrek Venue"
+    cert_id = f"CERT-{booking.booking_ref}"
+    booking_ref = str(getattr(booking, "booking_ref", "") or "")
+
+    left = f"Speaker: {speaker_name}"
+    right = f"Date: {session_date}"
+    details_combined = f"{left}    {right}"
+
+    return {
+        "static": "",
+        "attendee_name": attendee_name,
+        "event_name": session_title,
+        "event_date": session_date,
+        "venue": venue,
+        "cert_id": cert_id,
+        "booking_ref": booking_ref,
+        "title_text": cert_title.upper(),
+        "subtitle_text": cert_subtitle,
+        "footer_text": cert_footer_txt,
+        "signer_name": signer_name,
+        "signer_designation": signer_desg,
+        "event_session_title": f"\u201c{session_title}\u201d",
+        "attending_line": "for attending the session",
+        "brand_text": "TECHTREK",
+        "details_line": details_combined,
+        "venue_line": f"Venue: {venue}",
+        "cert_id_line": f"Certificate ID: {cert_id}",
+        "speaker_name": speaker_name,
+    }
+
+
+def _resolve_freeform_layer_text(layer: dict, ctx: dict) -> str:
+    var = (layer.get("variable") or "static")
+    var = str(var).strip().lower().replace("-", "_")
+    static_text = layer.get("text")
+    if static_text is None:
+        static_text = ""
+    if var in ("", "static", "none"):
+        return str(static_text)
+    if var in ctx:
+        return str(ctx[var])
+    return str(static_text)
+
+
+def _freeform_font_size(layer: dict) -> float:
+    v = layer.get("fontSize")
+    if v is None:
+        v = layer.get("size")
+    return float(v if v is not None else 12)
+
+
+def _wrap_lines_canvas(c, text: str, font_name: str, font_size: float, max_width: float) -> list[str]:
+    text = (text or "").strip()
+    if not text:
+        return [""]
+    words = text.replace("\n", " ").split()
+    lines: list[str] = []
+    cur: list[str] = []
+    for w in words:
+        trial = " ".join(cur + [w])
+        if not cur or c.stringWidth(trial, font_name, font_size) <= max_width:
+            cur.append(w)
+        else:
+            lines.append(" ".join(cur))
+            cur = [w]
+    if cur:
+        lines.append(" ".join(cur))
+    return lines
+
+
+def _draw_freeform_text_layer(c, layer: dict, text: str) -> None:
+    fs = _freeform_font_size(layer)
+    font_name = _resolve_font(
+        layer.get("font", "arial"),
+        bool(layer.get("bold")),
+        bool(layer.get("italic")),
+    )
+    try:
+        color = colors.HexColor(layer.get("color") or "#000000")
+    except Exception:
+        color = colors.black
+
+    x = float(layer.get("xPt", 0))
+    y = float(layer.get("yPt", 0))
+    w = float(layer.get("widthPt") or 400)
+    h = float(layer.get("heightPt") or fs * 1.5)
+    rot = float(layer.get("rotation") or 0)
+    align = str(layer.get("align") or "left").lower()
+
+    cx = x + w / 2
+    cy = y + h / 2
+
+    c.saveState()
+    if rot:
+        c.translate(cx, cy)
+        c.rotate(-rot)
+        c.translate(-cx, -cy)
+
+    max_w = max(w - 4, 8)
+    lines = _wrap_lines_canvas(c, text, font_name, fs, max_w)
+    leading = fs * 1.2
+    n = min(len(lines), max(1, int(h // max(leading, 1)) + 2))
+    lines = lines[:n]
+    total_text_h = len(lines) * leading
+    y_top = y + h
+    start_baseline = y_top - fs * 0.22 - max(0, (h - min(total_text_h, h)) / 2)
+
+    c.setFont(font_name, fs)
+    c.setFillColor(color)
+
+    for i, line in enumerate(lines):
+        baseline = start_baseline - i * leading
+        if baseline < y:
+            break
+        tw = c.stringWidth(line, font_name, fs)
+        if align == "center":
+            tx = x + (w - tw) / 2
+        elif align == "right":
+            tx = x + w - tw - 2
+        else:
+            tx = x + 2
+        c.drawString(tx, baseline, line)
+        if layer.get("underline") and line:
+            c.setStrokeColor(color)
+            c.setLineWidth(0.75)
+            c.line(tx, baseline - 2, tx + tw, baseline - 2)
+
+    c.restoreState()
+
+
+def _draw_freeform_background(c, page_w: float, page_h: float, bg_url: str, sty_top: dict) -> None:
+    bg_img = _try_load_image(bg_url)
+    if not bg_img:
+        return
+    iw, ih = bg_img.getSize()
+    bg_mode = sty_top.get("bg_size", "cover")
+    if bg_mode == "contain":
+        scale = min(page_w / iw, page_h / ih)
+    elif bg_mode == "stretch":
+        scale = None
+    else:
+        scale = max(page_w / iw, page_h / ih)
+
+    if scale is None:
+        draw_w, draw_h = page_w, page_h
+        draw_x, draw_y = 0, 0
+    else:
+        draw_w, draw_h = iw * scale, ih * scale
+        draw_x = (page_w - draw_w) / 2
+        draw_y = (page_h - draw_h) / 2
+
+    draw_x += sty_top.get("bg_offset_x", 0)
+    draw_y += sty_top.get("bg_offset_y", 0)
+    c.drawImage(bg_img, draw_x, draw_y, width=draw_w, height=draw_h, mask="auto")
+
+
+def _generate_certificate_freeform(
+    booking,
+    user,
+    cert_source,
+    event,
+    auditorium,
+    raw: dict,
+) -> bytes:
+    logo_url = getattr(cert_source, "cert_logo_url", None) or ""
+    signature_url = getattr(cert_source, "cert_signature_url", None) or ""
+    bg_url = getattr(cert_source, "cert_bg_url", None) or ""
+    color_scheme = getattr(cert_source, "cert_color_scheme", None)
+    qr_data = getattr(booking, "qr_code_data", None) or f"CERT-{booking.booking_ref}"
+
+    page = raw.get("page") or {}
+    pw, ph = landscape(A4)
+    page_w = float(page.get("widthPt", pw))
+    page_h = float(page.get("heightPt", ph))
+
+    clr = _get_colors(color_scheme)
+    top = _freeform_top_level(raw)
+    if top.get("border_color_primary"):
+        try:
+            clr["border"] = colors.HexColor(top["border_color_primary"])
+        except Exception:
+            pass
+    if top.get("border_color_secondary"):
+        try:
+            clr["gold"] = colors.HexColor(top["border_color_secondary"])
+        except Exception:
+            pass
+    if top.get("border_color_tertiary"):
+        try:
+            clr["accent"] = colors.HexColor(top["border_color_tertiary"])
+        except Exception:
+            pass
+
+    ctx = _build_cert_variable_context(booking, user, event, auditorium, cert_source)
+
+    buf = io.BytesIO()
+    c = pdf_canvas.Canvas(buf, pagesize=(page_w, page_h))
+
+    _draw_freeform_background(c, page_w, page_h, bg_url, top)
+
+    border_fn = BORDER_STYLES.get(top.get("border_style", "classic"), _border_classic)
+    border_width = max(0.25, top.get("border_width", 1.0))
+    border_fn(c, page_w, page_h, clr, bw=border_width)
+
+    layers = list(raw.get("layers") or [])
+    layers.sort(key=lambda L: int(L.get("zIndex", 0) or 0))
+
+    for layer in layers:
+        t = str(layer.get("type") or "text").lower()
+
+        if t == "text":
+            resolved = _resolve_freeform_layer_text(layer, ctx)
+            _draw_freeform_text_layer(c, layer, resolved)
+            continue
+
+        if t == "image":
+            role = str(layer.get("imageRole") or "custom").lower()
+            url = (layer.get("url") or "").strip()
+            if role == "logo":
+                url = logo_url
+            elif role == "signature":
+                url = signature_url
+            img = _try_load_image(url)
+            if not img:
+                continue
+            x = float(layer.get("xPt", 0))
+            y = float(layer.get("yPt", 0))
+            w = float(layer.get("widthPt") or 80)
+            h = float(layer.get("heightPt") or 80)
+            rot = float(layer.get("rotation") or 0)
+            cx = x + w / 2
+            cy = y + h / 2
+            c.saveState()
+            if rot:
+                c.translate(cx, cy)
+                c.rotate(-rot)
+                c.translate(-cx, -cy)
+            c.drawImage(img, x, y, width=w, height=h, preserveAspectRatio=True, mask="auto")
+            c.restoreState()
+            continue
+
+        if t == "qr":
+            qr_reader = _make_qr_image(qr_data)
+            if not qr_reader:
+                continue
+            x = float(layer.get("xPt", 0))
+            y = float(layer.get("yPt", 0))
+            size = float(layer.get("widthPt") or layer.get("heightPt") or 70)
+            rot = float(layer.get("rotation") or 0)
+            cx = x + size / 2
+            cy = y + size / 2
+            c.saveState()
+            if rot:
+                c.translate(cx, cy)
+                c.rotate(-rot)
+                c.translate(-cx, -cy)
+            c.drawImage(qr_reader, x, y, width=size, height=size, mask="auto")
+            c.restoreState()
+            if layer.get("showCaption", True):
+                ff = _resolve_font("arial", False, False)
+                fc = colors.HexColor("#94a3b8")
+                c.setFont(ff, 7)
+                c.setFillColor(fc)
+                c.drawCentredString(x + size / 2, y - 11, "Scan to verify")
+            continue
+
+        if t == "line":
+            x1 = float(layer.get("xPt", 0))
+            y1 = float(layer.get("yPt", 0))
+            x2 = float(layer.get("x2Pt", x1 + 100))
+            y2 = float(layer.get("y2Pt", y1))
+            lw = float(layer.get("lineWidth") or 1)
+            try:
+                lc = colors.HexColor(layer.get("color") or "#000000")
+            except Exception:
+                lc = colors.black
+            c.saveState()
+            c.setStrokeColor(lc)
+            c.setLineWidth(lw)
+            c.line(x1, y1, x2, y2)
+            c.restoreState()
+            continue
+
+        if t == "rect":
+            x = float(layer.get("xPt", 0))
+            y = float(layer.get("yPt", 0))
+            w = float(layer.get("widthPt") or 10)
+            h = float(layer.get("heightPt") or 10)
+            rot = float(layer.get("rotation") or 0)
+            sw = float(layer.get("strokeWidth") or 1)
+            fill_c = layer.get("fillColor")
+            stroke_c = layer.get("strokeColor")
+            cx = x + w / 2
+            cy = y + h / 2
+            c.saveState()
+            if rot:
+                c.translate(cx, cy)
+                c.rotate(-rot)
+                c.translate(-cx, -cy)
+            if fill_c:
+                try:
+                    c.setFillColor(colors.HexColor(fill_c))
+                    c.rect(x, y, w, h, fill=1, stroke=0)
+                except Exception:
+                    pass
+            if stroke_c and sw > 0:
+                try:
+                    c.setStrokeColor(colors.HexColor(stroke_c))
+                    c.setLineWidth(sw)
+                    c.rect(x, y, w, h, fill=0, stroke=1)
+                except Exception:
+                    pass
+            c.restoreState()
+
+    c.save()
+    return buf.getvalue()
+
+
+def legacy_cert_style_to_freeform_dict(cert_source) -> dict:
+    """Approximate current fixed template as v2 layers; preserves per-element typography from merged legacy style."""
+    sty = _parse_cert_style(cert_source)
+    elems = sty["elements"]
+    pw, ph = landscape(A4)
+    m = 14 * mm + 4 * mm
+    content_x1 = m + 10
+    content_x2 = pw - m - 10
+    qr_size = 70.0
+    qr_x = content_x2 - qr_size
+
+    def es_of(key: str) -> dict:
+        return elems.get(key, {})
+
+    def text_layer(lid: str, var: str, z: int, y_baseline: float, width: float, elem_key: str, x_off: float = 0):
+        e = es_of(elem_key)
+        fs = float(e.get("size", 12))
+        h = max(fs * 1.4, 18)
+        y_bottom = y_baseline - fs * 0.35
+        return {
+            "id": lid,
+            "type": "text",
+            "zIndex": z,
+            "variable": var,
+            "text": "",
+            "xPt": (pw - width) / 2 + x_off,
+            "yPt": y_bottom,
+            "widthPt": width,
+            "heightPt": h,
+            "font": e.get("font", "arial"),
+            "fontSize": fs,
+            "color": e.get("color", "#0a1628"),
+            "bold": bool(e.get("bold")),
+            "italic": bool(e.get("italic")),
+            "align": "center",
+            "underline": bool(e.get("underline")),
+            "rotation": 0,
+        }
+
+    layers: list[dict] = [
+        text_layer("l-title", "title_text", 11, 420, 600, "title"),
+        text_layer("l-sub", "subtitle_text", 12, 390, 600, "subtitle"),
+        text_layer("l-name", "attendee_name", 20, 312, 600, "name"),
+        text_layer("l-att", "attending_line", 21, 267, 600, "attending"),
+        text_layer("l-sess", "event_session_title", 22, 239, 600, "session"),
+        text_layer("l-det", "details_line", 23, 152, 600, "details"),
+        text_layer("l-ven", "venue_line", 24, 120, 600, "venue"),
+        text_layer("l-cid", "cert_id_line", 30, 72, 600, "footer"),
+        text_layer("l-foot", "footer_text", 31, 60, 600, "footer"),
+    ]
+
+    brand_e = es_of("brand")
+    brand_fs = float(brand_e.get("size", 30))
+    layers.insert(
+        0,
+        {
+            "id": "l-brand",
+            "type": "text",
+            "zIndex": 10,
+            "variable": "brand_text",
+            "text": "",
+            "xPt": (pw - 500) / 2,
+            "yPt": 490 - brand_fs * 0.35,
+            "widthPt": 500,
+            "heightPt": max(brand_fs * 1.3, 28),
+            "font": brand_e.get("font", "arial"),
+            "fontSize": brand_fs,
+            "color": brand_e.get("color", "#0e7490"),
+            "bold": bool(brand_e.get("bold", True)),
+            "italic": bool(brand_e.get("italic")),
+            "align": "center",
+            "underline": bool(brand_e.get("underline")),
+            "rotation": 0,
+        },
+    )
+
+    signer_e = es_of("signer")
+    signer_fs = float(signer_e.get("size", 11))
+    layers.extend(
+        [
+            {
+                "id": "l-signer",
+                "type": "text",
+                "zIndex": 25,
+                "variable": "signer_name",
+                "text": "",
+                "xPt": content_x1,
+                "yPt": 84 - signer_fs * 0.25,
+                "widthPt": 200,
+                "heightPt": max(signer_fs * 1.3, 16),
+                "font": signer_e.get("font", "arial"),
+                "fontSize": signer_fs,
+                "color": signer_e.get("color", "#0a1628"),
+                "bold": bool(signer_e.get("bold", True)),
+                "italic": bool(signer_e.get("italic")),
+                "align": "left",
+                "underline": bool(signer_e.get("underline")),
+                "rotation": 0,
+            },
+            {
+                "id": "l-signer-d",
+                "type": "text",
+                "zIndex": 26,
+                "variable": "signer_designation",
+                "text": "",
+                "xPt": content_x1,
+                "yPt": 72 - max(signer_fs - 2, 7) * 0.25,
+                "widthPt": 200,
+                "heightPt": 24,
+                "font": signer_e.get("font", "arial"),
+                "fontSize": max(signer_fs - 2, 7),
+                "color": "#475569",
+                "bold": False,
+                "italic": True,
+                "align": "left",
+                "underline": False,
+                "rotation": 0,
+            },
+        ]
+    )
+
+    layers.append(
+        {
+            "id": "l-qr",
+            "type": "qr",
+            "zIndex": 40,
+            "xPt": qr_x,
+            "yPt": 88,
+            "widthPt": qr_size,
+            "heightPt": qr_size,
+            "rotation": 0,
+            "showCaption": True,
+        }
+    )
+
+    out = {
+        "version": CERT_STYLE_VERSION_FREEFORM,
+        "layout": "freeform",
+        "page": {"widthPt": pw, "heightPt": ph},
+        "border_style": sty.get("border_style", DEFAULT_STYLE["border_style"]),
+        "border_width": float(sty.get("border_width", DEFAULT_STYLE["border_width"])),
+        "bg_size": sty.get("bg_size", DEFAULT_STYLE["bg_size"]),
+        "bg_offset_x": float(sty.get("bg_offset_x", 0)),
+        "bg_offset_y": float(sty.get("bg_offset_y", 0)),
+        "layers": layers,
+    }
+    if sty.get("border_color_primary"):
+        out["border_color_primary"] = sty["border_color_primary"]
+    if sty.get("border_color_secondary"):
+        out["border_color_secondary"] = sty["border_color_secondary"]
+    if sty.get("border_color_tertiary"):
+        out["border_color_tertiary"] = sty["border_color_tertiary"]
+
+    raw_prev = _raw_cert_style_dict(cert_source)
+    if raw_prev and not is_freeform_cert_style(raw_prev):
+        out["legacy"] = raw_prev
+    return out
+
+
 def generate_certificate_pdf(booking, user, cert_source, event, auditorium) -> bytes:
+    _register_fonts()
+    raw = _raw_cert_style_dict(cert_source)
+    if is_freeform_cert_style(raw):
+        return _generate_certificate_freeform(booking, user, cert_source, event, auditorium, raw)
+    return _generate_certificate_legacy(booking, user, cert_source, event, auditorium)
+
+
+def _generate_certificate_legacy(booking, user, cert_source, event, auditorium) -> bytes:
     _register_fonts()
 
     cert_title      = getattr(cert_source, "cert_title", None) or "CERTIFICATE OF ATTENDANCE"

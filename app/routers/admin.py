@@ -1878,6 +1878,131 @@ async def event_certificate_save(
     return RedirectResponse(f"/admin/events/{event_id}/edit", status_code=303)
 
 
+@router.get("/events/{event_id}/certificate/designer")
+def certificate_designer_page(
+    request: Request, event_id: int, db: Session = Depends(get_db)
+):
+    from app.services.certificate import (
+        _raw_cert_style_dict,
+        default_freeform_cert_style_dict,
+        is_freeform_cert_style,
+        _parse_cert_style,
+    )
+
+    admin = _require_admin(request, db)
+    if not admin:
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+
+    raw = _raw_cert_style_dict(event)
+    if is_freeform_cert_style(raw):
+        initial_style = raw
+    else:
+        initial_style = default_freeform_cert_style_dict()
+        sty = _parse_cert_style(event)
+        initial_style["border_style"] = sty.get("border_style", initial_style["border_style"])
+        initial_style["border_width"] = float(sty.get("border_width", initial_style["border_width"]))
+        initial_style["bg_size"] = sty.get("bg_size", initial_style["bg_size"])
+        initial_style["bg_offset_x"] = float(sty.get("bg_offset_x", 0))
+        initial_style["bg_offset_y"] = float(sty.get("bg_offset_y", 0))
+        for k, sk in (
+            ("border_color_primary", "border_color_primary"),
+            ("border_color_secondary", "border_color_secondary"),
+            ("border_color_tertiary", "border_color_tertiary"),
+        ):
+            if sty.get(sk):
+                initial_style[k] = sty[sk]
+
+    designer_bootstrap = {
+        "eventId": event.id,
+        "eventName": event.name or "",
+        "isPersistedFreeform": is_freeform_cert_style(raw),
+        "initialStyle": initial_style,
+    }
+    return templates.TemplateResponse(
+        "admin/certificate_designer.html",
+        _admin_ctx(
+            request,
+            active_page="events",
+            event=event,
+            designer_bootstrap=designer_bootstrap,
+        ),
+    )
+
+
+@router.post("/events/{event_id}/certificate/designer")
+async def certificate_designer_save(
+    request: Request, event_id: int, db: Session = Depends(get_db)
+):
+    admin = _require_admin(request, db)
+    if not admin:
+        if request.headers.get("content-type", "").startswith("application/json"):
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        return RedirectResponse("/auth/login", status_code=303)
+    event = db.query(Event).get(event_id)
+    if not event:
+        if request.headers.get("content-type", "").startswith("application/json"):
+            return JSONResponse({"error": "Not found"}, status_code=404)
+        flash(request, "Event not found.", "danger")
+        return RedirectResponse("/admin/events", status_code=303)
+
+    ct = request.headers.get("content-type", "")
+    if "application/json" in ct:
+        body = await request.json()
+        payload = body.get("cert_style")
+        if isinstance(payload, dict):
+            event.cert_style = json.dumps(payload)
+        elif payload is None or payload == "":
+            event.cert_style = None
+        else:
+            event.cert_style = str(payload).strip() or None
+        log_activity(
+            db,
+            category="admin",
+            action="update",
+            description=f"Updated certificate visual layout for event '{event.name}'",
+            request=request,
+            user_id=admin.id,
+            target_type="event",
+            target_id=event.id,
+        )
+        db.commit()
+        return JSONResponse({"ok": True})
+    form = await request.form()
+    event.cert_style = (form.get("cert_style") or "").strip() or None
+    log_activity(
+        db,
+        category="admin",
+        action="update",
+        description=f"Updated certificate visual layout for event '{event.name}'",
+        request=request,
+        user_id=admin.id,
+        target_type="event",
+        target_id=event.id,
+    )
+    db.commit()
+    flash(request, "Certificate layout saved.", "success")
+    return RedirectResponse(f"/admin/events/{event_id}/certificate/designer", status_code=303)
+
+
+@router.get("/events/{event_id}/certificate/legacy-to-freeform")
+def certificate_legacy_to_freeform(
+    request: Request, event_id: int, db: Session = Depends(get_db)
+):
+    from app.services.certificate import legacy_cert_style_to_freeform_dict
+
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    event = db.query(Event).get(event_id)
+    if not event:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+    return JSONResponse(legacy_cert_style_to_freeform_dict(event))
+
+
 @router.post("/events/certificate/preview-image")
 async def event_certificate_preview_image(
     request: Request, db: Session = Depends(get_db)

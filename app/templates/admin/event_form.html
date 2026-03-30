@@ -224,7 +224,17 @@
     <!-- Step 5: Certificate -->
     <div class="wizard-panel" data-panel="5">
       <h3 class="wizard-panel-title">Certificate Template</h3>
-      <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees. Leave blank for defaults.</p>
+      <p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Customize the attendance certificate issued to checked-in attendees. Text and images still come from the fields below; use the visual designer to position elements on the PDF.</p>
+      {% if event %}
+      <p style="margin:0 0 1rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
+        <a href="/admin/events/{{ event.id }}/certificate/designer" class="btn btn-primary btn-sm">Open visual designer</a>
+        <span class="text-muted" style="font-size:.8rem">Drag, resize, and rotate layers · saves into certificate style JSON</span>
+      </p>
+      <div id="cert-freeform-banner" class="text-muted" style="display:none;font-size:.82rem;margin:-.5rem 0 1rem;padding:.6rem .75rem;background:var(--bg-muted,#f1f5f9);border-radius:8px;border:1px solid var(--color-border,#e2e8f0)">
+        This event uses a <strong>visual (freeform)</strong> certificate layout. Open the designer to change positions. Legacy “per-element” typography controls below are hidden for this mode.
+      </div>
+      <script type="application/json" id="ev-cert-style-saved">{{ {'s': event.cert_style or ''} | tojson }}</script>
+      {% endif %}
       <input type="hidden" name="cert_style" id="cert-style-hidden" value="">
 
       <div class="cert-editor-layout">
@@ -295,8 +305,8 @@
       </div>
       {% endif %}
 
-      <!-- Advanced Styling -->
-      <details id="cert-advanced-styling" style="margin-top:1.5rem;border:1px solid var(--color-border,#e2e8f0);border-radius:8px;padding:0 1rem">
+      <!-- Advanced Styling (legacy layout only — hidden when cert_style is v2 freeform) -->
+      <details id="cert-advanced-styling" class="cert-legacy-advanced-block" style="margin-top:1.5rem;border:1px solid var(--color-border,#e2e8f0);border-radius:8px;padding:0 1rem">
         <summary style="cursor:pointer;font-weight:600;font-size:.9rem;padding:.75rem 0;user-select:none">Advanced Styling Options</summary>
         <div style="padding-bottom:1rem">
 
@@ -2081,6 +2091,18 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
   });
 });
 
+// ─── Restore cert_style hidden from server (supports large JSON / freeform) ───
+(function () {
+  var el = document.getElementById('ev-cert-style-saved');
+  var hid = document.getElementById('cert-style-hidden');
+  if (el && hid) {
+    try {
+      var wrap = JSON.parse(el.textContent);
+      if (wrap && wrap.s) hid.value = wrap.s;
+    } catch (e) {}
+  }
+})();
+
 // ─── Advanced Styling: init from cert_style JSON + toggle buttons ───
 (function () {
   var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
@@ -2097,14 +2119,30 @@ document.querySelectorAll('.bsp-opt').forEach(function(opt) {
     footer:    {font:'arial',size:8, color:'#94a3b8',bold:false,italic:false,underline:false}
   };
 
-  var raw = {{ ((event.cert_style if event else '') or '{}')|tojson }};
+  var hidInit = document.getElementById('cert-style-hidden');
+  var raw = hidInit && hidInit.value ? hidInit.value : {{ ((event.cert_style if event else '') or '{}')|tojson }};
   var sty = {};
   try { sty = JSON.parse(raw); } catch(e) {}
+  if (sty.version === 2 && String(sty.layout || '').toLowerCase() === 'freeform') {
+    var ban = document.getElementById('cert-freeform-banner');
+    if (ban) ban.style.display = 'block';
+    document.querySelectorAll('.cert-legacy-advanced-block').forEach(function (x) { x.style.display = 'none'; });
+  }
   var elems = sty.elements || {};
 
   function setVal(id, val) {
     var el = document.getElementById(id);
     if (el) el.value = val;
+  }
+
+  if (sty.version === 2 && String(sty.layout || '').toLowerCase() === 'freeform') {
+    setVal('cert-style-border', sty.border_style || 'modern');
+    _syncBorderPicker();
+    setVal('cert-style-border-width', sty.border_width != null ? sty.border_width : 1);
+    setVal('cert-style-bg-size', sty.bg_size || 'cover');
+    setVal('cert-style-bg-offset-x', (sty.bg_offset_x || 0));
+    setVal('cert-style-bg-offset-y', (sty.bg_offset_y || 0));
+    return;
   }
 
   setVal('cert-style-border', sty.border_style || 'modern');
@@ -2322,6 +2360,15 @@ function _isColorCustom(id) {
 
 // ─── Build cert_style JSON from form fields ───
 function _buildCertStyleJson() {
+  var hid = document.getElementById('cert-style-hidden');
+  if (hid && hid.value) {
+    try {
+      var parsed = JSON.parse(hid.value);
+      if (parsed && parsed.version === 2 && String(parsed.layout || '').toLowerCase() === 'freeform') {
+        return hid.value;
+      }
+    } catch (e) {}
+  }
   var ELEMENTS = ['brand','title','subtitle','name','attending','session','details','venue','signer','footer'];
   function gv(id, fallback) { var el = document.getElementById(id); return el ? el.value : (fallback || ''); }
   var obj = {
