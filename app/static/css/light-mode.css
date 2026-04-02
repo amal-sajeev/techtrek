@@ -1598,9 +1598,17 @@
 [data-theme="light"] .sd-share-btn         { font-size: 1rem !important; }
 
 /* ── Event detail — session cards ───────────────────────────────────── */
-[data-theme="light"] .ed-sc-desc      { font-size: 1rem !important; }
-[data-theme="light"] .ed-sc-meta      { font-size: 1rem !important; }
+/* Use html + full chain + element so this beats generic light-mode `p` rules (class-only
+   selectors lose to ... p when both use !important). */
 [data-theme="light"] .ed-sc-view-link { font-size: 1rem !important; }
+html[data-theme="light"] .ed-session-card .ed-sc-body p.ed-sc-desc,
+html[data-theme="light"] .ed-break-card .ed-sc-body p.ed-sc-desc {
+  font-size: calc(1rem - 2px) !important;
+}
+html[data-theme="light"] .ed-session-card .ed-sc-body .ed-sc-meta,
+html[data-theme="light"] .ed-break-card .ed-sc-body .ed-sc-meta {
+  font-size: calc(1rem - 2px) !important;
+}
 
 /* ── Event detail — section subtitle ────────────────────────────────── */
 [data-theme="light"] .ed-section-sub  { font-size: 1rem !important; line-height: 1.6 !important; }

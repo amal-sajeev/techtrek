@@ -26,8 +26,8 @@
         </select>
       </div>
       <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-      <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">&#128424; Print</button>
-      <a href="/schedule/export-pdf?college_id={{ college_id }}&auditorium_id={{ auditorium_id }}" class="btn btn-outline btn-sm">&#128196; PDF</a>
+      <button type="button" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:.35rem" onclick="window.print()"><i data-lucide="printer" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Print</button>
+      <a href="/schedule/export-pdf?college_id={{ college_id }}&auditorium_id={{ auditorium_id }}" class="btn btn-outline btn-sm" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="file-text" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> PDF</a>
     </form>
 
     <div id="schedule-content">
@@ -45,7 +45,7 @@
             <div class="schedule-info" style="margin-bottom:.5rem">
               <a href="/events/{{ ev.id }}" class="schedule-title">{{ ev.name }}</a>
               {% if aud %}
-              <p class="schedule-venue">&#128205; {{ aud.name }}{% if aud.location %}, {{ aud.location }}{% endif %}</p>
+              <p class="schedule-venue" style="display:flex;align-items:center;gap:.35rem"><i data-lucide="map-pin" class="lucide" style="width:.9rem;height:.9rem;flex-shrink:0" aria-hidden="true"></i> {{ aud.name }}{% if aud.location %}, {{ aud.location }}{% endif %}</p>
               {% endif %}
             </div>
             {% for es in (item.event_sessions or []) %}

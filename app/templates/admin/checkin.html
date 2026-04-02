@@ -126,7 +126,7 @@
 {% if result %}
 <div class="checkin-result checkin-{{ result.status }}">
   <div class="checkin-result-icon">
-    {% if result.status in ('success', 'reentry') %}&#10003;{% elif result.status == 'warning' %}&#9888;{% else %}&#10007;{% endif %}
+    {% if result.status in ('success', 'reentry') %}<i data-lucide="check" class="lucide icon-xl" aria-hidden="true"></i>{% elif result.status == 'warning' %}<i data-lucide="alert-triangle" class="lucide icon-xl" aria-hidden="true"></i>{% else %}<i data-lucide="x" class="lucide icon-xl" aria-hidden="true"></i>{% endif %}
   </div>
   <h3>{{ result.msg }}</h3>
   {% if result.is_group %}

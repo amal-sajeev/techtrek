@@ -26,7 +26,7 @@
 
 {% if not feedback_items %}
 <div class="empty-state">
-  <div class="empty-state-icon">&#11088;</div>
+  <div class="empty-state-icon"><i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i></div>
   <h3>No feedback found</h3>
   <p>{% if rating_filter or featured_filter %}Try adjusting your filters.{% else %}Feedback will appear here after users submit ratings.{% endif %}</p>
 </div>
@@ -59,7 +59,7 @@
         <td data-label="Rating">
           {% if fb.rating %}
             <span style="color:var(--yellow,#f59e0b);white-space:nowrap">
-              {% for i in range(fb.rating) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating) %}&#9734;{% endfor %}
+              <span class="star-rating-inline">{% for i in range(fb.rating) %}<i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i>{% endfor %}{% for i in range(5 - fb.rating) %}<i data-lucide="star" class="lucide" aria-hidden="true"></i>{% endfor %}</span>
             </span>
           {% elif fb.dismissed %}
             <span class="badge badge-muted">Dismissed</span>

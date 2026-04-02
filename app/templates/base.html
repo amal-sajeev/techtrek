@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}TechTrek{% endblock %}</title>
-  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='6' fill='%230d1117'/><text y='24' x='4' font-size='22' font-family='monospace'>⚡</text></svg>">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%230d1117'/%3E%3Cpath fill='%2300d4ff' d='M18 2L6 18h8l-2 12 12-16h-8l2-12z'/%3E%3C/svg%3E">
   <link rel="manifest" href="/static/manifest.json">
   <meta name="theme-color" content="#00d4ff">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -14,7 +14,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&family=Exo+2:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-  <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
   <link rel="stylesheet" href="{{ url_for('static', path='css/style.css') }}?v={{ asset_version }}">
   <link rel="stylesheet" href="{{ url_for('static', path='css/additions.css') }}?v={{ asset_version }}">
   <link rel="stylesheet" href="{{ url_for('static', path='css/light-mode.css') }}?v={{ asset_version }}">
@@ -39,7 +38,7 @@
 <nav class="navbar" id="navbar">
   <div class="container navbar-inner">
     <a href="/" class="navbar-brand">
-      <span class="brand-lightning">&#9889;</span><span class="lm-nb-hidden"> TECHTREK</span>
+      <span class="brand-lightning"><i data-lucide="zap" class="lucide" aria-hidden="true"></i></span><span class="lm-nb-hidden"> TECHTREK</span>
       <span class="lm-nb-left">India's<br>Campus<br>Summit</span>
       <span class="lm-nb-rule"></span>
       <span class="lm-nb-logo">TechTrek</span>
@@ -66,8 +65,8 @@
     <div class="navbar-actions">
       <button id="pwa-install-btn" class="btn btn-outline btn-sm" style="display:none" aria-label="Install app">Install App</button>
       <button id="theme-toggle" class="btn-icon theme-toggle" aria-label="Toggle theme">
-        <span class="icon-sun">&#9788;</span>
-        <span class="icon-moon">&#9790;</span>
+        <span class="icon-sun"><i data-lucide="sun" class="lucide" aria-hidden="true"></i></span>
+        <span class="icon-moon"><i data-lucide="moon" class="lucide" aria-hidden="true"></i></span>
       </button>
       {% if user %}
         <a href="/auth/profile" class="nav-user">{{ user.username }}</a>
@@ -87,7 +86,7 @@
 <!-- Mobile drawer -->
 <div class="nav-overlay" id="nav-overlay"></div>
 <div class="nav-drawer" id="nav-drawer">
-  <div class="nav-drawer-header">&#9889; TECHTREK</div>
+  <div class="nav-drawer-header"><i data-lucide="zap" class="lucide" aria-hidden="true"></i> TECHTREK</div>
   {% if total_events > 1 %}
   <a href="/" class="nav-drawer-link">{{ _('Home') }}</a>
   <a href="/events" class="nav-drawer-link">{{ _('Events') }}</a>
@@ -113,7 +112,7 @@
   {% endif %}
   <hr class="nav-drawer-divider">
   <button id="drawer-theme-toggle" class="nav-drawer-link" style="width:100%;text-align:left;background:none;border:none;cursor:pointer;font:inherit;color:inherit;">
-    <span class="icon-sun">&#9788;</span> / <span class="icon-moon">&#9790;</span> Toggle Theme
+    <span class="icon-sun"><i data-lucide="sun" class="lucide" aria-hidden="true"></i></span> / <span class="icon-moon"><i data-lucide="moon" class="lucide" aria-hidden="true"></i></span> Toggle Theme
   </button>
 </div>
 
@@ -137,7 +136,7 @@
 <!-- Footer -->
 <footer class="footer">
   <div>
-    <span class="footer-brand">&#9889; TECHTREK</span>
+    <span class="footer-brand"><i data-lucide="zap" class="lucide" aria-hidden="true"></i> TECHTREK</span>
     <p class="footer-tagline"><span style="color:var(--cyan);opacity:.5">// </span>industry summits, live at campuses across India.</p>
   </div>
   <div class="footer-links">
@@ -201,7 +200,7 @@
   <div class="modal-backdrop" id="poll-popup-backdrop"></div>
   <div class="modal-dialog" style="max-width:420px;">
     <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;">
-      <span style="font-size:1.25rem;">&#128202;</span>
+      <span style="display:inline-flex;align-items:center"><i data-lucide="bar-chart-3" class="lucide icon-lg" aria-hidden="true"></i></span>
       <h3 id="poll-popup-heading" style="margin:0;font-size:1.1rem;">Live poll</h3>
     </div>
     <p id="poll-popup-session" class="text-muted" style="font-size:.85rem;margin:0 0 .5rem;"></p>
@@ -220,7 +219,7 @@
   <div class="modal-backdrop" id="alert-popup-backdrop"></div>
   <div class="modal-dialog" style="max-width:420px;">
     <div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.75rem;">
-      <span id="alert-popup-icon" style="font-size:1.5rem;">&#128276;</span>
+      <span id="alert-popup-icon" style="display:inline-flex;align-items:center"><i data-lucide="bell" class="lucide icon-xl" aria-hidden="true"></i></span>
       <h3 id="alert-popup-title" style="margin:0;font-size:1.1rem;font-weight:700;">Alert</h3>
     </div>
     <p id="alert-popup-event" class="text-muted" style="font-size:.85rem;margin:0 0 .5rem;"></p>
@@ -278,6 +277,14 @@ if ('serviceWorker' in navigator) {
     if (installBtn) installBtn.style.display = 'none';
     deferredPrompt = null;
   });
+})();
+</script>
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script>
+(function(){
+  function ttLucide(){ if (window.lucide && lucide.createIcons) lucide.createIcons(); }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', ttLucide);
+  else ttLucide();
 })();
 </script>
 </body>

@@ -10,8 +10,8 @@
   <h1 class="m-ph-title">METRICS</h1>
   <span class="m-ph-slash">//</span>
   <span class="m-ph-sub">PLATFORM ANALYTICS</span>
-  <button type="button" id="csv-export" class="m-range-btn" style="margin-left:auto;padding:.45rem 1.2rem;font-size:.95rem" title="Export visible data as CSV">&#128229; Export CSV</button>
-  <button type="button" id="metrics-pdf-export" class="m-range-btn" style="margin-left:.45rem;padding:.45rem 1.2rem;font-size:.95rem" title="A4 PDF with charts, tables, and AI narrative (uses current filters; may take up to a minute)">&#128196; AI report (PDF)</button>
+  <button type="button" id="csv-export" class="m-range-btn" style="margin-left:auto;padding:.45rem 1.2rem;font-size:.95rem;display:inline-flex;align-items:center;gap:.35rem" title="Export visible data as CSV"><i data-lucide="download" class="lucide" aria-hidden="true"></i> Export CSV</button>
+  <button type="button" id="metrics-pdf-export" class="m-range-btn" style="margin-left:.45rem;padding:.45rem 1.2rem;font-size:.95rem;display:inline-flex;align-items:center;gap:.35rem" title="A4 PDF with charts, tables, and AI narrative (uses current filters; may take up to a minute)"><i data-lucide="file-text" class="lucide" aria-hidden="true"></i> AI report (PDF)</button>
 </div>
 
 {# ── Filter Bar ── #}
@@ -43,40 +43,40 @@
 {# ── KPI Cards ── #}
 <div class="m-kpi-grid">
   <div class="m-kpi" style="--m-kc:var(--cyan)">
-    <div class="m-kpi-top"><div class="m-kpi-ico">&#128101;</div><div class="m-kpi-lbl">Total Users</div></div>
+    <div class="m-kpi-top"><div class="m-kpi-ico"><i data-lucide="users" class="lucide" aria-hidden="true"></i></div><div class="m-kpi-lbl">Total Users</div></div>
     <div class="m-kpi-val">{{ "{:,}".format(total_users) }}</div>
   </div>
   <div class="m-kpi" style="--m-kc:var(--green, #10b981)">
-    <div class="m-kpi-top"><div class="m-kpi-ico">&#8377;</div><div class="m-kpi-lbl">Total Revenue</div></div>
-    <div class="m-kpi-val" style="font-size:1.88rem">&#8377;{{ "{:,.0f}".format(total_revenue) }}</div>
+    <div class="m-kpi-top"><div class="m-kpi-ico"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i></div><div class="m-kpi-lbl">Total Revenue</div></div>
+    <div class="m-kpi-val m-rupee-inline" style="font-size:1.88rem"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i><span>{{ "{:,.0f}".format(total_revenue) }}</span></div>
   </div>
   <div class="m-kpi" style="--m-kc:var(--violet, #8b5cf6)">
-    <div class="m-kpi-top"><div class="m-kpi-ico">&#127915;</div><div class="m-kpi-lbl">Total Bookings</div></div>
+    <div class="m-kpi-top"><div class="m-kpi-ico"><i data-lucide="ticket" class="lucide" aria-hidden="true"></i></div><div class="m-kpi-lbl">Total Bookings</div></div>
     <div class="m-kpi-val">{{ "{:,}".format(total_bookings) }}</div>
   </div>
   <div class="m-kpi" style="--m-kc:var(--amber, #f59e0b)">
-    <div class="m-kpi-top"><div class="m-kpi-ico">&#10003;</div><div class="m-kpi-lbl">Check-in Rate</div></div>
+    <div class="m-kpi-top"><div class="m-kpi-ico"><i data-lucide="check" class="lucide" aria-hidden="true"></i></div><div class="m-kpi-lbl">Check-in Rate</div></div>
     <div class="m-kpi-val">{{ checkin_rate }}%</div>
   </div>
   <div class="m-kpi" style="--m-kc:var(--amber, #f59e0b)">
-    <div class="m-kpi-top"><div class="m-kpi-ico">&#11088;</div><div class="m-kpi-lbl">Avg Rating</div></div>
+    <div class="m-kpi-top"><div class="m-kpi-ico"><i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i></div><div class="m-kpi-lbl">Avg Rating</div></div>
     <div class="m-kpi-val">{{ avg_rating }}<small style="font-size:1.35rem">/5</small></div>
   </div>
   <div class="m-kpi" style="--m-kc:var(--cyan)">
-    <div class="m-kpi-top"><div class="m-kpi-ico">&#127942;</div><div class="m-kpi-lbl">Active Events</div></div>
+    <div class="m-kpi-top"><div class="m-kpi-ico"><i data-lucide="trophy" class="lucide" aria-hidden="true"></i></div><div class="m-kpi-lbl">Active Events</div></div>
     <div class="m-kpi-val">{{ event_statuses.get('published', 0) }}</div>
   </div>
 </div>
 
 {# ── Tabs ── #}
 <div class="m-tabs">
-  <button class="m-tab-btn on" data-tab="overview" type="button">&#128202; Overview</button>
-  <button class="m-tab-btn" data-tab="users" type="button">&#128101; Users</button>
-  <button class="m-tab-btn" data-tab="events" type="button">&#127942; Events</button>
-  <button class="m-tab-btn" data-tab="revenue" type="button">&#8377; Revenue</button>
-  <button class="m-tab-btn" data-tab="feedback" type="button">&#11088; Feedback</button>
-  <button class="m-tab-btn" data-tab="sessions" type="button">&#127916; Sessions</button>
-  <button class="m-tab-btn" data-tab="system" type="button">&#9881; System</button>
+  <button class="m-tab-btn on" data-tab="overview" type="button"><i data-lucide="bar-chart-3" class="lucide" aria-hidden="true"></i> Overview</button>
+  <button class="m-tab-btn" data-tab="users" type="button"><i data-lucide="users" class="lucide" aria-hidden="true"></i> Users</button>
+  <button class="m-tab-btn" data-tab="events" type="button"><i data-lucide="trophy" class="lucide" aria-hidden="true"></i> Events</button>
+  <button class="m-tab-btn" data-tab="revenue" type="button"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i> Revenue</button>
+  <button class="m-tab-btn" data-tab="feedback" type="button"><i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i> Feedback</button>
+  <button class="m-tab-btn" data-tab="sessions" type="button"><i data-lucide="clapperboard" class="lucide" aria-hidden="true"></i> Sessions</button>
+  <button class="m-tab-btn" data-tab="system" type="button"><i data-lucide="settings" class="lucide" aria-hidden="true"></i> System</button>
 </div>
 
 {# ══════════════════════════════════════════════
@@ -131,7 +131,7 @@
         {% for star in [5,4,3,2,1] %}
         {% set cnt = rating_dist.get(star, 0) %}
         <div class="m-star-row">
-          <div class="m-star-lbl">{{ star }}&#9733;</div>
+          <div class="m-star-lbl">{{ star }} <i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i></div>
           <div class="m-star-bg"><div class="m-star-fill" style="width:{{ (cnt / max_r * 100)|round(0) if max_r else 0 }}%"></div></div>
           <div class="m-star-n">{{ cnt }}</div>
         </div>
@@ -235,7 +235,7 @@
           <button class="m-range-btn" data-n="20" type="button">20</button>
           <button class="m-range-btn" data-n="0" type="button">All</button>
         </div>
-        <button type="button" class="m-spe-sort" id="spe-sort" title="Toggle sort order">&#9660;</button>
+        <button type="button" class="m-spe-sort" id="spe-sort" title="Toggle sort order"><i data-lucide="chevron-down" class="lucide" aria-hidden="true"></i></button>
       </div>
       <div class="m-cw" style="height:195px"><canvas id="mc-spe"></canvas></div>
       {% else %}<div class="m-empty">No session data.</div>{% endif %}
@@ -356,7 +356,7 @@
           <div class="m-rn">{{ loop.index }}</div>
           <div class="m-rname">{{ e.name }}</div>
           <div class="m-rbw"><div class="m-rb" style="width:{{ (e.revenue / revenue_by_event[0].revenue * 100)|round(0) if revenue_by_event[0].revenue else 0 }}%;--m-rc:var(--green, #10b981)"></div></div>
-          <div class="m-rv">&#8377;{{ "{:,.0f}".format(e.revenue) }}</div>
+          <div class="m-rv m-rupee-inline"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i><span>{{ "{:,.0f}".format(e.revenue) }}</span></div>
         </div>
         {% endfor %}
       </div>
@@ -368,7 +368,7 @@
         <div class="m-ri">
           <div class="m-rname">{{ s.display_label }}</div>
           <div class="m-rbw"><div class="m-rb" style="width:{{ (s.revenue / revenue_by_seat_type[0].revenue * 100)|round(0) if revenue_by_seat_type[0].revenue else 0 }}%"></div></div>
-          <div class="m-rv">&#8377;{{ "{:,.0f}".format(s.revenue) }}</div>
+          <div class="m-rv m-rupee-inline"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i><span>{{ "{:,.0f}".format(s.revenue) }}</span></div>
         </div>
         {% endfor %}
       </div>
@@ -384,8 +384,8 @@
       <div class="m-cc-h"><div class="m-cc-t">Refunds &amp; Cancellations</div><div class="m-badge r">Losses</div></div>
       <div class="m-sg" style="margin-top:.3rem">
         <div class="m-si"><div class="m-si-l">Refund Count</div><div class="m-si-v" style="color:var(--red, #f43f5e)">{{ refund_stats.count }}</div></div>
-        <div class="m-si"><div class="m-si-l">Refund Total</div><div class="m-si-v" style="color:var(--red, #f43f5e);font-size:1.35rem">&#8377;{{ "{:,.0f}".format(refund_stats.total) }}</div></div>
-        <div class="m-si"><div class="m-si-l">Cancel Fees</div><div class="m-si-v" style="color:var(--amber, #f59e0b);font-size:1.35rem">&#8377;{{ "{:,.0f}".format(refund_stats.cancel_fees) }}</div></div>
+        <div class="m-si"><div class="m-si-l">Refund Total</div><div class="m-si-v m-rupee-inline" style="color:var(--red, #f43f5e);font-size:1.35rem"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i><span>{{ "{:,.0f}".format(refund_stats.total) }}</span></div></div>
+        <div class="m-si"><div class="m-si-l">Cancel Fees</div><div class="m-si-v m-rupee-inline" style="color:var(--amber, #f59e0b);font-size:1.35rem"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i><span>{{ "{:,.0f}".format(refund_stats.cancel_fees) }}</span></div></div>
         <div class="m-si"><div class="m-si-l">Shared Tickets</div><div class="m-si-v" style="color:var(--violet, #8b5cf6)">{{ refund_stats.shared }}</div></div>
       </div>
     </div>
@@ -579,7 +579,7 @@
   </div>
 </div>
 
-<div class="m-fnote">&#9889; TECHTREK METRICS // DATA REFRESHED ON PAGE LOAD</div>
+<div class="m-fnote"><i data-lucide="zap" class="lucide" aria-hidden="true"></i> TECHTREK METRICS // DATA REFRESHED ON PAGE LOAD</div>
 {% endblock %}
 
 {% block scripts %}
@@ -846,7 +846,8 @@
         const sortBtn = document.getElementById('spe-sort');
         sortBtn.addEventListener('click', function() {
           speAsc = !speAsc;
-          this.innerHTML = speAsc ? '&#9650;' : '&#9660;';
+          this.innerHTML = speAsc ? '<i data-lucide="chevron-up" class="lucide" aria-hidden="true"></i>' : '<i data-lucide="chevron-down" class="lucide" aria-hidden="true"></i>';
+          if (window.lucide && lucide.createIcons) lucide.createIcons({ root: this });
           this.classList.toggle('on', speAsc);
           renderSPE();
         });

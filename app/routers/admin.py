@@ -172,7 +172,10 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login?next=/admin/", status_code=303)
 
     total_users = db.query(func.count(User.id)).scalar()
-    _paid_not_shared = [Booking.payment_status == "paid", Booking.is_shared_ticket == False]
+    _paid_not_shared = [
+        Booking.payment_status == "paid",
+        Booking.is_shared_ticket.isnot(True),
+    ]
     total_bookings = db.query(func.count(Booking.id)).filter(*_paid_not_shared).scalar()
     total_revenue = db.query(func.sum(Booking.amount_paid)).filter(*_paid_not_shared).scalar() or 0
 
@@ -229,7 +232,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
         session_count = len(ev.event_sessions) if ev.event_sessions else 0
         booking_count = db.query(func.count(Booking.id)).filter(
             Booking.event_id == ev.id, Booking.payment_status == "paid",
-            Booking.is_shared_ticket == False,
+            Booking.is_shared_ticket.isnot(True),
         ).scalar() or 0
         checked_in = db.query(func.count(Booking.id)).filter(
             Booking.event_id == ev.id, Booking.payment_status == "paid", Booking.checked_in == True
@@ -2043,6 +2046,10 @@ def booking_cancel(request: Request, booking_id: int, db: Session = Depends(get_
     if not b:
         flash(request, "Booking not found.", "danger")
         return RedirectResponse("/admin/bookings", status_code=303)
+    ev = db.query(Event).get(b.event_id) if b.event_id else None
+    if _hub_ops_locked(ev):
+        flash(request, "This event is completed — booking changes are disabled.", "danger")
+        return RedirectResponse(f"/admin/event-management/{ev.id}/bookings", status_code=303)
     if b.payment_status not in ("paid", "hold"):
         flash(request, f"Booking {b.booking_ref} is '{b.payment_status}' — cannot cancel.", "danger")
         return RedirectResponse("/admin/bookings", status_code=303)
@@ -2102,7 +2109,14 @@ def booking_refund(request: Request, booking_id: int, db: Session = Depends(get_
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
     b = db.query(Booking).get(booking_id)
-    if b and b.checked_in:
+    if not b:
+        flash(request, "Booking not found.", "danger")
+        return RedirectResponse("/admin/bookings", status_code=303)
+    ev = db.query(Event).get(b.event_id) if b.event_id else None
+    if _hub_ops_locked(ev):
+        flash(request, "This event is completed — booking changes are disabled.", "danger")
+        return RedirectResponse(f"/admin/event-management/{ev.id}/bookings", status_code=303)
+    if b.checked_in:
         flash(request, f"Booking {b.booking_ref} is checked in — refund not allowed.", "danger")
         return RedirectResponse("/admin/bookings", status_code=303)
     can_refund = b and b.payment_status in ("paid", "refunded") and (
@@ -2150,7 +2164,7 @@ def checkin_page(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login", status_code=303)
     events_list = (
         db.query(Event)
-        .filter(Event.status.in_(["published", "completed"]))
+        .filter(Event.status == "published")
         .order_by(Event.start_date.desc())
         .all()
     )
@@ -2172,7 +2186,7 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
 
     events_list = (
         db.query(Event)
-        .filter(Event.status.in_(["published", "completed"]))
+        .filter(Event.status == "published")
         .order_by(Event.start_date.desc())
         .all()
     )
@@ -2211,48 +2225,53 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
             group_bookings = all_group
 
         if group_bookings:
-            now = now_ist()
-            newly_checked = []
-            already_checked = []
-            for gb in group_bookings:
-                if gb.checked_in:
-                    seat = db.query(Seat).get(gb.seat_id)
-                    already_checked.append(seat.label if seat else gb.ticket_id)
-                else:
-                    gb.checked_in = True
-                    gb.checked_in_at = now
-                    seat = db.query(Seat).get(gb.seat_id)
-                    newly_checked.append(seat.label if seat else gb.ticket_id)
-            db.commit()
-
-            user = db.query(User).get(group_bookings[0].user_id)
-            event = db.query(Event).get(group_bookings[0].event_id) if group_bookings[0].event_id else None
-            event_name = event.name if event else "unknown"
-            refunded_note = f" ({refunded_count} ticket(s) in this group are refunded/cancelled.)" if refunded_count else ""
-
-            if newly_checked and not already_checked:
-                msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{event_name}'.{refunded_note}"
-                status = "success"
-                log_activity(db, category="admin", action="checkin", description=f"Group check-in: {len(newly_checked)} ticket(s) for '{event_name}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
-            elif newly_checked and already_checked:
-                msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in.{refunded_note}"
-                status = "success"
-                log_activity(db, category="admin", action="checkin", description=f"Partial group check-in: {len(newly_checked)} new for '{event_name}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
+            ev0 = db.query(Event).get(group_bookings[0].event_id) if group_bookings[0].event_id else None
+            any_unchecked = any(not gb.checked_in for gb in group_bookings)
+            if any_unchecked and _hub_ops_locked(ev0):
+                result = {"status": "error", "msg": "This event is completed; check-in is disabled."}
             else:
-                msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in. Ticket is valid.{refunded_note}"
-                status = "reentry"
+                now = now_ist()
+                newly_checked = []
+                already_checked = []
+                for gb in group_bookings:
+                    if gb.checked_in:
+                        seat = db.query(Seat).get(gb.seat_id)
+                        already_checked.append(seat.label if seat else gb.ticket_id)
+                    else:
+                        gb.checked_in = True
+                        gb.checked_in_at = now
+                        seat = db.query(Seat).get(gb.seat_id)
+                        newly_checked.append(seat.label if seat else gb.ticket_id)
+                db.commit()
 
-            result = {
-                "status": status,
-                "msg": msg,
-                "is_group": True,
-                "user_name": user.full_name or user.username if user else "Unknown",
-                "user_email": user.email if user else "",
-                "event_name": event_name,
-                "newly_checked": newly_checked,
-                "already_checked": already_checked,
-                "refunded_count": refunded_count,
-            }
+                user = db.query(User).get(group_bookings[0].user_id)
+                event = db.query(Event).get(group_bookings[0].event_id) if group_bookings[0].event_id else None
+                event_name = event.name if event else "unknown"
+                refunded_note = f" ({refunded_count} ticket(s) in this group are refunded/cancelled.)" if refunded_count else ""
+
+                if newly_checked and not already_checked:
+                    msg = f"Check-in successful! {len(newly_checked)} ticket(s) for '{event_name}'.{refunded_note}"
+                    status = "success"
+                    log_activity(db, category="admin", action="checkin", description=f"Group check-in: {len(newly_checked)} ticket(s) for '{event_name}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
+                elif newly_checked and already_checked:
+                    msg = f"Checked in {len(newly_checked)} ticket(s). {len(already_checked)} already checked in.{refunded_note}"
+                    status = "success"
+                    log_activity(db, category="admin", action="checkin", description=f"Partial group check-in: {len(newly_checked)} new for '{event_name}'", request=request, user_id=admin.id, target_type="booking", target_id=group_bookings[0].id)
+                else:
+                    msg = f"Re-entry — all {len(already_checked)} ticket(s) already checked in. Ticket is valid.{refunded_note}"
+                    status = "reentry"
+
+                result = {
+                    "status": status,
+                    "msg": msg,
+                    "is_group": True,
+                    "user_name": user.full_name or user.username if user else "Unknown",
+                    "user_email": user.email if user else "",
+                    "event_name": event_name,
+                    "newly_checked": newly_checked,
+                    "already_checked": already_checked,
+                    "refunded_count": refunded_count,
+                }
     else:
         query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
         if event_id_raw:
@@ -2279,23 +2298,27 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
                 "ticket_id": ticket_id,
             }
         else:
-            booking.checked_in = True
-            booking.checked_in_at = now_ist()
-            user = db.query(User).get(booking.user_id)
-            seat = db.query(Seat).get(booking.seat_id)
-            event = db.query(Event).get(booking.event_id) if booking.event_id else None
-            event_name = event.name if event else "unknown"
-            log_activity(db, category="admin", action="checkin", description=f"Checked in ticket '{ticket_id}' (seat {seat.label if seat else '?'}) for '{event_name}'", request=request, user_id=admin.id, target_type="booking", target_id=booking.id)
-            db.commit()
-            result = {
-                "status": "success",
-                "msg": "Check-in successful!",
-                "user_name": user.full_name or user.username if user else "Unknown",
-                "user_email": user.email if user else "",
-                "seat_label": seat.label if seat else "",
-                "event_name": event_name,
-                "ticket_id": ticket_id,
-            }
+            ev_chk = db.query(Event).get(booking.event_id) if booking.event_id else None
+            if _hub_ops_locked(ev_chk):
+                result = {"status": "error", "msg": "This event is completed; check-in is disabled."}
+            else:
+                booking.checked_in = True
+                booking.checked_in_at = now_ist()
+                user = db.query(User).get(booking.user_id)
+                seat = db.query(Seat).get(booking.seat_id)
+                event = db.query(Event).get(booking.event_id) if booking.event_id else None
+                event_name = event.name if event else "unknown"
+                log_activity(db, category="admin", action="checkin", description=f"Checked in ticket '{ticket_id}' (seat {seat.label if seat else '?'}) for '{event_name}'", request=request, user_id=admin.id, target_type="booking", target_id=booking.id)
+                db.commit()
+                result = {
+                    "status": "success",
+                    "msg": "Check-in successful!",
+                    "user_name": user.full_name or user.username if user else "Unknown",
+                    "user_email": user.email if user else "",
+                    "seat_label": seat.label if seat else "",
+                    "event_name": event_name,
+                    "ticket_id": ticket_id,
+                }
 
     stats = None
     if event_id_raw:
@@ -2406,10 +2429,16 @@ def waitlist_delete(request: Request, entry_id: int, db: Session = Depends(get_d
         return RedirectResponse("/auth/login", status_code=303)
     entry = db.query(Waitlist).get(entry_id)
     if entry:
+        ev = db.query(Event).get(entry.event_id) if entry.event_id else None
+        if _hub_ops_locked(ev):
+            flash(request, "This event is completed — waitlist cannot be edited.", "danger")
+            return RedirectResponse(f"/admin/event-management/{ev.id}/waitlist", status_code=303)
         log_activity(db, category="admin", action="delete", description=f"Removed waitlist entry #{entry_id}", request=request, user_id=admin.id, target_type="waitlist", target_id=entry_id)
         db.delete(entry)
         db.commit()
         flash(request, "Waitlist entry removed.", "success")
+        if ev:
+            return RedirectResponse(f"/admin/event-management/{ev.id}/waitlist", status_code=303)
     return RedirectResponse("/admin/waitlist", status_code=303)
 
 
@@ -4968,6 +4997,9 @@ async def admin_toggle_poll(request: Request, poll_id: int, db: Session = Depend
     poll = db.query(Poll).get(poll_id)
     if not poll:
         return JSONResponse({"ok": False, "error": "Poll not found."}, status_code=404)
+    ev = db.query(Event).get(poll.event_id) if poll.event_id else None
+    if _hub_ops_locked(ev):
+        return JSONResponse({"ok": False, "error": "This event is completed."}, status_code=403)
     if not poll.is_active:
         db.query(Poll).filter(
             Poll.session_id == poll.session_id, Poll.event_id == poll.event_id, Poll.is_active == True
@@ -4996,6 +5028,9 @@ async def admin_close_poll(request: Request, poll_id: int, db: Session = Depends
     poll = db.query(Poll).get(poll_id)
     if not poll:
         return JSONResponse({"ok": False, "error": "Poll not found."}, status_code=404)
+    ev = db.query(Event).get(poll.event_id) if poll.event_id else None
+    if _hub_ops_locked(ev):
+        return JSONResponse({"ok": False, "error": "This event is completed."}, status_code=403)
     poll.is_active = False
     poll.closed_at = now_ist()
     db.commit()
@@ -5015,6 +5050,10 @@ def admin_delete_poll(request: Request, poll_id: int, db: Session = Depends(get_
     if not poll:
         flash(request, "Poll not found.", "danger")
         return RedirectResponse("/admin/events", status_code=303)
+    ev = db.query(Event).get(poll.event_id) if poll.event_id else None
+    if _hub_ops_locked(ev):
+        flash(request, "Cannot modify polls for a completed event.", "danger")
+        return RedirectResponse(f"/admin/event-management/{ev.id}/polls", status_code=303)
     sid = poll.session_id
     eid = poll.event_id
     db.delete(poll)
@@ -5800,8 +5839,31 @@ async def newsletter_upload_image(request: Request, db: Session = Depends(get_db
 # Event Management Hub
 # ---------------------------------------------------------------------------
 
+def _hub_ops_locked(event) -> bool:
+    """Completed events: no live ops (check-in, waitlist edits, poll control, alerts, booking refunds)."""
+    return bool(event and event.status == "completed")
+
+
+def _hub_redirect_if_ops_locked(request: Request, event: Event):
+    if _hub_ops_locked(event):
+        flash(
+            request,
+            "This event is completed; check-in is not available. Use other hub tabs for bookings, waitlist (view-only), polls (view-only), and reports.",
+            "warning",
+        )
+        return RedirectResponse(f"/admin/event-management/{event.id}", status_code=303)
+    return None
+
+
 def _hub_ctx(request: Request, event: Event, hub_tab: str, **kwargs):
-    ctx = _admin_ctx(request, active_page="event_mgmt", hub_event=event, hub_tab=hub_tab, **kwargs)
+    ctx = _admin_ctx(
+        request,
+        active_page="event_mgmt",
+        hub_event=event,
+        hub_tab=hub_tab,
+        hub_ops_locked=_hub_ops_locked(event),
+        **kwargs,
+    )
     return ctx
 
 
@@ -5914,6 +5976,9 @@ def event_management_checkin_page(request: Request, event_id: int, db: Session =
     event = db.query(Event).get(event_id)
     if not event:
         return RedirectResponse("/admin/event-management", status_code=303)
+    blocked = _hub_redirect_if_ops_locked(request, event)
+    if blocked:
+        return blocked
 
     total = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid").scalar() or 0
     ci = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid", Booking.checked_in == True).scalar() or 0
@@ -5933,6 +5998,9 @@ async def event_management_checkin_verify(request: Request, event_id: int, db: S
     event = db.query(Event).get(event_id)
     if not event:
         return RedirectResponse("/admin/event-management", status_code=303)
+    blocked = _hub_redirect_if_ops_locked(request, event)
+    if blocked:
+        return blocked
 
     form = await _form(request)
     ticket_id = form.get("ticket_id", "").strip()
@@ -6122,6 +6190,8 @@ async def event_management_create_poll(request: Request, event_id: int, db: Sess
     event = db.query(Event).get(event_id)
     if not event:
         return JSONResponse({"ok": False, "error": "Event not found."}, status_code=404)
+    if _hub_ops_locked(event):
+        return JSONResponse({"ok": False, "error": "This event is completed; polls cannot be created."}, status_code=403)
     try:
         body = await request.json()
     except Exception:
@@ -6339,6 +6409,8 @@ async def event_management_send_alert(request: Request, event_id: int, db: Sessi
     event = db.query(Event).get(event_id)
     if not event:
         return JSONResponse({"ok": False, "error": "Event not found"}, status_code=404)
+    if _hub_ops_locked(event):
+        return JSONResponse({"ok": False, "error": "This event is completed; attendee alerts are disabled."}, status_code=403)
 
     try:
         body = await request.json()

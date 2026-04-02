@@ -1149,6 +1149,37 @@ class TestAdminEventMgmt:
         ev, _, _ = _evt(db); db.commit()
         assert client.get(f"/admin/event-management/{ev.id}/report/pdf").status_code == 200
 
+    def test_completed_hub_checkin_redirects(self, client, db):
+        _login_admin(client, db)
+        ev, _, _ = _evt(db, status="completed")
+        db.commit()
+        r = client.get(f"/admin/event-management/{ev.id}/checkin", follow_redirects=False)
+        assert r.status_code == 303
+        assert f"/admin/event-management/{ev.id}" in (r.headers.get("location") or "")
+
+    def test_completed_hub_poll_create_forbidden(self, client, db):
+        _login_admin(client, db)
+        ev, _, _ = _evt(db, status="completed")
+        sess = make_session(db, title=f"CP{_uid()}", event=ev)
+        db.commit()
+        r = client.post(
+            f"/admin/event-management/{ev.id}/polls",
+            json={"session_id": sess.id, "question": "?", "poll_type": "yes_no", "options": [], "allow_multiple": False},
+        )
+        assert r.status_code == 403
+        assert r.json().get("ok") is False
+
+    def test_completed_hub_alerts_send_forbidden(self, client, db):
+        _login_admin(client, db)
+        ev, _, _ = _evt(db, status="completed")
+        db.commit()
+        r = client.post(
+            f"/admin/event-management/{ev.id}/alerts/send",
+            json={"message": "Hi", "alert_type": "info"},
+        )
+        assert r.status_code == 403
+        assert r.json().get("ok") is False
+
 
 # ── Admin misc routes ────────────────────────────────────────────────
 

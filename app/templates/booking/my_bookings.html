@@ -34,24 +34,24 @@
             <div class="booking-card-info">
               {% if g.event and g.event.start_date %}
               <div class="booking-detail-row">
-                <span class="booking-detail-icon">&#128197;</span>
+                <span class="booking-detail-icon"><i data-lucide="calendar" class="lucide" aria-hidden="true"></i></span>
                 <span>{{ g.event.start_date.strftime('%b %d, %Y') }}</span>
               </div>
               {% endif %}
               {% if g.auditorium %}
               <div class="booking-detail-row">
-                <span class="booking-detail-icon">&#128205;</span>
+                <span class="booking-detail-icon"><i data-lucide="map-pin" class="lucide" aria-hidden="true"></i></span>
                 <span>{{ g.auditorium.name }}, {{ g.auditorium.location }}</span>
               </div>
               {% endif %}
               {% if g.event and g.event.event_sessions %}
               <div class="booking-detail-row">
-                <span class="booking-detail-icon">&#128203;</span>
+                <span class="booking-detail-icon"><i data-lucide="clipboard-list" class="lucide" aria-hidden="true"></i></span>
                 <span>{{ g.event.event_sessions|length }} session{{ 's' if g.event.event_sessions|length != 1 else '' }} included</span>
               </div>
               {% endif %}
               <div class="booking-detail-row">
-                <span class="booking-detail-icon">&#128176;</span>
+                <span class="booking-detail-icon"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i></span>
                 <span>Total: <strong>₹{{ g.total_paid|round(0)|int }}</strong></span>
               </div>
             </div>
@@ -114,24 +114,24 @@
               <div class="booking-card-info">
                 {% if g.event and g.event.start_date %}
                 <div class="booking-detail-row">
-                  <span class="booking-detail-icon">&#128197;</span>
+                  <span class="booking-detail-icon"><i data-lucide="calendar" class="lucide" aria-hidden="true"></i></span>
                   <span>{{ g.event.start_date.strftime('%b %d, %Y') }}</span>
                 </div>
                 {% endif %}
                 {% if g.auditorium %}
                 <div class="booking-detail-row">
-                  <span class="booking-detail-icon">&#128205;</span>
+                  <span class="booking-detail-icon"><i data-lucide="map-pin" class="lucide" aria-hidden="true"></i></span>
                   <span>{{ g.auditorium.name }}, {{ g.auditorium.location }}</span>
                 </div>
                 {% endif %}
                 {% if g.event and g.event.event_sessions %}
                 <div class="booking-detail-row">
-                  <span class="booking-detail-icon">&#128203;</span>
+                  <span class="booking-detail-icon"><i data-lucide="clipboard-list" class="lucide" aria-hidden="true"></i></span>
                   <span>{{ g.event.event_sessions|length }} session{{ 's' if g.event.event_sessions|length != 1 else '' }} included</span>
                 </div>
                 {% endif %}
                 <div class="booking-detail-row">
-                  <span class="booking-detail-icon">&#128176;</span>
+                  <span class="booking-detail-icon"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i></span>
                   <span>Total: <strong>₹{{ g.total_paid|round(0)|int }}</strong></span>
                 </div>
               </div>
@@ -149,7 +149,7 @@
             {% if g.all_checked_in %}
             <div style="padding:0 1.25rem 1rem;display:flex;gap:.5rem;flex-wrap:wrap;">
               {% for b in g.bookings if b.checked_in and b.payment_status == 'paid' %}
-              <a href="/booking/certificate/{{ b.id }}" class="btn btn-sm btn-primary" onclick="event.stopPropagation();">&#127891; Certificate{{ ' (' ~ loop.index ~ ')' if g.bookings|selectattr('checked_in')|list|length > 1 else '' }}</a>
+              <a href="/booking/certificate/{{ b.id }}" class="btn btn-sm btn-primary" style="display:inline-flex;align-items:center;gap:.3rem" onclick="event.stopPropagation();"><i data-lucide="graduation-cap" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Certificate{{ ' (' ~ loop.index ~ ')' if g.bookings|selectattr('checked_in')|list|length > 1 else '' }}</a>
               {% endfor %}
             </div>
             {% endif %}

@@ -6,7 +6,7 @@
   <div class="container">
     <div class="confirmation-layout">
       <div class="confirmation-card">
-        <div class="confirmation-icon">&#127915;</div>
+        <div class="confirmation-icon"><i data-lucide="ticket" class="lucide icon-xl" aria-hidden="true"></i></div>
         <h1 class="confirmation-title">TechTrek Ticket</h1>
         <p class="confirmation-subtitle">{{ event.name if event else "Event" }}</p>
 
@@ -74,8 +74,8 @@
 
         {% if not show_claim_popup %}
         <div class="confirmation-actions">
-          <button type="button" class="btn btn-primary" onclick="openShareModal()">
-            &#128279; Share Ticket
+          <button type="button" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:.4rem" onclick="openShareModal()">
+            <i data-lucide="link" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i> Share Ticket
           </button>
           <a href="/events" class="btn btn-outline">Browse Events</a>
         </div>
@@ -118,7 +118,7 @@
     <button type="button" class="claim-close" onclick="dismissClaim()" aria-label="Close">&times;</button>
 
     <div class="claim-header">
-      <span class="claim-invite-icon">&#127911;</span>
+      <span class="claim-invite-icon" style="display:flex;align-items:center;justify-content:center"><i data-lucide="headphones" class="lucide icon-xl" aria-hidden="true"></i></span>
       <h2 class="claim-title">You've been invited!</h2>
       <p class="claim-event-name">{{ event.name if event else "a TechTrek Event" }}</p>
       {% if shared_to_email %}
@@ -129,10 +129,10 @@
     <div class="claim-perks">
       <p class="claim-perks-label">Sign in to unlock</p>
       <ul class="claim-perks-list">
-        <li><span class="claim-perk-icon">&#128202;</span> Participate in live polls</li>
-        <li><span class="claim-perk-icon">&#128172;</span> Ask questions in Q&amp;A</li>
-        <li><span class="claim-perk-icon">&#11088;</span> Rate sessions &amp; give feedback</li>
-        <li><span class="claim-perk-icon">&#127903;</span> Get your own digital ticket &amp; QR code</li>
+        <li style="display:flex;align-items:flex-start;gap:.5rem"><span class="claim-perk-icon" style="display:inline-flex"><i data-lucide="bar-chart-3" class="lucide" style="width:1rem;height:1rem;color:var(--cyan)" aria-hidden="true"></i></span> Participate in live polls</li>
+        <li style="display:flex;align-items:flex-start;gap:.5rem"><span class="claim-perk-icon" style="display:inline-flex"><i data-lucide="message-circle" class="lucide" style="width:1rem;height:1rem;color:var(--cyan)" aria-hidden="true"></i></span> Ask questions in Q&amp;A</li>
+        <li style="display:flex;align-items:flex-start;gap:.5rem"><span class="claim-perk-icon" style="display:inline-flex"><i data-lucide="star" class="lucide" style="width:1rem;height:1rem;color:var(--cyan)" aria-hidden="true"></i></span> Rate sessions &amp; give feedback</li>
+        <li style="display:flex;align-items:flex-start;gap:.5rem"><span class="claim-perk-icon" style="display:inline-flex"><i data-lucide="ticket" class="lucide" style="width:1rem;height:1rem;color:var(--cyan)" aria-hidden="true"></i></span> Get your own digital ticket &amp; QR code</li>
       </ul>
     </div>
 

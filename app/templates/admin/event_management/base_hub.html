@@ -23,29 +23,47 @@
   <a href="/admin/events/{{ hub_event.id }}/edit" class="btn btn-outline btn-sm">Edit Event</a>
 </div>
 
+{% if hub_ops_locked %}
+<p class="em-hub-completed-banner text-muted" style="font-size:.85rem;margin:.75rem 0 0;padding:.6rem .85rem;background:var(--bg-elevated, #1c2128);border:1px solid var(--border, rgba(255,255,255,.08));border-radius:var(--radius, 8px)">
+  This event is <strong>completed</strong>. Check-in and attendee alerts are disabled. Waitlist and polls are view-only (no edits). Refunds and booking cancellations are disabled. Recordings, feedback, and reports stay available.
+</p>
+{% endif %}
+
 <nav class="em-hub-tabs">
   <a href="/admin/event-management/{{ hub_event.id }}" class="em-hub-tab {% if hub_tab == 'overview' %}active{% endif %}">Overview</a>
   <a href="/admin/event-management/{{ hub_event.id }}/bookings" class="em-hub-tab {% if hub_tab == 'bookings' %}active{% endif %}">Bookings</a>
+  {% if hub_ops_locked %}
+  <span class="em-hub-tab em-hub-tab--locked" title="Not available for completed events">Check-in</span>
+  {% else %}
   <a href="/admin/event-management/{{ hub_event.id }}/checkin" class="em-hub-tab {% if hub_tab == 'checkin' %}active{% endif %}">Check-in</a>
+  {% endif %}
   <a href="/admin/event-management/{{ hub_event.id }}/waitlist" class="em-hub-tab {% if hub_tab == 'waitlist' %}active{% endif %}">Waitlist</a>
   <a href="/admin/event-management/{{ hub_event.id }}/polls" class="em-hub-tab {% if hub_tab == 'polls' %}active{% endif %}">Polls</a>
   <a href="/admin/event-management/{{ hub_event.id }}/recordings" class="em-hub-tab {% if hub_tab == 'recordings' %}active{% endif %}">Recordings</a>
   <a href="/admin/event-management/{{ hub_event.id }}/feedback" class="em-hub-tab {% if hub_tab == 'feedback' %}active{% endif %}">Feedback</a>
+  {% if hub_ops_locked %}
+  <span class="em-hub-tab em-hub-tab--locked" title="Not available for completed events">Alerts</span>
+  {% else %}
   <a href="/admin/event-management/{{ hub_event.id }}/alerts" class="em-hub-tab {% if hub_tab == 'alerts' %}active{% endif %}">Alerts</a>
+  {% endif %}
   <a href="/admin/event-management/{{ hub_event.id }}/report" class="em-hub-tab {% if hub_tab == 'report' %}active{% endif %}">Report</a>
 </nav>
 <div class="em-hub-select-wrap">
   <label class="em-hub-select-label">Navigate to&hellip;</label>
   <select class="em-hub-select" onchange="if(this.value)location.href=this.value">
-    <option value="/admin/event-management/{{ hub_event.id }}" {% if hub_tab == 'overview' %}selected{% endif %}>&#9776;  Overview</option>
-    <option value="/admin/event-management/{{ hub_event.id }}/bookings" {% if hub_tab == 'bookings' %}selected{% endif %}>&#128203;  Bookings</option>
-    <option value="/admin/event-management/{{ hub_event.id }}/checkin" {% if hub_tab == 'checkin' %}selected{% endif %}>&#9989;  Check-in</option>
-    <option value="/admin/event-management/{{ hub_event.id }}/waitlist" {% if hub_tab == 'waitlist' %}selected{% endif %}>&#128221;  Waitlist</option>
-    <option value="/admin/event-management/{{ hub_event.id }}/polls" {% if hub_tab == 'polls' %}selected{% endif %}>&#128202;  Polls</option>
-    <option value="/admin/event-management/{{ hub_event.id }}/recordings" {% if hub_tab == 'recordings' %}selected{% endif %}>&#127909;  Recordings</option>
-    <option value="/admin/event-management/{{ hub_event.id }}/feedback" {% if hub_tab == 'feedback' %}selected{% endif %}>&#128172;  Feedback</option>
-    <option value="/admin/event-management/{{ hub_event.id }}/alerts" {% if hub_tab == 'alerts' %}selected{% endif %}>&#128276;  Alerts</option>
-    <option value="/admin/event-management/{{ hub_event.id }}/report" {% if hub_tab == 'report' %}selected{% endif %}>&#128196;  Report</option>
+    <option value="/admin/event-management/{{ hub_event.id }}" {% if hub_tab == 'overview' %}selected{% endif %}>Overview</option>
+    <option value="/admin/event-management/{{ hub_event.id }}/bookings" {% if hub_tab == 'bookings' %}selected{% endif %}>Bookings</option>
+    {% if not hub_ops_locked %}
+    <option value="/admin/event-management/{{ hub_event.id }}/checkin" {% if hub_tab == 'checkin' %}selected{% endif %}>Check-in</option>
+    {% endif %}
+    <option value="/admin/event-management/{{ hub_event.id }}/waitlist" {% if hub_tab == 'waitlist' %}selected{% endif %}>Waitlist</option>
+    <option value="/admin/event-management/{{ hub_event.id }}/polls" {% if hub_tab == 'polls' %}selected{% endif %}>Polls</option>
+    <option value="/admin/event-management/{{ hub_event.id }}/recordings" {% if hub_tab == 'recordings' %}selected{% endif %}>Recordings</option>
+    <option value="/admin/event-management/{{ hub_event.id }}/feedback" {% if hub_tab == 'feedback' %}selected{% endif %}>Feedback</option>
+    {% if not hub_ops_locked %}
+    <option value="/admin/event-management/{{ hub_event.id }}/alerts" {% if hub_tab == 'alerts' %}selected{% endif %}>Alerts</option>
+    {% endif %}
+    <option value="/admin/event-management/{{ hub_event.id }}/report" {% if hub_tab == 'report' %}selected{% endif %}>Report</option>
   </select>
 </div>
 

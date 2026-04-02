@@ -106,15 +106,15 @@
               {% endif %}
               <div class="card-details">
                 {% if es and es.start_time %}
-                <span class="card-detail">&#128197; {{ es.start_time.strftime('%b %d, %Y') }}</span>
-                <span class="card-detail">&#128336; {{ es.start_time.strftime('%I:%M %p') }}</span>
+                <span class="card-detail" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="calendar" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> {{ es.start_time.strftime('%b %d, %Y') }}</span>
+                <span class="card-detail" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="clock" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> {{ es.start_time.strftime('%I:%M %p') }}</span>
                 {% elif ev and ev.start_date %}
-                <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') }}</span>
+                <span class="card-detail" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="calendar" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> {{ ev.start_date.strftime('%b %d, %Y') }}</span>
                 {% endif %}
                 {% if ev %}
                 {% set ev_venue = ev.auditorium.name if ev.auditorium else (ev.college.name if ev.college else '') %}
                 {% if ev_venue %}
-                <span class="card-detail">&#128205; {{ ev_venue }}{% if ev.college and ev.college.city %}, {{ ev.college.city.name }}{% endif %}</span>
+                <span class="card-detail" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="map-pin" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> {{ ev_venue }}{% if ev.college and ev.college.city %}, {{ ev.college.city.name }}{% endif %}</span>
                 {% endif %}
                 {% endif %}
               </div>

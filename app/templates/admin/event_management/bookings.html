@@ -2,6 +2,9 @@
 {% block title %}Bookings — {{ hub_event.name }} — Admin{% endblock %}
 
 {% block hub_content %}
+{% if hub_ops_locked %}
+<p class="text-muted" style="font-size:.85rem;margin-top:1.25rem;margin-bottom:0">Completed event &mdash; refund and cancel actions are disabled.</p>
+{% endif %}
 <div style="display:flex;align-items:center;justify-content:space-between;margin-top:1.5rem;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem">
   <h3 class="panel-title" style="margin:0">Bookings</h3>
   <form method="get" action="/admin/bookings/export" style="display:flex;align-items:center;gap:.5rem">
@@ -39,7 +42,7 @@
         <th>Status</th>
         <th>Refund</th>
         <th>Booked</th>
-        <th>Actions</th>
+        <th>{% if hub_ops_locked %}Invoice{% else %}Actions{% endif %}</th>
       </tr>
     </thead>
     <tbody>
@@ -56,7 +59,7 @@
           <span class="badge {% if item.booking.payment_status == 'paid' %}badge-success{% elif item.booking.payment_status == 'refunded' %}badge-muted{% elif item.booking.payment_status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">
             {{ item.booking.payment_status }}
           </span>
-          {% if item.booking.checked_in %}<br><small class="text-muted">&#10003; Checked in</small>{% endif %}
+          {% if item.booking.checked_in %}<br><small class="text-muted" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="check" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> Checked in</small>{% endif %}
         </td>
         <td data-label="Refund">
           {% if item.booking.refund_status %}
@@ -78,8 +81,9 @@
         <td data-label="Booked">{{ item.booking.booked_at.strftime('%b %d, %H:%M') if item.booking.booked_at else "—" }}</td>
         <td class="actions-cell">
           {% if item.booking.payment_status in ['paid', 'refunded'] %}
-          <a href="/admin/bookings/{{ item.booking.id }}/invoice" class="btn btn-sm btn-outline" title="Download Invoice">&#128196;</a>
+          <a href="/admin/bookings/{{ item.booking.id }}/invoice" class="btn btn-sm btn-outline btn-icon-only" title="Download Invoice" aria-label="Download Invoice"><i data-lucide="file-text" class="lucide" aria-hidden="true"></i></a>
           {% endif %}
+          {% if not hub_ops_locked %}
           {% if item.booking.payment_status == 'paid' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
@@ -99,6 +103,7 @@
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Cancel this hold booking? This will release the held seats." data-confirm-label="Cancel Booking">Cancel</button>
           </form>
+          {% endif %}
           {% endif %}
         </td>
       </tr>

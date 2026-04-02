@@ -192,7 +192,7 @@
           </div>
           {% endif %}
           <div class="lm-featured-content">
-            <span class="lm-featured-eyebrow">&#9679;
+            <span class="lm-featured-eyebrow" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="circle" class="lucide icon-filled" style="width:.35rem;height:.35rem;flex-shrink:0;border-radius:50%" aria-hidden="true"></i>
               {% if featured.days_until > 0 %}in {{ featured.days_until }}d {{ featured.hours_until }}h
               {% elif featured.hours_until > 0 %}in {{ featured.hours_until }}h
               {% else %}Starting soon{% endif %}
@@ -258,7 +258,7 @@
 <!-- Industry Quotes Marquee -->
 <section class="industry-quotes-strip">
   <div class="iq-heading">
-    <span class="iq-heading-badge">&#9888; The world isn&rsquo;t waiting</span>
+    <span class="iq-heading-badge" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="alert-triangle" class="lucide" style="width:.9rem;height:.9rem;flex-shrink:0" aria-hidden="true"></i> The world isn&rsquo;t waiting</span>
   </div>
   <div class="industry-quotes-marquee">
     <div class="industry-quotes-track">
@@ -366,10 +366,10 @@
               </div>
               <div class="card-details">
                 {% if ev.start_date %}
-                <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') }}</span>
+                <span class="card-detail" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="calendar" class="lucide" style="width:.78rem;height:.78rem;flex-shrink:0" aria-hidden="true"></i> {{ ev.start_date.strftime('%b %d, %Y') }}</span>
                 {% endif %}
                 <span class="card-detail card-urgency {% if item.days_until <= 3 %}urgency-hot{% elif item.days_until <= 7 %}urgency-warm{% endif %}">
-                  {% if item.days_until > 0 %}&#9200; in {{ item.days_until }}d {{ item.hours_until }}h{% else %}&#9200; Starting soon{% endif %}
+                  {% if item.days_until > 0 %}<span style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="alarm-clock" class="lucide" style="width:.78rem;height:.78rem" aria-hidden="true"></i> in {{ item.days_until }}d {{ item.hours_until }}h</span>{% else %}<span style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="alarm-clock" class="lucide" style="width:.78rem;height:.78rem" aria-hidden="true"></i> Starting soon</span>{% endif %}
                 </span>
               </div>
             </div>
@@ -433,7 +433,7 @@
         {% for fb in featured_feedback %}
         <div class="testimonial-card" data-voice>
           <div class="testimonial-stars">
-            {% for i in range(fb.rating|int) %}&#9733;{% endfor %}{% for i in range(5 - fb.rating|int) %}&#9734;{% endfor %}
+            {% for i in range(fb.rating|int) %}<i data-lucide="star" class="lucide icon-filled" style="width:.9rem;height:.9rem;color:#f59e0b" aria-hidden="true"></i>{% endfor %}{% for i in range(5 - fb.rating|int) %}<i data-lucide="star" class="lucide" style="width:.9rem;height:.9rem;opacity:.4" aria-hidden="true"></i>{% endfor %}
           </div>
           <blockquote class="testimonial-quote">&ldquo;{{ fb.comment }}&rdquo;</blockquote>
           <div class="testimonial-author">

@@ -95,7 +95,7 @@
   {# Back link — floats top-left over the image #}
   <div class="ed-hero-nav">
     <div class="container">
-      <a href="/events" class="ed-back-link">&#8592; All Events</a>
+      <a href="/events" class="ed-back-link" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="arrow-left" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> All Events</a>
     </div>
   </div>
 
@@ -164,7 +164,7 @@
 <div class="light-only">
 <div class="lm-ed-header">
   <div class="container">
-    <a href="/events" class="lm-ed-back">&#8592; All Events</a>
+    <a href="/events" class="lm-ed-back" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="arrow-left" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> All Events</a>
     <div class="lm-ed-split">
 
       {# Left: title + meta + CTA #}
@@ -342,7 +342,7 @@
           {% set brk = item.break %}
 
           <div class="ed-break-card">
-            <div class="ed-break-icon">&#9749;</div>
+            <div class="ed-break-icon" style="display:flex;align-items:center;justify-content:center"><i data-lucide="coffee" class="lucide" style="width:1.25rem;height:1.25rem" aria-hidden="true"></i></div>
             <div class="ed-sc-body">
               <h3 class="ed-sc-title">{{ brk.title }}</h3>
               {% if brk.description %}
@@ -350,9 +350,9 @@
               {% endif %}
               <div class="ed-sc-meta">
                 {% if brk.start_time %}
-                <span>&#128336; {{ brk.start_time.strftime('%I:%M %p') }}</span>
+                <span style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="clock" class="lucide" style="width:.8rem;height:.8rem" aria-hidden="true"></i> {{ brk.start_time.strftime('%I:%M %p') }}</span>
                 {% endif %}
-                {% if brk.duration_minutes %}<span class="meta-duration">&#9200; {{ brk.duration_minutes }} min</span>{% endif %}
+                {% if brk.duration_minutes %}<span class="meta-duration" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="alarm-clock" class="lucide" style="width:.8rem;height:.8rem" aria-hidden="true"></i> {{ brk.duration_minutes }} min</span>{% endif %}
               </div>
             </div>
           </div>
@@ -361,7 +361,7 @@
           {% set addon = item.addon %}
 
           <div class="ed-break-card">
-            <div class="ed-break-icon">&#127915;</div>
+            <div class="ed-break-icon" style="display:flex;align-items:center;justify-content:center"><i data-lucide="ticket" class="lucide" style="width:1.25rem;height:1.25rem" aria-hidden="true"></i></div>
             <div class="ed-sc-body">
               <h3 class="ed-sc-title">{{ addon.title }}</h3>
               {% if addon.description %}
@@ -369,7 +369,7 @@
               {% endif %}
               <div class="ed-sc-meta">
                 {% if addon.start_time %}
-                <span>&#128336; {{ addon.start_time.strftime('%I:%M %p') }}</span>
+                <span style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="clock" class="lucide" style="width:.8rem;height:.8rem" aria-hidden="true"></i> {{ addon.start_time.strftime('%I:%M %p') }}</span>
                 {% endif %}
                 {% if addon.price and addon.price > 0 %}<span>₹{{ '{:,.0f}'.format(addon.price) }}</span>{% endif %}
               </div>
@@ -403,11 +403,11 @@
           {% if event.start_date or venue %}
           <div class="ed-bp-meta" style="display:flex;flex-direction:column;gap:.4rem;">
             {% if event.start_date %}
-            <span>&#128197; {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
+            <span style="display:inline-flex;align-items:center;gap:.3rem"><i data-lucide="calendar" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> {% if event.end_date and event.end_date != event.start_date %}{{ event.start_date.strftime('%b %d') }} &ndash; {{ event.end_date.strftime('%b %d, %Y') }}{% else %}{{ event.start_date.strftime('%b %d, %Y') }}{% endif %}</span>
             {% endif %}
-            {% if venue %}<span>&#128205; {{ venue }}</span>{% endif %}
+            {% if venue %}<span style="display:inline-flex;align-items:center;gap:.3rem"><i data-lucide="map-pin" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> {{ venue }}</span>{% endif %}
             {% if auditorium and auditorium.location %}
-            <span>&#127970; {{ auditorium.location }}</span>
+            <span style="display:inline-flex;align-items:center;gap:.3rem"><i data-lucide="building-2" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> {{ auditorium.location }}</span>
             {% endif %}
           </div>
           {% endif %}

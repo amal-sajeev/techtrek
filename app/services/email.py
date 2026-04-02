@@ -129,7 +129,7 @@ def send_group_booking_confirmation(email: str, username: str, session_title: st
               <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#1e293b;">{t['seat_label']}</td>
               <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-family:monospace;font-size:12px;">{t['ticket_id']}</td>
               <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#1e293b;font-family:monospace;font-size:12px;">{t['booking_ref']}</td>
-              <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#1e293b;text-align:right;">&#8377;{t['amount']:.0f}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#1e293b;text-align:right;">₹{t['amount']:.0f}</td>
             </tr>"""
 
     html = f"""<!DOCTYPE html>
@@ -155,7 +155,7 @@ def send_group_booking_confirmation(email: str, username: str, session_title: st
             {ticket_rows}
             <tr style="background:#ecfdf5;">
               <td colspan="3" style="padding:12px 16px;font-weight:700;color:#065f46;">Total</td>
-              <td style="padding:12px 16px;font-weight:700;color:#065f46;text-align:right;font-size:16px;">&#8377;{total_amount:.0f}</td>
+              <td style="padding:12px 16px;font-weight:700;color:#065f46;text-align:right;font-size:16px;">₹{total_amount:.0f}</td>
             </tr>
           </table>
           <p style="margin:16px 0 24px;color:#475569;">Show your ticket IDs or QR codes at the venue for check-in.</p>
@@ -199,15 +199,15 @@ def send_cancellation_confirmation(email: str, username: str, session_title: str
             </tr>
             <tr style="background:#f8fafc;">
               <td style="padding:12px 16px;font-weight:600;color:#334155;border-bottom:1px solid #e2e8f0;">Amount Paid</td>
-              <td style="padding:12px 16px;color:#1e293b;border-bottom:1px solid #e2e8f0;">&#8377;{amount_paid:.0f}</td>
+              <td style="padding:12px 16px;color:#1e293b;border-bottom:1px solid #e2e8f0;">₹{amount_paid:.0f}</td>
             </tr>
             <tr>
               <td style="padding:12px 16px;font-weight:600;color:#334155;border-bottom:1px solid #e2e8f0;">Cancellation Fee</td>
-              <td style="padding:12px 16px;color:#dc2626;border-bottom:1px solid #e2e8f0;">&#8377;{cancellation_fee:.0f}</td>
+              <td style="padding:12px 16px;color:#dc2626;border-bottom:1px solid #e2e8f0;">₹{cancellation_fee:.0f}</td>
             </tr>
             <tr style="background:#f0fdf4;">
               <td style="padding:12px 16px;font-weight:600;color:#166534;">Refund Amount</td>
-              <td style="padding:12px 16px;color:#166534;font-weight:700;font-size:16px;">&#8377;{refund_amount:.0f}</td>
+              <td style="padding:12px 16px;color:#166534;font-weight:700;font-size:16px;">₹{refund_amount:.0f}</td>
             </tr>
           </table>
           <p style="margin:0 0 24px;color:#475569;">Your refund will be processed within 5-7 business days.</p>
@@ -230,9 +230,9 @@ def send_group_cancellation_confirmation(email: str, username: str, session_titl
     for item in items:
         seat_rows += f"""<tr>
               <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#1e293b;">{item['seat_label']}</td>
-              <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#1e293b;text-align:right;">&#8377;{item['amount_paid']:.0f}</td>
-              <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#dc2626;text-align:right;">&#8377;{item['fee']:.0f}</td>
-              <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#166534;text-align:right;font-weight:600;">&#8377;{item['refund']:.0f}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#1e293b;text-align:right;">₹{item['amount_paid']:.0f}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#dc2626;text-align:right;">₹{item['fee']:.0f}</td>
+              <td style="padding:10px 16px;border-bottom:1px solid #e2e8f0;color:#166534;text-align:right;font-weight:600;">₹{item['refund']:.0f}</td>
             </tr>"""
 
     total_paid = sum(i['amount_paid'] for i in items)
@@ -261,12 +261,12 @@ def send_group_cancellation_confirmation(email: str, username: str, session_titl
             {seat_rows}
             <tr style="background:#f0fdf4;">
               <td style="padding:12px 16px;font-weight:700;color:#166534;">Total</td>
-              <td style="padding:12px 16px;font-weight:600;color:#1e293b;text-align:right;">&#8377;{total_paid:.0f}</td>
-              <td style="padding:12px 16px;font-weight:600;color:#dc2626;text-align:right;">&#8377;{total_fees:.0f}</td>
-              <td style="padding:12px 16px;font-weight:700;color:#166534;text-align:right;font-size:16px;">&#8377;{total_refund:.0f}</td>
+              <td style="padding:12px 16px;font-weight:600;color:#1e293b;text-align:right;">₹{total_paid:.0f}</td>
+              <td style="padding:12px 16px;font-weight:600;color:#dc2626;text-align:right;">₹{total_fees:.0f}</td>
+              <td style="padding:12px 16px;font-weight:700;color:#166534;text-align:right;font-size:16px;">₹{total_refund:.0f}</td>
             </tr>
           </table>
-          <p style="margin:0 0 24px;color:#475569;">Your refund of <strong>&#8377;{total_refund:.0f}</strong> will be processed within 5-7 business days.</p>
+          <p style="margin:0 0 24px;color:#475569;">Your refund of <strong>₹{total_refund:.0f}</strong> will be processed within 5-7 business days.</p>
           <p style="margin:0 0 8px;">
             <a href="https://techtrek.in/booking/my" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:10px 24px;border-radius:6px;font-weight:600;font-size:14px;">View My Bookings &rarr;</a>
           </p>
@@ -385,10 +385,10 @@ def send_ticket_share(to_email: str, recipient_name: str, sender_name: str, even
           <p style="margin:0 0 16px;"><strong>{sender_name}</strong> has shared a TechTrek ticket with you for <strong>{event_name}</strong>.</p>
           <p style="margin:0 0 20px;">Claim the ticket to unlock:</p>
           <table cellpadding="0" cellspacing="0" style="margin:0 0 24px;font-size:14px;color:#334155;">
-            <tr><td style="padding:4px 10px 4px 0;">&#128202;</td><td style="padding:4px 0;">Participate in live polls</td></tr>
-            <tr><td style="padding:4px 10px 4px 0;">&#128172;</td><td style="padding:4px 0;">Ask questions in Q&amp;A sessions</td></tr>
-            <tr><td style="padding:4px 10px 4px 0;">&#11088;</td><td style="padding:4px 0;">Rate sessions &amp; give feedback</td></tr>
-            <tr><td style="padding:4px 10px 4px 0;">&#127903;</td><td style="padding:4px 0;">Get your own digital ticket &amp; QR code</td></tr>
+            <tr><td style="padding:4px 10px 4px 0;color:#64748b;">•</td><td style="padding:4px 0;">Participate in live polls</td></tr>
+            <tr><td style="padding:4px 10px 4px 0;color:#64748b;">•</td><td style="padding:4px 0;">Ask questions in Q&amp;A sessions</td></tr>
+            <tr><td style="padding:4px 10px 4px 0;color:#64748b;">•</td><td style="padding:4px 0;">Rate sessions &amp; give feedback</td></tr>
+            <tr><td style="padding:4px 10px 4px 0;color:#64748b;">•</td><td style="padding:4px 0;">Get your own digital ticket &amp; QR code</td></tr>
           </table>
           <p style="margin:0 0 24px;">
             <a href="{ticket_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">Claim Your Ticket &rarr;</a>
@@ -491,7 +491,7 @@ def wrap_newsletter_html(body_html: str, unsubscribe_url: str) -> str:
     <tr><td align="center">
       <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
         <tr><td style="background:#0e7490;padding:20px 32px;">
-          <h1 style="margin:0;font-size:20px;color:#ffffff;font-weight:700;">&#9889; TechTrek</h1>
+          <h1 style="margin:0;font-size:20px;color:#ffffff;font-weight:700;">TechTrek</h1>
         </td></tr>
         <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
           {body_html}

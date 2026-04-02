@@ -112,20 +112,28 @@
     return lum > 0.5 ? "#000" : "#fff";
   }
 
-  function isMaterialIconLigatureName(s) {
-    return typeof s === "string" && /^[a-z][a-z0-9_]*$/.test(s) && s.length >= 2 && s.length <= 64;
+  function isLucideIconName(s) {
+    return typeof s === "string" && /^[a-z][a-z0-9_-]*$/.test(s) && s.length >= 2 && s.length <= 64;
   }
 
   function renderSeatTypeIcon(el, icon) {
     el.textContent = "";
+    el.innerHTML = "";
     el.style.fontSize = "";
     if (!icon) return;
-    if (isMaterialIconLigatureName(icon)) {
-      var sp = document.createElement("span");
-      sp.className = "seat-type-icon material-icons";
-      sp.setAttribute("aria-hidden", "true");
-      sp.textContent = icon;
-      el.appendChild(sp);
+    if (isLucideIconName(icon)) {
+      var ic = document.createElement("i");
+      ic.setAttribute("data-lucide", icon);
+      ic.className = "seat-type-icon lucide";
+      ic.setAttribute("aria-hidden", "true");
+      el.appendChild(ic);
+      if (window.lucide && lucide.createIcons) {
+        try {
+          lucide.createIcons({ root: el });
+        } catch (e) {
+          lucide.createIcons();
+        }
+      }
     } else {
       el.textContent = icon;
       el.style.fontSize = ".75rem";

@@ -156,7 +156,7 @@ function openDeleteUser(userId, username) {
 {% endif %}
 {% else %}
 <div class="empty-state">
-  <div class="empty-state-icon">&#128101;</div>
+  <div class="empty-state-icon"><i data-lucide="users" class="lucide" aria-hidden="true"></i></div>
   <h3>No users found</h3>
   <p>{% if q %}No users match "{{ q }}". <a href="/admin/users">Clear search</a>{% else %}No users have registered yet.{% endif %}</p>
 </div>

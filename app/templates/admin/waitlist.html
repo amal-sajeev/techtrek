@@ -18,8 +18,8 @@
     {{ we.event.name }} <span class="badge badge-muted" style="margin-left:.25rem;font-size:.7rem">{{ we.count }}</span>
   </button>
   {% endfor %}
-  <button type="button" class="btn btn-sm btn-outline" id="wl-notify-btn" style="display:none;margin-left:auto" onclick="openNotifyModal()">
-    &#9993; Notify About Event
+  <button type="button" class="btn btn-sm btn-outline" id="wl-notify-btn" style="display:none;margin-left:auto;align-items:center;gap:.35rem" onclick="openNotifyModal()">
+    <i data-lucide="mail" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i> Notify About Event
   </button>
 </div>
 {% endif %}
@@ -119,7 +119,7 @@ function toggleEventFilter(btn) {
     btn.classList.add('btn-primary');
   }
   var notifyBtn = document.getElementById('wl-notify-btn');
-  if (notifyBtn) notifyBtn.style.display = _wlActiveEvent ? '' : 'none';
+  if (notifyBtn) notifyBtn.style.display = _wlActiveEvent ? 'inline-flex' : 'none';
   applyWaitlistFilters();
 }
 
@@ -161,7 +161,7 @@ document.getElementById('wl-notify-modal').addEventListener('click', function(e)
 </script>
 {% else %}
 <div class="empty-state">
-  <div class="empty-state-icon">&#128221;</div>
+  <div class="empty-state-icon"><i data-lucide="notebook-pen" class="lucide" aria-hidden="true"></i></div>
   <h3>No waitlist entries</h3>
   <p>When events sell out, users can join the waitlist here.</p>
 </div>

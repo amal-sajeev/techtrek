@@ -161,7 +161,7 @@ def generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_
         textColor=colors.HexColor("#00d4ff"),
         spaceAfter=4,
     )
-    brand_logo = Paragraph("&#9889; TECHTREK", brand_style)
+    brand_logo = Paragraph("TECHTREK", brand_style)
     if logo_img:
         left_cell = [logo_img, Paragraph(company_info, styles["SubHeader"])]
     else:

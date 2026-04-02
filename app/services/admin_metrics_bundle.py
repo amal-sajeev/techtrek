@@ -123,7 +123,7 @@ def build_admin_metrics_bundle(
     dt_to = datetime.combine(d_to, datetime.max.time()) if d_to else None
 
     def _bk_filters(q, *, join_event=False):
-        q = q.filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+        q = q.filter(Booking.payment_status == "paid", Booking.is_shared_ticket.isnot(True))
         if dt_from:
             q = q.filter(Booking.booked_at >= dt_from)
         if dt_to:
@@ -175,13 +175,13 @@ def build_admin_metrics_bundle(
     ev_status_q = _ev_filters(db.query(Event.status, func.count(Event.id)))
     event_statuses = {s: c for s, c in ev_status_q.group_by(Event.status).all()}
 
-    bk_trend_filters = [Booking.payment_status == "paid", Booking.is_shared_ticket == False]
+    bk_trend_filters = [Booking.payment_status == "paid", Booking.is_shared_ticket.isnot(True)]
     if ev_filter:
         bk_trend_filters.append(Booking.event_id == ev_filter)
     booking_trend = _monthly_trend(db, Booking, Booking.booked_at, bk_trend_filters)
     revenue_trend = _monthly_trend(db, Booking, Booking.booked_at, bk_trend_filters, value_col=Booking.amount_paid)
 
-    bk_status_q = db.query(Booking.payment_status, func.count(Booking.id)).filter(Booking.is_shared_ticket == False)
+    bk_status_q = db.query(Booking.payment_status, func.count(Booking.id)).filter(Booking.is_shared_ticket.isnot(True))
     if dt_from:
         bk_status_q = bk_status_q.filter(Booking.booked_at >= dt_from)
     if dt_to:
@@ -250,7 +250,7 @@ def build_admin_metrics_bundle(
         .join(Event, Booking.event_id == Event.id)
         .join(College, Event.college_id == College.id)
         .join(City, College.city_id == City.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket.isnot(True))
     )
     if dt_from:
         city_bk_q = city_bk_q.filter(Booking.booked_at >= dt_from)
@@ -267,7 +267,7 @@ def build_admin_metrics_bundle(
         db.query(College.name, func.count(Booking.id))
         .join(Event, Event.college_id == College.id)
         .join(Booking, Booking.event_id == Event.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket.isnot(True))
     )
     if dt_from:
         top_col_q = top_col_q.filter(Booking.booked_at >= dt_from)
@@ -284,7 +284,7 @@ def build_admin_metrics_bundle(
     bpe_q = (
         db.query(Event.name, func.count(Booking.id))
         .join(Booking, Booking.event_id == Event.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket.isnot(True))
     )
     if dt_from:
         bpe_q = bpe_q.filter(Booking.booked_at >= dt_from)
@@ -340,7 +340,7 @@ def build_admin_metrics_bundle(
                 .filter(
                     Booking.event_id == ev_filter,
                     Booking.payment_status == "paid",
-                    Booking.is_shared_ticket == False,
+                    Booking.is_shared_ticket.isnot(True),
                     Seat.is_active == True,
                     Seat.seat_type.notin_(_bookable_seat_types),
                 )
@@ -371,7 +371,7 @@ def build_admin_metrics_bundle(
     rev_by_ev_q = (
         db.query(Event.name, func.sum(Booking.amount_paid), func.count(Booking.id))
         .join(Booking, Booking.event_id == Event.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket.isnot(True))
     )
     if dt_from:
         rev_by_ev_q = rev_by_ev_q.filter(Booking.booked_at >= dt_from)
@@ -388,7 +388,7 @@ def build_admin_metrics_bundle(
     rev_seat_q = (
         db.query(Seat.seat_type, func.sum(Booking.amount_paid), func.count(Booking.id))
         .join(Seat, Booking.seat_id == Seat.id)
-        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket == False)
+        .filter(Booking.payment_status == "paid", Booking.is_shared_ticket.isnot(True))
     )
     if dt_from:
         rev_seat_q = rev_seat_q.filter(Booking.booked_at >= dt_from)

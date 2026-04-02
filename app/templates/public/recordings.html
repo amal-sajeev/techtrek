@@ -31,15 +31,15 @@
             src="https://images.unsplash.com/{{ img_id }}?w=600&auto=format&fit=crop&q=80"
             alt="{{ s.title }}"
             loading="lazy">
-          <span class="card-badge" style="background:var(--color-accent);color:#000">&#9654; Recording</span>
+          <span class="card-badge" style="background:var(--color-accent);color:#000;display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="play" class="lucide" style="width:.72rem;height:.72rem" aria-hidden="true"></i> Recording</span>
         </div>
         <div class="card-body">
           <h3 class="card-title">{{ s.title }}</h3>
           <p class="card-meta">{{ s.speaker_name }}</p>
           <div class="card-details">
-            <span class="card-detail">&#128197; {{ ev.start_date.strftime('%b %d, %Y') if ev and ev.start_date else 'TBD' }}</span>
+            <span class="card-detail" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="calendar" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> {{ ev.start_date.strftime('%b %d, %Y') if ev and ev.start_date else 'TBD' }}</span>
             {% if aud %}
-            <span class="card-detail">&#128205; {{ aud.name }}{% if aud.location %}, {{ aud.location }}{% endif %}</span>
+            <span class="card-detail" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="map-pin" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> {{ aud.name }}{% if aud.location %}, {{ aud.location }}{% endif %}</span>
             {% endif %}
           </div>
         </div>

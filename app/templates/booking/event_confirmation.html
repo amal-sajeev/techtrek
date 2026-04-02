@@ -54,7 +54,7 @@
         <div class="confirmation-icon-wrap">
           <div class="ring"></div>
           <div class="ring2"></div>
-          <div class="confirmation-icon">&#10003;</div>
+          <div class="confirmation-icon" style="display:flex;align-items:center;justify-content:center;color:var(--success,#10b981)"><i data-lucide="check" class="lucide icon-xl" aria-hidden="true"></i></div>
         </div>
         <h1 class="confirmation-title">Event Booking Confirmed!</h1>
         <p class="confirmation-subtitle">You're all set for {{ event.name }}</p>
@@ -81,7 +81,7 @@
             {% if bookings[0].booking_group %}
             <div style="margin-top:.75rem; display:flex; gap:1rem; justify-content:center; flex-wrap:wrap">
               <a href="/tickets/group/{{ bookings[0].booking_group }}" class="btn btn-outline btn-sm" style="font-size:14.75px">View Group Page</a>
-              <button type="button" class="btn btn-sm btn-outline" style="font-size:14.75px" onclick="copyLink('/tickets/group/{{ bookings[0].booking_group }}', this)">&#128279; Copy Group Link</button>
+              <button type="button" class="btn btn-sm btn-outline" style="font-size:14.75px;display:inline-flex;align-items:center;gap:.35rem" onclick="copyLink('/tickets/group/{{ bookings[0].booking_group }}', this)"><i data-lucide="link" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Copy Group Link</button>
             </div>
             {% endif %}
           </div>
@@ -101,7 +101,7 @@
                 {% if b.qr_code_data %}
                 <img src="data:image/png;base64,{{ b.qr_code_data }}" alt="QR Code" class="ticket-qr" width="100" height="100">
                 {% endif %}
-                <button type="button" class="btn btn-sm btn-outline" onclick="copyLink('/ticket/{{ b.ticket_id }}', this)" title="Copy shareable link">&#128279; Share</button>
+                <button type="button" class="btn btn-sm btn-outline" style="display:inline-flex;align-items:center;gap:.35rem" onclick="copyLink('/ticket/{{ b.ticket_id }}', this)" title="Copy shareable link"><i data-lucide="link" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Share</button>
               </div>
             </div>
             {% endfor %}
@@ -128,9 +128,9 @@
 
         <div class="confirmation-actions">
           {% if group_id_out %}
-          <a href="/booking/invoice/group/{{ group_id_out }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          <a href="/booking/invoice/group/{{ group_id_out }}" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="file-text" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Download Invoice</a>
           {% else %}
-          <a href="/booking/invoice/booking/{{ bookings[0].id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          <a href="/booking/invoice/booking/{{ bookings[0].id }}" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="file-text" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Download Invoice</a>
           {% endif %}
           <a href="/booking/my" class="btn btn-primary">View My Bookings</a>
           <a href="/events" class="btn btn-outline">Browse More Events</a>
@@ -147,9 +147,14 @@ function copyLink(path, btn) {
   var url = window.location.origin + path;
   navigator.clipboard.writeText(url).then(function() {
     var orig = btn.innerHTML;
-    btn.innerHTML = '&#10003; Copied!';
+    btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="check" class="lucide" style="width:.85rem;height:.85rem"></i> Copied!</span>';
+    if (window.lucide && lucide.createIcons) try { lucide.createIcons({ root: btn }); } catch (e) {}
     btn.classList.add('btn-success');
-    setTimeout(function() { btn.innerHTML = orig; btn.classList.remove('btn-success'); }, 2000);
+    setTimeout(function() {
+      btn.innerHTML = orig;
+      if (window.lucide && lucide.createIcons) try { lucide.createIcons({ root: btn }); } catch (e2) {}
+      btn.classList.remove('btn-success');
+    }, 2000);
   });
 }
 </script>

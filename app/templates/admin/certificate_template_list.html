@@ -65,7 +65,7 @@
         </td>
         <td class="col-cert-title">{{ t.cert_title or '—' }}</td>
         <td class="col-scheme">{{ t.cert_color_scheme or 'Teal (default)' }}</td>
-        <td class="col-layout">{% if t.cert_style %}<span style="color:#16a34a">✓ Yes</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        <td class="col-layout">{% if t.cert_style %}<span style="color:#16a34a;display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="check" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i> Yes</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
         <td class="col-used">{{ t.events|length }}</td>
         <td class="col-created">{{ t.created_at.strftime('%b %d, %Y') if t.created_at else '—' }}</td>
         <td class="col-actions">

@@ -50,6 +50,7 @@ from app.models.coupon import Coupon
 from app.models.feedback_template import FeedbackTemplate, TemplateQuestion
 from app.crypto import hash_lookup
 from app.config import settings
+from app.services.booking import confirm_payment
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -317,11 +318,11 @@ def phase1_db_seed(force: bool):
     db.commit()
 
     # ── Seat types ─────────────────────────────────────────────────────
-    # Icons match options in admin/seat_type_form.html (emoji picker, not Material ligatures)
+    # Icons match Lucide names in admin/seat_type_form.html
     seat_types = [
-        SeatType(name="Premium", colour="#f59e0b", icon="⭐",
+        SeatType(name="Premium", colour="#f59e0b", icon="star",
                  price=800, is_custom=True),
-        SeatType(name="Balcony", colour="#8b5cf6", icon="🎭",
+        SeatType(name="Balcony", colour="#8b5cf6", icon="theater",
                  price=600, is_custom=True),
     ]
     db.add_all(seat_types)
@@ -1157,7 +1158,7 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     for ev in future_events[:3]:
         seats = _get_available_seats(db, ev.id, count=2)
         if seats:
-            ok = _book_free(api, db, ev.id, seats)
+            ok = _book_free(api, db, ev.id, seats, "alice")
             if ok:
                 bookings_made += ok
     print(f"    alice: booked {bookings_made} seat(s)")
@@ -1170,7 +1171,7 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     for ev in future_events[:2]:
         seats = _get_available_seats(db, ev.id, count=1)
         if seats:
-            ok = _book_free(api, db, ev.id, seats)
+            ok = _book_free(api, db, ev.id, seats, "bob")
             if ok:
                 bob_bookings_count += ok
                 if bob_cancel_booking_id is None:
@@ -1201,7 +1202,7 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     for ev in future_events[:1]:
         seats = _get_available_seats(db, ev.id, count=1)
         if seats:
-            ok = _book_free(api, db, ev.id, seats)
+            ok = _book_free(api, db, ev.id, seats, "charlie")
             if ok:
                 charlie_count += ok
     bookings_made += charlie_count
@@ -1214,7 +1215,7 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     for ev in future_events[:1]:
         seats = _get_available_seats(db, ev.id, count=2)
         if seats:
-            ok = _book_free(api, db, ev.id, seats)
+            ok = _book_free(api, db, ev.id, seats, "diana")
             if ok:
                 diana_count += ok
     bookings_made += diana_count
@@ -1319,7 +1320,7 @@ def phase3_user_flows(api: ApiClient, refs: dict):
         for ev in past_published:
             seats = _get_available_seats(db, ev.id, count=1)
             if seats:
-                ok = _book_free(api, db, ev.id, seats)
+                ok = _book_free(api, db, ev.id, seats, "amalsajeev")
                 if ok:
                     amal_count += ok
                     bookings_made += ok
@@ -1389,11 +1390,18 @@ def _get_available_seats(db, event_id: int, count: int = 1) -> list[int]:
     return [s.id for s in available]
 
 
-def _book_free(api: ApiClient, db, event_id: int, seat_ids: list[int]) -> int:
-    """Hold seats then confirm as free booking. Returns number confirmed."""
+def _book_free(api: ApiClient, db, event_id: int, seat_ids: list[int], username: str) -> int:
+    """Hold seats then confirm paid booking for current seeded user."""
+    # Login clears session data, including CSRF token. Refresh it from a booking form.
+    api.get(f"/booking/event/{event_id}/select")
     seat_str = ",".join(str(s) for s in seat_ids)
     api.post_form(f"/booking/event/{event_id}/hold", {"seat_ids": seat_str})
-    api.post_form(f"/booking/event/{event_id}/pay", {})
+    user_hash = hash_lookup(username, settings.field_encryption_key)
+    user = db.query(User).filter(User.username_hash == user_hash).first()
+    if user:
+        confirm_payment(db, user.id, event_id, coupon=None)
+    else:
+        api.post_form(f"/booking/event/{event_id}/pay", {})
 
     db.expire_all()
     confirmed = (

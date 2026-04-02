@@ -4,6 +4,9 @@
 {% block hub_content %}
 <div style="margin-top:1.5rem">
   <h3 class="panel-title">Waitlist</h3>
+  {% if hub_ops_locked %}
+  <p class="text-muted" style="font-size:.85rem;margin-top:.35rem">Completed event &mdash; entries are read-only; removal is disabled.</p>
+  {% endif %}
 </div>
 
 {% if entries %}
@@ -18,7 +21,7 @@
         <th>User</th>
         <th>Joined</th>
         <th>Notified</th>
-        <th>Actions</th>
+        {% if not hub_ops_locked %}<th>Actions</th>{% endif %}
       </tr>
     </thead>
     <tbody>
@@ -34,12 +37,14 @@
             {{ 'Yes' if item.entry.notified else 'No' }}
           </span>
         </td>
+        {% if not hub_ops_locked %}
         <td data-label="Actions">
           <form method="post" action="/admin/waitlist/{{ item.entry.id }}/delete" style="display:inline">
             <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
             <button type="button" class="btn btn-sm btn-danger" data-confirm="Remove this entry?" data-confirm-label="Delete">Delete</button>
           </form>
         </td>
+        {% endif %}
       </tr>
       {% endfor %}
     </tbody>
@@ -60,7 +65,7 @@ function filterWL(q) {
 </script>
 {% else %}
 <div class="empty-state">
-  <div class="empty-state-icon">&#128221;</div>
+  <div class="empty-state-icon"><i data-lucide="notebook-pen" class="lucide" aria-hidden="true"></i></div>
   <h3>No waitlist entries</h3>
   <p>When this event sells out, users can join the waitlist.</p>
 </div>

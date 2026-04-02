@@ -6,7 +6,7 @@
   <div class="container">
     <div class="confirmation-layout">
       <div class="confirmation-card">
-        <div class="confirmation-icon">&#127903;</div>
+        <div class="confirmation-icon"><i data-lucide="ticket" class="lucide icon-xl" aria-hidden="true"></i></div>
         <h1 class="confirmation-title">Group Tickets</h1>
         <p class="confirmation-subtitle">{{ event.name if event else "Event" }} &mdash; {{ bookings|length }} tickets</p>
 
@@ -69,8 +69,8 @@
         </div>
 
         <div class="confirmation-actions">
-          <button type="button" class="btn btn-primary" onclick="openShareModal()">
-            &#128279; Share Group Tickets
+          <button type="button" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:.4rem" onclick="openShareModal()">
+            <i data-lucide="link" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i> Share Group Tickets
           </button>
           <a href="/events" class="btn btn-outline">Browse Events</a>
         </div>

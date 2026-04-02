@@ -176,7 +176,7 @@
             Break
           </button>
           <div class="agenda-quick-wrap" id="quick-break-wrap">
-            <button type="button" class="btn btn-outline btn-sm" id="btn-quick-break">Quick Add &#9662;</button>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-quick-break" style="display:inline-flex;align-items:center;gap:.35rem">Quick Add <i data-lucide="chevron-down" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i></button>
             <div class="agenda-quick-dropdown" id="quick-break-menu">
               <button type="button" data-preset="lunch">Lunch Break (30 min)</button>
               <button type="button" data-preset="tea">Tea Break (15 min)</button>
@@ -320,7 +320,7 @@
         <button type="button" id="cert-save-btn" class="btn btn-primary btn-sm">Save Certificate Template</button>
         <a href="/admin/events/{{ event.id }}/certificate/preview"
            target="_blank" class="btn btn-sm btn-outline" style="font-size:.8rem">
-          Preview PDF &#8599;
+          Preview PDF <i data-lucide="external-link" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i>
         </a>
       </div>
       {% else %}
@@ -419,21 +419,21 @@
                 <label class="form-label" style="font-size:.78rem">Primary</label>
                 <span style="display:inline-flex;align-items:center;gap:4px">
                   <input type="color" id="cert-style-border-primary" name="cert_style_border_primary" data-custom="false" value="#0e7490" style="width:40px;height:30px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
-                  <button type="button" class="cert-color-reset" data-target="cert-style-border-primary" data-key="border" title="Reset to scheme default">&#8634;</button>
+                  <button type="button" class="cert-color-reset" data-target="cert-style-border-primary" data-key="border" title="Reset to scheme default"><i data-lucide="rotate-ccw" class="lucide" style="width:14px;height:14px" aria-hidden="true"></i></button>
                 </span>
               </div>
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label" style="font-size:.78rem">Secondary</label>
                 <span style="display:inline-flex;align-items:center;gap:4px">
                   <input type="color" id="cert-style-border-secondary" name="cert_style_border_secondary" data-custom="false" value="#d4a853" style="width:40px;height:30px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
-                  <button type="button" class="cert-color-reset" data-target="cert-style-border-secondary" data-key="gold" title="Reset to scheme default">&#8634;</button>
+                  <button type="button" class="cert-color-reset" data-target="cert-style-border-secondary" data-key="gold" title="Reset to scheme default"><i data-lucide="rotate-ccw" class="lucide" style="width:14px;height:14px" aria-hidden="true"></i></button>
                 </span>
               </div>
               <div class="form-group" style="margin-bottom:0">
                 <label class="form-label" style="font-size:.78rem">Tertiary</label>
                 <span style="display:inline-flex;align-items:center;gap:4px">
                   <input type="color" id="cert-style-border-tertiary" name="cert_style_border_tertiary" data-custom="false" value="#00d4ff" style="width:40px;height:30px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;padding:1px;cursor:pointer">
-                  <button type="button" class="cert-color-reset" data-target="cert-style-border-tertiary" data-key="accent" title="Reset to scheme default">&#8634;</button>
+                  <button type="button" class="cert-color-reset" data-target="cert-style-border-tertiary" data-key="accent" title="Reset to scheme default"><i data-lucide="rotate-ccw" class="lucide" style="width:14px;height:14px" aria-hidden="true"></i></button>
                 </span>
               </div>
             </div>
@@ -483,7 +483,7 @@
                 <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-bold" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-weight:700;font-size:.8rem;line-height:1;color:#fff" title="Bold">B</button>
                 <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-italic" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-style:italic;font-size:.8rem;line-height:1;color:#fff" title="Italic">I</button>
                 <button type="button" class="cert-style-toggle" data-target="cert-style-{{ ek }}-underline" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;text-decoration:underline;font-size:.8rem;line-height:1;color:#fff" title="Underline">U</button>
-                <button type="button" class="cert-pad-toggle" data-elem="{{ ek }}" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;font-size:.7rem;line-height:1" title="Toggle padding">&#9638;</button>
+                <button type="button" class="cert-pad-toggle" data-elem="{{ ek }}" style="width:28px;height:28px;border:1px solid var(--color-border,#e2e8f0);border-radius:4px;background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center" title="Toggle padding"><i data-lucide="square" class="lucide" style="width:14px;height:14px" aria-hidden="true"></i></button>
                 <input type="hidden" id="cert-style-{{ ek }}-bold" name="cert_style_{{ ek }}_bold" value="false">
                 <input type="hidden" id="cert-style-{{ ek }}-italic" name="cert_style_{{ ek }}_italic" value="false">
                 <input type="hidden" id="cert-style-{{ ek }}-underline" name="cert_style_{{ ek }}_underline" value="false">

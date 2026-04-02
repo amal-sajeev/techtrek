@@ -12,7 +12,7 @@
 {% block content %}
 <section class="section section-booking-detail">
   <div class="container">
-    <a href="/booking/my" class="btn btn-outline btn-sm" style="margin-bottom:1.5rem">&#8592; My Bookings</a>
+    <a href="/booking/my" class="btn btn-outline btn-sm" style="margin-bottom:1.5rem;display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="arrow-left" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> My Bookings</a>
 
     <div class="confirmation-layout">
       <div class="confirmation-card">
@@ -26,18 +26,18 @@
             <h4>Event Details</h4>
             {% if event and event.start_date %}
             <div class="booking-detail-row">
-              <span class="booking-detail-icon">&#128197;</span>
+              <span class="booking-detail-icon"><i data-lucide="calendar" class="lucide" aria-hidden="true"></i></span>
               <span>{{ event.start_date.strftime('%A, %B %d, %Y') }}</span>
             </div>
             {% endif %}
             {% if auditorium %}
             <div class="booking-detail-row">
-              <span class="booking-detail-icon">&#128205;</span>
+              <span class="booking-detail-icon"><i data-lucide="map-pin" class="lucide" aria-hidden="true"></i></span>
               <span>{{ auditorium.name }}, {{ auditorium.location }}</span>
             </div>
             {% endif %}
             <div class="booking-detail-row">
-              <span class="booking-detail-icon">&#128176;</span>
+              <span class="booking-detail-icon"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i></span>
               <span>Total Paid: <strong>₹{{ total|round(0)|int }}</strong></span>
             </div>
           </div>
@@ -50,7 +50,7 @@
             {% if group_id %}
             <div style="margin-top:.75rem; display:flex; gap:1rem; justify-content:center; flex-wrap:wrap">
               <a href="/tickets/group/{{ group_id }}" class="btn btn-outline btn-sm" style="font-size:14.75px">View Group Page</a>
-              <button type="button" class="btn btn-sm btn-outline" style="font-size:14.75px" onclick="copyLink('/tickets/group/{{ group_id }}', this)">&#128279; Copy Group Link</button>
+              <button type="button" class="btn btn-sm btn-outline" style="font-size:14.75px;display:inline-flex;align-items:center;gap:.35rem" onclick="copyLink('/tickets/group/{{ group_id }}', this)"><i data-lucide="link" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Copy Group Link</button>
             </div>
             {% endif %}
           </div>
@@ -75,18 +75,18 @@
                 </div>
                 <div class="ticket-detail-meta">
                   <div class="booking-detail-row">
-                    <span class="booking-detail-icon">&#127915;</span>
+                    <span class="booking-detail-icon"><i data-lucide="ticket" class="lucide" aria-hidden="true"></i></span>
                     <span class="ticket-id">{{ b.ticket_id }}</span>
                     {% if b.payment_status == 'paid' %}
-                    <button type="button" class="btn btn-xs btn-outline" onclick="openShareModal('{{ b.ticket_id }}')">&#128279; Share</button>
+                    <button type="button" class="btn btn-xs btn-outline" style="display:inline-flex;align-items:center;gap:.25rem" onclick="openShareModal('{{ b.ticket_id }}')"><i data-lucide="link" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> Share</button>
                     {% endif %}
                   </div>
                   <div class="booking-detail-row">
-                    <span class="booking-detail-icon">&#128196;</span>
+                    <span class="booking-detail-icon"><i data-lucide="file-text" class="lucide" aria-hidden="true"></i></span>
                     <span class="booking-ref-label">Ref: <span class="booking-ref-code">{{ b.booking_ref }}</span></span>
                   </div>
                   <div class="booking-detail-row">
-                    <span class="booking-detail-icon">&#128176;</span>
+                    <span class="booking-detail-icon"><i data-lucide="indian-rupee" class="lucide" aria-hidden="true"></i></span>
                     {% if b.payment_status == 'refunded' %}
                     <span>Refund: <strong>₹{{ b.refund_amount|round(0)|int if b.refund_amount else 0 }}</strong></span>
                     {% else %}
@@ -95,7 +95,7 @@
                   </div>
                   {% if b.refund_status %}
                   <div class="booking-detail-row">
-                    <span class="booking-detail-icon">&#128260;</span>
+                    <span class="booking-detail-icon"><i data-lucide="refresh-cw" class="lucide" aria-hidden="true"></i></span>
                     <span>Refund Status:
                       {% if b.refund_status == 'completed' %}
                       <span class="badge badge-success">Completed</span>
@@ -149,7 +149,7 @@
           <div class="detail-group">
             <button type="button" class="booking-agenda-toggle" id="booking-agenda-toggle" aria-expanded="false" aria-controls="booking-agenda-body">
               <span class="booking-agenda-toggle-text">Event Agenda ({{ event.event_sessions|length }} session{{ 's' if event.event_sessions|length != 1 else '' }})</span>
-              <span class="booking-agenda-toggle-icon" aria-hidden="true">&#9660;</span>
+              <span class="booking-agenda-toggle-icon" aria-hidden="true"><i data-lucide="chevron-down" class="lucide" style="width:1.1rem;height:1.1rem" aria-hidden="true"></i></span>
             </button>
             <div id="booking-agenda-body" class="booking-agenda-body" hidden style="display:none;">
               <div style="display:flex;flex-direction:column;gap:.5rem;margin-top:.75rem;">
@@ -159,7 +159,7 @@
                     <div style="font-weight:600;font-size:.9rem;">{{ es.display_title }}</div>
                     <div style="display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.25rem;font-size:.8rem;color:var(--text-muted);">
                       {% if es.display_speaker_name %}<span>{{ es.display_speaker_name }}</span>{% endif %}
-                      {% if es.start_time %}<span>&#128336; {{ es.start_time.strftime('%I:%M %p') }}</span>{% endif %}
+                      {% if es.start_time %}<span style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="clock" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> {{ es.start_time.strftime('%I:%M %p') }}</span>{% endif %}
                       {% if es.display_duration_minutes %}<span>{{ es.display_duration_minutes }} min</span>{% endif %}
                     </div>
                   </div>
@@ -201,17 +201,17 @@
         <div class="confirmation-actions">
           {% if event %}
           {% if group_id %}
-          <a href="/booking/invoice/group/{{ group_id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          <a href="/booking/invoice/group/{{ group_id }}" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="file-text" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Download Invoice</a>
           {% else %}
-          <a href="/booking/invoice/booking/{{ bookings[0].id }}" class="btn btn-outline">&#128196; Download Invoice</a>
+          <a href="/booking/invoice/booking/{{ bookings[0].id }}" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="file-text" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Download Invoice</a>
           {% endif %}
           {% if event.start_date %}
-          <a href="https://www.google.com/calendar/render?action=TEMPLATE&text={{ event.name|urlencode }}&dates={{ event.start_date.strftime('%Y%m%d') }}/{{ (event.end_date or event.start_date).strftime('%Y%m%d') }}{% if auditorium %}&location={{ (auditorium.name ~ ', ' ~ (auditorium.location or ''))|urlencode }}{% endif %}" target="_blank" rel="noopener" class="btn btn-outline">&#128197; Add to Calendar</a>
+          <a href="https://www.google.com/calendar/render?action=TEMPLATE&text={{ event.name|urlencode }}&dates={{ event.start_date.strftime('%Y%m%d') }}/{{ (event.end_date or event.start_date).strftime('%Y%m%d') }}{% if auditorium %}&location={{ (auditorium.name ~ ', ' ~ (auditorium.location or ''))|urlencode }}{% endif %}" target="_blank" rel="noopener" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="calendar" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Add to Calendar</a>
           {% endif %}
           {% endif %}
           {% set cert_bookings = bookings|selectattr('checked_in')|selectattr('payment_status', 'equalto', 'paid')|list %}
           {% for b in cert_bookings %}
-          <a href="/booking/certificate/{{ b.id }}" class="btn btn-outline">&#127891; Certificate{% if cert_bookings|length > 1 %} ({{ b.booking_ref }}){% endif %}</a>
+          <a href="/booking/certificate/{{ b.id }}" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="graduation-cap" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Certificate{% if cert_bookings|length > 1 %} ({{ b.booking_ref }}){% endif %}</a>
           {% endfor %}
           <a href="/booking/my" class="btn btn-primary">Back to My Bookings</a>
           {% if is_group and group_id and bookings|selectattr('payment_status', 'equalto', 'paid')|list|length > 1 and not bookings|selectattr('checked_in')|list %}
@@ -231,6 +231,20 @@
 
 {% block scripts %}
 <script>
+function copyLink(path, btn) {
+  var url = window.location.origin + path;
+  navigator.clipboard.writeText(url).then(function() {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="check" class="lucide" style="width:.85rem;height:.85rem"></i> Copied!</span>';
+    if (window.lucide && lucide.createIcons) try { lucide.createIcons({ root: btn }); } catch (e) {}
+    btn.classList.add('btn-success');
+    setTimeout(function() {
+      btn.innerHTML = orig;
+      if (window.lucide && lucide.createIcons) try { lucide.createIcons({ root: btn }); } catch (e2) {}
+      btn.classList.remove('btn-success');
+    }, 2000);
+  });
+}
 var currentShareTicketId = '';
 
 function openShareModal(ticketId) {

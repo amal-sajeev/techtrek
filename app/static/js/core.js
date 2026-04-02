@@ -439,14 +439,14 @@ if (document.body.dataset.user) {
       totalEl.textContent = (data.total_votes || 0) + ' vote' + (data.total_votes !== 1 ? 's' : '');
       if (readOnly) {
         var chosen = (data.options || []).find(function(opt) { return opt.id === votedOption; });
-        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08);color:var(--text-primary)">' +
-          '<span style="color:var(--cyan)">&#10003; Your answer: </span>' + (chosen ? chosen.text.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '') + '</div>';
+        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08);color:var(--text-primary);display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">' +
+          '<span style="color:var(--cyan);display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="check" style="width:1em;height:1em;flex-shrink:0"></i> Your answer: </span>' + (chosen ? chosen.text.replace(/</g,'&lt;').replace(/>/g,'&gt;') : '') + '</div>';
         if ((data.options || []).length) {
           html += '<div style="margin-top:.75rem;font-size:.85rem;color:var(--text-muted)">All options:</div>';
           (data.options || []).forEach(function(opt) {
             var isVoted = votedOption === opt.id;
-            html += '<div style="margin-top:.25rem;padding:.35rem .5rem;border-radius:4px;' + (isVoted ? 'background:rgba(0,212,255,.06)' : '') + '">' +
-              (isVoted ? '&#10003; ' : '') + opt.text.replace(/</g,'&lt;').replace(/>/g,'&gt;') + ' <span style="opacity:.8">(' + opt.votes + ', ' + opt.pct + '%)</span></div>';
+            html += '<div style="margin-top:.25rem;padding:.35rem .5rem;border-radius:4px;display:flex;align-items:flex-start;gap:.35rem;' + (isVoted ? 'background:rgba(0,212,255,.06)' : '') + '">' +
+              (isVoted ? '<i data-lucide="check" style="width:.85rem;height:.85rem;flex-shrink:0;margin-top:.12rem;color:var(--cyan)"></i>' : '<span style="width:.85rem;flex-shrink:0"></span>') + '<span>' + opt.text.replace(/</g,'&lt;').replace(/>/g,'&gt;') + ' <span style="opacity:.8">(' + opt.votes + ', ' + opt.pct + '%)</span></span></div>';
           });
         }
       } else {
@@ -454,7 +454,7 @@ if (document.body.dataset.user) {
           var isVoted = votedOption === opt.id;
           html += '<div style="margin-bottom:.5rem"><label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.5rem .6rem;border-radius:6px;border:1px solid var(--border,rgba(255,255,255,.12));' + (isVoted ? 'border-color:var(--cyan);background:rgba(0,212,255,.08)' : '') + '">' +
             '<input type="radio" name="poll-opt" value="' + opt.id + '" ' + (isVoted ? 'checked' : '') + ' style="flex-shrink:0">' +
-            '<span style="flex:1">' + (isVoted ? '&#10003; ' : '') + opt.text + '</span>' +
+            '<span style="flex:1;display:flex;align-items:center;gap:.35rem">' + (isVoted ? '<i data-lucide="check" style="width:.85rem;height:.85rem;flex-shrink:0;color:var(--cyan)"></i>' : '') + '<span>' + opt.text + '</span></span>' +
             '<span style="font-size:.8rem;color:var(--text-muted)">' + opt.votes + ' (' + opt.pct + '%)</span></label></div>';
         });
         voteBtn.style.display = '';
@@ -463,19 +463,19 @@ if (document.body.dataset.user) {
       var avg = data.average || 0;
       totalEl.textContent = (data.total_votes || 0) + ' rating' + (data.total_votes !== 1 ? 's' : '') + ' · avg ' + avg + '/5';
       if (readOnly) {
-        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08);margin-bottom:.5rem">' +
-          '<span style="color:var(--cyan)">&#10003; Your rating: </span>' + (votedRating || 0) + '/5</div>';
-        html += '<div style="display:flex;justify-content:center;gap:.25rem;margin:.5rem 0">';
+        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08);margin-bottom:.5rem;display:flex;align-items:center;gap:.35rem;flex-wrap:wrap">' +
+          '<span style="color:var(--cyan);display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="check" style="width:1em;height:1em;flex-shrink:0"></i> Your rating: </span>' + (votedRating || 0) + '/5</div>';
+        html += '<div style="display:flex;justify-content:center;gap:.25rem;margin:.5rem 0;align-items:center">';
         for (var s = 1; s <= 5; s++) {
           var active = votedRating && s <= votedRating;
-          html += '<span style="font-size:1.8rem;color:' + (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '">&#9733;</span>';
+          html += '<span style="display:inline-flex;color:' + (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '"><i data-lucide="star"' + (active ? ' class="icon-filled"' : '') + ' style="width:1.65rem;height:1.65rem"></i></span>';
         }
         html += '</div>';
       } else {
-        html += '<div style="display:flex;justify-content:center;gap:.25rem;margin:.5rem 0" id="poll-popup-stars">';
+        html += '<div style="display:flex;justify-content:center;gap:.25rem;margin:.5rem 0;align-items:center" id="poll-popup-stars">';
         for (var s = 1; s <= 5; s++) {
           var active = votedRating && s <= votedRating;
-          html += '<span class="poll-popup-star" data-val="' + s + '" style="font-size:1.8rem;cursor:pointer;color:' + (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '">&#9733;</span>';
+          html += '<span class="poll-popup-star" data-val="' + s + '" style="cursor:pointer;display:inline-flex;color:' + (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '"><i data-lucide="star"' + (active ? ' class="icon-filled"' : '') + ' style="width:1.65rem;height:1.65rem"></i></span>';
         }
         html += '</div>';
         voteBtn.style.display = '';
@@ -483,8 +483,8 @@ if (document.body.dataset.user) {
     } else if (ptype === 'text') {
       totalEl.textContent = (data.total_votes || 0) + ' response' + (data.total_votes !== 1 ? 's' : '');
       if (readOnly) {
-        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08)">' +
-          '<span style="color:var(--cyan)">&#10003; Your answer: </span>' + (votedText || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</div>';
+        html += '<div style="padding:.6rem .75rem;border-radius:6px;border:2px solid var(--cyan);background:rgba(0,212,255,.08);display:flex;align-items:flex-start;gap:.35rem;flex-wrap:wrap">' +
+          '<span style="color:var(--cyan);display:inline-flex;align-items:center;gap:.35rem;flex-shrink:0"><i data-lucide="check" style="width:1em;height:1em"></i> Your answer: </span><span>' + (votedText || '').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</span></div>';
         if (data.responses && data.responses.length) {
           html += '<div style="margin-top:.75rem;font-size:.85rem;color:var(--text-muted)">Other responses:</div>';
           data.responses.slice(0, 5).forEach(function(r) {
@@ -504,13 +504,22 @@ if (document.body.dataset.user) {
       }
     }
     bodyEl.innerHTML = html;
+    if (window.lucide && lucide.createIcons) {
+      try { lucide.createIcons({ root: bodyEl }); } catch (e) { lucide.createIcons(); }
+    }
     if (!readOnly && ptype === 'rating') {
       bodyEl.querySelectorAll('.poll-popup-star').forEach(function(star) {
         star.addEventListener('click', function() {
           var val = parseInt(star.dataset.val, 10);
           votedRating = val;
           bodyEl.querySelectorAll('.poll-popup-star').forEach(function(s) {
-            s.style.color = parseInt(s.dataset.val) <= val ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))';
+            var on = parseInt(s.dataset.val, 10) <= val;
+            s.style.color = on ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))';
+            var svg = s.querySelector('svg.lucide');
+            if (svg) {
+              if (on) svg.classList.add('icon-filled');
+              else svg.classList.remove('icon-filled');
+            }
           });
           submitPollVote({ rating: val });
         });

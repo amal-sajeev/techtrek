@@ -52,7 +52,7 @@
       {% elif results.poll_type == 'rating' %}
         <div class="rating-hero">
           <div class="rating-value" id="rating-avg">{{ results.average }}</div>
-          <div class="rating-stars" id="rating-stars">{% for i in range(1,6) %}&#9733;{% endfor %}</div>
+          <div class="rating-stars" id="rating-stars">{% for i in range(1,6) %}<i data-lucide="star" class="lucide icon-filled pd-rating-star" aria-hidden="true"></i>{% endfor %}</div>
           <div class="rating-count"><span id="rating-total">{{ results.total_votes }}</span> rating{{ 's' if results.total_votes != 1 else '' }}</div>
         </div>
         <div class="rating-bars" id="rating-bars">
@@ -60,7 +60,7 @@
           {% set count = results.distribution.get(star, 0) %}
           {% set pct = (count / results.total_votes * 100)|round(1) if results.total_votes else 0 %}
           <div class="rating-bar-row">
-            <span class="rating-bar-label">{{ star }} &#9733;</span>
+            <span class="rating-bar-label pd-rating-bar-lbl">{{ star }} <i data-lucide="star" class="lucide icon-filled pd-rating-star-sm" aria-hidden="true"></i></span>
             <div class="rating-bar-track">
               <div class="rating-bar-fill" style="width:{{ pct }}%" data-star="{{ star }}"></div>
             </div>
@@ -87,8 +87,8 @@
   </main>
 
   <button class="theme-toggle-btn" onclick="toggleDisplayTheme()" title="Toggle light/dark mode">
-    <span class="icon-sun">&#9788;</span>
-    <span class="icon-moon">&#9790;</span>
+    <span class="icon-sun"><i data-lucide="sun" class="lucide" aria-hidden="true"></i></span>
+    <span class="icon-moon"><i data-lucide="moon" class="lucide" aria-hidden="true"></i></span>
   </button>
 
   <footer>TechTrek &middot; Live Poll Display</footer>
@@ -197,5 +197,7 @@
     setInterval(refreshResults, 2000);
   })();
   </script>
+  <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+  <script>lucide.createIcons();</script>
 </body>
 </html>

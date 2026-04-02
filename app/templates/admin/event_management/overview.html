@@ -5,8 +5,10 @@
 <div style="margin-top:1.25rem">
   <h3 class="panel-title">Quick Actions</h3>
   <div style="display:flex;gap:.75rem;flex-wrap:wrap">
+    {% if not hub_ops_locked %}
     <a href="/admin/event-management/{{ hub_event.id }}/checkin" class="btn btn-primary">Check-in Scanner</a>
     <a href="/admin/event-management/{{ hub_event.id }}/alerts" class="btn btn-outline">Send Alert</a>
+    {% endif %}
     <a href="/admin/event-management/{{ hub_event.id }}/bookings" class="btn btn-outline">View Bookings</a>
     <a href="/admin/events/{{ hub_event.id }}/edit" class="btn btn-outline">Edit Event</a>
   </div>

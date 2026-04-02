@@ -4,7 +4,7 @@
 {% block content %}
 <section class="section">
   <div class="container" style="max-width:800px;">
-    <a href="/speaker/sessions" class="btn btn-outline btn-sm" style="margin-bottom:1rem">&#8592; Sessions</a>
+    <a href="/speaker/sessions" class="btn btn-outline btn-sm" style="margin-bottom:1rem;display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="arrow-left" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Sessions</a>
 
     <div class="page-header-block" style="margin-bottom:1.5rem">
       <h1 class="page-title">Live Polls</h1>
@@ -59,7 +59,7 @@
           </p>
         </div>
         <div style="display:flex;gap:.5rem;flex-shrink:0">
-          <a href="/polls/{{ p.poll.id }}/display" target="_blank" class="btn btn-xs btn-outline" title="Open full-screen display for projectors">&#128250; Display</a>
+          <a href="/polls/{{ p.poll.id }}/display" target="_blank" class="btn btn-xs btn-outline" title="Open full-screen display for projectors" style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="monitor" class="lucide" style="width:.8rem;height:.8rem" aria-hidden="true"></i> Display</a>
           {% if not p.poll.closed_at %}
           <button class="btn btn-xs {% if p.poll.is_active %}btn-outline{% else %}btn-primary{% endif %}" onclick="togglePoll({{ p.poll.id }}, this)">
             {{ 'Deactivate' if p.poll.is_active else 'Activate' }}
@@ -92,8 +92,8 @@
       <div style="display:flex;align-items:center;gap:1rem;margin-bottom:.75rem">
         <span style="font-size:2rem;font-weight:700;color:var(--cyan,#00d4ff)">{{ p.average }}</span>
         <div>
-          <div style="font-size:1.2rem;color:#fbbf24;">
-            {% for i in range(1, 6) %}&#9733;{% endfor %}
+          <div style="display:flex;gap:.12rem;color:#fbbf24;">
+            {% for i in range(1, 6) %}<i data-lucide="star" class="lucide icon-filled" style="width:1rem;height:1rem" aria-hidden="true"></i>{% endfor %}
           </div>
           <span class="text-muted" style="font-size:.8rem">{{ p.total_votes }} rating{{ 's' if p.total_votes != 1 else '' }}</span>
         </div>
@@ -103,7 +103,7 @@
         {% set count = p.distribution.get(star, 0) %}
         {% set pct = (count / p.total_votes * 100)|round(1) if p.total_votes else 0 %}
         <div style="display:flex;align-items:center;gap:.5rem">
-          <span style="min-width:22px;font-size:.85rem;text-align:right">{{ star }}&#9733;</span>
+          <span style="min-width:22px;font-size:.85rem;text-align:right;display:inline-flex;align-items:center;justify-content:flex-end;gap:.15rem">{{ star }}<i data-lucide="star" class="lucide icon-filled" style="width:.7rem;height:.7rem" aria-hidden="true"></i></span>
           <div style="flex:1;background:var(--bg-void,#0d0d1a);border-radius:4px;height:18px;overflow:hidden">
             <div style="height:100%;background:#fbbf24;border-radius:4px;width:{{ pct }}%;transition:width .3s"></div>
           </div>

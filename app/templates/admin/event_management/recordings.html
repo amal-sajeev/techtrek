@@ -24,7 +24,7 @@
         <form method="post" action="/admin/event-management/{{ hub_event.id }}/recordings/{{ item.rec.id }}/toggle" style="display:inline">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <button type="submit" class="btn btn-sm {% if item.rec.is_public %}btn-primary{% else %}btn-outline{% endif %}">
-            {% if item.rec.is_public %}&#9679; Public{% else %}&#9675; Private{% endif %}
+            {% if item.rec.is_public %}<span style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="circle-dot" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> Public</span>{% else %}<span style="display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="circle" class="lucide" style="width:.75rem;height:.75rem;opacity:.55" aria-hidden="true"></i> Private</span>{% endif %}
           </button>
         </form>
         <form method="post" action="/admin/event-management/{{ hub_event.id }}/recordings/{{ item.rec.id }}/delete" style="display:inline">

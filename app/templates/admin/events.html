@@ -90,7 +90,7 @@
 </div>
 {% else %}
 <div class="empty-state">
-  <div class="empty-state-icon">&#127942;</div>
+  <div class="empty-state-icon"><i data-lucide="trophy" class="lucide" aria-hidden="true"></i></div>
   <h3>No {{ "completed " if view == "completed" else "" }}events yet</h3>
   <p>{% if view == "completed" %}Events will appear here once their end date has passed.{% else %}Create events with pricing, dates, and venue. Add sessions as agenda items within each event.{% endif %}</p>
   {% if user.is_admin and view != "completed" %}

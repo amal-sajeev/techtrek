@@ -18,7 +18,41 @@ ASSET_VERSION = str(int(time.time()))
 
 BASE_DIR = Path(__file__).resolve().parent
 
-templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
+class CompatJinja2Templates(Jinja2Templates):
+    """Accept both old and new Starlette TemplateResponse signatures."""
+
+    def TemplateResponse(self, *args, **kwargs):
+        # Old style used across this codebase:
+        #   TemplateResponse("template.html", {"request": request, ...}, ...)
+        if args and isinstance(args[0], str):
+            name = args[0]
+            context = args[1] if len(args) > 1 else kwargs.pop("context", {})
+            if not isinstance(context, dict):
+                raise TypeError("Template context must be a dict for old-style TemplateResponse calls.")
+            request = context.get("request")
+            if request is None:
+                raise ValueError("Template context must include 'request'.")
+            return super().TemplateResponse(request, name, context, **kwargs)
+        # Starlette expects TemplateResponse(request, name: str, context, ...).
+        # If code passes TemplateResponse(request, context_dict), Jinja2 receives a dict
+        # as the template name and raises TypeError: unhashable type: 'dict'.
+        if (
+            len(args) >= 2
+            and isinstance(args[0], Request)
+            and isinstance(args[1], dict)
+        ):
+            raise TypeError(
+                "TemplateResponse was called with (request, dict, ...). The second "
+                "positional argument must be the template file name (str), not the "
+                'context. Use TemplateResponse("path/template.html", context, ...) or '
+                'TemplateResponse(request, "path/template.html", context, ...).'
+            )
+        # New style:
+        #   TemplateResponse(request, "template.html", {...}, ...)
+        return super().TemplateResponse(*args, **kwargs)
+
+
+templates = CompatJinja2Templates(directory=str(BASE_DIR / "templates"))
 
 def _gettext_noop(s: str) -> str:
     """Passthrough until real translations are wired up."""

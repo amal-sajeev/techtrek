@@ -92,7 +92,7 @@
 
   <div class="sd-hero-nav">
     <div class="container">
-      {% if event %}<a href="/events/{{ event.id }}" class="sd-back-link">&#8592; {{ event.name }}</a>{% else %}<a href="/sessions" class="sd-back-link">&#8592; All Sessions</a>{% endif %}
+      {% if event %}<a href="/events/{{ event.id }}" class="sd-back-link"><i data-lucide="arrow-left" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> {{ event.name }}</a>{% else %}<a href="/sessions" class="sd-back-link"><i data-lucide="arrow-left" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> All Sessions</a>{% endif %}
     </div>
   </div>
 
@@ -113,19 +113,19 @@
 
       <div class="sd-hero-pills">
         {% if es_speaker %}
-        <span class="sd-pill">&#127908; {{ es_speaker }}</span>
+        <span class="sd-pill"><i data-lucide="mic" class="lucide" aria-hidden="true"></i> {{ es_speaker }}</span>
         {% endif %}
         {% if es_start %}
-        <span class="sd-pill">&#128197; {{ es_start.strftime('%b %d, %Y') }}</span>
-        <span class="sd-pill">&#128336; {{ es_start.strftime('%I:%M %p') }}</span>
+        <span class="sd-pill"><i data-lucide="calendar" class="lucide" aria-hidden="true"></i> {{ es_start.strftime('%b %d, %Y') }}</span>
+        <span class="sd-pill"><i data-lucide="clock" class="lucide" aria-hidden="true"></i> {{ es_start.strftime('%I:%M %p') }}</span>
         {% elif event and event.start_date %}
-        <span class="sd-pill">&#128197; {{ event.start_date.strftime('%b %d, %Y') }}</span>
+        <span class="sd-pill"><i data-lucide="calendar" class="lucide" aria-hidden="true"></i> {{ event.start_date.strftime('%b %d, %Y') }}</span>
         {% endif %}
         {% if d_duration %}
-        <span class="sd-pill">&#9200; {{ d_duration }} min</span>
+        <span class="sd-pill"><i data-lucide="alarm-clock" class="lucide" aria-hidden="true"></i> {{ d_duration }} min</span>
         {% endif %}
         {% if venue %}
-        <span class="sd-pill">&#128205; {{ venue }}</span>
+        <span class="sd-pill"><i data-lucide="map-pin" class="lucide" aria-hidden="true"></i> {{ venue }}</span>
         {% endif %}
       </div>
 
@@ -133,11 +133,11 @@
       <div class="star-rating-display" style="margin-top:.75rem">
         {% for i in range(1, 6) %}
           {% if avg_rating >= i %}
-          <span class="star filled">&#9733;</span>
+          <span class="star filled"><i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i></span>
           {% elif avg_rating >= i - 0.5 %}
-          <span class="star half">&#9733;</span>
+          <span class="star half" aria-hidden="true"><span class="star-half-empty"><i data-lucide="star" class="lucide" aria-hidden="true"></i></span><span class="star-half-fill"><i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i></span></span>
           {% else %}
-          <span class="star">&#9734;</span>
+          <span class="star"><i data-lucide="star" class="lucide" aria-hidden="true"></i></span>
           {% endif %}
         {% endfor %}
         <span class="star-rating-value">{{ avg_rating }}</span>
@@ -169,7 +169,7 @@
           {% endif %}
         {% endif %}
         {% if availability == 'filling-up' and stats.available > 0 %}
-        <span class="sd-urgency-badge">&#128293; Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left</span>
+        <span class="sd-urgency-badge"><i data-lucide="flame" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i> Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left</span>
         {% endif %}
       </div>
       {% endif %}
@@ -182,7 +182,7 @@
 <div class="light-only">
 <div class="lm-sd-header">
   <div class="container">
-    {% if event %}<a href="/events/{{ event.id }}" class="lm-ed-back">&#8592; {{ event.name }}</a>{% else %}<a href="/sessions" class="lm-ed-back">&#8592; All Sessions</a>{% endif %}
+    {% if event %}<a href="/events/{{ event.id }}" class="lm-ed-back"><i data-lucide="arrow-left" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> {{ event.name }}</a>{% else %}<a href="/sessions" class="lm-ed-back"><i data-lucide="arrow-left" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> All Sessions</a>{% endif %}
     <div class="lm-ed-split">
 
       {# Left: title + meta + CTA #}
@@ -199,30 +199,30 @@
         {% endif %}
         <div class="lm-ed-chips">
           {% if es_speaker %}
-          <span class="lm-ed-chip">&#127908; {{ es_speaker }}</span>
+          <span class="lm-ed-chip"><i data-lucide="mic" class="lucide" aria-hidden="true"></i> {{ es_speaker }}</span>
           {% endif %}
           {% if es_start %}
-          <span class="lm-ed-chip">&#128197; {{ es_start.strftime('%b %d, %Y') }}</span>
-          <span class="lm-ed-chip">&#128336; {{ es_start.strftime('%I:%M %p') }}</span>
+          <span class="lm-ed-chip"><i data-lucide="calendar" class="lucide" aria-hidden="true"></i> {{ es_start.strftime('%b %d, %Y') }}</span>
+          <span class="lm-ed-chip"><i data-lucide="clock" class="lucide" aria-hidden="true"></i> {{ es_start.strftime('%I:%M %p') }}</span>
           {% elif event and event.start_date %}
-          <span class="lm-ed-chip">&#128197; {{ event.start_date.strftime('%b %d, %Y') }}</span>
+          <span class="lm-ed-chip"><i data-lucide="calendar" class="lucide" aria-hidden="true"></i> {{ event.start_date.strftime('%b %d, %Y') }}</span>
           {% endif %}
           {% if d_duration %}
-          <span class="lm-ed-chip">&#9200; {{ d_duration }} min</span>
+          <span class="lm-ed-chip"><i data-lucide="alarm-clock" class="lucide" aria-hidden="true"></i> {{ d_duration }} min</span>
           {% endif %}
           {% if venue %}
-          <span class="lm-ed-chip">&#128205; {{ venue }}</span>
+          <span class="lm-ed-chip"><i data-lucide="map-pin" class="lucide" aria-hidden="true"></i> {{ venue }}</span>
           {% endif %}
         </div>
         {% if avg_rating %}
         <div class="star-rating-display" style="margin-top:.5rem">
           {% for i in range(1, 6) %}
             {% if avg_rating >= i %}
-            <span class="star filled">&#9733;</span>
+            <span class="star filled"><i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i></span>
             {% elif avg_rating >= i - 0.5 %}
-            <span class="star half">&#9733;</span>
+            <span class="star half" aria-hidden="true"><span class="star-half-empty"><i data-lucide="star" class="lucide" aria-hidden="true"></i></span><span class="star-half-fill"><i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i></span></span>
             {% else %}
-            <span class="star">&#9734;</span>
+            <span class="star"><i data-lucide="star" class="lucide" aria-hidden="true"></i></span>
             {% endif %}
           {% endfor %}
           <span class="star-rating-value">{{ avg_rating }}</span>
@@ -252,7 +252,7 @@
             {% endif %}
           {% endif %}
           {% if availability == 'filling-up' and stats.available > 0 %}
-          <span class="lm-ed-urgency">&#128293; Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left</span>
+          <span class="lm-ed-urgency"><i data-lucide="flame" class="lucide" style="width:.95rem;height:.95rem" aria-hidden="true"></i> Only {{ stats.available }} seat{{ 's' if stats.available != 1 else '' }} left</span>
           {% endif %}
         {% endif %}
       </div>
@@ -403,7 +403,7 @@
               <iframe src="{{ item.embed_url }}" title="Recording: {{ item.title or 'Session recording' }}" allowfullscreen allow="autoplay; encrypted-media; picture-in-picture"></iframe>
             </div>
           {% else %}
-            <a href="{{ item.rec.url }}" target="_blank" rel="noopener" class="btn btn-primary">&#9654; Watch Recording</a>
+            <a href="{{ item.rec.url }}" target="_blank" rel="noopener" class="btn btn-primary" style="display:inline-flex;align-items:center;gap:.4rem"><i data-lucide="play" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i> Watch Recording</a>
           {% endif %}
           {% endfor %}
         </div>
@@ -447,7 +447,7 @@
         {# Live Poll #}
         <div class="sd-section" id="live-poll-section" style="display:none">
           <div class="sd-sec-head">
-            <span class="sd-sec-label">&#128202; Live Poll</span>
+            <span class="sd-sec-label" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="bar-chart-3" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Live Poll</span>
             <div class="sd-sec-line"></div>
           </div>
           <div id="live-poll-content">
@@ -485,7 +485,7 @@
             {% endif %}
             {% if event.price_accessible %}
             <div class="sd-bp-tier sd-bp-tier--accessible">
-              <span class="sd-bp-tier-badge sd-bp-badge--accessible">&#9855; Accessible</span>
+              <span class="sd-bp-tier-badge sd-bp-badge--accessible" style="display:inline-flex;align-items:center;gap:.3rem"><i data-lucide="accessibility" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Accessible</span>
               <span class="sd-bp-tier-price"><span class="sd-bp-currency">₹</span>{{ '{:,.0f}'.format(event.price_accessible) }}</span>
             </div>
             {% endif %}
@@ -557,19 +557,19 @@
           <div class="sd-bp-checklist">
             <p class="sd-bp-checklist-title">Your ticket includes:</p>
             <div class="sd-perk">
-              <span class="sd-perk-icon">&#10003;</span>
+              <span class="sd-perk-icon"><i data-lucide="check" class="lucide" style="width:1rem;height:1rem;color:var(--green,#10b981)" aria-hidden="true"></i></span>
               <span>Access to all {{ total_sessions }} session{{ 's' if total_sessions != 1 else '' }}</span>
             </div>
             <div class="sd-perk">
-              <span class="sd-perk-icon">&#10003;</span>
+              <span class="sd-perk-icon"><i data-lucide="check" class="lucide" style="width:1rem;height:1rem;color:var(--green,#10b981)" aria-hidden="true"></i></span>
               <span>QR ticket delivered instantly</span>
             </div>
             <div class="sd-perk">
-              <span class="sd-perk-icon">&#10003;</span>
+              <span class="sd-perk-icon"><i data-lucide="check" class="lucide" style="width:1rem;height:1rem;color:var(--green,#10b981)" aria-hidden="true"></i></span>
               <span>Reserved seat in your name</span>
             </div>
             <div class="sd-perk">
-              <span class="sd-perk-icon">&#10003;</span>
+              <span class="sd-perk-icon"><i data-lucide="check" class="lucide" style="width:1rem;height:1rem;color:var(--green,#10b981)" aria-hidden="true"></i></span>
               <span>Free cancellation before the event</span>
             </div>
           </div>
@@ -816,8 +816,8 @@
         var isVoted = votedOption === opt.id;
         html += '<div style="cursor:pointer" onclick="castVote(' + opt.id + ')" data-opt-id="' + opt.id + '">' +
           '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
-            '<span style="font-size:.9rem;' + (isVoted ? 'font-weight:700;color:var(--cyan,#00d4ff)' : '') + '">' +
-              (isVoted ? '&#10003; ' : '') + opt.text + '</span>' +
+            '<span style="font-size:.9rem;display:flex;align-items:center;gap:.35rem;' + (isVoted ? 'font-weight:700;color:var(--cyan,#00d4ff)' : '') + '">' +
+              (isVoted ? '<i data-lucide="check" style="width:.85rem;height:.85rem;flex-shrink:0"></i>' : '') + '<span>' + opt.text + '</span></span>' +
             '<span style="font-size:.85rem;color:var(--text-muted)">' + opt.votes + ' (' + opt.pct + '%)</span>' +
           '</div>' +
           '<div style="background:var(--bg-void,#0d0d1a);border-radius:4px;height:28px;overflow:hidden;border:' +
@@ -834,8 +834,9 @@
       for (var s = 1; s <= 5; s++) {
         var active = votedRating && s <= votedRating;
         html += '<span class="poll-star" data-val="' + s + '" onclick="castRating(' + s + ')" ' +
-          'style="font-size:2.2rem;cursor:pointer;transition:color .15s;color:' +
-          (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '">&#9733;</span>';
+          'style="cursor:pointer;display:inline-flex;align-items:center;transition:color .15s;color:' +
+          (active ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))') + '"><i data-lucide="star"' +
+          (active ? ' class="lucide icon-filled"' : ' class="lucide"') + ' style="width:2rem;height:2rem"></i></span>';
       }
       html += '</div>';
       if (data.distribution) {
@@ -843,7 +844,7 @@
           var cnt = data.distribution[st] || 0;
           var pct = data.total_votes ? Math.round(cnt / data.total_votes * 1000) / 10 : 0;
           html += '<div style="display:flex;align-items:center;gap:.5rem;margin-bottom:.25rem">' +
-            '<span style="min-width:22px;font-size:.8rem;text-align:right">' + st + '&#9733;</span>' +
+            '<span style="min-width:22px;font-size:.8rem;text-align:right;display:inline-flex;align-items:center;justify-content:flex-end;gap:.15rem">' + st + '<i data-lucide="star" class="lucide icon-filled" style="width:.75rem;height:.75rem"></i></span>' +
             '<div style="flex:1;background:var(--bg-void,#0d0d1a);border-radius:4px;height:16px;overflow:hidden">' +
               '<div style="height:100%;background:#fbbf24;border-radius:4px;width:' + pct + '%;transition:width .3s"></div>' +
             '</div>' +
@@ -870,6 +871,9 @@
     }
 
     pollOptionsEl.innerHTML = html;
+    if (window.lucide && lucide.createIcons) {
+      try { lucide.createIcons({ root: pollOptionsEl }); } catch (e) { lucide.createIcons(); }
+    }
   }
 
   window.castVote = function(optionId) {
@@ -893,7 +897,13 @@
     votedRating = val;
     var stars = document.querySelectorAll('#poll-stars .poll-star');
     stars.forEach(function(el) {
-      el.style.color = parseInt(el.dataset.val) <= val ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))';
+      var on = parseInt(el.dataset.val, 10) <= val;
+      el.style.color = on ? '#fbbf24' : 'var(--border,rgba(255,255,255,.2))';
+      var svg = el.querySelector('svg.lucide');
+      if (svg) {
+        if (on) svg.classList.add('icon-filled');
+        else svg.classList.remove('icon-filled');
+      }
     });
     fetch('/sessions/' + sessionId + '/polls/' + currentPollId + '/vote' + pollQS, {
       method: 'POST',

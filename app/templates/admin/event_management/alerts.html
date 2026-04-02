@@ -9,6 +9,9 @@
   </p>
 </div>
 
+{% if hub_ops_locked %}
+<p class="text-muted" style="font-size:.85rem;margin-bottom:1rem">Completed event &mdash; sending new alerts is disabled. History below is read-only.</p>
+{% else %}
 <div class="card" style="padding:1.5rem;margin-bottom:2rem">
   <div class="form-group" style="margin-bottom:.75rem">
     <label class="form-label">Alert Type</label>
@@ -27,6 +30,7 @@
     <span id="alert-status" class="text-muted" style="font-size:.85rem"></span>
   </div>
 </div>
+{% endif %}
 
 <h3 class="panel-title">Alert History</h3>
 {% if alerts %}
@@ -62,7 +66,7 @@
 </div>
 {% else %}
 <div class="empty-state">
-  <div class="empty-state-icon">&#128276;</div>
+  <div class="empty-state-icon"><i data-lucide="bell" class="lucide" aria-hidden="true"></i></div>
   <h3>No alerts sent</h3>
   <p>Alerts you send to event attendees will appear here.</p>
 </div>
@@ -71,6 +75,7 @@
 
 {% block scripts %}
 {{ super() }}
+{% if not hub_ops_locked %}
 <script>
 function sendAlert() {
   var msg = document.getElementById('alert-message').value.trim();
@@ -116,4 +121,5 @@ function sendAlert() {
   }, { confirmLabel: 'Send Alert', confirmClass: 'btn-primary' });
 }
 </script>
+{% endif %}
 {% endblock %}

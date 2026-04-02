@@ -96,7 +96,16 @@ main{
   background-clip:text;
   line-height:1.1;
 }
-.rating-stars{font-size:clamp(1.5rem,3vw,2.5rem);color:#fbbf24;margin:.25rem 0}
+.rating-stars{
+  display:flex;align-items:center;justify-content:center;gap:.2rem;
+  color:#fbbf24;margin:.25rem 0;
+}
+.pd-rating-star{width:clamp(1.35rem,3vw,2.35rem)!important;height:clamp(1.35rem,3vw,2.35rem)!important;flex-shrink:0}
+.pd-rating-star-sm{width:.75rem!important;height:.75rem!important;flex-shrink:0;vertical-align:middle}
+.pd-rating-bar-lbl{display:inline-flex;align-items:center;gap:.2rem}
+.lucide,svg.lucide{stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.icon-filled.lucide,.icon-filled svg.lucide{fill:currentColor;stroke:currentColor}
+.theme-toggle-btn .lucide{width:1.1rem;height:1.1rem}
 .rating-count{font-size:clamp(.9rem,1.5vw,1.1rem);color:#a8b4c0}
 .rating-bars{margin-top:1.5rem}
 .rating-bar-row{display:flex;align-items:center;gap:.75rem;margin-bottom:.6rem}

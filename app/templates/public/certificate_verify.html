@@ -7,7 +7,7 @@
 
     {% if valid %}
     <div style="text-align:center;margin-bottom:2rem">
-      <div style="width:72px;height:72px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:2rem">&#10003;</div>
+      <div style="width:72px;height:72px;border-radius:50%;background:#dcfce7;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;color:#15803d"><i data-lucide="check" class="lucide icon-xl" aria-hidden="true"></i></div>
       <h1 style="font-size:1.5rem;font-weight:700;color:#15803d;margin:0 0 .25rem">Certificate Verified</h1>
       <p style="color:#64748b;margin:0">This is a legitimate TechTrek certificate.</p>
     </div>
@@ -61,7 +61,7 @@
 
     {% else %}
     <div style="text-align:center;margin-bottom:2rem">
-      <div style="width:72px;height:72px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;font-size:2rem">&#10007;</div>
+      <div style="width:72px;height:72px;border-radius:50%;background:#fee2e2;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;color:#dc2626"><i data-lucide="x" class="lucide icon-xl" aria-hidden="true"></i></div>
       <h1 style="font-size:1.5rem;font-weight:700;color:#dc2626;margin:0 0 .25rem">Certificate Not Found</h1>
       <p style="color:#64748b;margin:0 0 1rem">No certificate was found for this QR code.</p>
       <p style="color:#94a3b8;font-size:.85rem;font-family:monospace;word-break:break-all">ID: {{ ticket_id }}</p>

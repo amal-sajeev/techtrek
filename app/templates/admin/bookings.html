@@ -68,7 +68,7 @@
           <span class="badge {% if item.booking.payment_status == 'paid' %}badge-success{% elif item.booking.payment_status == 'refunded' %}badge-muted{% elif item.booking.payment_status == 'cancelled' %}badge-danger{% else %}badge-draft{% endif %}">
             {{ item.booking.payment_status }}
           </span>
-          {% if item.booking.checked_in %}<br><small class="text-muted">&#10003; Checked in</small>{% endif %}
+          {% if item.booking.checked_in %}<br><small class="text-muted" style="display:inline-flex;align-items:center;gap:.2rem"><i data-lucide="check" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> Checked in</small>{% endif %}
         </td>
         <td data-label="Refund">
           {% if item.booking.refund_status %}
@@ -91,7 +91,7 @@
         {% if user.is_admin %}
         <td class="actions-cell">
           {% if item.booking.payment_status in ['paid', 'refunded'] %}
-          <a href="/admin/bookings/{{ item.booking.id }}/invoice" class="btn btn-sm btn-outline" title="Download Invoice">&#128196;</a>
+          <a href="/admin/bookings/{{ item.booking.id }}/invoice" class="btn btn-sm btn-outline btn-icon-only" title="Download Invoice"><i data-lucide="file-text" class="lucide" aria-hidden="true"></i></a>
           {% endif %}
           {% if item.booking.payment_status == 'paid' %}
           <form method="post" action="/admin/bookings/{{ item.booking.id }}/refund" style="display:inline">

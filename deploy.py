@@ -44,7 +44,7 @@ import os
 import subprocess
 import sys
 
-# Force UTF-8 output so Unicode symbols (✓ ✗) work on Windows terminals
+# Force UTF-8 output for consistent logging on Windows terminals
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 else:
@@ -63,7 +63,7 @@ BOLD   = "\033[1m"
 
 
 def _ok(msg: str) -> None:
-    print(f"  {GREEN}✓{RESET}  {msg}")
+    print(f"  {GREEN}[OK]{RESET}  {msg}")
 
 
 def _warn(msg: str) -> None:
@@ -71,7 +71,7 @@ def _warn(msg: str) -> None:
 
 
 def _err(msg: str) -> None:
-    print(f"\n  {RED}✗  ERROR:{RESET} {msg}\n")
+    print(f"\n  {RED}[ERR] ERROR:{RESET} {msg}\n")
 
 
 def _header(msg: str) -> None:
@@ -217,7 +217,7 @@ def check_env() -> None:
     if auto_patches:
         _patch_env_file(auto_patches)
         print()
-        print(f"  {GREEN}✓{RESET}  The following keys were written to .env automatically:")
+        print(f"  {GREEN}[OK]{RESET}  The following keys were written to .env automatically:")
         for var, val in auto_patches.items():
             print(f"      {YELLOW}{var}{RESET}={val}")
         print()

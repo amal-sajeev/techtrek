@@ -3,7 +3,7 @@
 
 {% block admin_content %}
 <div class="page-header-block">
-  <a href="/admin/feedback-templates" class="btn btn-outline btn-sm" style="margin-right:1rem">&#8592; Templates</a>
+  <a href="/admin/feedback-templates" class="btn btn-outline btn-sm" style="margin-right:1rem;display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="arrow-left" class="lucide" style="width:1rem;height:1rem" aria-hidden="true"></i> Templates</a>
   <h1 class="page-title">{{ 'Edit' if template else 'New' }} Feedback Template</h1>
 </div>
 
@@ -64,7 +64,7 @@
               <div style="flex:1;height:2px;background:var(--primary);opacity:.3;border-radius:1px"></div>
               <span class="page-break-label" style="font-size:.8rem;font-weight:600;color:var(--primary);white-space:nowrap;letter-spacing:.03em">PAGE <span class="page-num">{{ q.page }}</span></span>
               <div style="flex:1;height:2px;background:var(--primary);opacity:.3;border-radius:1px"></div>
-              <button type="button" class="btn btn-xs btn-danger" onclick="removePageBreak(this)" title="Remove page break">&#10005;</button>
+              <button type="button" class="btn btn-xs btn-danger btn-icon-only" onclick="removePageBreak(this)" title="Remove page break" aria-label="Remove page break"><i data-lucide="x" class="lucide" aria-hidden="true"></i></button>
             </div>
           </div>
           {% set ns.last_page = q.page %}
@@ -73,7 +73,7 @@
           <input type="hidden" name="q_idx" value="{{ loop.index0 }}">
           <input type="hidden" name="q_page_{{ loop.index0 }}" class="q-page-input" value="{{ q.page or 1 }}">
           <div style="display:flex;gap:.75rem;align-items:flex-start;margin-bottom:.75rem">
-            <div class="drag-handle" title="Drag to reorder">&#8942;&#8942;</div>
+            <div class="drag-handle" title="Drag to reorder" style="display:flex;align-items:center;padding-top:.35rem"><i data-lucide="grip-vertical" class="lucide" style="width:1.1rem;height:1.1rem;opacity:.6" aria-hidden="true"></i></div>
             <div style="flex:1">
               <label class="form-label">Question Text *</label>
               <input type="text" name="q_text_{{ loop.index0 }}" class="form-input" value="{{ q.question_text }}" required>
@@ -94,7 +94,7 @@
               </label>
             </div>
             <div style="padding-top:1.6rem">
-              <button type="button" class="btn btn-xs btn-danger" onclick="removeQuestion(this)">&#10005;</button>
+              <button type="button" class="btn btn-xs btn-danger btn-icon-only" onclick="removeQuestion(this)" aria-label="Remove question"><i data-lucide="x" class="lucide" aria-hidden="true"></i></button>
             </div>
           </div>
           <div class="mc-options-wrap" id="mc-options-{{ loop.index0 }}" style="{% if q.question_type != 'multiple_choice' %}display:none{% endif %}">
@@ -105,9 +105,9 @@
               {% if q.options_json %}
               {% for opt in q.options_json %}
               <div class="mc-option-row">
-                <span class="mc-option-bullet">&#9675;</span>
+                <span class="mc-option-bullet" style="display:flex;align-items:center"><i data-lucide="circle" class="lucide" style="width:.65rem;height:.65rem;opacity:.55" aria-hidden="true"></i></span>
                 <input type="text" class="form-input mc-option-input" value="{{ opt }}" placeholder="Option text...">
-                <button type="button" class="btn btn-xs btn-danger" onclick="removeMcOption(this)" title="Remove option">&#10005;</button>
+                <button type="button" class="btn btn-xs btn-danger btn-icon-only" onclick="removeMcOption(this)" title="Remove option" aria-label="Remove option"><i data-lucide="x" class="lucide" aria-hidden="true"></i></button>
               </div>
               {% endfor %}
               {% endif %}
@@ -134,6 +134,11 @@
 {% block scripts %}
 {{ super() }}
 <script>
+function ttRefreshLucide(root) {
+  if (window.lucide && lucide.createIcons) {
+    try { lucide.createIcons(root ? { root: root } : {}); } catch (e) { lucide.createIcons(); }
+  }
+}
 var qIdx = {{ (template.questions|length) if template and template.questions else 0 }};
 
 function currentPage() {
@@ -149,7 +154,7 @@ function addQuestion() {
     '<input type="hidden" name="q_idx" value="' + idx + '">' +
     '<input type="hidden" name="q_page_' + idx + '" class="q-page-input" value="' + page + '">' +
     '<div style="display:flex;gap:.75rem;align-items:flex-start;margin-bottom:.75rem">' +
-      '<div class="drag-handle" title="Drag to reorder">&#8942;&#8942;</div>' +
+      '<div class="drag-handle" title="Drag to reorder" style="display:flex;align-items:center;padding-top:.35rem"><i data-lucide="grip-vertical" class="lucide" style="width:1.1rem;height:1.1rem;opacity:.6" aria-hidden="true"></i></div>' +
       '<div style="flex:1"><label class="form-label">Question Text *</label>' +
         '<input type="text" name="q_text_' + idx + '" class="form-input" required placeholder="Enter your question..."></div>' +
       '<div style="min-width:160px"><label class="form-label">Type</label>' +
@@ -159,7 +164,7 @@ function addQuestion() {
       '<div style="min-width:90px"><label class="form-label">Required</label>' +
         '<label style="display:flex;align-items:center;gap:.35rem;cursor:pointer;margin-top:.35rem">' +
           '<input type="checkbox" name="q_required_' + idx + '" value="1"><span style="font-size:.85rem">Yes</span></label></div>' +
-      '<div style="padding-top:1.6rem"><button type="button" class="btn btn-xs btn-danger" onclick="removeQuestion(this)">&#10005;</button></div>' +
+      '<div style="padding-top:1.6rem"><button type="button" class="btn btn-xs btn-danger btn-icon-only" onclick="removeQuestion(this)" aria-label="Remove question"><i data-lucide="x" class="lucide" aria-hidden="true"></i></button></div>' +
     '</div>' +
     '<div class="mc-options-wrap" id="mc-options-' + idx + '" style="display:none">' +
       '<label class="form-label">Options</label>' +
@@ -168,6 +173,7 @@ function addQuestion() {
       '<button type="button" class="mc-add-option" onclick="addMcOption(this)">+ Add option</button>' +
     '</div></div>';
   c.insertAdjacentHTML('beforeend', html);
+  ttRefreshLucide(c.lastElementChild);
   initDragHandle(c.lastElementChild);
   document.getElementById('no-questions').style.display = 'none';
 }
@@ -182,9 +188,10 @@ function addPageBreak() {
       '<div style="flex:1;height:2px;background:var(--primary);opacity:.3;border-radius:1px"></div>' +
       '<span class="page-break-label" style="font-size:.8rem;font-weight:600;color:var(--primary);white-space:nowrap;letter-spacing:.03em">PAGE <span class="page-num">' + pageNum + '</span></span>' +
       '<div style="flex:1;height:2px;background:var(--primary);opacity:.3;border-radius:1px"></div>' +
-      '<button type="button" class="btn btn-xs btn-danger" onclick="removePageBreak(this)" title="Remove page break">&#10005;</button>' +
+      '<button type="button" class="btn btn-xs btn-danger btn-icon-only" onclick="removePageBreak(this)" title="Remove page break" aria-label="Remove page break"><i data-lucide="x" class="lucide" aria-hidden="true"></i></button>' +
     '</div></div>';
   c.insertAdjacentHTML('beforeend', html);
+  ttRefreshLucide(c.lastElementChild);
   recalcPages();
 }
 
@@ -237,10 +244,11 @@ function addMcOption(btn) {
   var row = document.createElement('div');
   row.className = 'mc-option-row';
   row.innerHTML =
-    '<span class="mc-option-bullet">&#9675;</span>' +
+    '<span class="mc-option-bullet" style="display:flex;align-items:center"><i data-lucide="circle" class="lucide" style="width:.65rem;height:.65rem;opacity:.55" aria-hidden="true"></i></span>' +
     '<input type="text" class="form-input mc-option-input" placeholder="Option text...">' +
-    '<button type="button" class="btn btn-xs btn-danger" onclick="removeMcOption(this)" title="Remove option">&#10005;</button>';
+    '<button type="button" class="btn btn-xs btn-danger btn-icon-only" onclick="removeMcOption(this)" title="Remove option" aria-label="Remove option"><i data-lucide="x" class="lucide" aria-hidden="true"></i></button>';
   list.appendChild(row);
+  ttRefreshLucide(row);
   row.querySelector('.mc-option-input').focus();
 }
 
@@ -373,6 +381,7 @@ function onDragEnd() {
 (function() {
   document.getElementById('questions-container')
     .querySelectorAll('.question-block').forEach(initDragHandle);
+  ttRefreshLucide(document.getElementById('questions-container'));
 })();
 </script>
 {% endblock %}
