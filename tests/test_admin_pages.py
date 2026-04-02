@@ -119,7 +119,7 @@ class TestAdminSchedule:
 
         resp = client.get("/admin/schedule")
         assert resp.status_code == 200
-        assert b"Schedule Test" in resp.content
+        assert b"Schedule Event" in resp.content
 
 
 class TestAdminBookings:
@@ -199,22 +199,22 @@ class TestAdminFeedback:
 
 
 class TestAdminRecordings:
-    """GET /admin/sessions/{id}/recordings should use SessionModel, not Showing."""
+    """GET /admin/event-management/{event_id}/recordings should list recordings."""
 
     def test_recordings_page_loads(self, client, db):
         _login_admin(client, db)
-        session = make_session(db, title="Rec Session")
+        event = make_event(db, name="Rec Event", status="published")
+        session = make_session(db, title="Rec Session", event=event)
         make_recording(db, session=session, title="Keynote Recording", is_public=True)
         db.commit()
 
-        resp = client.get(f"/admin/sessions/{session.id}/recordings")
+        resp = client.get(f"/admin/event-management/{event.id}/recordings")
         assert resp.status_code == 200
-        assert b"Rec Session" in resp.content
         assert b"Keynote Recording" in resp.content
 
     def test_recordings_not_found(self, client, db):
         _login_admin(client, db)
-        resp = client.get("/admin/sessions/99999/recordings", follow_redirects=False)
+        resp = client.get("/admin/event-management/99999/recordings", follow_redirects=False)
         assert resp.status_code == 303
 
 
@@ -298,7 +298,7 @@ class TestSupervisorPortal:
         resp = client.get("/supervisor/schedule")
         assert resp.status_code == 200
         assert b"Schedule" in resp.content
-        assert b"Schedule Session" in resp.content
+        assert b"Schedule Event" in resp.content
 
     def test_supervisor_checkin_page(self, client, db):
         college = make_college(db, name="Checkin College")
@@ -311,7 +311,7 @@ class TestSupervisorPortal:
         resp = client.get("/supervisor/checkin")
         assert resp.status_code == 200
         assert b"Check-in" in resp.content
-        assert b"Checkin Talk" in resp.content
+        assert b"Checkin Event" in resp.content
 
     def test_supervisor_checkin_scoped_to_college(self, client, db):
         """Supervisor should only see events at their college in the dropdown."""

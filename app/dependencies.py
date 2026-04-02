@@ -1,11 +1,10 @@
 import time
 from pathlib import Path
-from typing import Any, Optional
+from typing import Optional
 
 from fastapi import Depends, Request
 from fastapi.responses import RedirectResponse
-from starlette.requests import Request as StarletteRequest
-from starlette.templating import Jinja2Templates as StarletteJinja2Templates
+from starlette.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -18,30 +17,6 @@ from app.utils import now_ist  # noqa: F401 — re-exported for routers
 ASSET_VERSION = str(int(time.time()))
 
 BASE_DIR = Path(__file__).resolve().parent
-
-
-class Jinja2Templates(StarletteJinja2Templates):
-    """Starlette 0.37+ expects ``TemplateResponse(request, name, context)``.
-
-    This app (and FastAPI's older examples) use ``TemplateResponse(name, context)``
-    with ``request`` inside the context dict. On newer Starlette, that is mis-read as
-    ``(request=name_str, name=context_dict, ...)``, which leads to
-    ``get_template(dict)`` → ``TypeError: unhashable type: 'dict'``.
-    """
-
-    def TemplateResponse(self, *args: Any, **kwargs: Any) -> Any:
-        if (
-            args
-            and isinstance(args[0], str)
-            and len(args) >= 2
-            and isinstance(args[1], dict)
-        ):
-            ctx = args[1]
-            req = ctx.get("request")
-            if isinstance(req, StarletteRequest):
-                return super().TemplateResponse(req, args[0], ctx, *args[2:], **kwargs)
-        return super().TemplateResponse(*args, **kwargs)
-
 
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
@@ -65,7 +40,10 @@ def get_db():
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> Optional[User]:
     user_id = request.session.get("user_id")
     if user_id:
-        return db.query(User).filter(User.id == user_id).first()
+        user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
+        if not user:
+            request.session.clear()
+        return user
     return None
 
 

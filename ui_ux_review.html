@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TechTrek — UI/UX Review Report</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --ink: #16110e;
+    --ink-2: #3d3530;
+    --ink-3: #7a6e68;
+    --paper: #faf8f5;
+    --paper-2: #f2ede6;
+    --paper-3: #e8e0d5;
+    --accent: #c0392b;
+    --accent-soft: #f9ebe9;
+    --gold: #b5882a;
+    --gold-soft: #fef8ec;
+    --green: #1a7a4a;
+    --green-soft: #eaf5ef;
+    --blue: #1b5e8a;
+    --blue-soft: #e8f2f9;
+    --border: #d9d2c9;
+    --serif: 'DM Serif Display', Georgia, serif;
+    --sans: 'DM Sans', system-ui, sans-serif;
+    --mono: 'DM Mono', 'Courier New', monospace;
+  }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: var(--sans);
+    background: var(--paper);
+    color: var(--ink);
+    font-size: 16px;
+    line-height: 1.7;
+  }
+
+  /* ── HEADER ── */
+  .report-header {
+    background: var(--ink);
+    color: var(--paper);
+    padding: 3.5rem 2rem 3rem;
+    text-align: center;
+    border-bottom: 4px solid var(--accent);
+  }
+  .report-label {
+    font-family: var(--mono);
+    font-size: .75rem;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--paper-3);
+    margin-bottom: .75rem;
+  }
+  .report-title {
+    font-family: var(--serif);
+    font-size: clamp(2rem, 5vw, 3.5rem);
+    line-height: 1.1;
+    margin-bottom: .75rem;
+    color: var(--paper);
+  }
+  .report-subtitle {
+    color: var(--paper-3);
+    font-size: 1rem;
+    max-width: 560px;
+    margin: 0 auto 2rem;
+  }
+  .report-meta {
+    display: flex;
+    gap: 2rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    font-size: .85rem;
+    color: var(--paper-3);
+    font-family: var(--mono);
+  }
+  .report-meta span { display: flex; align-items: center; gap: .4rem; }
+
+  /* ── CREDENTIALS BOX ── */
+  .credentials-bar {
+    background: var(--ink-2);
+    padding: 1rem 2rem;
+    display: flex;
+    gap: 1.5rem;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+  }
+  .cred-label {
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+    color: var(--paper-3);
+  }
+  .cred-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    background: rgba(255,255,255,.06);
+    border: 1px solid rgba(255,255,255,.12);
+    border-radius: 4px;
+    padding: .25rem .6rem;
+    font-family: var(--mono);
+    font-size: .78rem;
+    color: var(--paper);
+  }
+  .cred-role {
+    font-size: .65rem;
+    background: var(--accent);
+    color: white;
+    border-radius: 2px;
+    padding: .1rem .35rem;
+  }
+
+  /* ── LAYOUT ── */
+  .report-body { max-width: 900px; margin: 0 auto; padding: 3rem 1.5rem; }
+
+  /* ── TABLE OF CONTENTS ── */
+  .toc {
+    background: var(--paper-2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.75rem 2rem;
+    margin-bottom: 3rem;
+  }
+  .toc-title {
+    font-family: var(--serif);
+    font-size: 1.1rem;
+    margin-bottom: 1rem;
+    color: var(--ink-2);
+  }
+  .toc ol {
+    columns: 2;
+    column-gap: 2rem;
+    padding-left: 1.25rem;
+    font-size: .9rem;
+  }
+  .toc li { margin-bottom: .3rem; }
+  .toc a { color: var(--blue); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+  @media (max-width: 540px) { .toc ol { columns: 1; } }
+
+  /* ── SECTIONS ── */
+  .report-section { margin-bottom: 3.5rem; }
+  .section-number {
+    font-family: var(--mono);
+    font-size: .75rem;
+    letter-spacing: .12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: .5rem;
+  }
+  .section-heading {
+    font-family: var(--serif);
+    font-size: 1.8rem;
+    line-height: 1.2;
+    margin-bottom: 1.25rem;
+    padding-bottom: .75rem;
+    border-bottom: 2px solid var(--border);
+    color: var(--ink);
+  }
+  .subsection { margin-top: 2rem; margin-bottom: 1.5rem; }
+  .subsection-heading {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: var(--ink);
+    margin-bottom: .75rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  p { margin-bottom: .9rem; color: var(--ink-2); }
+  p:last-child { margin-bottom: 0; }
+
+  /* ── RATING BADGES ── */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .3rem;
+    font-family: var(--mono);
+    font-size: .7rem;
+    font-weight: 500;
+    letter-spacing: .05em;
+    padding: .2rem .55rem;
+    border-radius: 3px;
+  }
+  .badge-green  { background: var(--green-soft); color: var(--green); border: 1px solid #b6dfc9; }
+  .badge-amber  { background: var(--gold-soft); color: var(--gold); border: 1px solid #e9d5a0; }
+  .badge-red    { background: var(--accent-soft); color: var(--accent); border: 1px solid #f1c0bb; }
+  .badge-blue   { background: var(--blue-soft); color: var(--blue); border: 1px solid #b5d5ec; }
+  .badge-gray   { background: var(--paper-3); color: var(--ink-3); border: 1px solid var(--border); }
+
+  /* ── FINDING CARDS ── */
+  .findings-grid { display: grid; gap: 1rem; margin-top: .75rem; }
+  .finding {
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: white;
+  }
+  .finding-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: .85rem 1.1rem .65rem;
+    border-bottom: 1px solid var(--paper-3);
+    background: var(--paper-2);
+  }
+  .finding-title { font-weight: 600; font-size: .95rem; color: var(--ink); }
+  .finding-body { padding: .9rem 1.1rem; font-size: .9rem; color: var(--ink-2); line-height: 1.6; }
+  .finding-body p { margin-bottom: .5rem; font-size: .9rem; }
+  .finding-body p:last-child { margin-bottom: 0; }
+  .finding-rec {
+    margin-top: .65rem;
+    padding: .65rem .85rem;
+    background: var(--blue-soft);
+    border-left: 3px solid var(--blue);
+    border-radius: 0 4px 4px 0;
+    font-size: .87rem;
+    color: var(--blue);
+  }
+  .finding-code {
+    font-family: var(--mono);
+    font-size: .78rem;
+    background: var(--ink);
+    color: #e8d9c8;
+    padding: .65rem 1rem;
+    border-radius: 4px;
+    margin: .5rem 0;
+    overflow-x: auto;
+    line-height: 1.5;
+  }
+
+  /* ── SUMMARY TABLE ── */
+  .summary-table { width: 100%; border-collapse: collapse; margin-top: 1rem; font-size: .9rem; }
+  .summary-table th {
+    background: var(--ink);
+    color: var(--paper);
+    font-weight: 500;
+    font-family: var(--mono);
+    font-size: .75rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+    padding: .7rem 1rem;
+    text-align: left;
+  }
+  .summary-table td { padding: .7rem 1rem; border-bottom: 1px solid var(--border); vertical-align: top; }
+  .summary-table tr:last-child td { border-bottom: none; }
+  .summary-table tr:nth-child(even) td { background: var(--paper-2); }
+
+  /* ── SCORE METER ── */
+  .score-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 1rem; margin: 1.25rem 0; }
+  .score-card {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 1.1rem;
+    text-align: center;
+  }
+  .score-value {
+    font-family: var(--serif);
+    font-size: 2.2rem;
+    line-height: 1;
+    margin-bottom: .3rem;
+  }
+  .score-label { font-size: .78rem; color: var(--ink-3); font-family: var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+  .score-green { color: var(--green); }
+  .score-amber { color: var(--gold); }
+  .score-red { color: var(--accent); }
+
+  /* ── CODE BLOCKS ── */
+  code {
+    font-family: var(--mono);
+    font-size: .83em;
+    background: var(--paper-3);
+    padding: .1em .35em;
+    border-radius: 3px;
+    color: var(--accent);
+  }
+
+  /* ── ACCOUNTS TABLE ── */
+  .accounts-table { width: 100%; border-collapse: collapse; font-size: .88rem; margin: 1rem 0; }
+  .accounts-table th { background: var(--paper-3); padding: .6rem .9rem; text-align: left; font-size: .75rem; font-family: var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--ink-2); border-bottom: 2px solid var(--border); }
+  .accounts-table td { padding: .6rem .9rem; border-bottom: 1px solid var(--border); }
+  .accounts-table tr:last-child td { border-bottom: none; }
+  .role-tag { font-family: var(--mono); font-size: .68rem; font-weight: 600; padding: .15rem .4rem; border-radius: 3px; text-transform: uppercase; letter-spacing: .05em; }
+  .role-admin { background: #fde8d8; color: #c0501a; }
+  .role-supervisor { background: var(--gold-soft); color: var(--gold); }
+  .role-user { background: var(--green-soft); color: var(--green); }
+  .role-speaker { background: var(--blue-soft); color: var(--blue); }
+
+  /* ── FLOW DIAGRAM ── */
+  .flow-steps {
+    display: flex;
+    gap: 0;
+    flex-wrap: wrap;
+    margin: 1rem 0;
+  }
+  .flow-step {
+    background: white;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: .6rem .9rem;
+    font-size: .85rem;
+    font-weight: 500;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+  .flow-arrow {
+    display: flex;
+    align-items: center;
+    padding: 0 .5rem;
+    color: var(--ink-3);
+    font-size: 1rem;
+  }
+
+  /* ── PRIORITY LIST ── */
+  .priority-list { list-style: none; padding: 0; margin: .75rem 0; }
+  .priority-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: .75rem;
+    padding: .65rem 0;
+    border-bottom: 1px solid var(--paper-3);
+    font-size: .9rem;
+    color: var(--ink-2);
+  }
+  .priority-list li:last-child { border-bottom: none; }
+  .priority-num {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: var(--ink);
+    color: var(--paper);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .7rem;
+    font-weight: 600;
+    margin-top: .05rem;
+  }
+
+  /* ── FOOTER ── */
+  .report-footer {
+    background: var(--ink);
+    color: var(--paper-3);
+    padding: 1.5rem 2rem;
+    text-align: center;
+    font-size: .82rem;
+    font-family: var(--mono);
+    margin-top: 4rem;
+  }
+
+  @media print {
+    .report-footer, .credentials-bar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════ HEADER ════════════════ -->
+<header class="report-header">
+  <div class="report-label">Code + UX Audit · March 2026</div>
+  <h1 class="report-title">TechTrek UI/UX<br><em>Review Report</em></h1>
+  <p class="report-subtitle">A complete walkthrough of user flows, interface patterns, and actionable recommendations for India's Campus Summit platform.</p>
+  <div class="report-meta">
+    <span>📍 localhost:8000</span>
+    <span>🗂 FastAPI + Jinja2</span>
+    <span>🎨 Cyberpunk / dark-mode UI</span>
+    <span>📱 PWA-enabled</span>
+  </div>
+</header>
+
+<!-- ════════════════ CREDENTIALS ════════════════ -->
+<div class="credentials-bar">
+  <span class="cred-label">Test Accounts →</span>
+  <span class="cred-chip"><span class="cred-role">Admin</span> admin / admin123</span>
+  <span class="cred-chip"><span class="cred-role">Super</span> supervisor / supervisor123</span>
+  <span class="cred-chip"><span class="cred-role">User</span> alice / user123</span>
+  <span class="cred-chip"><span class="cred-role">User</span> amalsajeev / speaker123</span>
+  <span class="cred-chip"><span class="cred-role">Speaker</span> sarah / speaker123</span>
+  <span class="cred-chip"><span class="cred-role">Speaker</span> james / speaker123</span>
+</div>
+
+<!-- ════════════════ BODY ════════════════ -->
+<div class="report-body">
+
+  <!-- ── TABLE OF CONTENTS ── -->
+  <nav class="toc" aria-label="Table of Contents">
+    <div class="toc-title">Contents</div>
+    <ol>
+      <li><a href="#design-system">Design System Overview</a></li>
+      <li><a href="#public-pages">Public-Facing Pages</a></li>
+      <li><a href="#auth-flow">Authentication Flow</a></li>
+      <li><a href="#booking-flow">Booking Flow</a></li>
+      <li><a href="#admin-portal">Admin Portal</a></li>
+      <li><a href="#speaker-portal">Speaker Portal</a></li>
+      <li><a href="#supervisor-portal">Supervisor Portal</a></li>
+      <li><a href="#accessibility">Accessibility &amp; Mobile</a></li>
+      <li><a href="#quick-wins">Quick Wins</a></li>
+      <li><a href="#priority-roadmap">Priority Roadmap</a></li>
+    </ol>
+  </nav>
+
+  <!-- ── SCORES ── -->
+  <div class="score-grid">
+    <div class="score-card"><div class="score-value score-green">8.0</div><div class="score-label">Visual Design</div></div>
+    <div class="score-card"><div class="score-value score-amber">6.5</div><div class="score-label">Auth UX</div></div>
+    <div class="score-card"><div class="score-value score-green">8.5</div><div class="score-label">Booking Flow</div></div>
+    <div class="score-card"><div class="score-value score-amber">7.0</div><div class="score-label">Admin Portal</div></div>
+    <div class="score-card"><div class="score-value score-amber">5.5</div><div class="score-label">Speaker UX</div></div>
+    <div class="score-card"><div class="score-value score-green">7.5</div><div class="score-label">Mobile / a11y</div></div>
+  </div>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 1. DESIGN SYSTEM                         -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="design-system">
+    <div class="section-number">§ 01</div>
+    <h2 class="section-heading">Design System Overview</h2>
+
+    <p>TechTrek uses a dark-mode-first <strong>cyberpunk aesthetic</strong>: near-black backgrounds (<code>#010409</code> through <code>#1c2128</code>), a dominant <strong>cyan accent</strong> (<code>#00d4ff</code>), an animated starfield canvas, and glowing borders. The system is coherent and well-executed, with consistent CSS variables throughout.</p>
+
+    <div class="subsection">
+      <div class="subsection-heading">Typography</div>
+      <div class="findings-grid">
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Font Choices <code>style.css:30–31</code></div>
+            <span class="badge badge-amber">⚠ Moderate</span>
+          </div>
+          <div class="finding-body">
+            <p>The display font is <strong>Orbitron</strong> — an excellent, on-brand choice that perfectly fits the sci-fi/tech summit tone. The body font, however, is <strong>Space Grotesk</strong>, which is one of the most over-used fonts in AI-generated UIs and generic SaaS products. On a platform as distinctive as TechTrek, the body font is the character backbone — the current choice mutes the brand's energy.</p>
+            <div class="finding-code">--font-display: 'Orbitron', monospace;     /* ✓ Great pick */
+--font-body:    'Space Grotesk', ...;      /* ✗ Too generic */</div>
+            <div class="finding-rec">💡 Replace Space Grotesk with something more characterful. <strong>Syne</strong> (geometric, technical), <strong>Barlow</strong> (condensed at headings, regular at body), or <strong>Rajdhani</strong> (Indian-tech aesthetic) would set TechTrek apart. Exo 2 is already in the Google Fonts import — it pairs well with Orbitron and has unused weight variants.</div>
+          </div>
+        </div>
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Unused Font Imports</div>
+            <span class="badge badge-blue">ℹ Info</span>
+          </div>
+          <div class="finding-body">
+            <p>The <code>&lt;base.html&gt;</code> imports <strong>6 Google Font families</strong> (Orbitron, Space Grotesk, Exo 2, JetBrains Mono, Playfair Display, Libre Baskerville, DM Sans, DM Mono) in a single request. Several of these (Playfair Display, Libre Baskerville, DM Sans, DM Mono) appear to be remnants from design exploration and are not referenced in the CSS.</p>
+            <div class="finding-rec">💡 Audit and trim the font import. Remove any family not actively used in CSS. Each extra family adds ~40–80 ms of render-blocking load time.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-heading">Color & Theme</div>
+      <div class="findings-grid">
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Dark/Light Mode Duplicate Markup</div>
+            <span class="badge badge-red">✗ Issue</span>
+          </div>
+          <div class="finding-body">
+            <p>The home page has completely separate HTML blocks wrapped in <code>.dark-only</code> and <code>.light-only</code> CSS classes. This means the hero section renders two full versions of the content simultaneously, hidden by CSS — doubling the DOM size, potentially confusing screen readers, and making maintenance harder.</p>
+            <div class="finding-code">/* In home.html */
+&lt;div class="dark-only"&gt;...full hero version 1...&lt;/div&gt;
+&lt;div class="light-only"&gt;...full hero version 2...&lt;/div&gt;</div>
+            <div class="finding-rec">💡 Use a single HTML block and apply theme-specific styles via CSS only. Use <code>[data-theme="light"]</code> selectors to swap colors and text rather than duplicating markup.</div>
+          </div>
+        </div>
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Base Font Size</div>
+            <span class="badge badge-amber">⚠ Moderate</span>
+          </div>
+          <div class="finding-body">
+            <p>The body font size is set to <code>font-size: 19px</code> — unusually large for a web app. This makes body copy feel oversized in form inputs, table cells, and dense admin views. Most modern design systems use 15–16px for body text and scale up headings.</p>
+            <div class="finding-rec">💡 Bring base font size down to 15–16px. Use <code>rem</code> units throughout so everything scales proportionally. The current 19px makes the admin data tables feel cramped in comparison.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-heading">Motion & Animation</div>
+      <p>The animated starfield canvas is a strong visual signature for dark mode. Flash messages and modals appear to have minimal transitions. Overall the animation level is appropriately restrained for an event platform.</p>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 2. PUBLIC PAGES                          -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="public-pages">
+    <div class="section-number">§ 02</div>
+    <h2 class="section-heading">Public-Facing Pages</h2>
+
+    <div class="subsection">
+      <div class="subsection-heading">Home Page <code>/</code></div>
+      <div class="findings-grid">
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Featured Event Hero — Excellent</div>
+            <span class="badge badge-green">✓ Strong</span>
+          </div>
+          <div class="finding-body">
+            <p>The featured event hero card with countdown timer (<code>X days Y hours</code>), session count, date chip, and venue chip is well-designed. The overlay layout with a semi-transparent gradient over a full-bleed image creates an atmospheric dark-mode first impression.</p>
+          </div>
+        </div>
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Single-Event Mode vs. Multi-Event Mode</div>
+            <span class="badge badge-amber">⚠ UX Gap</span>
+          </div>
+          <div class="finding-body">
+            <p>The navbar and footer conditionally hide the <strong>Home</strong> and <strong>Events</strong> links when there is only one event (<code>{% if total_events > 1 %}</code>). This is a clever micro-optimization, but it creates an inconsistent navbar depending on the data state. A first-time visitor seeing only a logo and Login/Sign Up might not know what the platform does.</p>
+            <div class="finding-rec">💡 Even in single-event mode, keep "Events" in the navbar (it simply links directly to the one event's detail page). Or add a brief tagline next to the logo like "India's Campus Summit" permanently visible on mobile.</div>
+          </div>
+        </div>
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Hero Sub-copy</div>
+            <span class="badge badge-blue">ℹ Minor</span>
+          </div>
+          <div class="finding-body">
+            <p>The dark-mode hero reads: <em>"The best campuses don't just teach tech — they live it. TechTrek brings working engineers and founders straight to your campus — live talks, real insights, zero fluff."</em> This is punchy and on-brand. However, there's no secondary CTA (e.g., newsletter signup or "Learn More") visible on the hero when the featured event CTA is absent.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-heading">Events Listing <code>/events</code></div>
+      <div class="findings-grid">
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Date Bucketing — Great Pattern</div>
+            <span class="badge badge-green">✓ Strong</span>
+          </div>
+          <div class="finding-body">
+            <p>Splitting events into "This Week", "Next Week", and "Later" buckets is a smart date-grouping pattern. It gives users immediate temporal context without needing to read date strings.</p>
+          </div>
+        </div>
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Filter Reloads Page — No Live Search</div>
+            <span class="badge badge-amber">⚠ Moderate</span>
+          </div>
+          <div class="finding-body">
+            <p>The city filter and sort order trigger a full page reload via form GET submission. This causes a jarring blank-reload UX, especially on slower connections. The search input in the Admin dashboard uses client-side <code>filterEMCards()</code> which is instant — the public events filter should behave the same way.</p>
+            <div class="finding-rec">💡 Add a client-side filter: debounce the search input to filter visible cards in-DOM, and change city/sort to trigger fetch instead of reload. If SSR is required, at least keep scroll position and selected values after the reload.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="subsection">
+      <div class="subsection-heading">Event Detail <code>/events/:id</code></div>
+      <div class="findings-grid">
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Scroll Progress Bar + Sticky Title — Excellent</div>
+            <span class="badge badge-green">✓ Strong</span>
+          </div>
+          <div class="finding-body">
+            <p>The <code>.ed-progress-bar</code> and the <code>.ed-sticky-title</code> that appears as the user scrolls are excellent UX patterns on long event detail pages. The sticky bar includes the "Book Now" CTA so the conversion point is always visible.</p>
+          </div>
+        </div>
+        <div class="finding">
+          <div class="finding-header">
+            <div class="finding-title">Hero Carousel Sources</div>
+            <span class="badge badge-blue">ℹ Info</span>
+          </div>
+          <div class="finding-body">
+            <p>The carousel uses Unsplash photos as fallback images keyed by <code>event.id % 8</code>. This means every event will always show the same Unsplash photo (deterministic hash), which looks intentional but may feel repetitive as the platform grows. The gallery upload system is in place — the fallbacks are just for events without custom images.</p>
+            <div class="finding-rec">💡 Consider adding an admin-side prompt to upload a banner when an event is published, to ensure no events use the generic Unsplash defaults in production.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 3. AUTH FLOW                             -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="auth-flow">
+    <div class="section-number">§ 03</div>
+    <h2 class="section-heading">Authentication Flow</h2>
+
+    <div class="flow-steps">
+      <div class="flow-step">Visit</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Register / Login</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Profile</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Browse Events</div>
+    </div>
+
+    <div class="findings-grid" style="margin-top:1rem">
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Registration Friction — 8+ Required Fields</div>
+          <span class="badge badge-red">✗ Critical</span>
+        </div>
+        <div class="finding-body">
+          <p>The registration form requires: Full Name, Username, Email, College, Discipline (select), Specialization (text), Year of Study (select), Password, Confirm Password — <strong>9 required fields plus an optional phone number</strong>. For a student trying to quickly book a tech event, this is a significant barrier. Discipline, Specialization, and Year of Study are profile-enrichment fields that don't need to gate the account creation step.</p>
+          <p>The form also includes a full custom country-code phone picker component, which adds visual complexity for what is an optional field.</p>
+          <div class="finding-rec">💡 Split registration into two steps: (1) Essential: Name, Email, Password — account created, redirect to booking. (2) Optional on first login or via a "Complete Profile" prompt: College, Discipline, Specialization, Year. This aligns with the copy "It only takes 30 seconds" — currently it does not.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Login Page — Clean &amp; Functional</div>
+          <span class="badge badge-green">✓ Strong</span>
+        </div>
+        <div class="finding-body">
+          <p>The login page is well-executed: inline validation, progressive error messages, loading state on the submit button, and a "Forgot your password?" link in a logical position. The optional Google SSO button is shown conditionally based on server config. The "next" redirect parameter properly passes through so post-login redirects work.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Password Strength Indicator</div>
+          <span class="badge badge-green">✓ Strong</span>
+        </div>
+        <div class="finding-body">
+          <p>The password strength bar updates live as the user types, using a 4-point scoring system (length, uppercase, numbers, special chars) with color-coded feedback (red → amber → green → cyan). This is a high-quality UX detail — clear and non-intrusive.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Auth Box Branding</div>
+          <span class="badge badge-blue">ℹ Minor</span>
+        </div>
+        <div class="finding-body">
+          <p>The auth box header shows <code>⚡ TECHTREK</code> as a plain text string. While consistent with the overall branding, there's an opportunity to make the auth pages more atmospheric — a subtle background texture, a thin cyan glow on the card, or the starfield animating behind the auth box rather than a plain page.</p>
+          <div class="finding-rec">💡 The auth page <code>.auth-page</code> wrapper could have a subtle radial glow centered on the box in dark mode. Small but makes the experience feel cohesive with the rest of the site.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 4. BOOKING FLOW                          -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="booking-flow">
+    <div class="section-number">§ 04</div>
+    <h2 class="section-heading">Booking Flow</h2>
+
+    <div class="flow-steps">
+      <div class="flow-step">Event Detail</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Select Seats</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Checkout</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Confirmation</div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-step">Ticket / QR</div>
+    </div>
+
+    <div class="findings-grid" style="margin-top:1rem">
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Interactive Seat Map — Excellent</div>
+          <span class="badge badge-green">✓ Strong</span>
+        </div>
+        <div class="finding-body">
+          <p>The seat picker is one of the best features of the platform. It has a proper legend (Available, Selected, Taken, VIP, Accessible, Reserved), keyboard navigation support (<code>aria-label</code> on the map container), seat type badges, and live selection state. The pinch-to-zoom / scale wrapper for mobile is a strong addition.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Checkout Timer — Good, but Anxiety-Inducing</div>
+          <span class="badge badge-amber">⚠ Consider</span>
+        </div>
+        <div class="finding-body">
+          <p>The countdown timer holding the selected seats adds urgency and prevents indefinite holds. However, the timer begins immediately when the user lands on checkout — if the user is reading the event details or reviewing add-ons, the clock ticking can feel stressful. The current hold timeout is 5 minutes (from <code>hold_timeout_minutes</code> in config).</p>
+          <div class="finding-rec">💡 Consider extending the default timer to 8–10 minutes for Indian students who may be on slower 4G connections. Alternatively, add a "Not ready yet?" escape hatch that explicitly returns seats to the pool without penalizing the user.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Coupon Code UX — Functional</div>
+          <span class="badge badge-green">✓ Good</span>
+        </div>
+        <div class="finding-body">
+          <p>The coupon code input with a dedicated Apply button and a message span for success/error feedback is well-structured. It persists the coupon_code in the form context so page refreshes don't lose the applied code.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Duplicate Seat Listing in Checkout</div>
+          <span class="badge badge-amber">⚠ Minor UX</span>
+        </div>
+        <div class="finding-body">
+          <p>The checkout page shows selected seats twice: once in a <code>.checkout-seat-list</code> chip row at the top, and again as individual line items in the <code>.checkout-summary</code> section. For a user with 2–3 seats this feels redundant. The chip row adds visual confirmation but the summary section already does that job with prices.</p>
+          <div class="finding-rec">💡 Keep the chip row for quick visual confirmation, but make the summary section the single source of truth for line items. Remove the redundant seat chips or collapse them into the summary.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Confirmation Page — Solid</div>
+          <span class="badge badge-green">✓ Strong</span>
+        </div>
+        <div class="finding-body">
+          <p>The confirmation page includes individual QR codes per ticket, a group QR for multi-seat bookings, shareable ticket links, cancellation policy notice, and a "View Invoices" link. This is thorough and well-organized.</p>
+          <p>One note: the confirmation icon is <code>✓</code> (Unicode checkmark) which is small and low-impact. Given this is the most important moment in the user's journey, a more celebratory icon or brief animation would create a better emotional peak.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Hardcoded Cancellation Fee Message</div>
+          <span class="badge badge-amber">⚠ Minor</span>
+        </div>
+        <div class="finding-body">
+          <p>The confirmation page displays: <em>"Cancellation policy: ₹100 fee per ticket, remainder refunded."</em> This fee amount is hardcoded in the Jinja template rather than pulled from a configurable setting, meaning it would need a template edit to change.</p>
+          <div class="finding-rec">💡 Add a <code>cancellation_fee</code> field to the event model or pull it from SiteSettings so different events can have different policies, and admin can update it without a code deploy.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">My Bookings Page — Clean</div>
+          <span class="badge badge-green">✓ Good</span>
+        </div>
+        <div class="finding-body">
+          <p>The bookings list uses status badges (Confirmed, Cancelled, Partial), date/venue detail rows with emoji icons, total paid display, and seat chip previews. It's readable and scannable. Cancelled bookings are visually distinguished by a <code>.booking-cancelled</code> class with muted styling.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 5. ADMIN PORTAL                          -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="admin-portal">
+    <div class="section-number">§ 05</div>
+    <h2 class="section-heading">Admin Portal</h2>
+
+    <div class="findings-grid">
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Sidebar Navigation — Structural Issue</div>
+          <span class="badge badge-red">✗ Issue</span>
+        </div>
+        <div class="finding-body">
+          <p>The sidebar navigation groups items into three sections:</p>
+          <ul style="margin:.5rem 0 .5rem 1.25rem;font-size:.9rem;color:var(--ink-2)">
+            <li><strong>Events &amp; Content</strong>: Events, Sessions, Bookings, Waitlist</li>
+            <li><strong>People &amp; Places</strong>: Cities, Colleges, Speakers, Users</li>
+            <li><strong>Communications</strong>: Newsletter, Seat Types, Feedback, FB Templates, Cert Templates, (System)</li>
+          </ul>
+          <p><strong>Seat Types</strong> is misplaced in Communications. Seat Types are a venue configuration that belongs under Events &amp; Content. Certificate Templates are a recognition/documentation tool, not a communication. Feedback Templates are likewise not communications.</p>
+          <div class="finding-rec">💡 Reorganize the sidebar:
+            <br>• Events &amp; Content: Events, Sessions, Bookings, Waitlist, Seat Types
+            <br>• People &amp; Places: Cities, Colleges, Speakers, Users
+            <br>• Communications: Newsletter, Feedback, Feedback Templates
+            <br>• Recognition: Certificate Templates
+            <br>• System: Settings, Activity Log, Metrics
+          </div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Dashboard Stat Cards — Functional but Flat</div>
+          <span class="badge badge-amber">⚠ Moderate</span>
+        </div>
+        <div class="finding-body">
+          <p>The dashboard shows 6 stat cards (Total Users, Confirmed Bookings, Total Revenue, Upcoming Events, Total Check-ins, Refunded). The cards are clear but there's no trend indicator, no comparison to previous period, and no sparklines. For an admin checking on event health, "are things going up or down?" is the key question the current stats don't answer.</p>
+          <div class="finding-rec">💡 Even simple indicators help: a ↑/↓ icon with "vs last week" for revenue and bookings. The metrics page likely has this data — consider surfacing the most recent delta on the dashboard cards.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Event Management Hub — Well Designed</div>
+          <span class="badge badge-green">✓ Strong</span>
+        </div>
+        <div class="finding-body">
+          <p>The per-event management hub (<code>/admin/event-management/:id</code>) with tabs for Overview, Bookings, Check-in, Polls, Alerts, Feedback, Recordings, Report, and Waitlist is a comprehensive and well-organized structure. Having all event-specific operations in one place is the right architecture decision.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Event Cards — Missing Quick Actions</div>
+          <span class="badge badge-amber">⚠ Minor</span>
+        </div>
+        <div class="finding-body">
+          <p>The active events grid cards show booking counts and check-in numbers but don't surface any quick actions. Admins frequently need to: open the check-in scanner, send an alert, or view the booking list for a specific event. Currently they must click into the event hub first.</p>
+          <div class="finding-rec">💡 Add 2–3 inline quick-action buttons on the event card hover state: "Check-in", "Alerts", "Bookings". This would save admins 1–2 clicks for the most common operations during a live event.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Admin Sidebar Uses Emojis as Icons</div>
+          <span class="badge badge-blue">ℹ Minor</span>
+        </div>
+        <div class="finding-body">
+          <p>The admin sidebar uses HTML entity emojis (<code>&#128200;</code>, <code>&#127942;</code>, etc.) as nav icons. These render inconsistently across OSes — emoji rendering on Windows is noticeably different from macOS or Android. The rest of the app uses inline SVGs which look sharp at all sizes.</p>
+          <div class="finding-rec">💡 Replace sidebar emoji icons with consistent SVG icons from Heroicons, Lucide, or Tabler. This also makes it easier to apply consistent sizing and CSS coloring to match the active/hover states.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 6. SPEAKER PORTAL                        -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="speaker-portal">
+    <div class="section-number">§ 06</div>
+    <h2 class="section-heading">Speaker Portal</h2>
+
+    <div class="findings-grid">
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Extremely Thin Dashboard</div>
+          <span class="badge badge-red">✗ Issue</span>
+        </div>
+        <div class="finding-body">
+          <p>The speaker dashboard has 3 stat cards (Total, Upcoming, Completed sessions) and just two navigation cards: "My Sessions" and "My Schedule". There's no at-a-glance view of the next upcoming session, no quick access to polls for a live session, and no notification of feedback from past sessions.</p>
+          <p>For a speaker arriving at the dashboard on the day of their event, the current view gives them no actionable information without navigating away.</p>
+          <div class="finding-rec">💡 Add a "Next Up" section below the stats: show the next upcoming session (title, event name, time, location) with direct links to view polls and session agenda. Speakers don't need the full sessions list — they need the relevant one highlighted immediately.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">No Session-Day Tools on Dashboard</div>
+          <span class="badge badge-amber">⚠ Moderate</span>
+        </div>
+        <div class="finding-body">
+          <p>During a live session, a speaker needs to: launch a poll, view live poll results, and see how many people are in the audience. None of these are accessible from the dashboard — the speaker must navigate to My Sessions → specific session → Polls.</p>
+          <div class="finding-rec">💡 Add a "Live" indicator and a "Launch Poll" quick-button for currently running sessions. Consider a dedicated "Live Session" mode view that shows polls, attendee count, and a timer.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Nav Cards Pattern — Borrowed from Supervisor</div>
+          <span class="badge badge-blue">ℹ Info</span>
+        </div>
+        <div class="finding-body">
+          <p>The speaker dashboard uses the exact same <code>.speaker-nav-card</code> component as the supervisor portal. This is consistent but also means the two portals feel visually identical. Since speakers and supervisors have quite different roles, distinct visual identities would help users orient themselves.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 7. SUPERVISOR PORTAL                     -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="supervisor-portal">
+    <div class="section-number">§ 07</div>
+    <h2 class="section-heading">Supervisor Portal</h2>
+
+    <div class="findings-grid">
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Good College-Scoped View</div>
+          <span class="badge badge-green">✓ Strong</span>
+        </div>
+        <div class="finding-body">
+          <p>The supervisor portal correctly scopes all data to their assigned college. The "Upcoming Events" table on the dashboard provides a clear college-specific picture. The three nav cards (Check-in, Bookings, Schedule) cover the primary supervisor workflows.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">No Quick-Scan Entry Point from Dashboard</div>
+          <span class="badge badge-amber">⚠ Moderate</span>
+        </div>
+        <div class="finding-body">
+          <p>The check-in scanner is 2 clicks away from landing on the supervisor dashboard. During a live event, supervisors at the gate need instant access to the scanner. Having the QR scanner card prominent on the dashboard is good, but there's no event-specific pre-selection: the supervisor must then choose which event to scan for on the check-in page.</p>
+          <div class="finding-rec">💡 If there's only one currently active event at the college, the Check-in card should link directly to that event's check-in view — skip the event selection step. If multiple events, show event chips directly on the dashboard card.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Upcoming Events Table — Missing Status Column</div>
+          <span class="badge badge-blue">ℹ Minor</span>
+        </div>
+        <div class="finding-body">
+          <p>The upcoming events table has columns: Event, Date, Auditorium, Bookings, Checked In. It's missing a <strong>Status</strong> column (Published / Draft / Live) which is important for supervisors to know if an event is publicly visible and whether check-in should be active.</p>
+          <div class="finding-rec">💡 Add a Status badge column. When an event is "Live Today", highlight the row with a subtle accent border to draw immediate attention.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 8. ACCESSIBILITY & MOBILE                -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="accessibility">
+    <div class="section-number">§ 08</div>
+    <h2 class="section-heading">Accessibility &amp; Mobile</h2>
+
+    <div class="findings-grid">
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">ARIA Labels Present — Good Foundation</div>
+          <span class="badge badge-green">✓ Good</span>
+        </div>
+        <div class="finding-body">
+          <p>The seat map has <code>aria-label</code> and <code>role="group"</code> attributes. The poll popup modal uses <code>role="dialog" aria-modal="true" aria-labelledby</code>. Flash messages use <code>role="alert"</code>. The alert popup uses <code>aria-labelledby</code> for the title. This is a solid accessibility foundation.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Mobile Navigation — Hamburger Drawer</div>
+          <span class="badge badge-green">✓ Good</span>
+        </div>
+        <div class="finding-body">
+          <p>The mobile nav drawer includes all navigation links, theme toggle, and user info (signed-in state). The overlay dismisses on tap. This is a well-structured mobile navigation pattern.</p>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Starfield Canvas on Low-End Devices</div>
+          <span class="badge badge-amber">⚠ Consider</span>
+        </div>
+        <div class="finding-body">
+          <p>The animated starfield is rendered on a <code>&lt;canvas&gt;</code> element in dark mode. On low-spec Android devices common in India (budget Redmi, Realme, etc.), canvas animations can consume battery and throttle page interactivity.</p>
+          <div class="finding-rec">💡 Check <code>prefers-reduced-motion</code> and pause canvas animation when set. Also consider detecting low-memory devices via <code>navigator.deviceMemory &lt; 2</code> and disabling the animation. The CSS particle/grain alternative would be zero-CPU.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">Contrast in Dark Mode — Verify Muted Text</div>
+          <span class="badge badge-amber">⚠ Check</span>
+        </div>
+        <div class="finding-body">
+          <p><code>--text-muted: #a8b4c0</code> on the dark background <code>#0d1117</code> gives approximately <strong>4.8:1 contrast</strong> — just above the WCAG AA minimum of 4.5:1. This is technically compliant but very marginal. The <code>--border: rgba(0,212,255,0.1)</code> used for dividers would fail contrast checks for any text placed over it.</p>
+          <div class="finding-rec">💡 Increase <code>--text-muted</code> to <code>#b8c4d0</code> or brighter to give more headroom above the AA threshold. Run a contrast audit pass for all text-on-background combinations.</div>
+        </div>
+      </div>
+      <div class="finding">
+        <div class="finding-header">
+          <div class="finding-title">PWA Setup — Complete</div>
+          <span class="badge badge-green">✓ Strong</span>
+        </div>
+        <div class="finding-body">
+          <p>Service worker, manifest.json, offline page, and install prompt button are all present. The theme color is set to the brand cyan. Apple Web App meta tags are included. This is a well-deployed PWA setup for an event platform where users want offline ticket access.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 9. QUICK WINS                            -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="quick-wins">
+    <div class="section-number">§ 09</div>
+    <h2 class="section-heading">Quick Wins</h2>
+    <p>The following changes are low-effort but would have a meaningful impact on experience:</p>
+
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>Item</th>
+          <th>Where</th>
+          <th>Effort</th>
+          <th>Impact</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Replace Space Grotesk with Syne or Barlow</td>
+          <td><code>style.css</code></td>
+          <td><span class="badge badge-green">Low</span></td>
+          <td><span class="badge badge-red">High</span></td>
+        </tr>
+        <tr>
+          <td>Trim unused Google Font imports</td>
+          <td><code>base.html</code></td>
+          <td><span class="badge badge-green">Low</span></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Reduce base font size to 15–16px</td>
+          <td><code>style.css:66</code></td>
+          <td><span class="badge badge-green">Low</span></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Add celebration animation to booking confirmation icon</td>
+          <td><code>event_confirmation.html</code></td>
+          <td><span class="badge badge-green">Low</span></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Replace sidebar emoji icons with SVGs</td>
+          <td><code>base_admin.html</code></td>
+          <td><span class="badge badge-green">Low</span></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Add <code>prefers-reduced-motion</code> check to starfield</td>
+          <td><code>core.js</code></td>
+          <td><span class="badge badge-green">Low</span></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Add event Status column to supervisor table</td>
+          <td><code>supervisor/dashboard.html</code></td>
+          <td><span class="badge badge-green">Low</span></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Remove redundant seat chips from checkout summary</td>
+          <td><code>event_checkout.html</code></td>
+          <td><span class="badge badge-green">Low</span></td>
+          <td><span class="badge badge-blue">Low-Med</span></td>
+        </tr>
+        <tr>
+          <td>Move cancellation fee to configurable setting</td>
+          <td><code>event_confirmation.html</code></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+        </tr>
+        <tr>
+          <td>Make events filter client-side (no page reload)</td>
+          <td><code>events.html</code></td>
+          <td><span class="badge badge-amber">Medium</span></td>
+          <td><span class="badge badge-red">High</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <!-- ════════════════════════════════════════ -->
+  <!-- 10. PRIORITY ROADMAP                     -->
+  <!-- ════════════════════════════════════════ -->
+  <section class="report-section" id="priority-roadmap">
+    <div class="section-number">§ 10</div>
+    <h2 class="section-heading">Priority Roadmap</h2>
+    <p>Ordered by user-impact / effort ratio. Items at the top should be addressed first:</p>
+
+    <ul class="priority-list">
+      <li>
+        <div class="priority-num">1</div>
+        <div><strong>Reduce registration to 3 essential fields.</strong> The single biggest barrier to conversion is the 9-field sign-up form. Move college/discipline/domain/year to a deferred "Complete Profile" step. This change alone could significantly improve sign-up-to-booking conversion rate.</div>
+      </li>
+      <li>
+        <div class="priority-num">2</div>
+        <div><strong>Replace Space Grotesk body font.</strong> Swap to Exo 2 (already imported) or Syne for a more distinctive, on-brand body typeface. Takes 5 minutes but immediately elevates perceived design quality.</div>
+      </li>
+      <li>
+        <div class="priority-num">3</div>
+        <div><strong>Events listing — client-side filtering.</strong> Eliminate the jarring full-page reload when searching/filtering events. Debounce the search input and use JS to filter visible cards instead. The admin dashboard already does this with <code>filterEMCards()</code> — extract and reuse.</div>
+      </li>
+      <li>
+        <div class="priority-num">4</div>
+        <div><strong>Refactor dark/light mode from duplicate markup to CSS-only.</strong> The <code>.dark-only / .light-only</code> pattern doubles the DOM. Migrate to <code>[data-theme="light"]</code> CSS overrides on a single HTML structure.</div>
+      </li>
+      <li>
+        <div class="priority-num">5</div>
+        <div><strong>Speaker dashboard — add "Next Up" session and live session tools.</strong> Speakers need instant access to their current/next session and its polls without digging through the sessions list.</div>
+      </li>
+      <li>
+        <div class="priority-num">6</div>
+        <div><strong>Admin sidebar navigation — fix groupings.</strong> Move Seat Types to Events &amp; Content, create separate Recognition group for Certificate Templates, and replace emoji icons with SVGs.</div>
+      </li>
+      <li>
+        <div class="priority-num">7</div>
+        <div><strong>Supervisor quick check-in.</strong> When there's a single active event at the college, the Check-in card should link directly to that event's scanner — not to a selection page.</div>
+      </li>
+      <li>
+        <div class="priority-num">8</div>
+        <div><strong>Add trend indicators to admin dashboard stat cards.</strong> Even simple ↑/↓ comparison values vs. last week would make the dashboard actionable rather than just informational.</div>
+      </li>
+      <li>
+        <div class="priority-num">9</div>
+        <div><strong>Audit muted text contrast.</strong> Increase <code>--text-muted</code> brightness slightly and run a full WCAG contrast pass on muted/secondary text in both dark and light themes.</div>
+      </li>
+      <li>
+        <div class="priority-num">10</div>
+        <div><strong>Canvas starfield — respect <code>prefers-reduced-motion</code>.</strong> Pause animation for users who have requested reduced motion. This is both an accessibility and a performance win.</div>
+      </li>
+    </ul>
+  </section>
+
+</div>
+
+<!-- ════════════════ FOOTER ════════════════ -->
+<footer class="report-footer">
+  TechTrek UI/UX Review · Generated March 2026 · App running at http://localhost:8000
+</footer>
+
+</body>
+</html>

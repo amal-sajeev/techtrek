@@ -212,6 +212,10 @@
       .catch(function(e) { if (e.name !== 'AbortError') console.error(e); });
   }
 
+  if (form) {
+    form.addEventListener('submit', function (e) { e.preventDefault(); fetchResults(); });
+  }
+
   if (qInput) {
     qInput.addEventListener('input', function () {
       clearTimeout(timer);

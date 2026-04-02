@@ -99,7 +99,18 @@ def _speaker_sessions(speaker, db):
 @router.get("/")
 def dashboard(request: Request, db: Session = Depends(get_db)):
     user, speaker = _require_speaker(request, db)
-    _sessions, _enriched, total, upcoming, completed = _speaker_sessions(speaker, db)
+    _sessions, enriched, total, upcoming, completed = _speaker_sessions(speaker, db)
+    now = now_ist()
+    today = now.date()
+    # Find the next upcoming session (soonest start_date >= today, published event)
+    upcoming_items = [
+        item for item in enriched
+        if item["event"] and item["event"].start_date
+        and item["event"].start_date >= today
+        and item["event"].status == "published"
+    ]
+    upcoming_items.sort(key=lambda x: x["event"].start_date)
+    next_session = upcoming_items[0] if upcoming_items else None
     return templates.TemplateResponse(
         "speaker/dashboard.html",
         _speaker_ctx(
@@ -108,6 +119,7 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             total=total,
             upcoming=upcoming,
             completed=completed,
+            next_session=next_session,
         ),
     )
 

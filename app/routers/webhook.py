@@ -57,32 +57,35 @@ async def razorpay_webhook(request: Request):
         refund_id = entity.get("id", "")
 
         if event_type == "refund.processed" and payment_id:
-            booking = db.query(Booking).filter(
+            bookings = db.query(Booking).filter(
                 Booking.razorpay_payment_id == payment_id
-            ).first()
-            if booking:
+            ).all()
+            for booking in bookings:
                 booking.refund_id = refund_id
                 booking.refund_status = "completed"
                 booking.refund_processed_at = now_ist()
+            if bookings:
                 wl.processed = True
-                log.info("Refund completed for booking %s", booking.booking_ref)
+                log.info("Refund completed for %d booking(s), payment %s", len(bookings), payment_id)
 
         elif event_type == "refund.failed" and payment_id:
-            booking = db.query(Booking).filter(
+            bookings = db.query(Booking).filter(
                 Booking.razorpay_payment_id == payment_id
-            ).first()
-            if booking:
+            ).all()
+            for booking in bookings:
                 booking.refund_status = "failed"
+            if bookings:
                 wl.processed = True
-                log.warning("Refund failed for booking %s", booking.booking_ref)
+                log.warning("Refund failed for %d booking(s), payment %s", len(bookings), payment_id)
 
         elif event_type == "refund.created" and payment_id:
-            booking = db.query(Booking).filter(
+            bookings = db.query(Booking).filter(
                 Booking.razorpay_payment_id == payment_id
-            ).first()
-            if booking:
+            ).all()
+            for booking in bookings:
                 booking.refund_id = refund_id
                 booking.refund_status = "processing"
+            if bookings:
                 wl.processed = True
 
         db.commit()

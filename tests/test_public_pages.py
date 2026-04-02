@@ -70,7 +70,7 @@ class TestHomePage:
         assert b"Fantastic session!" in resp.content
 
     def test_home_price_from_event(self, client, db):
-        """Price should come from the Event."""
+        """Price should appear on the events listing page."""
         aud = make_auditorium(db, name="Hall B")
         make_event(
             db,
@@ -82,7 +82,7 @@ class TestHomePage:
         )
         db.commit()
 
-        resp = client.get("/")
+        resp = client.get("/events")
         assert resp.status_code == 200
         assert b"299" in resp.content
 

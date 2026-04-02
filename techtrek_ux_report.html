@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TechTrek UX Audit Report — All 22 Flows</title>
+<style>
+  :root {
+    --bg-void: #0a0a0f;
+    --bg-panel: #10111a;
+    --bg-card: #14151f;
+    --bg-card2: #1a1b28;
+    --cyan: #00e5ff;
+    --cyan-dim: #00b8cc;
+    --orange: #ff6b00;
+    --green: #00e676;
+    --yellow: #ffd740;
+    --red: #ff1744;
+    --text: #e0e6f0;
+    --text-dim: #8892a4;
+    --border: #252638;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg-void);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* ── HEADER ── */
+  .report-header {
+    background: linear-gradient(135deg, #0d0e1a 0%, #131426 50%, #0d0e1a 100%);
+    border-bottom: 2px solid var(--cyan);
+    padding: 48px 60px 40px;
+    position: relative;
+    overflow: hidden;
+  }
+  .report-header::before {
+    content: '';
+    position: absolute;
+    top: -80px; right: -80px;
+    width: 320px; height: 320px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(0,229,255,0.06) 0%, transparent 70%);
+  }
+  .header-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .header-brand .bolt { color: var(--orange); font-size: 22px; }
+  .header-brand .name {
+    font-family: 'Courier New', monospace;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 4px;
+    color: var(--cyan);
+  }
+  .report-header h1 {
+    font-size: 32px;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: -0.5px;
+  }
+  .report-header .subtitle {
+    color: var(--text-dim);
+    font-size: 15px;
+    margin-bottom: 28px;
+  }
+  .meta-pills {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .meta-pill {
+    background: rgba(0,229,255,0.08);
+    border: 1px solid rgba(0,229,255,0.2);
+    border-radius: 20px;
+    padding: 5px 14px;
+    font-size: 12px;
+    color: var(--cyan);
+    letter-spacing: 0.5px;
+  }
+
+  /* ── MAIN LAYOUT ── */
+  .main { max-width: 1280px; margin: 0 auto; padding: 40px 60px 80px; }
+
+  /* ── SUMMARY CARDS ── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    margin-bottom: 48px;
+  }
+  .summary-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px 20px;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+  }
+  .summary-card::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .summary-card.critical::after { background: var(--red); }
+  .summary-card.high::after { background: var(--orange); }
+  .summary-card.medium::after { background: var(--yellow); }
+  .summary-card.low::after { background: var(--green); }
+  .summary-card .count {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .summary-card.critical .count { color: var(--red); }
+  .summary-card.high .count { color: var(--orange); }
+  .summary-card.medium .count { color: var(--yellow); }
+  .summary-card.low .count { color: var(--green); }
+  .summary-card .label {
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  /* ── SECTION HEADERS ── */
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin: 40px 0 20px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-header .sev-dot {
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .section-header h2 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+  }
+  .section-header .count-badge {
+    margin-left: auto;
+    font-size: 12px;
+    padding: 3px 10px;
+    border-radius: 12px;
+    font-weight: 600;
+  }
+  .sev-critical .sev-dot { background: var(--red); }
+  .sev-critical h2 { color: var(--red); }
+  .sev-critical .count-badge { background: rgba(255,23,68,0.15); color: var(--red); }
+  .sev-high .sev-dot { background: var(--orange); }
+  .sev-high h2 { color: var(--orange); }
+  .sev-high .count-badge { background: rgba(255,107,0,0.15); color: var(--orange); }
+  .sev-medium .sev-dot { background: var(--yellow); }
+  .sev-medium h2 { color: var(--yellow); }
+  .sev-medium .count-badge { background: rgba(255,215,64,0.15); color: var(--yellow); }
+  .sev-low .sev-dot { background: var(--green); }
+  .sev-low h2 { color: var(--green); }
+  .sev-low .count-badge { background: rgba(0,230,118,0.15); color: var(--green); }
+
+  /* ── FINDING CARDS ── */
+  .finding {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 20px 24px;
+    margin-bottom: 12px;
+    border-left: 4px solid transparent;
+  }
+  .finding.critical { border-left-color: var(--red); }
+  .finding.high { border-left-color: var(--orange); }
+  .finding.medium { border-left-color: var(--yellow); }
+  .finding.low { border-left-color: var(--green); }
+  .finding-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 10px;
+  }
+  .finding-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+    flex: 1;
+  }
+  .finding-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+  .tag {
+    font-size: 11px;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-weight: 500;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+  }
+  .tag-flow {
+    background: rgba(0,229,255,0.1);
+    color: var(--cyan);
+    border: 1px solid rgba(0,229,255,0.2);
+  }
+  .tag-area {
+    background: rgba(136,146,164,0.12);
+    color: var(--text-dim);
+    border: 1px solid rgba(136,146,164,0.2);
+  }
+  .finding-body { color: var(--text-dim); font-size: 13.5px; }
+  .finding-body p { margin-bottom: 6px; }
+  .finding-body p:last-child { margin-bottom: 0; }
+  .finding-body strong { color: var(--text); }
+  .fix-block {
+    margin-top: 12px;
+    background: var(--bg-card2);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+  }
+  .fix-block .fix-label {
+    font-size: 10px;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--cyan-dim);
+    margin-bottom: 4px;
+    font-weight: 600;
+  }
+  code {
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    background: rgba(0,229,255,0.07);
+    padding: 1px 5px;
+    border-radius: 3px;
+    color: var(--cyan);
+  }
+
+  /* ── FLOW TABLE ── */
+  .flows-section { margin-bottom: 48px; }
+  .flow-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .flow-table th {
+    text-align: left;
+    padding: 10px 14px;
+    font-size: 11px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    background: var(--bg-card2);
+    border-bottom: 1px solid var(--border);
+  }
+  .flow-table td {
+    padding: 10px 14px;
+    border-bottom: 1px solid rgba(37,38,56,0.6);
+    vertical-align: middle;
+  }
+  .flow-table tr:hover td { background: rgba(255,255,255,0.02); }
+  .status-ok {
+    display: inline-block;
+    background: rgba(0,230,118,0.12);
+    color: var(--green);
+    border: 1px solid rgba(0,230,118,0.25);
+    border-radius: 10px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .status-issue {
+    display: inline-block;
+    background: rgba(255,215,64,0.1);
+    color: var(--yellow);
+    border: 1px solid rgba(255,215,64,0.25);
+    border-radius: 10px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .status-bug {
+    display: inline-block;
+    background: rgba(255,23,68,0.12);
+    color: var(--red);
+    border: 1px solid rgba(255,23,68,0.25);
+    border-radius: 10px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+  }
+  .flow-num {
+    color: var(--cyan-dim);
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+  }
+
+  /* ── FOOTER ── */
+  .report-footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 60px;
+    max-width: 1280px;
+    margin: 0 auto;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+  .report-footer .brand { color: var(--cyan); font-weight: 600; letter-spacing: 2px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 900px) {
+    .main { padding: 24px 20px 60px; }
+    .summary-grid { grid-template-columns: repeat(2, 1fr); }
+    .report-header { padding: 32px 20px 28px; }
+    .report-footer { padding: 24px 20px; flex-direction: column; gap: 8px; text-align: center; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ────────────────── HEADER ────────────────── -->
+<header class="report-header">
+  <div class="header-brand">
+    <span class="bolt">⚡</span>
+    <span class="name">TECHTREK</span>
+  </div>
+  <h1>UX Audit Report — Full Application Review</h1>
+  <p class="subtitle">Live browser testing of all 22 user flows at 1920×1080 / 125% CSS zoom</p>
+  <div class="meta-pills">
+    <span class="meta-pill">📅 April 1, 2026</span>
+    <span class="meta-pill">🖥 1920×1080 @ 125% zoom</span>
+    <span class="meta-pill">🔗 http://localhost:8000</span>
+    <span class="meta-pill">👤 Roles: user · admin · speaker · supervisor</span>
+    <span class="meta-pill">📋 22 flows · 25 findings</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <!-- ────────────────── SUMMARY ────────────────── -->
+  <div class="summary-grid" style="margin-top:36px;">
+    <div class="summary-card critical">
+      <div class="count">3</div>
+      <div class="label">Critical</div>
+    </div>
+    <div class="summary-card high">
+      <div class="count">8</div>
+      <div class="label">High</div>
+    </div>
+    <div class="summary-card medium">
+      <div class="count">9</div>
+      <div class="label">Medium</div>
+    </div>
+    <div class="summary-card low">
+      <div class="count">5</div>
+      <div class="label">Low / Polish</div>
+    </div>
+  </div>
+
+  <!-- ────────────────── FLOW OVERVIEW TABLE ────────────────── -->
+  <div class="flows-section">
+    <div class="section-header" style="margin-top:0;">
+      <div class="sev-dot" style="background:var(--cyan);"></div>
+      <h2 style="color:var(--cyan);">All 22 Flows — At a Glance</h2>
+    </div>
+    <table class="flow-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Flow Name</th>
+          <th>URL(s)</th>
+          <th>Status</th>
+          <th>Key Note</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td class="flow-num">01</td><td>Homepage / Landing</td><td><code>/</code></td><td><span class="status-ok">PASS</span></td><td>Responsive hero, event cards load correctly</td></tr>
+        <tr><td class="flow-num">02</td><td>Registration</td><td><code>/auth/register</code></td><td><span class="status-issue">ISSUE</span></td><td>Password strength bar barely visible (5px line)</td></tr>
+        <tr><td class="flow-num">03</td><td>Login</td><td><code>/auth/login</code></td><td><span class="status-issue">ISSUE</span></td><td>Username cleared on failed login; toast too far from form</td></tr>
+        <tr><td class="flow-num">04</td><td>Event Listing</td><td><code>/events</code></td><td><span class="status-ok">PASS</span></td><td>Filter + search functional; cards well-designed</td></tr>
+        <tr><td class="flow-num">05</td><td>Event Detail Page</td><td><code>/events/{slug}</code></td><td><span class="status-ok">PASS</span></td><td>Speaker bios, session accordion, agenda all load</td></tr>
+        <tr><td class="flow-num">06</td><td>Seat Selection</td><td><code>/booking/event/{id}/seats</code></td><td><span class="status-issue">ISSUE</span></td><td>Coordinate clicks fail under CSS zoom; JS click required</td></tr>
+        <tr><td class="flow-num">07</td><td>Checkout / Add-ons</td><td><code>/booking/event/{id}/checkout</code></td><td><span class="status-issue">ISSUE</span></td><td>Narrow card on 1920px; add-on DOM order before T&C</td></tr>
+        <tr><td class="flow-num">08</td><td>Razorpay Payment</td><td><code>/booking/…/create-order</code></td><td><span class="status-issue">ISSUE</span></td><td>Mobile number dialog blocks flow in test mode</td></tr>
+        <tr><td class="flow-num">09</td><td>Booking Confirmation</td><td><code>/booking/confirm/{ref}</code></td><td><span class="status-bug">BUG</span></td><td>Individual ticket QR images broken; TICKET UUID not truncated</td></tr>
+        <tr><td class="flow-num">10</td><td>My Bookings List</td><td><code>/booking/my</code></td><td><span class="status-issue">ISSUE</span></td><td>Direct URL <code>/bookings</code> returns 404; emoji inconsistency</td></tr>
+        <tr><td class="flow-num">11</td><td>Booking Detail</td><td><code>/booking/my/{ref}</code></td><td><span class="status-issue">ISSUE</span></td><td>Individual QR broken; cancel modal correctly shows ₹100 fee</td></tr>
+        <tr><td class="flow-num">12</td><td>Admin Dashboard</td><td><code>/admin/</code></td><td><span class="status-bug">BUG</span></td><td>Returns 500; crashes single-worker server; sub-routes fine</td></tr>
+        <tr><td class="flow-num">13</td><td>Event Management Hub</td><td><code>/admin/event-management/{id}</code></td><td><span class="status-issue">ISSUE</span></td><td>9 tabs load; "Rs." instead of "₹"; TICKET UUID not truncated</td></tr>
+        <tr><td class="flow-num">14</td><td>Admin Check-in Scanner</td><td><code>/admin/checkin/{id}</code></td><td><span class="status-ok">PASS</span></td><td>Clean QR + manual entry; scoped to event</td></tr>
+        <tr><td class="flow-num">15a</td><td>Admin Sessions List</td><td><code>/admin/sessions</code></td><td><span class="status-ok">PASS</span></td><td>11 sessions shown; filters functional</td></tr>
+        <tr><td class="flow-num">15b</td><td>Admin Bookings List</td><td><code>/admin/bookings</code></td><td><span class="status-issue">ISSUE</span></td><td>REF column fine; TICKET column wraps full UUID</td></tr>
+        <tr><td class="flow-num">15c</td><td>Admin Waitlist</td><td><code>/admin/waitlist</code></td><td><span class="status-ok">PASS</span></td><td>Empty state message clear; no entries (expected)</td></tr>
+        <tr><td class="flow-num">16a</td><td>Admin Users</td><td><code>/admin/users</code></td><td><span class="status-issue">ISSUE</span></td><td>No "MAKE USER" (demote) button; no role filter dropdown</td></tr>
+        <tr><td class="flow-num">16b</td><td>Admin Colleges</td><td><code>/admin/colleges</code></td><td><span class="status-ok">PASS</span></td><td>6 colleges, search + AUDITORIUMS count correct</td></tr>
+        <tr><td class="flow-num">16c</td><td>Admin Speakers</td><td><code>/admin/speakers</code></td><td><span class="status-ok">PASS</span></td><td>LINKED/NOT INVITED status clear; SEND INVITE CTA visible</td></tr>
+        <tr><td class="flow-num">16d</td><td>Admin Cities / Seat Types</td><td><code>/admin/cities</code> · <code>/admin/seat-types</code></td><td><span class="status-ok">PASS</span></td><td>Both functional; colour swatches render correctly</td></tr>
+        <tr><td class="flow-num">17a</td><td>Speaker Dashboard</td><td><code>/speaker/</code></td><td><span class="status-ok">PASS</span></td><td>Stats + nav cards; Welcome personalised</td></tr>
+        <tr><td class="flow-num">17b</td><td>Speaker Sessions / Edit</td><td><code>/speaker/sessions</code></td><td><span class="status-issue">ISSUE</span></td><td>Stats float right; heading left — misaligned layout at 1920px</td></tr>
+        <tr><td class="flow-num">17c</td><td>Speaker Schedule</td><td><code>/speaker/schedule</code></td><td><span class="status-ok">PASS</span></td><td>Calendar view with Month/Week toggle; past sessions dimmed</td></tr>
+        <tr><td class="flow-num">18a</td><td>Supervisor Dashboard</td><td><code>/supervisor/</code></td><td><span class="status-ok">PASS</span></td><td>Scoped to college; 4 stat cards; upcoming events table</td></tr>
+        <tr><td class="flow-num">18b</td><td>Supervisor Bookings</td><td><code>/supervisor/bookings</code></td><td><span class="status-ok">PASS</span></td><td>Scoped to college; search + status filter functional</td></tr>
+        <tr><td class="flow-num">18c</td><td>Supervisor Check-in</td><td><code>/supervisor/checkin</code></td><td><span class="status-issue">ISSUE</span></td><td>Form narrow/left-aligned at 1920px; unstyled event selector</td></tr>
+        <tr><td class="flow-num">18d</td><td>Supervisor Schedule</td><td><code>/supervisor/schedule</code></td><td><span class="status-ok">PASS</span></td><td>Event list grouped by date; PUBLISHED badge correct</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ────────────────── CRITICAL ────────────────── -->
+  <div class="section-header sev-critical">
+    <div class="sev-dot"></div>
+    <h2>🔴 Critical — Blocking / Revenue-Impacting</h2>
+    <span class="count-badge">3 findings</span>
+  </div>
+
+  <div class="finding critical">
+    <div class="finding-header">
+      <div class="finding-title">C-1 &nbsp; Admin Dashboard <code>/admin/</code> returns 500 and crashes the server</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 12</span>
+        <span class="tag tag-area">Admin</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Navigating to <code>/admin/</code> consistently returns <strong>500 Internal Server Error</strong>. The single-worker uvicorn process hangs indefinitely, eventually becoming unresponsive and requiring a manual restart. All other admin sub-routes (<code>/admin/events</code>, <code>/admin/bookings</code>, etc.) work correctly.</p>
+      <p>Root cause: the dashboard handler likely performs an N+1 query — iterating over all active events and lazily loading <code>ev.event_sessions</code> for each without a JOIN or <code>selectinload</code>. Under SQLite, this serialises into a blocking loop that starves the single-threaded event loop.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      In the <code>/admin/</code> route handler, replace lazy-loaded session counts with a single aggregated query: <code>SELECT event_id, COUNT(*) FROM sessions GROUP BY event_id</code>. Alternatively add <code>options(selectinload(Event.event_sessions))</code> to the main events query so SQLAlchemy batches it into one additional SQL call instead of N calls. Also add a 5-second DB query timeout so a slow dashboard never kills the entire process.
+    </div>
+  </div>
+
+  <div class="finding critical">
+    <div class="finding-header">
+      <div class="finding-title">C-2 &nbsp; All individual ticket QR code images are broken on confirmation and booking detail</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 9</span>
+        <span class="tag tag-flow">Flow 11</span>
+        <span class="tag tag-area">Booking</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>On <code>/booking/confirm/{ref}</code> and <code>/booking/my/{ref}</code>, the per-ticket QR code <code>&lt;img&gt;</code> elements fail to load — only the alt-text is displayed. This means attendees cannot retrieve their QR codes for event check-in after booking, which is the primary way entry is validated on the day.</p>
+      <p>The booking summary QR (the single-booking level QR) appears to work; only the per-ticket / per-seat QR images in the expanded ticket rows are broken.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Check the endpoint that generates per-ticket QR images (likely <code>GET /booking/ticket/{ticket_id}/qr</code> or similar). Verify it: (1) exists and is mounted, (2) returns a valid image content-type, (3) does not require a session cookie that isn't forwarded when the <code>&lt;img src&gt;</code> loads cross-context. Add an <code>onerror</code> handler on the img to show a retry button, and pre-generate QR PNGs at booking time rather than on-demand to avoid cold-path failures.
+    </div>
+  </div>
+
+  <div class="finding critical">
+    <div class="finding-header">
+      <div class="finding-title">C-3 &nbsp; <code>/bookings</code> returns 404 — natural navigation URL is dead</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 10</span>
+        <span class="tag tag-area">Navigation</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The logical URL a user would type or share — <code>/bookings</code> — returns a 404. The actual route is <code>/booking/my</code> (singular, with a sub-path). Any external link, email deep-link, or bookmark pointing to <code>/bookings</code> silently breaks. The nav bar also shows "BOOKINGS" as a link, but its destination uses the non-obvious path.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Add a redirect: <code>GET /bookings → 301 /booking/my</code>. Also consider renaming the route to <code>/bookings</code> entirely and updating all internal hrefs and the email confirmation links, since the plural form is the convention users expect.
+    </div>
+  </div>
+
+  <!-- ────────────────── HIGH ────────────────── -->
+  <div class="section-header sev-high">
+    <div class="sev-dot"></div>
+    <h2>🟠 High — Significant UX Impact</h2>
+    <span class="count-badge">8 findings</span>
+  </div>
+
+  <div class="finding high">
+    <div class="finding-header">
+      <div class="finding-title">H-1 &nbsp; Razorpay modal blocks test flow — mobile number dialog cannot be dismissed</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 8</span>
+        <span class="tag tag-area">Payment</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>After the Razorpay modal opens, a "Enter your mobile number" overlay appears inside the cross-origin iframe. There is no skip/close affordance and the back-button behaviour navigates away from the page instead of dismissing the dialog. In production (non-test mode) this step is optional, but in Razorpay's test environment it is gating.</p>
+      <p>This means QA and any user in an unsupported network environment cannot complete the payment flow without a mobile number, even for a ₹0 test transaction.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Switch to Razorpay's <strong>Test Mode with pre-filled options</strong>: pass <code>prefill: { contact: "9999999999", email: "test@test.com" }</code> in the Razorpay options object so the modal skips the data-collection step in test environments. In production this pre-fill is respected as a default, not a lock.
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="finding-header">
+      <div class="finding-title">H-2 &nbsp; Username field is cleared after a failed login attempt</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 3</span>
+        <span class="tag tag-area">Auth</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>When login fails (wrong password), the form re-renders with both the username and password fields empty. Standard UX practice is to retain the username so the user only has to re-enter the password. Having to retype the username causes frustration, especially on mobile, and can lead to copy-paste errors.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      In the login POST handler, re-render the template with <code>username=form_data.username</code> (but not the password). This is a single line change in the Jinja2 template context: <code>{"username": attempted_username}</code>, then set <code>value="{{ username | default('') }}"</code> on the input.
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="finding-header">
+      <div class="finding-title">H-3 &nbsp; Checkout card is narrow on 1920px — large whitespace bands on both sides</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 7</span>
+        <span class="tag tag-area">Checkout</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The checkout form is constrained to ~700px wide and centred, leaving over 600px of empty dark void on each side at 1920px. At 125% zoom this is even more pronounced. For a premium event platform the checkout page should feel spacious and deliberate, not like a narrow mobile-first form stranded on a large screen.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Use a two-column layout on wide viewports: order summary / seat details on the left, payment form on the right (similar to Stripe Checkout). Apply <code>max-width: 960px</code> with a two-column grid at <code>min-width: 900px</code>. This also gives space to show add-on upsells more prominently.
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="finding-header">
+      <div class="finding-title">H-4 &nbsp; Add-on checkbox appears before T&C checkbox in DOM — wrong logical order</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 7</span>
+        <span class="tag tag-area">Checkout</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>In the checkout form DOM, the add-on selection checkbox is rendered before the Terms &amp; Conditions acceptance checkbox. Logically and legally, T&C acceptance should be the last gate before payment confirmation, not buried between product options. This may also have legal implications if a user can argue they were misled about what they agreed to.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Reorder the form sections: 1) Seat summary, 2) Add-ons / upsells, 3) Terms &amp; Conditions acceptance, 4) Pay button. The T&C checkbox should be the last interactive element before the payment CTA.
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="finding-header">
+      <div class="finding-title">H-5 &nbsp; Ticket UUID not truncated in booking confirmation table and admin bookings</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 9</span>
+        <span class="tag tag-flow">Flow 13</span>
+        <span class="tag tag-flow">Flow 15b</span>
+        <span class="tag tag-area">Tables</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>In the booking confirmation page, the Event Management Hub report tab, and the Admin Bookings list, the TICKET column displays the full UUID string (e.g. <code>a3f4c8d2-91b0-4e7a-bc12-…</code>). This causes the column to wrap across two lines, breaking the table's visual rhythm and wasting significant horizontal space.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Truncate ticket UUIDs to first 8 characters with a tooltip showing the full value on hover: <code>&lt;span title="{{ ticket.id }}"&gt;{{ ticket.id[:8] | upper }}&lt;/span&gt;</code>. The booking REF (10-char alphanumeric) is already displayed correctly as a truncated identifier — apply the same pattern to ticket IDs.
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="finding-header">
+      <div class="finding-title">H-6 &nbsp; Currency symbol "Rs." used instead of "₹" in event report tab</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 13</span>
+        <span class="tag tag-area">Admin / Content</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The Revenue section of the Event Management Hub report tab displays amounts as <strong>Rs. 500</strong> instead of <strong>₹500</strong>. The rupee sign <code>₹</code> (Unicode U+20B9) is the official ISO 4217 symbol adopted in 2010 and is expected in all modern Indian fintech and event products. Using "Rs." appears dated and inconsistent with the rest of the UI.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Create a Jinja2 filter or template macro: <code>{{ amount | inr }}</code> that outputs <code>₹{{ "{:,.0f}".format(amount) }}</code>. Replace all occurrences of <code>Rs.</code> in templates. Ensure the font (Orbitron/Space Grotesk) supports U+20B9 — if not, use a fallback: <code>font-family: 'Space Grotesk', system-ui</code> which includes it.
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="finding-header">
+      <div class="finding-title">H-7 &nbsp; Admin Users page has no "Remove Admin / Make User" demote option for regular users</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 16a</span>
+        <span class="tag tag-area">Admin</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>For users who are already at the USER role level, there are only MAKE ADMIN, MAKE SUPERVISOR, and DELETE options — no REMOVE SUPERVISOR for regular users. While an admin can have REMOVE ADMIN and REMOVE SUPERVISOR applied to them, there is no way to demote a plain USER back from a promoted state without DELETE+recreate. The UI also has no role filter on the search, making it hard to find all supervisors quickly.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Show contextual action buttons based on current role: if role == SUPERVISOR show "REMOVE SUPERVISOR" instead of "MAKE SUPERVISOR". Add a role filter dropdown (All / User / Supervisor / Admin / Speaker) to the search area, using the same TomSelect component used elsewhere in the admin.
+    </div>
+  </div>
+
+  <div class="finding high">
+    <div class="finding-header">
+      <div class="finding-title">H-8 &nbsp; Speaker sessions list layout broken at 1920px — stats float right, heading left</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 17b</span>
+        <span class="tag tag-area">Speaker</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>On <code>/speaker/sessions</code>, the three stat cards (Total / Upcoming / Completed) float into the upper-right of the content area while the "My Sessions" heading sits at the mid-left, creating a visually disconnected and unbalanced layout. At smaller viewports this collapses naturally, but at 1920px it looks unintentionally broken.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Replace the float-based layout with a flex or grid row: put the heading and the three stat mini-cards in a <code>display: flex; justify-content: space-between; align-items: center</code> row at the top of the page. The stat cards should be inline with the heading, not floating independently.
+    </div>
+  </div>
+
+  <!-- ────────────────── MEDIUM ────────────────── -->
+  <div class="section-header sev-medium">
+    <div class="sev-dot"></div>
+    <h2>🟡 Medium — Noticeable but Non-Blocking</h2>
+    <span class="count-badge">9 findings</span>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-1 &nbsp; Password strength indicator renders as a near-invisible 5px underline</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 2</span>
+        <span class="tag tag-area">Registration</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The password strength bar below the password input is only ~5px tall — virtually invisible to most users. It provides no colour-coded segments (weak/fair/strong) and no textual label. Users have no clear signal about password quality until a validation error fires on submit.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Increase the bar to at least 6px height with 4 coloured segments (red → orange → yellow → green). Add a text label beneath: "Weak / Fair / Strong / Very Strong". Consider using the <code>zxcvbn</code> library already common in FastAPI stacks for realistic strength scoring.
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-2 &nbsp; Error toast appears in top-right corner — far from the form it describes</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 3</span>
+        <span class="tag tag-area">Auth / UX</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Login and registration error messages appear as toasts in the top-right corner of the viewport — over 1000px away from the form fields at 1920px. Users may miss the error entirely and repeatedly submit the form thinking nothing happened. Form-level inline validation errors are the standard pattern for authentication failures.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      For auth errors specifically, render an inline error banner directly above the submit button (or below the last field), in addition to (or instead of) the toast. Reserve toasts for non-blocking notifications (email sent, booking saved). Use a red-bordered <code>&lt;div role="alert"&gt;</code> block inline in the form HTML.
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-3 &nbsp; Seat selection coordinate clicks unreliable under CSS zoom</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 6</span>
+        <span class="tag tag-area">Seat Map</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>When the page is zoomed to 125% using <code>document.documentElement.style.zoom</code>, seat SVG/element coordinate hit-targets become misaligned with the visual position. Real users at OS-level scaling (Windows Display Settings → 125%) will experience the same offset, making seat selection require multiple attempts to hit the right seat.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Replace coordinate-based click handling with element-based event listeners (<code>element.addEventListener('click', …)</code>) on the seat elements. Avoid reading <code>getBoundingClientRect()</code> without accounting for <code>window.devicePixelRatio</code> and CSS zoom. Using pointer events on the seat elements themselves is immune to zoom offsets.
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-4 &nbsp; Footer shows "LOGIN" link even when the user is authenticated</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 17b</span>
+        <span class="tag tag-area">Global / Speaker</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The page footer on the speaker session edit form includes a "LOGIN" link even when the user is logged in as a speaker. This is confusing — a logged-in user should not be prompted to log in again. The footer template is likely not receiving the auth context that the header uses.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      In the shared footer template, check <code>{% if request.session.get('user_id') %}</code> and conditionally render a "My Account" or username link instead of LOGIN. The <code>template_ctx()</code> helper already injects <code>current_user</code> — ensure footer.html references it.
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-5 &nbsp; "Agenda Items" heading uses Title Case while surrounding labels are ALL CAPS</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 17b</span>
+        <span class="tag tag-area">Speaker / Design Consistency</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>In the speaker edit session form, the "Agenda Items" section heading uses standard Title Case, while every other form label (TITLE, SPEAKER, MIN, BANNER IMAGE, GALLERY IMAGES, PARENT EVENT) uses ALL CAPS monospace styling. This one inconsistency breaks the visual rhythm of the form.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Apply the same label class to "Agenda Items": <code>&lt;h3 class="form-section-label"&gt;AGENDA ITEMS&lt;/h3&gt;</code>. Alternatively, adopt Title Case consistently across all form section headings — just pick one and apply it everywhere.
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-6 &nbsp; Supervisor check-in form is narrow and left-aligned at 1920px</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 18c</span>
+        <span class="tag tag-area">Supervisor</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The supervisor check-in UI (<code>/supervisor/checkin</code>) presents a ~450px wide form that sits in the left portion of the content area, leaving the right half of the screen completely empty. For a task that supervisors perform repeatedly in high-pressure situations (event day), the UI should be large and prominent — particularly the QR scanner button and manual entry field.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Centre the check-in card both horizontally and vertically within the content area. Increase the QR scanner box to at least 300×300px. On large screens, show a live recent-check-ins feed on the right side of the layout (last 10 scanned attendees with name, time, and status).
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-7 &nbsp; Supervisor bookings status filter uses unstyled plain select</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 18b</span>
+        <span class="tag tag-area">Supervisor</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The STATUS filter on <code>/supervisor/bookings</code> appears as a bare, un-styled browser <code>&lt;select&gt;</code> element ("All") next to the FILTER button — inconsistent with the TomSelect-styled dropdowns used throughout the admin and the event-selection dropdown on the same page's sibling view.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Apply the same TomSelect initialisation to this <code>&lt;select&gt;</code>: <code>new TomSelect('#status-filter', {create: false})</code>. Alternatively, replace with a set of filter pills (All · Paid · Cancelled · Refunded) which are visually faster to tap on mobile/tablet.
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-8 &nbsp; My Bookings list has inconsistent emoji icons across booking states</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 10</span>
+        <span class="tag tag-area">Booking</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The My Bookings list at <code>/booking/my</code> uses emoji icons (🎫, ✅, ❌) to represent booking states, but the selection appears ad-hoc and the sizes render inconsistently across platforms (they are especially small or invisible on some Linux emoji fonts). Icons should use SVG or a consistent icon font rather than Unicode emoji for guaranteed rendering.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Replace inline emoji with inline SVG icons or a consistent icon set (e.g. Lucide or Heroicons which are already used elsewhere in the UI). This guarantees size, colour, and rendering consistency across all OS/browser combinations.
+    </div>
+  </div>
+
+  <div class="finding medium">
+    <div class="finding-header">
+      <div class="finding-title">M-9 &nbsp; Admin Speakers "All Roles" filter takes up full content width unnecessarily</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 16c</span>
+        <span class="tag tag-area">Admin</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The role filter dropdown on <code>/admin/speakers</code> stretches to the full width of the content area (over 1200px) before the search field appears below it. A TomSelect single-select for 3–4 role options should be at most 200–250px wide. The over-stretched field looks like a layout defect.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Constrain the filter to <code>max-width: 240px</code> and place it inline with the search bar in a flex row (filter left, search right), matching the pattern used on <code>/admin/bookings</code> and <code>/admin/sessions</code>.
+    </div>
+  </div>
+
+  <!-- ────────────────── LOW ────────────────── -->
+  <div class="section-header sev-low">
+    <div class="sev-dot"></div>
+    <h2>🟢 Low — Polish &amp; Nice-to-Have</h2>
+    <span class="count-badge">5 findings</span>
+  </div>
+
+  <div class="finding low">
+    <div class="finding-header">
+      <div class="finding-title">L-1 &nbsp; Admin and supervisor list pages have no server-side pagination</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 15–16</span>
+        <span class="tag tag-area">Admin / Performance</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>Pages such as <code>/admin/users</code>, <code>/admin/bookings</code>, and <code>/supervisor/bookings</code> currently load all rows into the page with no pagination. With a small seed dataset this is fine, but at production scale (hundreds of bookings per event) the initial page load will become slow and the table will overflow the viewport.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Add <code>?page=1&amp;per_page=50</code> query-param pagination. Show a simple "Showing 1–50 of 342" counter and Previous / Next links. The existing search &amp; filter already sends GET requests, so pagination can be appended to the same form action.
+    </div>
+  </div>
+
+  <div class="finding low">
+    <div class="finding-header">
+      <div class="finding-title">L-2 &nbsp; Speaker schedule calendar starts on Monday (European) — Indian convention is Sunday</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 17c</span>
+        <span class="tag tag-area">Speaker / Localisation</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The calendar on <code>/speaker/schedule</code> renders MON through SUN (ISO week order, European convention). Indian calendars and most Indian apps follow SUN–SAT order. This is a minor localisation mismatch that may slightly confuse speakers when quickly finding a date by week position.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Add a <code>week_start</code> config variable (default: <code>0</code> = Sunday) and shift the header row and day-of-week offset logic accordingly. This is typically a 1-line change in the calendar rendering JS/template.
+    </div>
+  </div>
+
+  <div class="finding low">
+    <div class="finding-header">
+      <div class="finding-title">L-3 &nbsp; Seat Types DELETE button has no in-UI confirmation for types that are in active use</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 16d</span>
+        <span class="tag tag-area">Admin</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The DELETE button on <code>/admin/seat-types</code> shows for all seat types including Balcony and Premium which are actively assigned to seats in published events. Deleting a seat type that is in use would either fail with a DB constraint error (confusing) or cascade-delete seats (catastrophic). There is no guard or warning shown in the UI.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Before showing the DELETE button, check if the seat type is referenced by any seats (<code>SELECT COUNT(*) FROM seats WHERE seat_type_id = ?</code>). If yes, replace DELETE with a greyed "IN USE" badge. If no seats reference it, show the DELETE button with a JS confirm dialog.
+    </div>
+  </div>
+
+  <div class="finding low">
+    <div class="finding-header">
+      <div class="finding-title">L-4 &nbsp; Speaker dashboard "UPCOMING" stat uses Orbitron slashed-zero glyph (Ø-like)</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 17a</span>
+        <span class="tag tag-area">Speaker / Typography</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The Orbitron font renders the numeral "0" with a diagonal slash, making it visually indistinguishable from the Scandinavian letter Ø at a glance. For the "0 UPCOMING" stat card, non-technical speakers may briefly misread this as a letter. Other numeric displays in the app (booking refs, prices) don't use Orbitron and are unaffected.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Use <code>font-variant-numeric: slashed-zero</code> CSS property if the font supports it, or switch stat numbers on the speaker dashboard to Space Grotesk (which has a standard zero). Alternatively, add "0" to a <code>font-feature-settings: "zero" 0</code> override to disable the slashed zero.
+    </div>
+  </div>
+
+  <div class="finding low">
+    <div class="finding-header">
+      <div class="finding-title">L-5 &nbsp; Supervisor dashboard heading says "Dashboard" — not specific enough for multi-role users</div>
+      <div class="finding-tags">
+        <span class="tag tag-flow">Flow 18a</span>
+        <span class="tag tag-area">Supervisor</span>
+      </div>
+    </div>
+    <div class="finding-body">
+      <p>The <code>h1</code> on the supervisor dashboard simply reads "Dashboard" — the same generic heading used on several other pages. A user who is both a supervisor and (say) a speaker would have no visual cue about which context they are in. The college name is shown in the top-right corner as secondary text, but the main heading should anchor the page clearly.</p>
+    </div>
+    <div class="fix-block">
+      <div class="fix-label">Recommended Fix</div>
+      Change the heading to "Supervisor Dashboard" (matching the page <code>&lt;title&gt;</code> which already reads "Supervisor Dashboard — TechTrek"). Optionally add the college name as a styled subtitle beneath: <code>&lt;p class="subtitle"&gt;KSR College of Engineering&lt;/p&gt;</code>.
+    </div>
+  </div>
+
+  <!-- ────────────────── APPENDIX ────────────────── -->
+  <div class="section-header" style="margin-top: 60px;">
+    <div class="sev-dot" style="background: var(--text-dim);"></div>
+    <h2 style="color: var(--text-dim); font-size: 16px;">Test Environment &amp; Methodology</h2>
+  </div>
+  <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; color: var(--text-dim); font-size: 13px; line-height: 1.8;">
+    <p><strong style="color:var(--text);">Browser:</strong> Chrome (Claude-in-Chrome MCP), viewport 1626×756 px at CSS zoom 1.25 (equivalent to 1920×1080 @ 125%)</p>
+    <p><strong style="color:var(--text);">Server:</strong> FastAPI + uvicorn <code>--reload</code>, SQLite dev DB, single worker process</p>
+    <p><strong style="color:var(--text);">Test accounts:</strong> admin / admin123 · supervisor / supervisor123 · amalsajeev / speaker123 · testreviewer2026 (registered during test)</p>
+    <p><strong style="color:var(--text);">Flows covered:</strong> Homepage, Registration, Login, Event Listing, Event Detail, Seat Selection, Checkout, Payment, Booking Confirmation, My Bookings, Booking Detail, Admin Dashboard, Event Management Hub (9 tabs), Check-in Scanner, Admin Sessions/Bookings/Waitlist, Admin Users/Colleges/Speakers/Cities/Seat Types, Speaker Dashboard/Sessions/Schedule/Profile, Supervisor Dashboard/Bookings/Check-in/Schedule</p>
+    <p><strong style="color:var(--text);">Note on pre-existing truncation bugs:</strong> Six source files (<code>dependencies.py</code>, <code>database.py</code>, <code>admin.py</code>, <code>public.py</code>, <code>booking.py</code>, <code>email.py</code>) were found truncated mid-line and a dashboard.html template contained 309 null bytes. These were restored from git HEAD before testing commenced and are not counted as UX findings.</p>
+  </div>
+
+</div><!-- /main -->
+
+<footer style="border-top:1px solid var(--border); padding:32px 60px; display:flex; justify-content:space-between; align-items:center; color:var(--text-dim); font-size:12px; max-width:1280px; margin:0 auto;">
+  <div>
+    <span style="color:var(--cyan); font-weight:700; letter-spacing:2px; font-family:'Courier New',monospace;">⚡ TECHTREK</span>
+    &nbsp;·&nbsp; UX Audit Report
+  </div>
+  <div>Generated April 1, 2026 &nbsp;·&nbsp; 22 flows · 25 findings · 4 severity tiers</div>
+</footer>
+
+</body>
+</html>

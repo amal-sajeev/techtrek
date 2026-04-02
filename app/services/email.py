@@ -29,13 +29,19 @@ def _send(to_email: str, subject: str, html_body: str, *, invoice_pdf: bytes | N
         msg.attach(attachment)
 
     try:
-        with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
-            server.ehlo()
-            if settings.smtp_port != 25:
-                server.starttls()
-            if settings.smtp_user:
-                server.login(settings.smtp_user, settings.smtp_password)
-            server.sendmail(settings.smtp_from_email, to_email, msg.as_string())
+        if settings.smtp_port == 465:
+            with smtplib.SMTP_SSL(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+                if settings.smtp_user:
+                    server.login(settings.smtp_user, settings.smtp_password)
+                server.sendmail(settings.smtp_from_email, to_email, msg.as_string())
+        else:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as server:
+                server.ehlo()
+                if settings.smtp_port != 25:
+                    server.starttls()
+                if settings.smtp_user:
+                    server.login(settings.smtp_user, settings.smtp_password)
+                server.sendmail(settings.smtp_from_email, to_email, msg.as_string())
         logger.info("Email sent to %s: %s", to_email, subject)
         return True
     except Exception:
@@ -543,14 +549,10 @@ def send_newsletter_campaign(newsletter_id: int):
             nl.sent_at = now_ist()
             db.commit()
         except Exception:
-            logger.exception("Newsletter campaign %s failed", newsletter_id)
-            try:
-                nl = db.query(Newsletter).get(newsletter_id)
-                if nl:
-                    nl.status = "failed"
-                    db.commit()
-            except Exception:
-                pass
+            logger.exception("Newsletter campaign send failed")
+            if nl:
+                nl.status = "failed"
+                db.commit()
         finally:
             db.close()
 

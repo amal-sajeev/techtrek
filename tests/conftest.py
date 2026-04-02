@@ -56,12 +56,30 @@ def _create_tables():
 
 @pytest.fixture()
 def db():
-    session = TestingSession()
+    """Provide a transactional DB session that rolls back after each test.
+
+    Uses SQLAlchemy 2.0's ``join_transaction_block`` so that
+    ``session.commit()`` inside tests only releases a SAVEPOINT, never the
+    real transaction.  The outer transaction is rolled back in the finally
+    block, guaranteeing full isolation between tests.
+    """
+    connection = engine.connect()
+    transaction = connection.begin()
+    session = TestingSession(bind=connection)
+
+    session.begin_nested()
+
+    @event.listens_for(session, "after_transaction_end")
+    def _restart_savepoint(sess, trans):
+        if trans.nested and not trans._parent.nested:
+            sess.begin_nested()
+
     try:
         yield session
     finally:
-        session.rollback()
         session.close()
+        transaction.rollback()
+        connection.close()
 
 
 @pytest.fixture()
@@ -85,6 +103,7 @@ from app.models.auditorium import Auditorium
 from app.models.booking import Booking
 from app.models.college import College
 from app.models.event import Event
+from app.models.event_session import EventSession
 from app.models.feedback import Feedback
 from app.models.seat import Seat
 from app.models.session import Session
@@ -163,18 +182,23 @@ def make_event(db, *, name="Test Event", auditorium=None, start_date=None,
 
 def make_session(db, *, title="Intro to AI", speaker_name="Dr. Smith",
                  event=None, start_time=None, order=0, **kw):
-    event_id = event.id if event else None
     s = Session(
         title=title,
         speaker_name=speaker_name,
         duration_minutes=kw.pop("duration_minutes", 30),
-        event_id=event_id,
-        start_time=start_time,
-        order=order,
-        **kw,
+        speaker_id=kw.pop("speaker_id", None),
     )
     db.add(s)
     db.flush()
+    if event is not None:
+        es = EventSession(
+            event_id=event.id,
+            session_id=s.id,
+            order=order,
+            start_time=start_time,
+        )
+        db.add(es)
+        db.flush()
     return s
 
 

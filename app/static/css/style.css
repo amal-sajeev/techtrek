@@ -24,7 +24,7 @@ html{scroll-behavior:smooth;overflow-x:hidden}
   --red:          #f43f5e;
   --text-primary:   #e6edf3;
   --text-secondary: #d1dbe5;
-  --text-muted:     #a8b4c0;
+  --text-muted:     #b8c8d8;
   --border:         rgba(0,212,255,0.1);
   --border-strong:  rgba(0,212,255,0.28);
   --font-display:   'Orbitron', monospace;
@@ -62,7 +62,7 @@ html{scroll-behavior:smooth;overflow-x:hidden}
 /* ---- BODY ---- */
 body {
   font-family: var(--font-body);
-  font-size: 19px;
+  font-size: 16px;
   color: var(--text-primary);
   background: var(--bg-void);
   line-height: 1.6;

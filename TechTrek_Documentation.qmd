@@ -1,5 +1,5 @@
 ---
-title: "TechTrek Documentation"
+title: "TechTrek Technical Documentation"
 subtitle: "Lecture & Event Booking Platform"
 date: today
 format:
@@ -8,673 +8,1317 @@ format:
     toc-depth: 3
     number-sections: true
     highlight-style: github
-  pdf:
-    toc: true
-    toc-depth: 3
-    number-sections: true
-    documentclass: report
-    geometry:
-      - margin=1in
-    highlight-style: github
+    reference-doc: default
+    fig-width: 6.3
+    fig-height: 2.9
 ---
 
 {{< pagebreak >}}
 
-# At a Glance
+# Executive Summary
 
-> A full-stack lecture and event booking platform for tech conferences, built with FastAPI, SQLAlchemy, and Jinja2.
+TechTrek is a full-stack web application for booking seats at tech lectures and multi-session events. Built as a FastAPI monolith with server-rendered Jinja2 templates, it provides interactive theatre-style seat selection, Razorpay payment processing, QR-coded ticket generation, and real-time live polls via Server-Sent Events. The platform encrypts personally identifiable information at rest using Fernet symmetric encryption and supports four distinct user roles: attendees, supervisors, speakers, and administrators.
 
-TechTrek enables universities and conference organizers to publish lecture sessions, manage auditorium seating layouts, and let students book seats with a real-time hold-and-pay flow. Attendees receive QR-coded tickets that supervisors scan at the door for check-in. An admin panel provides complete control over cities, colleges, auditoriums, speakers, sessions, bookings, waitlists, and user roles.
+The application manages the full event lifecycle from creation through attendance tracking, including multi-session event packaging, tiered seat pricing, coupon-based discounts, paid add-ons, waitlist management, certificate generation, and structured feedback collection. A dedicated admin panel provides CRUD operations for all entities, CSV exports, per-event management hubs, and an audit trail. Speakers have their own portal for editing session content, managing polls, and viewing calendar schedules.
 
 | Aspect | Detail |
 |---|---|
-| **Purpose** | Lecture/event booking platform for tech conferences and campus events |
-| **Users** | Students (attendees), Supervisors (check-in staff), Admins (organizers) |
-| **Core Flow** | Browse sessions → Select seats → Hold → Pay → Receive QR ticket |
-| **Admin Capabilities** | Manage cities, colleges, auditoriums, speakers, sessions, bookings, waitlists, users |
-| **Deployment** | Single Python process (uvicorn), PostgreSQL database, optional SMTP |
+| **Purpose** | Event booking platform for tech conferences and campus lectures |
+| **Users** | Attendees, Supervisors (check-in staff), Speakers, Administrators |
+| **Core Flow** | Browse events, select seats, hold for 5 minutes, pay via Razorpay, receive QR ticket |
+| **Data Model** | 37 SQLAlchemy models across 22 module files |
+| **Codebase** | 7 routers, 9 services, 82 Jinja2 templates, 4 JS modules |
+| **Deployment** | Single Python process (Uvicorn), PostgreSQL, optional SMTP and Razorpay |
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+graph LR
+    Browser -->|HTTP| MW[Middleware]
+    MW --> Routers
+    Routers --> Services
+    Routers --> Templates[Jinja2]
+    Services --> DB[(PostgreSQL)]
+    Services --> RZ[Razorpay]
+    Services --> SMTP[Email]
+    Templates --> Browser
+```
 
 {{< pagebreak >}}
 
-# Tech Stack
+# Technology Stack
 
-TechTrek follows a traditional server-rendered architecture rather than a modern SPA approach. The backend handles all routing, rendering, and business logic in a single Python process, keeping the deployment footprint small while still providing a rich, interactive user experience. The table below summarizes the technology choices at each layer and why they were selected.
+TechTrek follows a traditional server-rendered architecture. The backend handles all routing, rendering, and business logic in a single Python process. The table below summarises every technology in use and its role.
 
 | Layer | Technology | Role |
 |---|---|---|
-| **Web Framework** | FastAPI | Async HTTP server, routing, middleware, dependency injection |
-| **ORM** | SQLAlchemy | Database models, relationships, queries |
-| **Templating** | Jinja2 | Server-side HTML rendering |
-| **Database** | PostgreSQL | Primary data store (via `psycopg2-binary`) |
-| **Auth** | bcrypt + Starlette Sessions | Password hashing and cookie-based session management |
-| **QR Codes** | `qrcode[pil]` | Ticket QR generation for booking confirmations |
-| **QR Scanner** | html5-qrcode (CDN) | Browser-based camera QR scanning for check-in |
-| **Config** | pydantic-settings + `.env` | Type-safe configuration with environment variable overrides |
-| **Email** | smtplib | Signup and booking confirmation emails |
-| **Frontend** | Vanilla HTML/CSS/JS | No SPA framework; server-rendered with custom interactive components |
+| **Web Framework** | FastAPI | ASGI server, routing, middleware, dependency injection |
+| **ASGI Server** | Uvicorn | Production and development HTTP server |
+| **ORM** | SQLAlchemy 2.x | Database models, relationships, queries via `DeclarativeBase` |
+| **Migrations** | Alembic | Schema versioning with 24 revision files |
+| **Database** | PostgreSQL | Primary data store via `psycopg2-binary` |
+| **Templating** | Jinja2 | Server-side HTML rendering (82 templates) |
+| **Config** | pydantic-settings | Type-safe settings with `.env` file loading |
+| **Auth** | bcrypt + Starlette Sessions | Password hashing and signed cookie sessions |
+| **OAuth** | Authlib | Google OAuth 2.0 sign-in |
+| **Tokens** | itsdangerous | Time-limited password reset and invite tokens |
+| **PII Encryption** | cryptography (Fernet) | Field-level encryption and HMAC-SHA256 lookups |
+| **Payments** | Razorpay SDK | Order creation, payment verification, refunds, webhooks |
+| **PDF Generation** | ReportLab | Invoices and attendance certificates |
+| **QR Codes** | qrcode + Pillow | Ticket and group QR code images |
+| **QR Scanner** | html5-qrcode (CDN) | Browser camera scanning for venue check-in |
+| **CSRF** | Custom middleware | Session-stored tokens with form enforcement |
+| **i18n** | Babel | Extraction config ready; locale switching planned |
+| **Rate Limiting** | slowapi | Listed in dependencies; not yet wired |
+| **Testing** | pytest + httpx | Integration tests with `TestClient` and SQLite |
+| **Frontend** | Vanilla HTML/CSS/JS | No SPA framework; custom design system with dark and light themes |
+| **PWA** | Service Worker + Manifest | Offline fallback and install prompt |
 
 {{< pagebreak >}}
 
-# Architecture Diagrams
+# Architecture Overview
 
-The following diagrams illustrate how TechTrek is structured at different levels of abstraction -- from the high-level component layout, through the per-request processing pipeline, down to the data model and template inheritance tree. Together they give a complete picture of how a user's action in the browser flows through the system and back.
+This section presents the system architecture at multiple levels of abstraction, from the high-level component layout through the per-request processing pipeline to the data-layer separation and template inheritance tree.
 
 ## System Architecture
 
-The application follows a layered client-server-data pattern. The browser communicates with the FastAPI server over HTTP, where requests pass through session middleware before reaching route handlers. Routers delegate business logic to service modules that interact with PostgreSQL, and then render Jinja2 templates back to the browser. An optional SMTP connection handles outbound email notifications.
+The application follows a layered client-server-data pattern. The browser communicates with the FastAPI server over HTTP. Requests pass through security headers middleware and session middleware before reaching route handlers. Routers delegate business logic to service modules, which interact with PostgreSQL and external services (Razorpay, SMTP). Jinja2 templates render the response HTML. A background async task loop processes post-event feedback and certificate notifications every 15 minutes.
 
 ```{mermaid}
-graph TB
-    Browser --> Middleware
-    Middleware --> Routers
-    Routers --> Services
-    Routers --> Templates
-    Services --> DB[(PostgreSQL)]
-    Services --> SMTP[SMTP]
-    Templates --> Browser
-    Browser --> Static[Static Files]
+%%| fig-width: 6.3
+%%| fig-height: 2.8
+graph LR
+    subgraph client [Browser]
+        HTML[HTML Pages]
+        JS[JS Modules]
+        SSE[SSE Streams]
+    end
+    subgraph server [FastAPI Server]
+        SecHdr[Security Headers]
+        SessMW[Session Middleware]
+        Routers
+        Deps[Dependencies]
+        Svc[Services]
+        Tmpl[Jinja2 Templates]
+        BG[Background Tasks]
+    end
+    subgraph ext [External]
+        DB[(PostgreSQL)]
+        RZ[Razorpay]
+        SMTP[SMTP]
+    end
+    HTML -->|"GET/POST"| SecHdr
+    SecHdr --> SessMW
+    SessMW --> Routers
+    Routers --> Deps
+    Routers --> Svc
+    Routers --> Tmpl
+    Svc --> DB
+    Svc --> RZ
+    Svc --> SMTP
+    BG --> DB
+    BG --> SMTP
+    JS -->|fetch JSON| Routers
+    SSE -->|EventSource| Routers
 ```
 
 ## Request Lifecycle
 
-Every HTTP request passes through a well-defined pipeline. Starlette's session middleware loads or creates a session cookie first, then the router resolves FastAPI dependencies such as the database session and the current user. The router calls the appropriate service function for business logic, which queries or mutates the database, and finally the router renders a Jinja2 template with the result and returns the finished HTML page to the browser.
+Every HTTP request flows through the middleware stack, then into a router where FastAPI dependencies resolve the database session, current user, and template context. The router calls service functions for business logic, renders a Jinja2 template, and returns the completed HTML page.
 
 ```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
 sequenceDiagram
     participant B as Browser
+    participant M as Middleware
     participant R as Router
+    participant D as Dependencies
     participant S as Service
-    participant DB as Database
+    participant DB as PostgreSQL
 
-    B->>R: HTTP Request
-    R->>R: Auth + Dependencies
+    B->>M: HTTP Request
+    M->>M: Security headers + session cookie
+    M->>R: Forward to route handler
+    R->>D: Resolve get_db, get_current_user, csrf
+    D->>DB: Load user from session
     R->>S: Business logic
-    S->>DB: Query / Mutate
-    DB-->>S: Result
-    S-->>R: Response data
-    R-->>B: Rendered HTML
+    S->>DB: Query / mutate
+    S-->>R: Result
+    R-->>B: Rendered HTML or JSON
 ```
 
 ## User Flow
 
-The attendee journey begins with browsing published sessions and viewing details such as speaker info, agenda, and pricing. After registering or logging in, the user selects seats on an interactive map and the system holds them for five minutes while the user completes checkout. Upon payment, the system generates a unique ticket with a QR code for venue check-in. If a session is sold out, users can join a waitlist and receive priority access when an administrator opens additional capacity.
+The attendee journey spans browsing, seat selection, payment, and venue check-in. If an event is sold out, the user can join a waitlist and receive priority access when capacity is added.
 
 ```{mermaid}
-flowchart TB
-    Browse[Browse] --> Detail[View Session]
-    Detail --> Login[Register / Login]
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+flowchart LR
+    Browse[Browse Events] --> Detail[Event Detail]
+    Detail --> Login[Login / Register]
     Login --> Seats[Select Seats]
-    Seats --> Hold[Hold 5 min]
-    Hold --> Pay[Checkout & Pay]
+    Seats --> Hold["Hold (5 min)"]
+    Hold --> Pay[Checkout + Pay]
     Pay --> Ticket[QR Ticket]
     Ticket --> CheckIn[Scan at Venue]
     Detail -->|Sold out| Wait[Waitlist]
-    Wait -->|Priority| Seats
+    Wait -->|Priority granted| Seats
 ```
 
 ## Booking State Machine
 
-Each booking record progresses through a strict set of states. When a user selects seats, the booking enters the "Hold" state with a five-minute expiry timer. If payment is confirmed in time, it moves to "Paid" and a ticket is issued. From the paid state, it can either be scanned at the venue (checked in) or cancelled for a partial refund. If the hold timer expires before payment, the booking is automatically marked as expired and the seats are released.
+A booking record progresses through a strict set of states. Seats are held for five minutes. If payment completes, a ticket is issued. Paid bookings can be checked in at the venue or cancelled for a partial refund. Expired holds release seats automatically.
 
 ```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
 stateDiagram-v2
-    [*] --> Hold
-    Hold --> Paid: Payment
-    Hold --> Expired: Timeout
-    Paid --> Refunded: Cancel
-    Paid --> CheckedIn: QR Scan
+    direction LR
+    [*] --> Hold: Seats selected
+    Hold --> Paid: Payment confirmed
+    Hold --> Expired: 5-min timeout
+    Paid --> Refunded: User/admin cancels
+    Paid --> CheckedIn: QR scanned
     Expired --> [*]
     Refunded --> [*]
     CheckedIn --> [*]
 ```
 
-## Database Entity Relationships
+## Data Layer Separation
 
-The data model comprises 12 SQLAlchemy models organized into three logical domains. The **core booking flow** captures the central relationship chain: users book seats for lecture sessions hosted in auditoriums. The **location hierarchy** models the geographic nesting of cities, colleges, auditoriums, and seats. The **supporting models** cover speakers, agenda items, waitlists, testimonials, and newsletter subscribers. Full column-level details for every table are provided in the Database Schema section later in this document.
-
-### Core Booking Flow
-
-Users book seats for lecture sessions. Each booking links a user, a session, and a seat.
+The data model separates **content** (what a session is) from **scheduling** (when and where an event happens) and **transactions** (bookings, feedback, payments). An Event groups multiple Sessions, each with speakers and agenda items. Bookings link users to events and seats.
 
 ```{mermaid}
-erDiagram
-    User ||--o{ Booking : books
-    LectureSession ||--o{ Booking : has
-    Booking }o--|| Seat : reserves
-    Auditorium ||--o{ Seat : contains
-    Auditorium ||--o{ LectureSession : hosts
+%%| fig-width: 6.3
+%%| fig-height: 2.8
+flowchart LR
+    subgraph content [Content Layer]
+        Session
+        AgendaItem
+        SessionSpeaker
+        Recording[SessionRecording]
+    end
+    subgraph scheduling [Scheduling Layer]
+        Event
+        Auditorium
+        College
+        City
+    end
+    subgraph transactions [Transaction Layer]
+        Booking
+        Waitlist
+        Feedback
+        Poll
+    end
+    Event -->|"has many"| Session
+    Event -->|"held at"| Auditorium
+    Auditorium -->|"belongs to"| College
+    College -->|"located in"| City
+    Session -->|"has"| AgendaItem
+    Session -->|"has"| SessionSpeaker
+    Session -->|"has"| Recording
+    Event -->|"has"| Booking
+    Event -->|"has"| Waitlist
+    Event -->|"has"| Feedback
+    Session -->|"has"| Poll
 ```
 
-### Location Hierarchy
+## Template Inheritance
 
-Cities contain colleges, which contain auditoriums.
-
-```{mermaid}
-erDiagram
-    City ||--o{ College : contains
-    College ||--o{ Auditorium : contains
-    Auditorium ||--o{ Seat : contains
-```
-
-### Supporting Models
-
-Speakers, agenda items, waitlists, testimonials, and newsletter subscribers.
+Templates use Jinja2 inheritance with three base layers. Public, auth, booking, speaker, and error templates extend `base.html` directly. Admin templates add a sidebar layer via `base_admin.html`. The event management hub adds a third layer via `base_hub.html`. Supervisor templates use their own base extending `base.html`.
 
 ```{mermaid}
-erDiagram
-    Speaker ||--o{ LectureSession : presents
-    LectureSession ||--o{ AgendaItem : has
-    LectureSession ||--o{ Waitlist : has
-    User ||--o{ Waitlist : joins
-```
-
-## Template Hierarchy
-
-TechTrek uses Jinja2 template inheritance to share common layout elements across all 33 HTML files. The root `base.html` template provides the navbar, footer, theme toggle, flash message display, starfield background, and shared JavaScript utilities. All public-facing, authentication, booking, error, and supervisor templates extend `base.html` directly. Admin pages add a second layer: `admin/base_admin.html` extends the base and inserts a sidebar navigation, and all admin-specific templates extend this intermediate layout instead.
-
-### Public, Auth, Booking, and Supervisor Templates
-
-```{mermaid}
-graph TB
-    Base[base.html]
-    Base --> Public[5 public pages]
-    Base --> Auth[login + register]
-    Base --> Booking[5 booking pages]
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+graph LR
+    Base[base.html] --> Public[13 public pages]
+    Base --> Auth[5 auth pages]
+    Base --> BookTmpl[6 booking pages]
+    Base --> Speaker[5 speaker pages]
     Base --> Errors[404 + 500]
-    Base --> Supervisor[checkin.html]
-```
-
-### Admin Panel Templates
-
-```{mermaid}
-graph TB
-    Base[base.html] --> Admin[base_admin.html]
-    Admin --> Dashboard[dashboard]
-    Admin --> CRUD[CRUD pages x12]
-    Admin --> Checkin[checkin]
-    Admin --> Waitlist[waitlist]
+    Base --> SuperBase[supervisor base]
+    SuperBase --> SuperPages[4 supervisor pages]
+    Base --> AdminBase[admin/base_admin.html]
+    AdminBase --> AdminPages[28 admin pages]
+    AdminBase --> HubBase[event_management/base_hub.html]
+    HubBase --> HubPages[8 hub pages]
 ```
 
 {{< pagebreak >}}
 
-# Features Overview
+# Project Structure
 
-TechTrek serves four distinct user roles, each with progressively broader capabilities. **Public visitors** can browse sessions and view ticket details without an account. **Registered users** gain access to the full booking flow -- selecting seats, paying, and managing their tickets. **Supervisors** are staff members who handle check-in at event venues by scanning QR codes. **Administrators** have complete control over the platform's content, users, and operations through a dedicated admin panel. The tables below detail the features available to each role.
+The codebase is organised as a flat Python project with the main application under `app/`, database migrations under `alembic/`, and tests under `tests/`.
 
-## Public Visitors (No Login Required)
+```
+techtrek_minim/
+├── app/
+│   ├── __init__.py
+│   ├── main.py                  # FastAPI app, middleware, router registration
+│   ├── config.py                # Pydantic-settings configuration
+│   ├── database.py              # SQLAlchemy engine, session factory, Base
+│   ├── dependencies.py          # Auth, DB session, template context, flash
+│   ├── crypto.py                # Fernet encryption + HMAC hashing
+│   ├── csrf.py                  # CSRF token generation and verification
+│   ├── utils.py                 # IST timezone helper
+│   ├── models/                  # 22 model files, 37 ORM classes
+│   │   ├── __init__.py          # Re-exports all models
+│   │   ├── user.py              # User + EncryptedStr TypeDecorator
+│   │   ├── event.py             # Event (multi-session container)
+│   │   ├── session.py           # Session (talk content)
+│   │   ├── booking.py           # Booking lifecycle
+│   │   ├── auditorium.py        # Venue with seat grid layout
+│   │   ├── seat.py / seat_type.py
+│   │   ├── speaker.py / session_speaker.py
+│   │   ├── agenda.py            # Ordered agenda items
+│   │   ├── college.py / city.py # Location hierarchy
+│   │   ├── coupon.py            # Discount coupons
+│   │   ├── poll.py              # Polls, options, votes
+│   │   ├── feedback.py          # Event feedback + session ratings
+│   │   ├── feedback_template.py # Structured feedback templates
+│   │   ├── event_addon.py       # Paid add-ons
+│   │   ├── event_break.py       # Schedule breaks
+│   │   ├── event_alert.py       # Event notifications
+│   │   ├── ticket_share.py      # Ticket sharing tokens
+│   │   ├── newsletter.py        # Newsletter campaigns
+│   │   ├── testimonial.py       # Testimonials + subscribers
+│   │   ├── session_recording.py # Video recordings
+│   │   ├── gallery_image.py / uploaded_image.py
+│   │   ├── activity_log.py      # Admin audit trail
+│   │   ├── webhook_log.py       # Payment webhook records
+│   │   └── site_setting.py      # Key-value platform config
+│   ├── routers/                 # 7 router modules
+│   │   ├── auth.py              # /auth — login, register, OAuth, profile
+│   │   ├── public.py            # / — home, events, sessions, polls, tickets
+│   │   ├── booking.py           # /booking — seat selection through confirmation
+│   │   ├── admin.py             # /admin — full admin panel + event mgmt hub
+│   │   ├── supervisor.py        # /supervisor — college-scoped check-in
+│   │   ├── speaker.py           # /speaker — speaker portal
+│   │   └── webhook.py           # /webhooks — Razorpay payment webhooks
+│   ├── services/                # 9 service modules
+│   │   ├── booking.py           # Seat map, holds, payments, cancellations
+│   │   ├── razorpay.py          # Razorpay orders, verification, refunds
+│   │   ├── email.py             # SMTP transactional emails
+│   │   ├── invoice.py           # PDF invoice generation (ReportLab)
+│   │   ├── certificate.py       # PDF attendance certificates
+│   │   ├── feedback.py          # Background feedback/certificate task loop
+│   │   ├── poll_events.py       # In-memory asyncio pub/sub for live polls
+│   │   ├── activity_log.py      # Audit trail persistence
+│   │   └── oauth.py             # Google OAuth client registration
+│   ├── schemas/
+│   │   └── __init__.py          # Reserved (Pydantic schemas not used)
+│   ├── templates/               # 82 Jinja2 HTML templates
+│   │   ├── base.html            # Root layout
+│   │   ├── offline.html         # PWA offline fallback
+│   │   ├── public/              # 13 templates
+│   │   ├── auth/                # 5 templates
+│   │   ├── booking/             # 6 templates
+│   │   ├── admin/               # 28 templates
+│   │   │   └── event_management/ # 8 hub templates
+│   │   ├── speaker/             # 5 templates
+│   │   ├── supervisor/          # 4 templates
+│   │   └── errors/              # 2 templates
+│   └── static/
+│       ├── manifest.json        # PWA metadata
+│       ├── service-worker.js    # Cache and offline fallback
+│       ├── css/                 # style.css, additions.css, light-mode.css
+│       └── js/                  # seat-designer.js, seat-picker.js,
+│                                # image-upload.js, gallery-upload.js
+├── alembic/
+│   ├── env.py                   # Migration environment
+│   ├── script.py.mako           # Revision template
+│   └── versions/                # 24 migration revisions
+├── tests/
+│   ├── conftest.py              # Fixtures, factories, session forging
+│   ├── test_public_pages.py
+│   ├── test_admin_pages.py
+│   └── test_feedback.py
+├── scripts/
+│   └── gen_cert.py              # TLS certificate generator for dev
+├── certs/                       # Optional dev HTTPS certificates
+├── alembic.ini                  # Alembic configuration
+├── babel.cfg                    # i18n extraction config
+├── requirements.txt             # Python dependencies (20 packages)
+├── run.py                       # Dev server launcher
+├── seed.py                      # Database seeding script
+├── deploy.py                    # Production deployment (Python)
+└── deploy.sh                    # Production deployment (bash)
+```
 
-| Feature | Description |
+{{< pagebreak >}}
+
+# Data Model
+
+The database consists of 37 SQLAlchemy ORM classes defined across 22 module files under `app/models/`. Models use SQLAlchemy's `DeclarativeBase` and map to PostgreSQL tables. This section presents entity relationships split by domain, followed by column-level detail for the six most critical tables and prose summaries for supporting models.
+
+## Core Booking Domain
+
+The central relationship chain links users to events through bookings and seats. An event is hosted at an auditorium and contains multiple sessions. Bookings reserve individual seats for a user within an event.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+erDiagram
+    User ||--o{ Booking : books
+    Event ||--o{ Booking : has
+    Event ||--o{ Session : contains
+    Booking }o--|| Seat : reserves
+    Event }o--|| Auditorium : "held at"
+    Auditorium ||--o{ Seat : contains
+    Event ||--o{ Coupon : offers
+    Booking }o--o| Coupon : uses
+```
+
+## Location Hierarchy
+
+Cities contain colleges, which contain auditoriums. Each auditorium defines a seat grid with configurable dimensions, gaps, and stage placement. Seats belong to built-in types (standard, VIP, accessible, aisle) or admin-defined custom seat types.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2
+erDiagram
+    City ||--o{ College : contains
+    College ||--o{ Auditorium : contains
+    Auditorium ||--o{ Seat : contains
+    SeatType ||--o{ Seat : "type of"
+```
+
+## Content and Engagement
+
+Sessions hold immutable talk content: title, description, speakers, agenda items, and recordings. Polls provide real-time audience interaction during sessions. Feedback is collected per event after attendance.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+erDiagram
+    Session ||--o{ AgendaItem : has
+    Session ||--o{ SessionSpeaker : has
+    Session ||--o{ SessionRecording : has
+    Session ||--o{ Poll : has
+    Poll ||--o{ PollOption : has
+    Poll ||--o{ PollVote : has
+    Speaker ||--o{ SessionSpeaker : assigned
+    Event ||--o{ Feedback : collects
+    Feedback ||--o{ SessionRating : rates
+    Event }o--o| FeedbackTemplate : uses
+    FeedbackTemplate ||--o{ TemplateQuestion : has
+```
+
+## Operations and Communications
+
+Events support add-ons, breaks, alerts, waitlists, ticket sharing, newsletters, and audit logging. Uploaded images and gallery images store binary data in the database.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+erDiagram
+    Event ||--o{ EventAddOn : offers
+    Event ||--o{ EventBreak : has
+    Event ||--o{ EventAlert : sends
+    Event ||--o{ Waitlist : has
+    Booking ||--o{ BookingAddOn : includes
+    Booking ||--o{ TicketShare : shared
+    Newsletter ||--o{ NewsletterSubscriber : "sent to"
+    ActivityLog }o--|| User : "performed by"
+    WebhookLog }o--|| Event : "related to"
+```
+
+## Users Table
+
+The `users` table stores account credentials, encrypted PII, and role flags. Email, username, full name, and phone are stored as Fernet ciphertext via a custom `EncryptedStr` TypeDecorator. Companion HMAC-SHA256 hash columns enable exact-match lookups without decrypting every row.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Integer | PK | Auto-increment primary key |
+| `email` | EncryptedStr (Text) | Not null | Fernet-encrypted email address |
+| `username` | EncryptedStr (Text) | Not null | Fernet-encrypted username |
+| `full_name` | EncryptedStr (Text) | Nullable | Fernet-encrypted display name |
+| `email_hash` | String(64) | Unique, indexed | HMAC-SHA256 of normalised email |
+| `username_hash` | String(64) | Unique, indexed | HMAC-SHA256 of normalised username |
+| `password_hash` | String(255) | Nullable | bcrypt hash (null for OAuth users) |
+| `oauth_provider` | String(30) | Nullable | OAuth provider name (e.g. "google") |
+| `oauth_id` | String(255) | Nullable | Provider-issued user ID |
+| `phone` | EncryptedStr (Text) | Nullable | Fernet-encrypted phone number |
+| `college` | String(300) | Nullable | College affiliation |
+| `discipline` | String(100) | Nullable | Academic discipline |
+| `domain` | String(100) | Nullable | Tech domain of interest |
+| `year_of_study` | Integer | Nullable | Current year of study |
+| `is_admin` | Boolean | Default False | Administrator role flag |
+| `is_supervisor` | Boolean | Default False | Supervisor role flag |
+| `supervisor_college_id` | Integer FK | Nullable | College scope for supervisors |
+| `created_at` | DateTime | Default `now_ist` | Account creation timestamp |
+
+## Events Table
+
+The `events` table is the central scheduling and pricing entity. Each event groups multiple sessions, links to a venue, defines tiered pricing, and stores certificate branding fields.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Integer | PK | Auto-increment primary key |
+| `name` | String(300) | Not null | Event title |
+| `description` | Text | Nullable | Event description |
+| `banner_url` | String(500) | Nullable | Banner image URL |
+| `college_id` | Integer FK | Nullable | Associated college |
+| `auditorium_id` | Integer FK | Nullable | Venue |
+| `start_date` | Date | Nullable | Event start date |
+| `end_date` | Date | Nullable | Event end date |
+| `price` | Numeric(10,2) | Not null, default 0 | Standard seat price |
+| `price_vip` | Numeric(10,2) | Nullable | VIP seat price |
+| `price_accessible` | Numeric(10,2) | Nullable | Accessible seat price |
+| `processing_fee_pct` | Numeric(5,2) | Nullable, default 0 | Processing fee percentage |
+| `custom_prices` | JSON | Nullable | Per-seat-type custom pricing |
+| `status` | String(20) | Default "draft" | draft, published, or completed |
+| `cert_*` | Various | Nullable | 9 certificate branding fields |
+| `feedback_template_id` | Integer FK | Nullable | Linked feedback template |
+| `created_at` | DateTime | Default `now_ist` | Creation timestamp |
+
+## Sessions Table
+
+Sessions hold talk content within an event. Each session has a title, speaker, duration, and optional ordering. Sessions own agenda items, speaker assignments, recordings, and polls.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Integer | PK | Auto-increment primary key |
+| `event_id` | Integer FK | Cascade delete | Parent event |
+| `speaker_id` | Integer FK | Set null on delete | Primary speaker profile |
+| `title` | String(300) | Not null | Session title |
+| `speaker_name` | String(200) | Not null | Speaker display name |
+| `description` | Text | Nullable | Session description |
+| `banner_url` | String(500) | Nullable | Banner image URL |
+| `duration_minutes` | Integer | Default 30 | Session duration |
+| `start_time` | DateTime | Nullable | Scheduled start time |
+| `order` | Integer | Default 0 | Display order within event |
+| `recording_url` | String(500) | Nullable | Legacy recording URL |
+| `is_recording_public` | Boolean | Default False | Legacy recording visibility |
+| `created_at` | DateTime | Default `now_ist` | Creation timestamp |
+
+## Bookings Table
+
+The `bookings` table tracks the full lifecycle of a seat reservation, from initial hold through payment, Razorpay integration, coupon application, check-in, and potential refund.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Integer | PK | Auto-increment primary key |
+| `user_id` | Integer FK | Not null | Booking owner |
+| `event_id` | Integer FK | Set null on delete | Target event |
+| `seat_id` | Integer FK | Not null | Reserved seat |
+| `payment_status` | String(20) | Default "hold" | hold, paid, refunded, cancelled |
+| `booking_ref` | String(20) | Unique | Auto-generated reference (hex) |
+| `ticket_id` | String(36) | Unique, nullable | UUID ticket identifier |
+| `qr_code_data` | Text | Nullable | Base64 QR code PNG of ticket |
+| `booking_group` | String(36) | Indexed, nullable | Group ID for multi-seat bookings |
+| `group_qr_data` | Text | Nullable | Base64 QR code PNG of group |
+| `amount_paid` | Float | Default 0 | Amount paid for the seat |
+| `refund_amount` | Float | Nullable | Refund amount after cancellation |
+| `cancellation_fee` | Float | Nullable | Fixed fee deducted (100) |
+| `checked_in` | Boolean | Default False | Attendance confirmed |
+| `checked_in_at` | DateTime | Nullable | Check-in timestamp |
+| `invoice_number` | String(30) | Indexed, nullable | Generated invoice number |
+| `razorpay_order_id` | String(50) | Nullable | Razorpay order identifier |
+| `razorpay_payment_id` | String(50) | Nullable | Razorpay payment identifier |
+| `razorpay_signature` | String(128) | Nullable | Razorpay payment signature |
+| `refund_id` | String(50) | Nullable | Razorpay refund identifier |
+| `refund_status` | String(30) | Nullable | Razorpay refund status |
+| `refund_processed_at` | DateTime | Nullable | Refund completion timestamp |
+| `coupon_id` | Integer FK | Nullable | Applied coupon |
+| `held_until` | DateTime | Nullable | Hold expiry time |
+| `booked_at` | DateTime | Default `now_ist` | Booking creation timestamp |
+| `is_shared_ticket` | Boolean | Default False | Whether ticket was shared |
+| `original_user_id` | Integer | Nullable | Original owner before share |
+
+## Auditoriums Table
+
+Auditoriums define physical venues with configurable seat grid dimensions, gaps, stage positioning, and entry/exit markers.
+
+| Column | Type | Constraints | Description |
+|---|---|---|---|
+| `id` | Integer | PK | Auto-increment primary key |
+| `name` | String(200) | Not null | Auditorium name |
+| `college_id` | Integer FK | Nullable | Parent college |
+| `location` | String(300) | Not null | Location description |
+| `description` | Text | Nullable | Additional details |
+| `total_rows` | Integer | Not null, default 10 | Seat grid row count |
+| `total_cols` | Integer | Not null, default 15 | Seat grid column count |
+| `stage_cols` | Integer | Nullable | Stage width in columns |
+| `stage_offset` | Integer | Default 0 | Stage starting column |
+| `stage_label` | String(100) | Default "Stage" | Stage display label |
+| `row_gaps` | Text | Nullable | JSON array of gap row indices |
+| `col_gaps` | Text | Nullable | JSON array of gap column indices |
+| `layout_config` | JSON | Nullable | Full layout configuration |
+| `entry_exit_config` | JSON | Nullable | Entry/exit markers |
+
+## Supporting Models Summary
+
+**Speakers** store a name, title, bio, photo URL, email, and optional `user_id` link. Speakers can be invited via time-limited `invite_token` values.
+
+**SessionSpeaker** is a many-to-many junction linking sessions to speakers with a `role` field (primary or guest) and ordering.
+
+**AgendaItem** stores ordered items within a session with title, speaker name, duration, and description.
+
+**SessionRecording** stores video recording URLs with title, public flag, and ordering per session.
+
+**Seat** represents individual grid positions with row/column numbers, label, type, and active flag. **SeatType** defines admin-created custom seat categories with name, colour, icon (emoji), and optional price.
+
+**City** and **College** form a geographic hierarchy with active flags for soft deletion.
+
+**Coupon** provides event-scoped discount codes with percentage or fixed amount, usage limits, and validity windows.
+
+**Waitlist** tracks users waiting for sold-out events with optional priority grant and expiry.
+
+**Poll**, **PollOption**, and **PollVote** support multiple choice, yes/no, rating, and text poll types with one-vote-per-user enforcement.
+
+**Feedback** and **SessionRating** collect post-event ratings and comments. **FeedbackTemplate**, **TemplateQuestion**, **FeedbackResponse**, and **QuestionResponse** support structured feedback with configurable question types.
+
+**EventAddOn** and **BookingAddOn** define paid add-ons purchasable during checkout.
+
+**EventBreak** stores schedule breaks with timing and ordering.
+
+**EventAlert** enables admins to push notifications to event attendees.
+
+**TicketShare** manages ticket transfer tokens with email, claim tracking, and expiry.
+
+**Newsletter** and **NewsletterSubscriber** support email campaigns with HTML content and subscriber management.
+
+**Testimonial** stores student quotes for the home page. **NewsletterSubscriber** (in the same module) is a simple email list.
+
+**UploadedImage** and **GalleryImage** store binary image data in the database with content type metadata and session/ordering.
+
+**ActivityLog** records admin actions with actor, action type, entity, and details.
+
+**WebhookLog** persists Razorpay webhook payloads with event type, signature verification status, and processing result.
+
+**SiteSetting** is a key-value store for runtime platform configuration (logo URL, company details).
+
+{{< pagebreak >}}
+
+# Security Architecture
+
+TechTrek implements defence in depth across encryption, authentication, authorisation, CSRF protection, and HTTP security headers.
+
+## PII Encryption
+
+Personally identifiable information (email, username, full name, phone) is encrypted at rest using Fernet symmetric encryption. The `EncryptedStr` TypeDecorator on the `User` model transparently encrypts values on write and decrypts on read. Since encrypted values cannot be used in SQL `WHERE` clauses, companion `email_hash` and `username_hash` columns store HMAC-SHA256 digests of the normalised (lower-cased, stripped) plaintext for exact-match lookups.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+flowchart LR
+    subgraph write [Write Path]
+        Plain[Plaintext] -->|Fernet encrypt| Cipher[Ciphertext in DB]
+        Plain -->|"HMAC-SHA256"| Hash[Hash in DB]
+    end
+    subgraph read [Read Path]
+        Cipher -->|Fernet decrypt| PlainOut[Plaintext to app]
+    end
+    subgraph lookup [Lookup Path]
+        Input[Search input] -->|"HMAC-SHA256"| SearchHash[Computed hash]
+        SearchHash -->|"WHERE hash ="| Hash
+    end
+```
+
+The Fernet key (`FIELD_ENCRYPTION_KEY`) is validated at startup. The `decrypt_field` function falls back to returning the raw value if decryption fails, enabling graceful handling of legacy plaintext rows during migration.
+
+## Authentication
+
+TechTrek supports two authentication methods:
+
+**Password authentication** uses bcrypt for hashing. Registration enforces strong password rules (minimum length, complexity). Login accepts username or email, performs an HMAC lookup to find the user, and verifies the password with `bcrypt.checkpw()`. On success, `user_id` is stored in the Starlette session cookie, which is signed with `SECRET_KEY`, scoped to `SameSite=lax`, and restricted to HTTPS in production.
+
+**Google OAuth** uses Authlib to register a Google OAuth client when `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` are configured. The OAuth callback creates or links a user account.
+
+**Password reset** uses `itsdangerous.URLSafeTimedSerializer` to generate time-limited tokens sent via email.
+
+**Speaker invites** use random 64-character tokens with expiry timestamps. When a speaker accepts an invite link, their user account is linked to the speaker profile.
+
+## Authorisation Model
+
+The application enforces four authorisation levels through FastAPI dependency functions.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 1.5
+flowchart LR
+    Public[Public] -->|login| User[Authenticated User]
+    User -->|is_supervisor| Supervisor
+    User -->|is_admin| Admin
+    User -->|speaker profile| Speaker
+```
+
+| Level | Guard | Access |
+|---|---|---|
+| **Public** | None | Browse events, view tickets, newsletter |
+| **User** | `require_auth()` | Book seats, manage bookings, feedback |
+| **Supervisor** | `is_supervisor` check | College-scoped check-in |
+| **Admin** | `require_admin()` | Full CRUD, user management, settings |
+| **Speaker** | `Speaker.user_id` link | Edit own sessions, manage polls, profile |
+
+`AuthRedirect` is a custom exception that triggers a 303 redirect to `/auth/login?next=<original_path>`, preserving the intended destination through login and registration flows.
+
+## CSRF Protection
+
+CSRF tokens are generated per session using `secrets.token_hex(32)` and stored in the session cookie. The `csrf_protection` router dependency enforces token verification on all unsafe HTTP methods (POST, PUT, PATCH, DELETE). JSON requests with `Content-Type: application/json` are exempt because they are protected by the `SameSite=lax` cookie policy combined with session authentication.
+
+## Security Headers
+
+A custom `SecurityHeadersMiddleware` attaches defensive headers to every response:
+
+| Header | Value |
 |---|---|
-| **Browse Sessions** | View all published upcoming lecture sessions with search and filter by city |
-| **Session Details** | See speaker info, agenda, venue, pricing tiers, and real-time seat availability |
-| **Availability Badges** | Sessions display "Available", "Filling Up", "Sold Out", or "Priority Only" badges |
-| **View Tickets** | Anyone with a ticket link or group link can view ticket details and QR codes |
-| **Newsletter** | Subscribe to email updates from the home page |
-| **Light/Dark Theme** | Toggle between a dark cyberpunk theme and a light Frutiger Aero theme |
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `X-XSS-Protection` | `1; mode=block` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+| `Permissions-Policy` | `camera=(self), microphone=(), geolocation=()` |
+| `Strict-Transport-Security` | `max-age=31536000; includeSubDomains` (production only) |
 
-## Registered Users
-
-| Feature | Description |
-|---|---|
-| **Account Registration** | Sign up with email, username, password, and optional profile fields (college, discipline, domain, year) |
-| **Interactive Seat Selection** | Visual seat map with real-time availability; supports standard, VIP, and accessible seat types |
-| **Multi-Seat Booking** | Select multiple seats in one transaction; generates a group ticket with a shared QR code |
-| **5-Minute Hold** | Selected seats are held for 5 minutes while the user completes checkout |
-| **Tiered Pricing** | Different prices for standard, VIP, and accessible seats |
-| **QR-Coded Tickets** | Each booking generates a unique ticket ID and QR code for venue check-in |
-| **My Bookings** | Dashboard showing active bookings and archived (cancelled/refunded) history |
-| **Booking Cancellation** | Cancel paid bookings with automatic refund calculation (amount minus a fixed cancellation fee of 100) |
-| **Waitlist** | Join a waitlist for sold-out sessions; receive priority booking access when new sessions are added |
-
-## Supervisors
-
-| Feature | Description |
-|---|---|
-| **QR Check-In** | Scan attendee QR codes using the device camera to verify and mark check-in |
-| **Manual Entry** | Enter a ticket ID manually when QR scanning is not possible |
-| **Verification Feedback** | Immediate visual confirmation of valid/invalid/already-checked-in tickets |
-
-## Administrators
-
-| Feature | Description |
-|---|---|
-| **Dashboard** | Overview statistics: total users, active sessions, bookings, revenue |
-| **City Management** | Create, edit, toggle active, and delete cities |
-| **College Management** | Create, edit, and delete colleges linked to cities |
-| **Auditorium Management** | Create and edit auditoriums with configurable row/column counts |
-| **Seat Layout Designer** | Visual drag-and-paint tool for designing auditorium layouts with standard, VIP, accessible, and aisle seats; row/column gaps; stage width |
-| **Speaker Management** | Create and edit speaker profiles with name, title, bio, photo, and email |
-| **Session Management** | Create and edit lecture sessions with speaker, auditorium, schedule, pricing tiers, description, and banner; publish or keep as draft |
-| **Agenda Builder** | Add ordered agenda items to sessions with speaker names and durations |
-| **Booking Management** | View and filter all bookings; cancel or refund individual bookings |
-| **CSV Export** | Export filtered booking data as CSV for reporting |
-| **Check-In** | QR scanning and manual ticket verification (same as supervisor) |
-| **Waitlist Management** | View waitlisted users; grant priority access to a target session for all waitlisted users of a source session |
-| **User Management** | View all registered users; toggle admin and supervisor roles |
+HSTS is only sent when `debug` is `False` to avoid interfering with HTTP development servers.
 
 {{< pagebreak >}}
 
 # Backend Architecture
 
-The backend is built as a single FastAPI application using SQLAlchemy for database access and Jinja2 for server-side HTML rendering. Rather than exposing a JSON API consumed by a frontend SPA, TechTrek renders complete HTML pages on the server and returns them directly. This keeps the architecture simple -- a single Python process handles everything from authentication to template rendering -- while still supporting interactive features through targeted client-side JavaScript. The codebase is organized into models, routers, services, templates, and static assets, as outlined below.
+## Entry Point
 
-## Project Structure
+The application is created in `app/main.py` as a FastAPI instance named `application` (aliased as `app` for Uvicorn). Configuration proceeds in this order:
 
-```
-techtrak/
-├── app/
-│   ├── main.py                  # Application entry point, middleware, router registration
-│   ├── config.py                # Pydantic-settings configuration
-│   ├── database.py              # SQLAlchemy engine and session factory
-│   ├── dependencies.py          # FastAPI dependencies (auth, templates, flash messages)
-│   ├── models/
-│   │   ├── __init__.py          # Re-exports all models
-│   │   ├── user.py              # User model
-│   │   ├── city.py              # City model
-│   │   ├── college.py           # College model
-│   │   ├── auditorium.py        # Auditorium model
-│   │   ├── seat.py              # Seat model
-│   │   ├── speaker.py           # Speaker model
-│   │   ├── session.py           # LectureSession model
-│   │   ├── agenda.py            # AgendaItem model
-│   │   ├── booking.py           # Booking model
-│   │   ├── waitlist.py          # Waitlist model
-│   │   └── testimonial.py       # Testimonial and NewsletterSubscriber models
-│   ├── routers/
-│   │   ├── auth.py              # Authentication routes (/auth)
-│   │   ├── public.py            # Public pages (/, /sessions, /ticket)
-│   │   ├── booking.py           # Booking flow (/booking)
-│   │   ├── admin.py             # Admin panel (/admin)
-│   │   └── supervisor.py        # Supervisor check-in (/supervisor)
-│   ├── services/
-│   │   ├── booking.py           # Booking business logic
-│   │   └── email.py             # Email sending service
-│   ├── schemas/                 # (Reserved for Pydantic schemas)
-│   ├── templates/               # Jinja2 HTML templates (33 files)
-│   └── static/
-│       ├── css/style.css        # Single stylesheet (~2,600 lines)
-│       └── js/
-│           ├── seat-picker.js   # Interactive seat selection
-│           └── seat-designer.js # Admin seat layout editor
-├── seed.py                      # Database seeding script
-├── requirements.txt             # Python dependencies
-├── .env                         # Environment overrides (not committed)
-└── README.md                    # Quick-start guide
-```
-
-## Entry Point (`app/main.py`)
-
-The application is created and configured in a single module:
-
-1. **FastAPI instance** is created with the title `"TechTrek"`. API docs are available at `/api/docs` when `debug=True`.
-2. **SessionMiddleware** is attached for cookie-based session management using the configured `secret_key`.
+1. **SecurityHeadersMiddleware** is added first so headers apply to all responses including errors.
+2. **SessionMiddleware** is configured with the `SECRET_KEY`, `SameSite=lax`, `https_only` in production, and a 24-hour `max_age`.
 3. **Static files** are mounted at `/static` from `app/static/`.
-4. **All models** are imported so SQLAlchemy registers them, then `Base.metadata.create_all()` creates tables.
-5. **Schema migrations** run as `ALTER TABLE` statements inside a `try/except` block to add columns that were introduced after the initial schema (`price_vip`, `price_accessible`, `booking_group`, `group_qr_data`, `is_supervisor`).
-6. **Routers** are included in order: auth, public, booking, admin, supervisor.
-7. **Exception handlers** are registered for `AuthRedirect` (303 redirect to login), 404 (custom template), and 500 (custom template).
+4. **All models** are imported to register them with SQLAlchemy, then `Base.metadata.create_all()` bootstraps tables.
+5. **Seven routers** are included: auth, public, booking, admin, supervisor, speaker, webhook.
+6. **Exception handlers** are registered for `AuthRedirect` (303 redirect), 404 (custom template), and 500 (custom template).
+7. A **lifespan** context manager starts the `feedback_task_loop()` background task, which runs `process_pending_feedback()` every 15 minutes.
 
-## Configuration (`app/config.py`)
+Additional root-level routes serve the service worker at `/service-worker.js` (with `Service-Worker-Allowed: /` header) and the offline fallback page at `/offline`.
 
-Configuration uses pydantic-settings with automatic `.env` file loading.
+API documentation (Swagger UI) is available at `/api/docs` only when `debug=True`.
+
+## Configuration
+
+All settings are defined in `app/config.py` using `pydantic_settings.BaseSettings` with automatic `.env` file loading. A `model_validator` enforces that `SECRET_KEY` is at least 32 characters and `FIELD_ENCRYPTION_KEY` is a valid 44-character Fernet key.
 
 | Setting | Type | Default | Description |
 |---|---|---|---|
-| `database_url` | `str` | `postgresql+psycopg2://postgres:root@localhost:5432/techtrek` | Database connection string |
-| `secret_key` | `str` | `techtrek-dev-secret-change-in-production` | Session cookie signing key |
-| `debug` | `bool` | `True` | Enables `/api/docs` endpoint |
-| `hold_timeout_minutes` | `int` | `5` | Minutes a seat hold remains valid |
-| `priority_window_hours` | `int` | `24` | Hours a waitlist priority grant lasts |
-| `smtp_host` | `str` | `""` | SMTP server hostname (empty = emails skipped) |
-| `smtp_port` | `int` | `587` | SMTP server port |
-| `smtp_user` | `str` | `""` | SMTP authentication username |
-| `smtp_password` | `str` | `""` | SMTP authentication password |
-| `smtp_from_email` | `str` | `noreply@techtrek.in` | Sender email address |
-| `smtp_from_name` | `str` | `TechTrek` | Sender display name |
+| `database_url` | str | `postgresql+psycopg2://...` | Database connection string |
+| `secret_key` | str | (required) | Session cookie signing key (min 32 chars) |
+| `debug` | bool | True | Enables Swagger docs, disables HSTS |
+| `field_encryption_key` | str | (required) | Fernet key for PII encryption |
+| `hold_timeout_minutes` | int | 5 | Seat hold duration |
+| `priority_window_hours` | int | 24 | Waitlist priority access window |
+| `razorpay_key_id` | str | "" | Razorpay API key |
+| `razorpay_key_secret` | str | "" | Razorpay API secret |
+| `admin_bootstrap_email` | str | "" | Email that gets admin on registration |
+| `company_name` | str | "TechTrek Pvt Ltd" | Invoice company name |
+| `company_address` | str | "123 Tech Park, ..." | Invoice company address |
+| `company_gstin` | str | "29AABCT1234F1ZH" | GST identification number |
+| `company_pan` | str | "AABCT1234F" | PAN number |
+| `company_email` | str | "billing@techtrek.in" | Billing contact email |
+| `company_phone` | str | "+91 80 1234 5678" | Billing contact phone |
+| `gst_rate` | float | 18.0 | GST percentage for invoices |
+| `smtp_host` | str | "" | SMTP server (empty = skip emails) |
+| `smtp_port` | int | 587 | SMTP port |
+| `smtp_user` | str | "" | SMTP username |
+| `smtp_password` | str | "" | SMTP password |
+| `smtp_from_email` | str | "noreply@techtrek.in" | Sender email |
+| `smtp_from_name` | str | "TechTrek" | Sender display name |
+| `base_url` | str | "https://192.168.10.82:8000" | Public URL for email links |
+| `google_client_id` | str | "" | Google OAuth client ID |
+| `google_client_secret` | str | "" | Google OAuth client secret |
+| `babel_default_locale` | str | "en" | Default locale |
+| `babel_default_timezone` | str | "Asia/Kolkata" | Default timezone |
 
-## Database Layer (`app/database.py`)
+## Dependencies
 
-Minimal setup using SQLAlchemy's synchronous API:
+FastAPI dependency functions in `app/dependencies.py` provide shared functionality injected into route handlers:
 
-- `engine` is created from `settings.database_url` with echo disabled.
-- `SessionLocal` is a `sessionmaker` bound to the engine, yielding standard ORM sessions.
-- `Base` is a `DeclarativeBase` subclass that all models inherit from.
+| Dependency | Purpose |
+|---|---|
+| `get_db()` | Yields a request-scoped SQLAlchemy session, closed after the request |
+| `get_current_user()` | Reads `user_id` from the session cookie and returns the `User` or `None` |
+| `require_auth()` | Same as above but raises `AuthRedirect` if not logged in |
+| `require_admin()` | Requires login and `is_admin=True` |
+| `flash(request, message, category)` | Stores a flash message in the session |
+| `get_flashes(request)` | Pops and returns all pending flash messages |
+| `template_ctx(request, **kwargs)` | Builds the standard Jinja2 context: user, flashes, CSRF token, speaker flag, pending feedback banners, published event count, Google SSO availability |
 
-## Dependencies (`app/dependencies.py`)
+The `template_ctx` function queries pending feedback stubs for the current user on every page load, enabling a banner that prompts users to complete feedback and download certificates.
 
-FastAPI dependency functions provide shared functionality to all route handlers:
+## Services Layer
 
-| Dependency | Signature | Purpose |
-|---|---|---|
-| `get_db()` | Generator yielding `Session` | Creates a database session per request and closes it after |
-| `get_current_user()` | `(Request, Session) -> Optional[User]` | Reads `user_id` from the session cookie and returns the `User` or `None` |
-| `require_auth()` | `(Request, Session) -> User` | Same as above but raises `AuthRedirect` if no user is logged in |
-| `require_admin()` | `(Request, Session) -> User` | Requires the user to be logged in AND have `is_admin=True` |
-| `flash()` | `(Request, str, str)` | Stores a flash message in the session for display on next page load |
-| `get_flashes()` | `(Request) -> list` | Pops and returns all pending flash messages |
-| `template_ctx()` | `(Request, **kwargs) -> dict` | Builds the standard template context (`request`, `user`, `flashes`, plus any extras) |
+Nine service modules encapsulate business logic:
 
-`AuthRedirect` is a custom exception that carries a redirect URL. When raised, the global exception handler returns a 303 redirect to the login page with a `next` query parameter preserving the intended destination.
-
-## Services
-
-### Booking Service (`app/services/booking.py`)
-
-Contains the core booking business logic:
+**Booking Service** (`app/services/booking.py`) -- Core booking operations:
 
 | Function | Purpose |
 |---|---|
-| `get_seat_map(db, session_id, auditorium_id)` | Returns a list of seat dicts with `id`, `row`, `col`, `label`, `type`, and `status` (available/taken/aisle). A seat is "taken" if it has a paid booking or an active hold. |
-| `hold_seats(db, user_id, session_id, seat_ids)` | Cancels any existing holds for the user on this session, then creates new `Booking` records with `payment_status="hold"` and `held_until` set to now + 5 minutes. Skips seats that are already taken. |
-| `confirm_payment(db, user_id, session_id)` | Converts valid holds to paid bookings. Generates `ticket_id` (format: `TT-YYYYMMDD-XXXXXXXX`), QR code (base64 PNG), sets `amount_paid` based on seat type pricing, assigns `booking_group` and `group_qr_data` for multi-seat bookings, and sends confirmation emails. |
-| `cancel_booking_user(db, booking_id, user_id)` | Cancels a paid booking. Applies a fixed cancellation fee of 100 and sets `payment_status="refunded"`. Returns the refund amount. |
-| `cancel_existing_holds(db, user_id, session_id)` | Marks all hold-status bookings for a user/session as cancelled. |
-| `get_user_bookings(db, user_id)` | Returns all paid and refunded bookings for a user, ordered by date descending. |
+| `get_seat_map(db, event_id, auditorium_id)` | Returns seat availability. A seat is "taken" if it has a paid booking or an active hold. |
+| `hold_seats(db, user_id, event_id, seat_ids)` | Cancels existing holds, creates new bookings with `held_until` set to now + 5 minutes. Uses `IntegrityError` handling for concurrency. |
+| `confirm_payment(db, user_id, event_id, ...)` | Promotes holds to paid, generates ticket IDs and QR codes, assigns booking groups, applies coupons, creates invoice numbers, sends confirmation emails. |
+| `cancel_booking_user(db, booking_id, user_id)` | Applies a fixed cancellation fee of 100, computes refund, initiates Razorpay refund, sends cancellation email. |
+| `cancel_group_bookings(db, group_id, user_id)` | Cancels all bookings in a group with refund. |
+| `validate_coupon(db, code, event_id)` | Validates coupon by code, event scope, date, and usage limits. |
+| `apply_coupon_to_price(total, coupon)` | Applies percentage or fixed discount to total. |
 
-### Email Service (`app/services/email.py`)
-
-Handles transactional emails via SMTP:
+**Razorpay Service** (`app/services/razorpay.py`) -- Payment gateway integration:
 
 | Function | Purpose |
 |---|---|
-| `send_signup_confirmation(email, username)` | Sends a welcome email after registration |
-| `send_booking_confirmation(email, username, session_title, seat_label, ticket_id, booking_ref)` | Sends a booking confirmation with seat details, ticket ID, and cancellation policy |
+| `create_order(amount_paise, receipt)` | Creates a Razorpay order with INR currency and auto-capture |
+| `verify_payment(order_id, payment_id, signature)` | Verifies HMAC-SHA256 payment signature |
+| `verify_webhook_signature(body, signature, secret)` | Verifies webhook request signature |
+| `process_refund(payment_id, amount_paise)` | Issues a partial refund via Razorpay API |
 
-If `smtp_host` is empty (the default), emails are logged but not sent, allowing development without an SMTP server.
+**Email Service** (`app/services/email.py`) -- Transactional HTML emails via SMTP for signup confirmation, booking confirmation, cancellation, password reset, ticket sharing, certificate readiness, and newsletter delivery. If `smtp_host` is empty, emails are silently skipped.
 
-## Authentication System
+**Invoice Service** (`app/services/invoice.py`) -- Generates PDF invoices using ReportLab with company branding, GST calculations, booking details, and optional logo loaded from site settings.
 
-TechTrek uses **session-based authentication** with **bcrypt password hashing**:
+**Certificate Service** (`app/services/certificate.py`) -- Generates attendance certificate PDFs with event branding, attendee name, dates, and configurable styling from event certificate fields.
 
-1. **Registration**: User submits email, username, password, and optional profile fields. The password is hashed with `bcrypt.hashpw()` and stored. The first registered user is automatically granted admin privileges (`is_admin=True`). A signup confirmation email is sent.
+**Feedback Service** (`app/services/feedback.py`) -- Background task loop (`feedback_task_loop`) that runs every 15 minutes. For events past their end date, it creates `Feedback` stub rows for checked-in attendees who have not yet been notified and emails them certificate download links.
 
-2. **Login**: User submits username/email and password. The system looks up the user by username or email, then verifies with `bcrypt.checkpw()`. On success, `user_id` is stored in the session cookie.
+**Poll Events Service** (`app/services/poll_events.py`) -- In-memory pub/sub using `asyncio.Queue`. Provides `subscribe`/`publish` keyed by `(session_id, event_id)` for real-time poll result updates, and `subscribe_user`/`publish_to_users` for per-attendee poll notifications. Messages are JSON-serialised dicts. `QueueFull` is silently swallowed.
 
-3. **Session Management**: Starlette's `SessionMiddleware` handles cookie-based sessions. The session is signed with `secret_key` to prevent tampering.
+**Activity Log Service** (`app/services/activity_log.py`) -- Persists `ActivityLog` rows recording admin actions with actor, action type, target entity, and details.
 
-4. **Authorization Levels**:
-   - **Public**: No authentication required
-   - **User**: `require_auth()` -- must be logged in
-   - **Supervisor or Admin**: Checked via `user.is_supervisor or user.is_admin`
-   - **Admin only**: `require_admin()` -- must have `is_admin=True`
+**OAuth Service** (`app/services/oauth.py`) -- Registers a Google OAuth client via Authlib when credentials are configured.
 
-5. **Logout**: Clears the entire session via `request.session.clear()`.
+## Routers Overview
 
-{{< pagebreak >}}
-
-# Database Schema
-
-The database consists of 12 SQLAlchemy models that map to PostgreSQL tables. All models inherit from a shared `DeclarativeBase`, and tables are created automatically on application startup via `Base.metadata.create_all()`. The project does not use Alembic migrations; columns that were added after the initial schema (such as `price_vip`, `booking_group`, and `is_supervisor`) are applied through raw `ALTER TABLE` statements wrapped in `try/except` blocks inside `app/main.py`. This section documents each table, with full column-level detail for the four core entities and concise summaries for the simpler supporting tables.
-
-## `users`
-
-The `users` table stores account credentials, profile information, and role flags. Each user is identified by a unique email and username, and passwords are stored as bcrypt hashes. Two boolean flags -- `is_admin` and `is_supervisor` -- control authorization levels throughout the application. The first user to register is automatically promoted to admin. Optional profile fields capture the user's college, discipline, tech domain, and year of study.
-
-| Column | Type | Constraints | Description |
+| Router | Prefix | Guard | Responsibility |
 |---|---|---|---|
-| `id` | `Integer` | PK, indexed | Auto-increment primary key |
-| `email` | `String(255)` | Unique, not null, indexed | Login email address |
-| `username` | `String(100)` | Unique, not null, indexed | Login username |
-| `password_hash` | `String(255)` | Not null | bcrypt password hash |
-| `full_name` | `String(200)` | Nullable | Display name |
-| `college` | `String(300)` | Nullable | College affiliation (free text) |
-| `discipline` | `String(100)` | Nullable | Academic discipline |
-| `domain` | `String(100)` | Nullable | Tech domain of interest |
-| `year_of_study` | `Integer` | Nullable | Current year of study |
-| `is_admin` | `Boolean` | Default `False` | Admin role flag |
-| `is_supervisor` | `Boolean` | Default `False` | Supervisor role flag |
-| `created_at` | `DateTime` | Default `utcnow` | Account creation timestamp |
-
-**Relationships**: `bookings` (1:N Booking), `waitlist_entries` (1:N Waitlist)
-
-## Location Tables: `cities`, `colleges`, `auditoriums`, `seats`
-
-These four tables form a geographic hierarchy. **Cities** store a name, state, and an `is_active` flag for soft-deletion; each city has many colleges. **Colleges** belong to a city and record a name, address, and active status; each college has many auditoriums. **Auditoriums** are the physical venues where sessions take place. Beyond basic identity fields, they store the seating grid dimensions (`total_rows`, `total_cols`), optional stage width, and JSON-encoded row/column gap indices that control the visual layout of the seat map. Deleting a college cascades to its auditoriums, and deleting an auditorium cascades to its seats.
-
-**Seats** represent individual positions within an auditorium grid. Each seat records its row and column number, a human-readable label (e.g., "A1", "B12"), a type (`standard`, `vip`, `accessible`, or `aisle`), and an active flag. Aisle-type seats act as visual spacers and cannot be booked.
-
-## `speakers`
-
-Speaker profiles store a name, professional title, biography, photo URL, and contact email. Each speaker can be linked to multiple lecture sessions. The speaker model is intentionally simple -- it provides display information for session detail pages rather than full user accounts.
-
-## `lecture_sessions`
-
-The `lecture_sessions` table is the central scheduling entity. Each session is linked to an auditorium (venue) and optionally to a speaker profile, and stores a title, description, banner image URL, start time, duration, and per-seat-type pricing. Three price columns support tiered pricing: `price` for standard seats, `price_vip` for VIP, and `price_accessible` for accessible seats. A `status` field controls visibility: sessions start as `draft`, are set to `published` when ready for public browsing, and can be marked `completed` afterward.
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | `Integer` | PK, indexed | Auto-increment primary key |
-| `auditorium_id` | `Integer` | FK -> `auditoriums.id`, not null | Venue |
-| `speaker_id` | `Integer` | FK -> `speakers.id`, nullable | Linked speaker profile |
-| `title` | `String(300)` | Not null | Session title |
-| `speaker` | `String(200)` | Not null | Speaker name (display text) |
-| `description` | `Text` | Nullable | Session description |
-| `banner_url` | `String(500)` | Nullable | Banner image URL |
-| `start_time` | `DateTime` | Not null | Scheduled start time |
-| `duration_minutes` | `Integer` | Default `30` | Session duration |
-| `price` | `Numeric(10,2)` | Not null, default `0` | Standard seat price |
-| `price_vip` | `Numeric(10,2)` | Nullable | VIP seat price |
-| `price_accessible` | `Numeric(10,2)` | Nullable | Accessible seat price |
-| `status` | `String(20)` | Default `"draft"` | One of: `draft`, `published`, `completed` |
-| `created_at` | `DateTime` | Default `utcnow` | Creation timestamp |
-
-**Relationships**: `auditorium`, `speaker_rel`, `bookings` (1:N), `agenda_items` (1:N, cascade delete, ordered), `waitlist_entries` (1:N)
-
-## `agenda_items`
-
-Each lecture session can have an ordered list of agenda items. An agenda item has a title, optional speaker name, duration in minutes, and an optional description. The `order` field controls display sequence. Deleting a session cascades to its agenda items.
-
-## `bookings`
-
-The `bookings` table is the most complex entity in the schema, tracking the full lifecycle of a seat reservation from initial hold through payment, potential refund, and venue check-in. Each booking links a user, a session, and a specific seat. A `payment_status` field drives the state machine (`hold`, `paid`, `refunded`, `cancelled`). On payment, the system generates a unique `ticket_id` (formatted as `TT-YYYYMMDD-XXXXXXXX`), a base64-encoded QR code, and records the amount paid based on the seat's type and the session's pricing tiers. Multi-seat purchases share a `booking_group` identifier and a group-level QR code. Cancellations apply a fixed fee of 100 and record both the refund amount and the fee.
-
-| Column | Type | Constraints | Description |
-|---|---|---|---|
-| `id` | `Integer` | PK, indexed | Auto-increment primary key |
-| `user_id` | `Integer` | FK -> `users.id`, not null | Booking owner |
-| `session_id` | `Integer` | FK -> `lecture_sessions.id`, not null | Target session |
-| `seat_id` | `Integer` | FK -> `seats.id`, not null | Reserved seat |
-| `payment_status` | `String(20)` | Default `"hold"` | One of: `hold`, `paid`, `refunded`, `cancelled` |
-| `booking_ref` | `String(20)` | Unique | Auto-generated reference code |
-| `ticket_id` | `String(30)` | Unique, nullable | Generated on payment |
-| `qr_code_data` | `Text` | Nullable | Base64 QR code of ticket ID |
-| `booking_group` | `String(20)` | Nullable, indexed | Group ID for multi-seat bookings |
-| `group_qr_data` | `Text` | Nullable | Base64 QR code of group ID |
-| `amount_paid` | `Float` | Default `0` | Amount paid |
-| `refund_amount` | `Float` | Nullable | Refund after cancellation |
-| `cancellation_fee` | `Float` | Nullable | Fee deducted (fixed at 100) |
-| `checked_in` | `Boolean` | Default `False` | Whether attendee checked in |
-| `checked_in_at` | `DateTime` | Nullable | Check-in timestamp |
-| `held_until` | `DateTime` | Nullable | Hold expiry time |
-| `booked_at` | `DateTime` | Default `utcnow` | Booking creation timestamp |
-
-**Relationships**: `user` (N:1 User), `session` (N:1 LectureSession), `seat` (N:1 Seat)
-
-## `waitlist`
-
-When a session is sold out, users can join a waitlist. Each entry links a user to the sold-out session and tracks whether the user has been notified. When an admin grants priority access, the entry is updated with a `priority_session_id` (the target session) and a `priority_expires_at` timestamp that gives the user a 24-hour window to book before the general public.
-
-## `testimonials` and `newsletter_subscribers`
-
-The `testimonials` table stores student quotes displayed on the home page, with fields for the student's name, college, quote text, and an active flag for visibility control. The `newsletter_subscribers` table is a simple list of unique email addresses with subscription timestamps.
+| `auth` | `/auth` | Public | Login, register, OAuth, profile, password reset, speaker invite |
+| `public` | (none) | Public + CSRF | Home, events, sessions, schedule, recordings, tickets, polls API, SSE streams, newsletter, feedback, image serving |
+| `booking` | `/booking` | User + CSRF | Seat selection, hold, checkout, payment, confirmation, my bookings, cancellation, waitlist, certificates, invoices |
+| `admin` | `/admin` | Admin + CSRF | Dashboard, cities/colleges/auditoriums/speakers CRUD, sessions, events, bookings, check-in, waitlist, users, schedule, settings, feedback, newsletters, event management hub |
+| `supervisor` | `/supervisor` | Supervisor | College-scoped dashboard, bookings, schedule, check-in |
+| `speaker` | `/speaker` | Speaker | Dashboard, sessions list, schedule calendar, session editing, polls, profile |
+| `webhook` | (none) | Signature | Razorpay webhook handler |
 
 {{< pagebreak >}}
 
 # API Endpoints Reference
 
-TechTrek is a traditional server-rendered web application -- there are no JSON API endpoints. Every route returns a complete HTML page via Jinja2 templates, and form submissions use `POST` with a 303 redirect on success. The application defines five routers that are registered in order: Auth, Public, Booking, Admin, and Supervisor. Endpoints are protected at four authorization levels: **Public** (no login required), **User** (must be logged in), **Supervisor+** (logged in with `is_supervisor` or `is_admin`), and **Admin** (must have `is_admin=True`).
+All endpoints return server-rendered HTML via Jinja2 templates unless noted as JSON or SSE. Form submissions use POST with 303 redirect. Auth levels: **P** = Public, **U** = User, **S+** = Supervisor or Admin, **A** = Admin, **Sp** = Speaker.
 
 ## Auth Router (`/auth`)
 
-The auth router handles user registration, login, and logout. Registration accepts email, username, password, and optional profile fields; the first user to register is automatically granted admin privileges. Login authenticates by username or email with bcrypt verification and stores `user_id` in the session cookie. Logout clears the session entirely.
-
-| Method | Path | Description |
-|---|---|---|
-| `GET/POST` | `/auth/login` | Render login form / authenticate and redirect |
-| `GET/POST` | `/auth/register` | Render registration form / create account and auto-login |
-| `GET` | `/auth/logout` | Clear session and redirect to home |
-
-## Public Router and Booking Router
-
-The public router serves the home page (with up to 6 upcoming sessions and testimonials), the session listing page (with search, sort, and city/college filters), individual session detail pages, and shareable ticket views. The newsletter subscription endpoint accepts an email via `POST`.
-
-The booking router handles the full seat reservation flow for authenticated users. It serves the interactive seat selection page, processes seat holds (5-minute timer), renders the checkout page, confirms payment (generating ticket IDs and QR codes), and displays the confirmation page. Users can also view their booking history, see individual or group booking details, cancel bookings (with a fixed cancellation fee), and join the waitlist for sold-out sessions.
-
-| Router | Method | Path | Description |
+| Method | Path | Auth | Description |
 |---|---|---|---|
-| Public | `GET` | `/` | Home page |
-| Public | `GET` | `/sessions` | Session listing with search and filters |
-| Public | `GET` | `/sessions/{id}` | Session detail page |
-| Public | `GET` | `/ticket/{ticket_id}` | Shareable single ticket view |
-| Public | `GET` | `/tickets/group/{group_id}` | Shareable group ticket view |
-| Public | `POST` | `/newsletter` | Subscribe to newsletter |
-| Booking | `GET` | `/booking/select/{id}` | Seat selection page |
-| Booking | `POST` | `/booking/hold/{id}` | Hold selected seats (5 min) |
-| Booking | `GET` | `/booking/checkout/{id}` | Checkout with countdown timer |
-| Booking | `POST` | `/booking/pay/{id}` | Confirm payment, generate tickets |
-| Booking | `GET` | `/booking/confirmation/{id}` | Confirmation with QR codes |
-| Booking | `GET` | `/booking/my` | My Bookings dashboard |
-| Booking | `POST` | `/booking/cancel/{id}` | Cancel booking with refund |
-| Booking | `POST` | `/booking/waitlist/{id}` | Join session waitlist |
+| GET/POST | `/auth/login` | P | Login form; authenticates by username or email; preserves `?next=` redirect |
+| GET/POST | `/auth/register` | P | Registration with strong password validation; preserves `?next=` |
+| POST | `/auth/verify-password` | U | JSON: re-verify password for sensitive operations |
+| GET/POST | `/auth/profile` | U | View and update profile fields |
+| GET | `/auth/speaker-invite/{token}` | P | Accept speaker invite; links user to speaker profile |
+| GET | `/auth/google` | P | Initiate Google OAuth flow |
+| GET | `/auth/google/callback` | P | Google OAuth callback; create or link account |
+| GET/POST | `/auth/forgot-password` | P | Request password reset email |
+| GET/POST | `/auth/reset-password/{token}` | P | Reset password with timed token |
+| GET | `/auth/logout` | P | Clear session and redirect to home |
+
+## Public Router (no prefix)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/` | P | Home page with upcoming events and testimonials |
+| POST | `/newsletter` | P | Subscribe email to newsletter |
+| GET | `/sessions` | P | List sessions with search, sort, and filters |
+| GET | `/sessions/{id}` | P | Session detail with speakers, agenda, pricing |
+| GET | `/events` | P | List published events |
+| GET | `/events/{id}` | P | Event detail page |
+| GET | `/recordings` | U | Session recordings (gated to ticket holders) |
+| GET | `/schedule` | P | Public schedule view |
+| GET | `/schedule/export-pdf` | P | PDF export of schedule |
+| GET | `/ticket/{ticket_id}` | P | View single ticket with QR code |
+| GET | `/tickets/group/{group_id}` | P | View group ticket |
+| POST | `/ticket/{id}/share` | U | Share ticket via email (JSON) |
+| POST | `/ticket/{id}/claim` | U | Claim a shared ticket (JSON) |
+| GET | `/terms` | P | Terms and conditions page |
+| GET/POST | `/feedback/{event_id}` | U | Event feedback form |
+| POST | `/feedback/{event_id}/dismiss` | U | Dismiss feedback prompt |
+| GET | `/polls/{poll_id}/display` | P | Standalone poll presentation view |
+| GET | `/sessions/{id}/polls/active` | U | Active poll data (JSON) |
+| POST | `/sessions/{id}/polls/{poll_id}/vote` | U | Submit poll vote (JSON) |
+| GET | `/sessions/{id}/polls/stream` | U | SSE stream for poll result updates |
+| GET | `/user/poll-notifications/stream` | U | SSE stream for per-user poll notifications |
+| GET | `/api/schedule` | P | Schedule data (JSON) |
+| GET | `/uploads/{image_id}` | P | Serve uploaded image bytes from DB |
+| GET | `/newsletter/unsubscribe/{token}` | P | Unsubscribe from newsletter |
+
+## Booking Router (`/booking`)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/booking/event/{id}/select` | U | Interactive seat selection page |
+| POST | `/booking/event/{id}/hold` | U | Hold selected seats for 5 minutes |
+| GET | `/booking/event/{id}/checkout` | U | Checkout page with pricing breakdown |
+| POST | `/booking/event/{id}/apply-coupon` | U | Apply coupon code (JSON) |
+| POST | `/booking/event/{id}/toggle-addon` | U | Toggle add-on selection (JSON) |
+| POST | `/booking/event/{id}/create-order` | U | Create Razorpay order (JSON) |
+| POST | `/booking/event/{id}/verify-payment` | U | Verify Razorpay payment (JSON) |
+| POST | `/booking/event/{id}/pay` | U | Free event checkout |
+| GET | `/booking/event/{id}/confirmation` | U | Booking confirmation with QR codes |
+| GET | `/booking/my` | U | My Bookings dashboard |
+| GET | `/booking/detail/group/{group_id}` | U | Group booking detail |
+| GET | `/booking/detail/{booking_id}` | U | Single booking detail |
+| POST | `/booking/cancel/{booking_id}` | U | Cancel with refund |
+| POST | `/booking/cancel-group/{group_id}` | U | Cancel group with refund |
+| POST | `/booking/waitlist/{event_id}` | U | Join event waitlist |
+| GET/POST | `/booking/certificate/{booking_id}` | U | Certificate with feedback gate |
+| GET | `/booking/certificate/{booking_id}/download` | U | Download certificate PDF |
+| GET | `/booking/invoice/group/{group_id}` | U | Download group invoice PDF |
+| GET | `/booking/invoice/booking/{booking_id}` | U | Download single invoice PDF |
+| GET | `/booking/invoice/{event_id}` | U | Download event invoice PDF |
 
 ## Admin Router (`/admin`)
 
-The admin router provides a comprehensive management panel accessible to administrators and, for read-only views, supervisors. The dashboard (`GET /admin/`) displays aggregate statistics including total users, bookings, revenue, upcoming sessions, check-ins, and event status breakdowns.
+The admin router provides comprehensive management. Key endpoint groups:
 
-**Resource management** follows a consistent CRUD pattern across six entities. Cities, colleges, speakers, and sessions each provide list, create, edit, and delete endpoints. Cities additionally support an active/inactive toggle. Auditoriums extend the standard CRUD pattern with a visual seat layout designer (`GET/POST /admin/auditoriums/{id}/layout`) that lets administrators paint seat types onto a grid. Session creation and editing include inline agenda item management.
-
-**Booking management** lets supervisors and admins view and filter all bookings by search term, status, or session, and export the full list as a CSV file. Admins can cancel or refund individual bookings. The **check-in page** (`GET/POST /admin/checkin`) supports both QR scanning and manual ticket ID entry, with live statistics for the selected session. The **waitlist page** lets admins grant priority booking access by selecting a sold-out source session and a target session, giving all waitlisted users a 24-hour priority window. The **user management page** lists all registered users and allows admins to toggle admin and supervisor roles.
+| Group | Endpoints | Description |
+|---|---|---|
+| Dashboard | `GET /admin/` | Stats: users, bookings, revenue, check-ins |
+| Cities | CRUD + toggle + delete | Geographic cities management |
+| Colleges | CRUD + delete | Educational institutions |
+| Auditoriums | CRUD + `GET/POST .../layout` | Venues with visual seat designer |
+| Seat Types | CRUD | Custom seat categories with icons and pricing |
+| Speakers | CRUD + delete-check + invite | Speaker profile management |
+| Sessions | List, new, edit, delete | Sessions with recordings and poll management |
+| Events | List, new, edit, delete, coupons | Events with certificate preview |
+| Bookings | List, CSV export, cancel, invoice, refund | Booking management with Razorpay refunds |
+| Check-in | GET/POST `/admin/checkin` | QR scan and manual ticket verification |
+| Waitlist | List + delete | Waitlist management |
+| Users | List, CSV export, toggle admin/supervisor | User role management |
+| Schedule | Calendar view | All events schedule |
+| Activity Log | List | Admin action audit trail |
+| Settings | GET/POST | Platform branding (logo, company details) |
+| Feedback | List + toggle featured | Feedback moderation |
+| Feedback Templates | CRUD | Structured feedback question templates |
+| Newsletters | CRUD + send + preview + upload | Email newsletter campaigns |
+| Image Upload | POST | Upload images for content |
+| **Event Management Hub** | `/admin/event-management/{id}/...` | Per-event: bookings, check-in, waitlist, polls, feedback, alerts |
 
 ## Supervisor Router (`/supervisor`)
 
-The supervisor router provides a standalone, simplified check-in interface at `/supervisor/` without the admin sidebar. It supports the same QR scanning and manual ticket verification as the admin check-in page, with immediate visual feedback on ticket validity and live check-in statistics.
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/supervisor/` | S+ | College-scoped dashboard with stats |
+| GET | `/supervisor/bookings` | S+ | Search and filter bookings |
+| GET | `/supervisor/schedule` | S+ | Schedule for college events |
+| GET/POST | `/supervisor/checkin` | S+ | QR scan and manual check-in (scoped to college) |
+
+## Speaker Router (`/speaker`)
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| GET | `/speaker/` | Sp | Dashboard with stats and navigation |
+| GET | `/speaker/sessions` | Sp | List sessions with booking counts |
+| GET | `/speaker/schedule` | Sp | Month/week calendar with event detail popovers |
+| GET/POST | `/speaker/sessions/{id}/edit` | Sp | Edit session content and agenda |
+| GET | `/speaker/sessions/{id}/polls` | Sp | Manage polls for a session |
+| POST | `/speaker/sessions/{id}/polls` | Sp | Create a new poll |
+| POST | `/speaker/polls/{id}/toggle` | Sp | Toggle poll active/inactive |
+| POST | `/speaker/polls/{id}/close` | Sp | Close a poll |
+| POST | `/speaker/polls/{id}/delete` | Sp | Delete a poll |
+| GET/POST | `/speaker/profile` | Sp | Edit speaker profile |
+| POST | `/speaker/upload-image` | Sp | Upload profile or content image |
+
+## Webhook Router
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| POST | `/webhooks/razorpay` | Signature | Verifies Razorpay webhook signature; logs payload; processes refund status updates |
+
+{{< pagebreak >}}
+
+# Key Business Flows
+
+## Paid Booking Flow
+
+The complete payment flow involves seat selection, temporary holds, Razorpay order creation, client-side payment, server-side verification, and confirmation with ticket and invoice generation.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.8
+sequenceDiagram
+    participant U as User
+    participant S as Server
+    participant RZ as Razorpay
+
+    U->>S: Select seats on map
+    U->>S: POST /hold (seat IDs)
+    S->>S: Create hold bookings (5 min)
+    U->>S: GET /checkout
+    S-->>U: Pricing + coupon + add-ons
+    U->>S: POST /create-order
+    S->>RZ: Create order (amount in paise)
+    RZ-->>S: Order ID
+    S-->>U: Order details (JSON)
+    U->>RZ: Client-side payment
+    RZ-->>U: Payment ID + signature
+    U->>S: POST /verify-payment
+    S->>S: HMAC verify + confirm bookings
+    S-->>U: Confirmation + QR tickets
+```
+
+## Free Booking Flow
+
+For free events (`price = 0`), the user skips Razorpay. After holding seats, `POST /pay` directly confirms the bookings, generates ticket IDs and QR codes, and redirects to the confirmation page.
+
+## Cancellation and Refund Flow
+
+Users or admins can cancel paid bookings. A fixed cancellation fee of 100 is deducted. If a Razorpay payment was made, a partial refund is issued. The Razorpay webhook reconciles the refund status asynchronously.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+flowchart LR
+    Cancel[User/Admin cancels] --> Fee["Deduct fee (100)"]
+    Fee --> Refund[Calculate refund]
+    Refund --> RZ[Razorpay partial refund]
+    RZ --> WH[Webhook callback]
+    WH --> Update[Update refund status]
+    Update --> Email[Send cancellation email]
+```
+
+## Pricing Resolution
+
+When calculating the price for a seat, the system resolves the price based on seat type:
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+flowchart LR
+    Start[Seat booked] --> VIP{VIP?}
+    VIP -->|Yes| PriceVIP[event.price_vip]
+    VIP -->|No| Acc{Accessible?}
+    Acc -->|Yes| PriceAcc[event.price_accessible]
+    Acc -->|No| Custom{"custom_{id}?"}
+    Custom -->|Yes| Lookup[SeatType.price from DB]
+    Lookup --> HasPrice{Price set?}
+    HasPrice -->|Yes| UseCustom[Use SeatType.price]
+    HasPrice -->|No| Fallback[event.price]
+    Custom -->|No| Fallback
+```
+
+A processing fee percentage (set per event) is applied at checkout as a separate line item and included in the Razorpay order total.
+
+## Feedback and Certificate Flow
+
+After an event ends, a background task loop creates feedback stubs for checked-in attendees and emails certificate download links. Users must complete feedback before downloading their certificate PDF.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2
+flowchart LR
+    End[Event ends] --> Task["Background task (15 min)"]
+    Task --> Stub[Create Feedback stubs]
+    Stub --> Email[Email certificate links]
+    Email --> Form[User submits feedback]
+    Form --> Cert[Download certificate PDF]
+```
+
+## Live Polls Flow
+
+Speakers or admins create polls within sessions. When a poll is activated, attendees receive real-time notifications via Server-Sent Events and can vote. Results update live for all connected viewers.
+
+```{mermaid}
+%%| fig-width: 6.3
+%%| fig-height: 2.5
+flowchart LR
+    Create[Speaker creates poll] --> Activate[Toggle active]
+    Activate --> SSE1[SSE: notify attendees]
+    SSE1 --> Vote[Attendees vote]
+    Vote --> Publish[Publish results]
+    Publish --> SSE2[SSE: update all viewers]
+    Activate --> Close[Speaker closes poll]
+    Close --> SSE3[SSE: notify closed]
+```
+
+The pub/sub system uses in-memory `asyncio.Queue` instances keyed by `(session_id, event_id)` for poll results and by `user_id` for attendee notifications. Two SSE endpoints serve these streams: `/sessions/{id}/polls/stream` and `/user/poll-notifications/stream`.
+
+## Ticket Sharing Flow
+
+A user can share a ticket by entering the recipient's email. The system generates a `TicketShare` row with a unique token and sends an email with a claim link. The recipient logs in and claims the ticket, which transfers the booking's `user_id`.
 
 {{< pagebreak >}}
 
 # Frontend Architecture
 
-TechTrek deliberately avoids single-page application frameworks. Every page is rendered on the server as complete HTML and delivered to the browser in a single round trip. This approach simplifies development, eliminates client-side routing complexity, and ensures the application works without JavaScript for basic browsing. Interactive features like seat selection, QR scanning, and the layout editor are layered on top through targeted JavaScript modules.
+## Templating System
 
-## Templating
+TechTrek uses 82 Jinja2 templates organised in an inheritance hierarchy across 8 directories. The root `base.html` provides the shared shell: navbar with mobile drawer, flash message area, main content block, footer, modal containers (feedback, QR zoom, confirmation, live poll popup), and extensive inline JavaScript for global functionality.
 
-The application uses 33 Jinja2 templates organized in an inheritance hierarchy. The root `base.html` provides the shared shell -- navbar, footer, theme toggle, flash messages, starfield background, and global JavaScript utilities. Child templates override named blocks (`title`, `head_extra`, `content`, `scripts`) to inject page-specific content. Admin pages add a second inheritance layer through `admin/base_admin.html`, which extends the base and wraps content in a sidebar navigation layout. Admin-specific templates override the `admin_content` block rather than `content` directly.
+| Directory | Templates | Purpose |
+|---|---|---|
+| `templates/` | 2 | `base.html` (root layout), `offline.html` (PWA fallback) |
+| `public/` | 13 | Home, events, sessions, schedule, recordings, tickets, polls, feedback, terms, newsletter |
+| `auth/` | 5 | Login, register, forgot/reset password, profile |
+| `booking/` | 6 | Seat selection, checkout, confirmation, my bookings, detail, certificate |
+| `admin/` | 20 | Dashboard, CRUD forms, settings, bookings, users, check-in, newsletters |
+| `admin/event_management/` | 8 | Per-event hub: overview, bookings, check-in, waitlist, polls, feedback, alerts |
+| `speaker/` | 5 | Dashboard, sessions, schedule, session editor, profile, polls |
+| `supervisor/` | 4 | Base, dashboard, bookings, schedule, check-in |
+| `errors/` | 2 | 404 and 500 pages |
+
+Template blocks available for child templates: `title`, `head_extra`, `content`, `scripts`, and `admin_content` (for admin pages).
 
 ## Design System
 
-The entire visual design is contained in a single 2,600-line CSS file (`app/static/css/style.css`) built entirely with CSS custom properties. This makes theming straightforward: switching between dark and light mode requires only overriding a set of CSS variables on the root `<html>` element.
+The visual design uses three CSS files totalling approximately 10,000 lines, built entirely with CSS custom properties for theming.
 
-The design uses three font families loaded from Google Fonts: **Orbitron** for headings and hero text, **Exo 2** for body copy and form labels, and **JetBrains Mono** for code, ticket IDs, and booking references.
+**Typography** uses three font families from Google Fonts:
 
-The default **dark theme** follows a cyberpunk aesthetic with a near-black background (`#010409`), layered dark surfaces for depth, and vibrant accent colors: cyan for primary interactions, amber for prices and VIP elements, violet for user bookings, green for success states, and red for errors. The **light theme** overrides all variables with a Frutiger Aero-inspired palette -- translucent white surfaces, dark text, and adjusted accent tones for readability.
+| Variable | Font | Usage |
+|---|---|---|
+| `--font-display` | Orbitron | Headings, hero text, brand name |
+| `--font-body` | Exo 2 (dark) / DM Sans (light) | Body text, form labels |
+| `--font-mono` | JetBrains Mono | Code, ticket IDs, booking refs |
 
-Layout uses a fixed 64px navbar, a 1200px max-width content container, and a consistent set of border-radius values (4px through 20px). The seat map uses a dedicated set of six color variables to distinguish available, taken, selected, VIP, accessible, and user-owned seats.
+**Dark theme** (default) follows a cyberpunk aesthetic:
+
+| Token | Value | Usage |
+|---|---|---|
+| `--bg-void` | `#010409` | Page background |
+| `--bg-primary` | `#0d1117` | Primary surfaces |
+| `--bg-surface` | `#161b22` | Cards, panels |
+| `--cyan` | `#00d4ff` | Primary accent, links |
+| `--amber` | `#f59e0b` | Prices, VIP elements |
+| `--violet` | `#8b5cf6` | User bookings |
+| `--green` | `#10b981` | Success states |
+| `--red` | `#f43f5e` | Errors, sold-out |
+
+**Light theme** is activated via `data-theme="light"` on `<html>` and applies a newspaper/editorial aesthetic with Playfair Display and Libre Baskerville fonts, translucent white surfaces, and adjusted accents.
+
+**Layout** uses a fixed 64px navbar, 1200px max-width container, and border-radius values from 4px to 20px. Responsive breakpoints at 480px, 600px, 768px, and 1024px.
+
+**Seat colours** use dedicated variables: `--seat-available` (green), `--seat-taken` (grey), `--seat-selected` (cyan), `--seat-vip` (amber), `--seat-accessible` (purple), `--seat-yours` (violet).
 
 ## Component Library
 
-All UI components are implemented in pure CSS without a JavaScript framework. The system includes a full **button** set with primary, outline, amber, and danger variants in small, standard, and large sizes. **Cards** support hover effects, image headers, and status badges (available, filling up, sold out, priority only). **Forms** provide consistently styled inputs, selects, textareas, and layout helpers. **Modals** implement focus trapping and keyboard dismissal for confirmation dialogs. **Flash messages** auto-dismiss after five seconds with fade-out animations. **Tables** support striped rows and action cells for admin views.
+All components are pure CSS without a JavaScript framework:
+
+| Component | Description |
+|---|---|
+| **Buttons** | Primary, outline, amber, danger variants in small/standard/large sizes with loading state |
+| **Cards** | Hover effects, image headers, status badges (available, filling up, sold out, priority only) |
+| **Forms** | Styled inputs, selects, textareas, groups, rows, and action bars |
+| **Modals** | Focus-trapping confirmation dialogs with keyboard dismissal |
+| **Flash Messages** | Auto-dismissing notification bars (5-second timeout, fade-out) |
+| **Tables** | Striped rows with action cells for admin views |
+| **Badges** | Status indicators on event cards |
+| **Toasts** | Programmatic notifications via `window.TechTrek.showToast()` |
 
 ## Interactive JavaScript
 
-Rather than using a client-side framework, TechTrek embeds JavaScript directly in the base template and ships two standalone modules for the most interactive features. This approach keeps the dependency footprint minimal -- the only external library is `html5-qrcode` loaded from a CDN for camera-based QR scanning.
+### Base Template Scripts
 
-The **base template** includes inline scripts that handle the animated starfield background (dark theme only), navbar scroll effects, mobile hamburger menu, theme persistence via `localStorage`, flash message auto-dismiss, scroll-reveal entrance animations, form submission spinners, a confirmation modal system with focus trapping, a programmatic toast notification API (`window.TechTrek.showToast()`), QR code zoom modals, and the admin sidebar toggle.
+The `base.html` template includes inline JavaScript providing global functionality:
 
-The **seat picker** (`seat-picker.js`) powers the booking flow's interactive seat selection page. It receives seat data and pricing tiers as JSON from the server, renders a grid of seat buttons with row labels and visual gaps matching the auditorium layout, and lets users click seats to toggle selection. A live summary panel shows selected seats, per-seat prices, and total cost. The component includes full ARIA accessibility (`role="grid"`, `role="gridcell"`) and responsive viewport scaling.
+- **Starfield canvas** -- animated particle background on dark theme
+- **Navbar scroll** -- adds `.scrolled` class after 20px for a compact header
+- **Mobile navigation** -- hamburger menu with slide-out drawer and overlay
+- **Theme toggle** -- persists to `localStorage`; swaps `data-theme` attribute
+- **Flash auto-dismiss** -- 5-second timeout with fade-out animation
+- **Scroll reveal** -- `IntersectionObserver` triggers entrance animations on `.reveal` elements
+- **Form loading** -- submit buttons get `.btn-loading` with spinner to prevent double-submission
+- **Confirm modal** -- `data-confirm` attribute triggers a dialog with focus trap; exposed as `window.TechTrek.confirmAction()`
+- **Toast API** -- `window.TechTrek.showToast(message, type)` for programmatic notifications
+- **QR zoom** -- click ticket QR images to enlarge in a modal
+- **Admin sidebar** -- mobile toggle for the admin sidebar with overlay
+- **Tom Select** -- CDN-loaded searchable `<select>` enhancement applied globally unless `data-no-tomselect`
+- **Service worker** -- registration and PWA install prompt handling
+- **Live poll popup** -- SSE listener for `/user/poll-notifications/stream` that shows poll popups and event alerts
 
-The **seat designer** (`seat-designer.js`) is the admin-facing auditorium layout editor. It provides paint tools for different seat types (standard, VIP, accessible, aisle, eraser) with click-and-drag interaction. Administrators can fill entire rows or columns, insert or delete rows and columns, create center aisles, adjust stage width, and toggle row/column gaps. On save, the layout is serialized to JSON and submitted via hidden form fields.
+### Standalone Modules
+
+**`seat-picker.js`** powers interactive seat selection on the booking page. Initialised with seat data, pricing tiers, and layout config from the server, it renders a grid with row labels (A-Z), column numbers, and visual gaps. Users click seats to toggle selection with live price summaries. Includes ARIA accessibility and responsive viewport scaling.
+
+**`seat-designer.js`** is the admin auditorium layout editor. Provides paint tools for seat types (standard, VIP, accessible, aisle, eraser) with click-and-drag interaction, row/column fill, center aisle creation, stage width adjustment, and gap toggling. Exports layout as JSON via hidden form fields.
+
+**`image-upload.js`** handles file selection, multipart POST to upload endpoints, and URL/preview population.
+
+**`gallery-upload.js`** extends image upload with multi-image support, drag-and-drop reordering, and hidden comma-separated ID synchronisation.
+
+## PWA Elements
+
+- **`manifest.json`** defines the app name, theme colour, display mode, and icon paths
+- **`service-worker.js`** caches listed static assets and provides an offline fallback for HTML navigations
+- **Install prompt** handling in `base.html` with a deferred `beforeinstallprompt` event
+
+## Client-Server Communication
+
+| Mechanism | Used For |
+|---|---|
+| Full-page GET | Most screens; HTML rendered with Jinja2 context |
+| HTML form POST | Login, registration, feedback, booking hold, check-in, admin CRUD |
+| `fetch` + JSON | Coupons, add-ons, Razorpay order/verify, poll CRUD/vote, ticket share/claim, newsletter preview |
+| EventSource (SSE) | Live poll results and attendee poll/alert notifications |
+| Razorpay Checkout | Client-side payment modal loaded from Razorpay CDN |
+| Multipart upload | Image and gallery uploads via `FormData` POST |
+| Session cookie | Authenticates all requests (same-origin, auto-sent) |
 
 {{< pagebreak >}}
 
-# Getting Started
+# Database Migrations
 
-This section covers everything needed to get TechTrek running on a local development machine. The setup process is straightforward: install Python dependencies, ensure PostgreSQL is available, optionally seed the database with sample data, and start the server. No Docker, Node.js, or frontend build step is required.
+## Alembic Setup
 
-## Prerequisites
+The project uses Alembic for schema versioning. The configuration lives in `alembic.ini` and `alembic/env.py`, which imports `settings.database_url` from `app/config` and `Base.metadata` from `app/database` as the target metadata.
 
-- **Python 3.10+**
-- **PostgreSQL** running locally (or update `DATABASE_URL` to point elsewhere)
+The `alembic/versions/` directory contains 24 migration revision files, numbered from `0001` through the most recent additions. These migrations track the full evolution of the schema from the initial tables through major structural changes.
 
-## Installation
+## Migration Highlights
 
-```bash
-# Clone the repository
-git clone <repo-url>
-cd techtrek
+**PII encryption migration** (`0004_encrypt_pii_fields.py`) is a substantial data migration that widens User columns to Text (for ciphertext), drops old unique constraints on plaintext columns, adds `email_hash` and `username_hash` columns, and re-encrypts existing rows using `app.crypto`.
 
-# Create and activate a virtual environment
-python -m venv .venv
-.venv\Scripts\activate       # Windows
-# source .venv/bin/activate  # macOS/Linux
+Other significant migrations add events tables, polls, feedback templates, ticket sharing, event add-ons, event breaks, session speakers, gallery images, and event alerts.
 
-# Install dependencies
-pip install -r requirements.txt
-```
+## Startup Fallback
 
-## Database Setup
+On every application startup, `app/main.py` runs `Base.metadata.create_all(bind=engine)` after importing all models. This ensures tables exist even if Alembic has not been run, which is useful for fresh development environments. The `seed.py` script similarly tries `alembic upgrade head` first and falls back to `create_all` on failure.
 
-Ensure PostgreSQL is running and a database named `techtrek` exists:
+For production deployments, both `deploy.py` and `deploy.sh` run `alembic upgrade head` as part of the deployment pipeline to apply pending migrations.
 
-```sql
-CREATE DATABASE techtrek;
-```
+{{< pagebreak >}}
 
-The application creates all tables automatically on startup. No manual migration step is needed.
+# Testing
 
-## Seed Sample Data
+## Test Infrastructure
 
-```bash
-python seed.py
-```
+Tests live in the `tests/` directory and use pytest with Starlette's `TestClient`. The test database is a SQLite file (`test_techtrek.db`) with foreign keys enabled via a connection listener.
 
-This populates the database with sample cities, colleges, auditoriums, speakers, sessions, testimonials, and user accounts. It only runs if the `users` table is empty.
+Environment variables (`DATABASE_URL`, `SECRET_KEY`, `FIELD_ENCRYPTION_KEY`) are set before any application module is imported so that `Settings` validation passes. A session-scoped fixture creates all tables at the start of the test suite and drops them afterward.
 
-## Run the Application
+The `client` fixture overrides `get_db` to inject the test session, ensuring database operations share the same transaction as test assertions.
 
-```bash
-uvicorn app.main:app --reload
-```
+## Session Cookie Forging
 
-The app will be available at `http://localhost:8000`. API docs (Swagger UI) are at `http://localhost:8000/api/docs` when `debug=True`.
+The `admin_session` helper forges a valid Starlette session cookie by base64-encoding a JSON payload containing `user_id` and `csrf_token`, then signing it with `itsdangerous.TimestampSigner` using the test `SECRET_KEY`. This allows tests to simulate authenticated requests without going through the login flow.
 
-## Default Accounts
+## Data Factories
 
-| Username | Password | Role |
-|---|---|---|
-| `admin` | `admin123` | Admin |
-| `alice` | `user123` | Regular user |
-| `bob` | `user123` | Regular user |
-| `charlie` | `user123` | Regular user |
+The `conftest.py` module provides factory functions for creating test data:
+
+| Factory | Creates |
+|---|---|
+| `make_user(db, ...)` | User with encrypted fields and HMAC hashes |
+| `make_college(db, ...)` | College with auto-created City |
+| `make_auditorium(db, ...)` | Auditorium with auto-created College |
+| `make_event(db, ...)` | Event with configurable pricing and status |
+| `make_session(db, ...)` | Session linked to event |
+| `make_testimonial(db, ...)` | Active testimonial |
+| `make_feedback(db, ...)` | Feedback with auto-created user and event |
+| `make_speaker(db, ...)` | Speaker with optional user link |
+| `make_recording(db, ...)` | Session recording |
+
+## Test Coverage
+
+| File | Coverage Area |
+|---|---|
+| `test_public_pages.py` | Home page, events list, session detail, schedule, recordings |
+| `test_admin_pages.py` | Admin dashboard, bookings, sessions, speakers, recordings, check-in |
+| `test_feedback.py` | Feedback form rendering, submission, and dismissal |
+
+Tests cover both authenticated and unauthenticated scenarios, admin and non-admin access, and edge cases such as missing data.
+
+{{< pagebreak >}}
+
+# Deployment
+
+## Production Deployment (Python)
+
+`deploy.py` is a single-file deployment runner that:
+
+1. Checks Python version (3.11+ required)
+2. Installs dependencies from `requirements.txt`
+3. Validates `.env` configuration (`SECRET_KEY`, `DATABASE_URL`, `FIELD_ENCRYPTION_KEY`)
+4. Runs `alembic upgrade head` to apply pending migrations
+5. Starts the production Uvicorn server (multi-worker)
+
+The script handles Windows terminal encoding (UTF-8 reconfiguration for PowerShell compatibility).
+
+## Production Deployment (Bash)
+
+`deploy.sh` provides a Linux-oriented alternative:
+
+1. Creates or activates a Python virtual environment (3.9+ minimum)
+2. Installs dependencies via pip
+3. Runs Alembic migrations
+4. Starts Uvicorn with optional `--service` flag for daemonisation
+
+## Development Server
+
+`run.py` is a convenience launcher for local development:
+
+1. Sets default `SECRET_KEY` and `DEBUG=True` if not already set
+2. Detects `certs/cert.pem` and `certs/key.pem` for optional HTTPS
+3. Runs `uvicorn.run("app.main:app", ...)` on port 8000
+4. Falls back to HTTP if `USE_HTTP=1` or certificates are not found
+
+Self-signed TLS certificates can be generated with `scripts/gen_cert.py` using the `cryptography` library.
 
 ## Environment Variables
 
-Create a `.env` file in the project root to override any settings. All settings have sensible defaults for local development.
+All configuration is managed via a `.env` file in the project root. Required variables for production:
 
-| Variable | Default | Description |
+| Variable | Required | Description |
 |---|---|---|
-| `DATABASE_URL` | `postgresql+psycopg2://postgres:root@localhost:5432/techtrek` | PostgreSQL connection string |
-| `SECRET_KEY` | `techtrek-dev-secret-change-in-production` | Session cookie signing key (change in production) |
-| `DEBUG` | `True` | Enable debug mode and Swagger docs |
-| `HOLD_TIMEOUT_MINUTES` | `5` | How long seat holds last before expiring |
-| `PRIORITY_WINDOW_HOURS` | `24` | Duration of waitlist priority access window |
-| `SMTP_HOST` | (empty) | SMTP server hostname; leave empty to skip emails |
-| `SMTP_PORT` | `587` | SMTP server port |
-| `SMTP_USER` | (empty) | SMTP login username |
-| `SMTP_PASSWORD` | (empty) | SMTP login password |
-| `SMTP_FROM_EMAIL` | `noreply@techtrek.in` | Sender email address |
-| `SMTP_FROM_NAME` | `TechTrek` | Sender display name |
+| `SECRET_KEY` | Yes | Session signing key (minimum 32 characters) |
+| `FIELD_ENCRYPTION_KEY` | Yes | Fernet key for PII encryption (44-char base64) |
+| `DATABASE_URL` | Yes | PostgreSQL connection string |
+| `RAZORPAY_KEY_ID` | For payments | Razorpay API key |
+| `RAZORPAY_KEY_SECRET` | For payments | Razorpay API secret |
+| `SMTP_HOST` | For emails | SMTP server hostname |
+| `SMTP_USER` / `SMTP_PASSWORD` | For emails | SMTP credentials |
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | For OAuth | Google OAuth credentials |
+| `ADMIN_BOOTSTRAP_EMAIL` | Recommended | Email that gets admin on first registration |
+| `BASE_URL` | Recommended | Public URL for email links and certificates |
+
+{{< pagebreak >}}
+
+# Appendix
 
 ## Dependencies
 
-```
-fastapi
-uvicorn[standard]
-sqlalchemy
-psycopg2-binary
-jinja2
-python-multipart
-bcrypt
-itsdangerous
-python-dotenv
-pydantic-settings
-qrcode[pil]
-```
+The `requirements.txt` file lists 20 Python packages (unpinned):
+
+| Package | Role |
+|---|---|
+| `fastapi` | Web framework |
+| `uvicorn[standard]` | ASGI server with libuv event loop |
+| `sqlalchemy` | ORM and database toolkit |
+| `psycopg2-binary` | PostgreSQL database driver |
+| `jinja2` | Template engine |
+| `python-multipart` | Form and file upload parsing |
+| `bcrypt` | Password hashing |
+| `itsdangerous` | Signed tokens for password reset and invites |
+| `python-dotenv` | `.env` file loading |
+| `pydantic-settings` | Type-safe configuration with validation |
+| `qrcode[pil]` | QR code image generation |
+| `razorpay` | Razorpay payment gateway SDK |
+| `reportlab` | PDF generation for invoices and certificates |
+| `babel` | Internationalization extraction tooling |
+| `alembic` | Database migration framework |
+| `cryptography` | Fernet encryption and TLS certificate generation |
+| `authlib` | OAuth 2.0 client (Google sign-in) |
+| `slowapi` | Rate limiting (listed but not yet wired) |
+| `pytest` | Test framework |
+| `httpx` | HTTP client for tests and seed script |
+
+## Seed Data
+
+The `seed.py` script populates the database with demonstration data in four phases:
+
+1. **Database setup** -- runs Alembic migrations or `create_all`
+2. **Core data** -- creates cities, colleges, auditoriums with seat layouts, speakers, and admin/user accounts
+3. **Events and sessions** -- creates multi-session events with agenda items, pricing, and published status
+4. **Simulated bookings** -- uses an HTTP client to drive the booking flow, simulating real user interactions including seat selection, payment, and check-in
+
+Default test accounts:
+
+| Username | Email | Password | Role |
+|---|---|---|---|
+| `admin` | `admin@techtrek.dev` | `admin123` | Admin |
+| `alice` | `alice@example.com` | `user123` | User |
+| `bob` | `bob@example.com` | `user123` | User |

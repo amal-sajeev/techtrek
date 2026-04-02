@@ -2,6 +2,10 @@
 (function(){
   var canvas = document.getElementById('starfield');
   if (!canvas) return;
+  // Respect user's motion preference and skip canvas on low-memory devices
+  var prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var lowMemory = navigator.deviceMemory !== undefined && navigator.deviceMemory < 2;
+  if (prefersReduced || lowMemory) { canvas.style.display = 'none'; return; }
   var ctx = canvas.getContext('2d');
   var W, H, stars = [];
   var DARK_COUNT = 180;

@@ -15,7 +15,7 @@ alembic
 cryptography
 authlib
 pytest
-httpx
+httpx<0.28
 openai>=1.55
 requests
 openpyxl

@@ -42,15 +42,15 @@ def notify_next_waitlisted(db: DBSession, event_id: int):
     if not user or not event:
         return
 
-    entry.notified = True
     entry.priority_expires_at = now_ist() + timedelta(hours=WAITLIST_PRIORITY_HOURS)
-    db.commit()
 
     base = settings.base_url.rstrip("/") if settings.base_url else ""
     event_url = f"{base}/events/{event_id}"
-    send_waitlist_notification(
+    sent = send_waitlist_notification(
         user.email, user.username, event.name, event.name, event_url,
     )
+    entry.notified = True if sent else False
+    db.commit()
 
 
 def get_seat_map(db: DBSession, event_id: int, auditorium_id: int):
@@ -146,9 +146,10 @@ def hold_seats(
         )
         db.add(booking)
         try:
+            nested = db.begin_nested()
             db.flush()
         except IntegrityError:
-            db.rollback()
+            nested.rollback()
             continue
         bookings.append(booking)
 

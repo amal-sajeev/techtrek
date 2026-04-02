@@ -410,7 +410,10 @@ def events_list(
     city_id: str | None = Query(None, alias="city_id"),
 ):
     now = now_ist()
-    city_id_int = int(city_id) if city_id else None
+    try:
+        city_id_int = int(city_id) if city_id else None
+    except ValueError:
+        city_id_int = None
 
     query = (
         db.query(Event)
@@ -974,6 +977,15 @@ async def share_ticket(request: Request, ticket_id: str, db: DbSession = Depends
     )
     if not booking:
         return JSONResponse({"ok": False, "error": "Ticket not found."}, status_code=404)
+    if booking.user_id != user_id:
+        return JSONResponse({"ok": False, "error": "You can only share your own tickets."}, status_code=403)
+
+    existing_share = db.query(TicketShare).filter(
+        TicketShare.ticket_id == ticket_id,
+        TicketShare.claimed_by.is_(None),
+    ).first()
+    if existing_share:
+        return JSONResponse({"ok": False, "error": "A pending share already exists for this ticket. Revoke it first."}, status_code=409)
 
     try:
         body = await request.json()

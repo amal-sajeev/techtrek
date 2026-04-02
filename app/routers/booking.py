@@ -18,6 +18,7 @@ from app.models.event import Event
 from app.models.user import User
 from app.models.waitlist import Waitlist
 from app.services.booking import (
+    CANCELLATION_FEE,
     _generate_qr_base64,
     _price_for_seat,
     apply_coupon_to_price,
@@ -486,10 +487,23 @@ async def event_pay_free(request: Request, event_id: int, db: Session = Depends(
         flash(request, "Hold expired. Please try again.", "danger")
         return RedirectResponse(f"/events/{event_id}", status_code=303)
 
+    ev = db.query(Event).get(event_id)
     coupon = None
     coupon_code = request.session.get("applied_coupon_code")
     if coupon_code:
         coupon, _ = validate_coupon(db, coupon_code, event_id)
+
+    seat_total = 0.0
+    for h in holds:
+        seat = db.query(Seat).get(h.seat_id)
+        price = _seat_price(ev, seat.seat_type if seat else "standard", db=db)
+        price = apply_coupon_to_price(price, coupon) if coupon else price
+        seat_total += price
+    fee_pct = float(ev.processing_fee_pct) if ev and ev.processing_fee_pct else 0
+    processing_fee = round(seat_total * fee_pct / 100, 2)
+    if seat_total + processing_fee > 0:
+        flash(request, "This event requires payment.", "danger")
+        return RedirectResponse(f"/booking/event/{event_id}/checkout", status_code=303)
 
     confirmed = confirm_payment(db, user.id, event_id, coupon=coupon)
 
@@ -569,6 +583,7 @@ def event_confirmation(
             total=total,
             custom_types_map=custom_types_map,
             purchased_addons=purchased_addons,
+            cancellation_fee=CANCELLATION_FEE,
         ),
     )
 
@@ -724,6 +739,7 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
             has_cancellable=len(paid_bookings) > 0,
             custom_types_map=custom_types_map,
             purchased_addons=purchased_addons,
+            cancellation_fee=CANCELLATION_FEE,
         ),
     )
 

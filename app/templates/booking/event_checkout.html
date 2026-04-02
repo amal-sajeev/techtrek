@@ -30,15 +30,6 @@
           {% endif %}
         </div>
 
-        <div class="checkout-seats">
-          <h4 class="checkout-seats-label">Selected Seats ({{ booking_count }})</h4>
-          <div class="checkout-seat-list">
-            {% for item in seat_items %}
-            <span class="seat-label-chip">{{ item.seat.label }}{% if item.seat.seat_type not in ('standard', 'aisle') %} <small>({{ custom_types_map.get(item.seat.seat_type, item.seat.seat_type)|upper if item.seat.seat_type.startswith('custom_') else item.seat.seat_type|upper }})</small>{% endif %}</span>
-            {% endfor %}
-          </div>
-        </div>
-
         <div class="checkout-coupon" style="margin-bottom:1rem">
           <label for="coupon-input" class="checkout-coupon-label">Coupon code</label>
           <div class="checkout-coupon-row" style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">

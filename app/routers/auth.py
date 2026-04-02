@@ -36,7 +36,10 @@ def _hash_pw(password: str) -> str:
 
 
 def _verify_pw(password: str, hashed: str) -> bool:
-    return bcrypt.checkpw(password.encode(), hashed.encode())
+    try:
+        return bcrypt.checkpw(password.encode(), hashed.encode())
+    except (ValueError, TypeError):
+        return False
 
 
 _PW_SPECIAL = r"[!@#$%^&*()\-_=+\[\]{};:'\",.<>?/\\|`~]"
@@ -116,6 +119,7 @@ async def login(request: Request, db: Session = Depends(get_db), _csrf: None = D
         qs = f"?next={next_url}" if next_url else ""
         return RedirectResponse(f"/auth/login{qs}", status_code=303)
 
+    request.session.clear()
     request.session["user_id"] = user.id
     _try_link_speaker_token(request, db, user)
     log_activity(
@@ -224,6 +228,8 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
     db.commit()
     db.refresh(user)
 
+    speaker_invite_next = request.session.get("speaker_invite_next", "")
+    request.session.clear()
     request.session["user_id"] = user.id
     _try_link_speaker_token(request, db, user)
     log_activity(
@@ -238,7 +244,7 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
     next_url = _safe_next(
         form.get("next", "").strip()
         or request.query_params.get("next", "")
-        or request.session.pop("speaker_invite_next", "")
+        or speaker_invite_next
     )
     return RedirectResponse(next_url, status_code=303)
 
@@ -253,7 +259,7 @@ async def verify_password(request: Request, db: Session = Depends(get_db)):
     if not password:
         return JSONResponse({"ok": False, "error": "Password required"})
     user = db.query(User).filter(User.id == user_id).first()
-    if not user or not _verify_pw(password, user.password_hash):
+    if not user or not user.password_hash or not _verify_pw(password, user.password_hash):
         return JSONResponse({"ok": False, "error": "Incorrect password"})
     return JSONResponse({"ok": True})
 
@@ -422,6 +428,7 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(user)
 
+    request.session.clear()
     request.session["user_id"] = user.id
     _try_link_speaker_token(request, db, user)
     log_activity(

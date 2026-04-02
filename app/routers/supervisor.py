@@ -116,6 +116,13 @@ def supervisor_dashboard(request: Request, db: Session = Depends(get_db)):
             "checked_in": checked,
         })
 
+    # Smart check-in: if exactly one event is happening today, link directly to it
+    today_events = [
+        item for item in upcoming_events
+        if item["event"].start_date == today
+    ]
+    today_event_id = today_events[0]["event"].id if len(today_events) == 1 else None
+
     return templates.TemplateResponse(
         "supervisor/dashboard.html",
         _sv_ctx(
@@ -127,6 +134,8 @@ def supervisor_dashboard(request: Request, db: Session = Depends(get_db)):
             total_bookings=total_bookings,
             total_checked_in=total_checked_in,
             upcoming_events=upcoming_events,
+            today_event_id=today_event_id,
+            today=today,
         ),
     )
 

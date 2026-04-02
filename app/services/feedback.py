@@ -80,8 +80,7 @@ def process_pending_feedback(base_url: str | None = None):
                 fb = Feedback(
                     user_id=user_id,
                     event_id=event.id,
-                    email_sent=True,
-                    email_sent_at=now,
+                    email_sent=False,
                 )
                 db.add(fb)
                 db.flush()
@@ -90,13 +89,16 @@ def process_pending_feedback(base_url: str | None = None):
                 cert_url = f"{base_url}/booking/certificate/{booking_id}"
 
                 try:
-                    send_certificate_ready(
+                    sent = send_certificate_ready(
                         user.email,
                         user.full_name or user.username,
                         event.name,
                         event_date,
                         cert_url,
                     )
+                    if sent:
+                        fb.email_sent = True
+                        fb.email_sent_at = now
                 except Exception:
                     logger.exception("Failed to send certificate email to user %d", user_id)
 

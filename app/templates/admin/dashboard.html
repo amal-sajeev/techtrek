@@ -7,18 +7,50 @@
 </div>
 
 <!-- Stats -->
+<style>
+  .stat-trend { display:inline-flex; align-items:center; gap:.25rem; font-size:.75rem; font-weight:600; margin-top:.25rem; }
+  .stat-trend.up   { color: var(--success, #10b981); }
+  .stat-trend.down { color: var(--danger, #f43f5e); }
+  .stat-trend.flat { color: var(--text-muted); }
+  .stat-trend svg  { flex-shrink:0; }
+  .stat-trend-label { font-size:.7rem; font-weight:400; opacity:.75; }
+</style>
 <div class="admin-stats">
   <div class="admin-stat-card">
     <div class="admin-stat-value">{{ total_users }}</div>
     <div class="admin-stat-label">Total Users</div>
+    {% if users_trend %}
+    <div class="stat-trend {{ users_trend[1] }}">
+      {% if users_trend[1] == 'up' %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>+{{ users_trend[0] }}
+      {% elif users_trend[1] == 'down' %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>−{{ users_trend[0] }}
+      {% else %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>0{% endif %}
+      <span class="stat-trend-label">vs last 7d</span>
+    </div>
+    {% endif %}
   </div>
   <div class="admin-stat-card">
     <div class="admin-stat-value">{{ total_bookings }}</div>
     <div class="admin-stat-label">Confirmed Bookings</div>
+    {% if bookings_trend %}
+    <div class="stat-trend {{ bookings_trend[1] }}">
+      {% if bookings_trend[1] == 'up' %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>+{{ bookings_trend[0] }}
+      {% elif bookings_trend[1] == 'down' %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>−{{ bookings_trend[0] }}
+      {% else %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>0{% endif %}
+      <span class="stat-trend-label">vs last 7d</span>
+    </div>
+    {% endif %}
   </div>
   <div class="admin-stat-card">
     <div class="admin-stat-value">₹{{ "%.0f"|format(total_revenue) }}</div>
     <div class="admin-stat-label">Total Revenue</div>
+    {% if revenue_trend %}
+    <div class="stat-trend {{ revenue_trend[1] }}">
+      {% if revenue_trend[1] == 'up' %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"/></svg>+₹{{ "%.0f"|format(revenue_trend[0]) }}
+      {% elif revenue_trend[1] == 'down' %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>−₹{{ "%.0f"|format(revenue_trend[0]) }}
+      {% else %}<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/></svg>₹0{% endif %}
+      <span class="stat-trend-label">vs last 7d</span>
+    </div>
+    {% endif %}
   </div>
   <div class="admin-stat-card">
     <div class="admin-stat-value">{{ upcoming_count }}</div>
@@ -50,7 +82,7 @@
   <div class="em-card-grid">
     {% for item in active_events %}
     {% set ev = item.event %}
-    <a href="/admin/event-management/{{ ev.id }}" class="em-event-card" data-search="{{ ev.name|lower }} {{ (ev.college.name if ev.college else '')|lower }} {{ (ev.college.city.name if ev.college and ev.college.city else '')|lower }}">
+    <div class="em-event-card" data-search="{{ ev.name|lower }} {{ (ev.college.name if ev.college else '')|lower }} {{ (ev.college.city.name if ev.college and ev.college.city else '')|lower }}" onclick="window.location='/admin/event-management/{{ ev.id }}'" style="cursor:pointer">
       <div class="em-card-header">
         <h3 class="em-card-title">{{ ev.name }}</h3>
         {% if ev.status == 'published' %}
@@ -87,7 +119,21 @@
           <span class="em-stat-label">Waitlist</span>
         </div>
       </div>
-    </a>
+      <div class="em-card-actions" onclick="event.stopPropagation()">
+        <a href="/admin/event-management/{{ ev.id }}/checkin" class="em-action-btn" title="Check-in Scanner">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+          Check-in
+        </a>
+        <a href="/admin/event-management/{{ ev.id }}/bookings" class="em-action-btn" title="View Bookings">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 19.5v-15A2.5 2.5 0 016.5 2H20v20H6.5a2.5 2.5 0 010-5H20"/></svg>
+          Bookings
+        </a>
+        <a href="/admin/event-management/{{ ev.id }}/alerts" class="em-action-btn" title="Send Alert">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+          Alert
+        </a>
+      </div>
+    </div>
     {% endfor %}
   </div>
   <script>

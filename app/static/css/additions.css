@@ -4183,6 +4183,59 @@
   letter-spacing: .03em;
 }
 
+/* Event card quick-action footer */
+.em-card-actions {
+  display: flex;
+  gap: .35rem;
+  padding-top: .65rem;
+  margin-top: .65rem;
+  border-top: 1px solid var(--border, rgba(255,255,255,.08));
+  flex-wrap: wrap;
+  align-items: center;
+}
+.em-action-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .72rem;
+  font-weight: 500;
+  padding: .28rem .6rem;
+  border-radius: var(--radius-sm, 4px);
+  border: 1px solid var(--border, rgba(255,255,255,.12));
+  color: var(--text-secondary, #94a3b8);
+  background: var(--bg-void, #010409);
+  text-decoration: none;
+  transition: border-color .15s, color .15s, background .15s;
+  white-space: nowrap;
+}
+.em-action-btn:hover {
+  border-color: var(--cyan, #00d4ff);
+  color: var(--cyan, #00d4ff);
+  background: rgba(0,212,255,.06);
+  text-decoration: none;
+}
+.em-action-manage {
+  margin-left: auto;
+  border-color: transparent;
+  color: var(--text-muted, #94a3b8);
+  font-size: .7rem;
+}
+.em-action-manage:hover {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-primary, #e6edf3);
+}
+[data-theme="light"] .em-action-btn {
+  background: var(--bg-secondary, #f8fafc);
+  border-color: var(--border, #e2e8f0);
+  color: var(--text-secondary, #64748b);
+}
+[data-theme="light"] .em-action-btn:hover {
+  border-color: var(--cyan, #0891b2);
+  color: var(--cyan, #0891b2);
+  background: rgba(8,145,178,.05);
+}
+
 /* Hub Tabs */
 .em-hub-tabs {
   display: flex;
@@ -5896,3 +5949,52 @@ textarea.sess-autosize {
 [data-theme="light"] .m-rbw,
 [data-theme="light"] .m-star-bg { background: rgba(14,14,14,0.08); }
 [data-theme="light"] .m-tabs { border-bottom-color: rgba(14,14,14,0.1); }
+
+/* ---- AUTH PAGE ATMOSPHERE ---- */
+@keyframes auth-orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33%       { transform: translate(18px, -22px) scale(1.06); }
+  66%       { transform: translate(-12px, 14px) scale(.96); }
+}
+@keyframes auth-logo-pulse {
+  0%, 100% { text-shadow: 0 0 18px rgba(0,212,255,.55), 0 0 40px rgba(0,212,255,.2); }
+  50%       { text-shadow: 0 0 30px rgba(0,212,255,.85), 0 0 70px rgba(0,212,255,.35); }
+}
+@keyframes auth-logo-flicker {
+  0%, 95%, 100% { opacity: 1; }
+  96%           { opacity: .85; }
+  97%           { opacity: 1; }
+  98%           { opacity: .9; }
+}
+
+/* Atmospheric orbs behind the card */
+.auth-page::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse 55% 45% at 20% 25%, rgba(0,212,255,.07) 0%, transparent 70%),
+    radial-gradient(ellipse 50% 40% at 80% 75%, rgba(139,92,246,.07) 0%, transparent 70%),
+    radial-gradient(ellipse 35% 30% at 65% 15%, rgba(0,212,255,.04) 0%, transparent 60%);
+  animation: auth-orb-drift 14s ease-in-out infinite;
+  z-index: 0;
+}
+
+/* Stronger, animated logo */
+.auth-logo {
+  animation: auth-logo-pulse 3.5s ease-in-out infinite, auth-logo-flicker 8s step-end infinite;
+}
+
+/* Slightly stronger card border glow */
+.auth-box::before {
+  opacity: .32;
+  transition: opacity .4s;
+}
+.auth-box:focus-within::before {
+  opacity: .5;
+}
+
+/* Light mode: disable orb animation (looks off on light bg) */
+[data-theme="light"] .auth-page::after { display: none; }
+[data-theme="light"] .auth-logo { animation: none; }

@@ -7,7 +7,7 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, File, Query, Request, UploadFile
 from fastapi.responses import JSONResponse, RedirectResponse, Response, StreamingResponse
-from sqlalchemy import func, or_
+from sqlalchemy import Date, cast, func, or_
 from sqlalchemy.orm import Session, joinedload
 
 from app.csrf import csrf_protection
@@ -185,6 +185,39 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
     total_checked_in = db.query(func.count(Booking.id)).filter(Booking.checked_in == True).scalar()
     total_refunded = db.query(func.count(Booking.id)).filter(Booking.payment_status == "refunded").scalar()
 
+    # ── Week-over-week trends ─────────────────────────────────────────────
+    week_ago = now - timedelta(days=7)
+    two_weeks_ago = now - timedelta(days=14)
+    bookings_this_week = db.query(func.count(Booking.id)).filter(
+        *_paid_not_shared, Booking.booked_at >= week_ago
+    ).scalar() or 0
+    bookings_last_week = db.query(func.count(Booking.id)).filter(
+        *_paid_not_shared, Booking.booked_at >= two_weeks_ago, Booking.booked_at < week_ago
+    ).scalar() or 0
+    revenue_this_week = float(db.query(func.sum(Booking.amount_paid)).filter(
+        *_paid_not_shared, Booking.booked_at >= week_ago
+    ).scalar() or 0)
+    revenue_last_week = float(db.query(func.sum(Booking.amount_paid)).filter(
+        *_paid_not_shared, Booking.booked_at >= two_weeks_ago, Booking.booked_at < week_ago
+    ).scalar() or 0)
+    users_this_week = db.query(func.count(User.id)).filter(User.created_at >= week_ago).scalar() or 0
+    users_last_week = db.query(func.count(User.id)).filter(
+        User.created_at >= two_weeks_ago, User.created_at < week_ago
+    ).scalar() or 0
+
+    def _trend(current, previous):
+        """Return (delta, direction) where direction is 'up', 'down', or 'flat'."""
+        delta = current - previous
+        if delta > 0:
+            return delta, "up"
+        elif delta < 0:
+            return abs(delta), "down"
+        return 0, "flat"
+
+    bookings_trend = _trend(bookings_this_week, bookings_last_week)
+    revenue_trend  = _trend(revenue_this_week,  revenue_last_week)
+    users_trend    = _trend(users_this_week,    users_last_week)
+
     active_events_raw = (
         db.query(Event)
         .filter(Event.status.notin_(["completed", "cancelled"]))
@@ -219,6 +252,9 @@ def dashboard(request: Request, db: Session = Depends(get_db)):
             total_checked_in=total_checked_in,
             total_refunded=total_refunded,
             active_events=active_events,
+            bookings_trend=bookings_trend,
+            revenue_trend=revenue_trend,
+            users_trend=users_trend,
         ),
     )
 
@@ -2430,15 +2466,20 @@ def users_csv(
         return RedirectResponse("/auth/login", status_code=303)
     query = db.query(User)
     apply_filters = use_filters.strip().lower() in ("1", "true", "yes")
-    if apply_filters and q.strip():
-        like = f"%{q.strip()}%"
-        query = query.filter(
-            User.username.ilike(like)
-            | User.email.ilike(like)
-            | User.full_name.ilike(like)
-            | User.college.ilike(like)
-        )
+    search_term = q.strip().lower() if apply_filters and q.strip() else ""
+    if search_term:
+        like = f"%{search_term}%"
+        query = query.filter(User.college.ilike(like))
     users = query.order_by(User.created_at.desc()).all()
+    if search_term:
+        filtered = []
+        for u in users:
+            if any(
+                search_term in (getattr(u, f, "") or "").lower()
+                for f in ("username", "email", "full_name", "college")
+            ):
+                filtered.append(u)
+        users = filtered
 
     def _safe(u, attr, default=""):
         v = getattr(u, attr, None)
@@ -2549,7 +2590,7 @@ async def user_delete(request: Request, user_id: int, db: Session = Depends(get_
     delete_type = form.get("delete_type", "soft")
 
     if delete_type == "hard":
-        db.query(Booking).filter(Booking.user_id == user_id).update({"user_id": None})
+        db.query(Booking).filter(Booking.user_id == user_id).delete()
         db.query(Feedback).filter(Feedback.user_id == user_id).delete()
         log_activity(db, category="admin", action="delete",
                      description=f"Hard-deleted user '{u.username}' (id={user_id})",
@@ -6399,19 +6440,17 @@ def event_management_report(request: Request, event_id: int, db: Session = Depen
         .group_by(Booking.payment_status).all()
     )
 
-    try:
-        daily_rows = (
-            db.query(func.date_trunc("day", Booking.booked_at).label("d"), func.count(Booking.id))
-            .filter(Booking.event_id == event_id, Booking.payment_status == "paid",
-                    Booking.is_shared_ticket == False)
-            .group_by("d").order_by("d").all()
-        )
-        daily_trend = [
-            {"date": d.strftime("%b %d") if hasattr(d, "strftime") else str(d)[:10], "count": cnt}
-            for d, cnt in daily_rows
-        ]
-    except Exception:
-        daily_trend = []
+    day_col = cast(Booking.booked_at, Date).label("d")
+    daily_rows = (
+        db.query(day_col, func.count(Booking.id))
+        .filter(Booking.event_id == event_id, Booking.payment_status == "paid",
+                Booking.is_shared_ticket == False)
+        .group_by("d").order_by("d").all()
+    )
+    daily_trend = [
+        {"date": d.strftime("%b %d") if hasattr(d, "strftime") else str(d)[:10], "count": cnt}
+        for d, cnt in daily_rows
+    ]
 
     coupons = db.query(Coupon).filter(Coupon.event_id == event_id).all()
     coupon_data = []

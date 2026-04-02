@@ -27,7 +27,7 @@
 </div>
 
 <div class="speaker-nav-cards" style="margin-top:1.5rem;margin-bottom:2rem;">
-  <a href="/supervisor/checkin" class="speaker-nav-card">
+  <a href="/supervisor/checkin{% if today_event_id %}?event_id={{ today_event_id }}{% endif %}" class="speaker-nav-card">
     <div class="speaker-nav-icon">
       <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
     </div>
@@ -68,6 +68,7 @@
         <tr>
           <th>Event</th>
           <th>Date</th>
+          <th>Status</th>
           <th>Auditorium</th>
           <th>Bookings</th>
           <th>Checked In</th>
@@ -78,6 +79,15 @@
         <tr>
           <td data-label="Event"><strong>{{ item.event.name }}</strong></td>
           <td data-label="Date">{{ item.event.start_date.strftime('%b %d, %Y') if item.event.start_date else '—' }}</td>
+          <td data-label="Status">
+            {% if item.event.start_date and item.event.start_date == today %}
+            <span class="badge badge-published">Today</span>
+            {% elif item.event.end_date and item.event.end_date and item.event.start_date and item.event.start_date <= today and item.event.end_date >= today %}
+            <span class="badge badge-published">In Progress</span>
+            {% else %}
+            <span class="badge badge-draft">Upcoming</span>
+            {% endif %}
+          </td>
           <td data-label="Auditorium">{{ item.auditorium_name }}</td>
           <td data-label="Bookings">{{ item.booked }}</td>
           <td data-label="Checked In">{{ item.checked_in }}</td>
