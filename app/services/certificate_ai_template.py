@@ -49,7 +49,11 @@ FREEFORM_VARIABLE_ALLOWLIST = frozenset(
     }
 )
 
-ALLOWED_FONTS = frozenset({"arial", "georgia", "times", "verdana", "calibri", "courier"})
+ALLOWED_FONTS = frozenset({
+    "arial", "georgia", "times", "verdana", "calibri", "courier",
+    "trebuchet", "comic", "palatino", "candara", "tahoma",
+    "impact", "garamond", "lucida", "bookantiqua",
+})
 ALLOWED_ALIGN = frozenset({"left", "center", "right"})
 MIN_BOX_PT = 8.0
 FONT_SIZE_MIN = 6.0
@@ -213,6 +217,24 @@ def validate_and_normalize_layers(raw_layers: Any, page_w: float, page_h: float)
     return out
 
 
+def _fit_to_a4_landscape(data: bytes) -> bytes:
+    """Resize the image to exact A4 landscape proportions (842:595) without cropping."""
+    try:
+        im = Image.open(io.BytesIO(data))
+    except Exception:
+        return data
+    w, h = im.size
+    target_ratio = 842.0 / 595.0
+    if abs((w / h) - target_ratio) < 0.01:
+        return data
+    new_w = max(w, int(h * target_ratio))
+    new_h = int(new_w / target_ratio)
+    im = im.resize((new_w, new_h), Image.LANCZOS)
+    buf = io.BytesIO()
+    im.save(buf, format="PNG")
+    return buf.getvalue()
+
+
 def _png_bytes_under_limit(data: bytes) -> tuple[bytes, str]:
     """Return (bytes, content_type) within MAX_UPLOAD_BYTES; may re-encode as JPEG."""
     if len(data) <= MAX_UPLOAD_BYTES:
@@ -266,6 +288,15 @@ def generate_decorated_background(client: OpenAI, settings: Settings, prompt_hin
             output_format="png",
         )
     except Exception as exc:
+        msg = str(exc)
+        if "api_key" in msg.lower() or "401" in msg or "unauthorized" in msg.lower():
+            raise CertificateAiImageError(
+                "OpenAI API key is invalid or expired. Check OPENAI_API_KEY in your .env file."
+            ) from exc
+        if "rate_limit" in msg.lower() or "429" in msg:
+            raise CertificateAiImageError(
+                "OpenAI rate limit reached. Please wait a moment and try again."
+            ) from exc
         raise CertificateAiImageError(f"Image generation failed: {exc}") from exc
 
     if not resp.data:
@@ -285,7 +316,37 @@ def generate_decorated_background(client: OpenAI, settings: Settings, prompt_hin
     raise CertificateAiImageError("Image response had neither b64_json nor url.")
 
 
-def _layout_system_user_parts(page_w: float, page_h: float) -> tuple[str, str]:
+def _summarize_existing_layers(existing_layers: list[dict[str, Any]]) -> str:
+    """Build a short textual summary of existing layers for the AI prompt."""
+    if not existing_layers:
+        return ""
+    parts: list[str] = []
+    for L in existing_layers:
+        t = str(L.get("type", "")).lower()
+        if t == "qr":
+            parts.append(
+                f"  - QR code at xPt={L.get('xPt')}, yPt={L.get('yPt')}, "
+                f"widthPt={L.get('widthPt')}, heightPt={L.get('heightPt')}"
+            )
+        elif t == "text":
+            var = L.get("variable", "static")
+            parts.append(
+                f"  - Text ({var}) at xPt={L.get('xPt')}, yPt={L.get('yPt')}, "
+                f"widthPt={L.get('widthPt')}, heightPt={L.get('heightPt')}"
+            )
+    if not parts:
+        return ""
+    return (
+        "\n\nExisting layers on the canvas (preserve their positions and avoid overlapping them):\n"
+        + "\n".join(parts)
+    )
+
+
+def _layout_system_user_parts(
+    page_w: float,
+    page_h: float,
+    existing_layers: list[dict[str, Any]] | None = None,
+) -> tuple[str, str]:
     vars_sorted = ", ".join(sorted(FREEFORM_VARIABLE_ALLOWLIST - {"static"}))
     system = (
         "You output only valid JSON for a certificate overlay editor. "
@@ -294,20 +355,63 @@ def _layout_system_user_parts(page_w: float, page_h: float) -> tuple[str, str]:
         "rotation is in degrees, positive = counterclockwise (same as PDF typical usage in this app). "
         "The page size is fixed — do not use pixel coordinates from the image; map visually to this page."
     )
+
+    has_qr = any(
+        str(L.get("type", "")).lower() == "qr" for L in (existing_layers or [])
+    )
+    qr_instruction = (
+        "IMPORTANT: The canvas already has a QR code. You MUST include a QR layer in your response "
+        "at the same position and size as the existing one. Do NOT omit it.\n"
+        if has_qr
+        else ""
+    )
+
+    existing_summary = _summarize_existing_layers(existing_layers or [])
+
     user = (
         f"Page size: {page_w} points wide × {page_h} points tall (landscape certificate).\n"
-        "Analyze the attached certificate background image and propose text and QR overlay layers.\n"
+        + qr_instruction
+        + "Analyze the attached certificate background image and propose text and QR overlay layers.\n"
         "Return a single JSON object with top-level key \"layers\" (array). Each element:\n"
         '- type \"text\": variable (one of: static, '
         + vars_sorted
         + '), for static text also include non-empty "text"; '
-        "xPt, yPt, widthPt, heightPt, fontSize (6–72), optional font (arial|georgia|times|verdana|calibri|courier), "
+        "xPt, yPt, widthPt, heightPt, fontSize (6–72), optional font (arial|georgia|times|verdana|calibri|courier|trebuchet|palatino|garamond|tahoma|impact|lucida|bookantiqua|candara|comic), "
         'color as #RRGGBB, align (left|center|right), optional bold/italic/underline booleans, rotation.\n'
         '- type \"qr\": xPt, yPt, widthPt, heightPt (square recommended), rotation, optional showCaption boolean.\n'
         "Use only these types. Prefer variable bindings over static text except for minor labels. "
         "Example: {\"layers\":[{\"type\":\"text\",\"variable\":\"title_text\",\"xPt\":121,\"yPt\":388,\"widthPt\":600,\"heightPt\":40,\"fontSize\":28,\"color\":\"#0a1628\",\"bold\":true,\"align\":\"center\",\"rotation\":0}]}"
+        + existing_summary
     )
     return system, user
+
+
+def _ensure_existing_qr_preserved(
+    ai_layers: list[dict[str, Any]],
+    existing_layers: list[dict[str, Any]] | None,
+) -> list[dict[str, Any]]:
+    """If the original canvas had QR codes but the AI didn't return any, carry them over."""
+    if not existing_layers:
+        return ai_layers
+    old_qrs = [L for L in existing_layers if str(L.get("type", "")).lower() == "qr"]
+    if not old_qrs:
+        return ai_layers
+    new_has_qr = any(L.get("type") == "qr" for L in ai_layers)
+    if new_has_qr:
+        return ai_layers
+    for qr in old_qrs:
+        ai_layers.append({
+            "id": qr.get("id") or "L" + secrets.token_hex(4),
+            "type": "qr",
+            "zIndex": (len(ai_layers) + 1) * 10,
+            "xPt": float(qr.get("xPt", 0)),
+            "yPt": float(qr.get("yPt", 0)),
+            "widthPt": float(qr.get("widthPt", 80)),
+            "heightPt": float(qr.get("heightPt", 80)),
+            "rotation": float(qr.get("rotation", 0)),
+            "showCaption": bool(qr.get("showCaption", True)),
+        })
+    return ai_layers
 
 
 def propose_layers_from_image(
@@ -317,6 +421,7 @@ def propose_layers_from_image(
     page_w: float,
     page_h: float,
     image_content_type: str = "image/png",
+    existing_layers: list[dict[str, Any]] | None = None,
 ) -> tuple[list[dict[str, Any]], bool]:
     """
     Vision call → validated layers. Returns (layers, used_fallback).
@@ -327,7 +432,7 @@ def propose_layers_from_image(
 
     b64 = base64.standard_b64encode(image_bytes).decode("ascii")
     mime = "image/png" if image_content_type == "image/png" else "image/jpeg"
-    system, user_text = _layout_system_user_parts(page_w, page_h)
+    system, user_text = _layout_system_user_parts(page_w, page_h, existing_layers=existing_layers)
     content: list[dict[str, Any]] = [
         {"type": "text", "text": user_text},
         {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}},
@@ -357,6 +462,8 @@ def propose_layers_from_image(
     validated = validate_and_normalize_layers(raw_layers, page_w, page_h)
     if not validated:
         return fallback_layers, True
+
+    validated = _ensure_existing_qr_preserved(validated, existing_layers)
     return validated, False
 
 
@@ -382,12 +489,18 @@ def build_full_cert_style(upload_url: str, layers: list[dict[str, Any]], page_w:
     return style
 
 
-def run_ai_certificate_template_pipeline(db: Session, settings: Settings, prompt_hint: str = "") -> dict[str, Any]:
+def run_ai_certificate_template_pipeline(
+    db: Session,
+    settings: Settings,
+    prompt_hint: str = "",
+    existing_layers: list[dict[str, Any]] | None = None,
+) -> dict[str, Any]:
     if not (settings.openai_api_key or "").strip():
         raise CertificateAiImageError("OPENAI_API_KEY is not configured.")
 
     client = OpenAI(api_key=settings.openai_api_key)
     png_bytes = generate_decorated_background(client, settings, prompt_hint)
+    png_bytes = _fit_to_a4_landscape(png_bytes)
     sized, ctype = _png_bytes_under_limit(png_bytes)
     _upload_id, upload_url = store_upload(db, sized, ctype)
 
@@ -397,7 +510,8 @@ def run_ai_certificate_template_pipeline(db: Session, settings: Settings, prompt
     ph = float(page.get("heightPt", 595))
 
     layers, layout_fallback = propose_layers_from_image(
-        client, settings, sized, pw, ph, image_content_type=ctype
+        client, settings, sized, pw, ph, image_content_type=ctype,
+        existing_layers=existing_layers,
     )
     cert_style = build_full_cert_style(upload_url, layers, pw, ph)
 

@@ -618,11 +618,9 @@ def should_render_certificate_as_freeform(d: dict) -> bool:
 
 def default_freeform_cert_style_dict() -> dict:
     pw, ph = landscape(A4)
-    m = 14 * mm + 4 * mm
-    qr_size = 70.0
-    qr_x = pw - m - 10 - qr_size
 
-    def tb(var, z, x, y_bottom, w, h, fs, color, bold, italic, align="center"):
+    def tb(var, z, x, y_bottom, w, h, fs, color, bold, italic,
+           align="center", font="arial"):
         return {
             "id": f"t-{var}-{z}",
             "type": "text",
@@ -633,7 +631,7 @@ def default_freeform_cert_style_dict() -> dict:
             "yPt": y_bottom,
             "widthPt": w,
             "heightPt": h,
-            "font": "arial",
+            "font": font,
             "fontSize": fs,
             "color": color,
             "bold": bold,
@@ -647,32 +645,32 @@ def default_freeform_cert_style_dict() -> dict:
         "version": CERT_STYLE_VERSION_FREEFORM,
         "layout": "freeform",
         "page": {"widthPt": pw, "heightPt": ph},
-        "border_style": DEFAULT_STYLE["border_style"],
+        "border_style": "minimal",
         "border_width": float(DEFAULT_STYLE["border_width"]),
         "bg_size": DEFAULT_STYLE["bg_size"],
         "bg_offset_x": 0.0,
         "bg_offset_y": 0.0,
         "layers": [
-            tb("brand_text", 10, 171, 455, 500, 40, 30, "#0e7490", True, False),
-            tb("title_text", 11, 121, 388, 600, 40, 28, "#0a1628", True, False),
-            tb("subtitle_text", 12, 121, 358, 600, 28, 12, "#475569", False, False),
-            tb("attendee_name", 20, 121, 262, 600, 60, 50, "#0a1628", True, False),
-            tb("attending_line", 21, 121, 247, 600, 24, 15, "#475569", False, True),
-            tb("event_session_title", 22, 121, 211, 600, 36, 22, "#0e7490", True, False),
-            tb("details_line", 23, 121, 132, 600, 26, 16, "#334155", False, False),
-            tb("venue_line", 24, 121, 100, 600, 26, 16, "#334155", False, False),
-            tb("signer_name", 25, 50, 62, 200, 40, 11, "#0a1628", True, False, "left"),
-            tb("signer_designation", 26, 50, 48, 200, 30, 9, "#475569", False, True, "left"),
-            tb("cert_id_line", 30, 121, 60, 600, 16, 8, "#94a3b8", False, False),
-            tb("footer_text", 31, 121, 44, 600, 20, 8, "#94a3b8", False, False),
+            tb("brand_text",          10, 121, 508, 600, 24, 13, "#555555", False, False),
+            tb("title_text",          11, 121, 460, 600, 38, 28, "#1a1a1a", True,  False),
+            tb("subtitle_text",       12, 171, 432, 500, 22, 11, "#888888", False, False),
+            tb("attendee_name",       20,  71, 348, 700, 68, 52, "#1a1a1a", True,  False),
+            tb("attending_line",      21, 171, 320, 500, 20, 12, "#555555", False, True),
+            tb("event_session_title", 22, 121, 280, 600, 32, 20, "#1a1a1a", True,  False),
+            tb("details_line",        23, 121, 252, 600, 22, 12, "#555555", False, False),
+            tb("venue_line",          24, 121, 228, 600, 22, 12, "#555555", False, False),
+            tb("signer_name",         30,  50, 105, 220, 20, 11, "#1a1a1a", True,  False, align="left"),
+            tb("signer_designation",  31,  50,  87, 220, 18,  9, "#888888", False, True,  align="left"),
+            tb("cert_id_line",        35, 280,  78, 300, 16,  8, "#aaaaaa", False, False),
+            tb("footer_text",         36, 280,  60, 300, 16,  8, "#aaaaaa", False, False),
             {
                 "id": "qr-1",
                 "type": "qr",
                 "zIndex": 40,
-                "xPt": qr_x,
-                "yPt": 88,
-                "widthPt": qr_size,
-                "heightPt": qr_size,
+                "xPt": 697.0,
+                "yPt": 65.0,
+                "widthPt": 78.0,
+                "heightPt": 78.0,
                 "rotation": 0,
                 "showCaption": True,
             },

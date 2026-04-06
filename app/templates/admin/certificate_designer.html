@@ -20,7 +20,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: .5rem .65rem;
-  margin-bottom: 1rem;
+  margin-bottom: .35rem;
 }
 .cert-dz-tb-group {
   display: flex;
@@ -41,6 +41,15 @@
   margin-right: .25rem;
 }
 .cert-dz-toolbar .btn { font-size: .78rem; padding: .35rem .65rem; }
+.cert-dz-toolbar-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .35rem;
+  margin-bottom: 1rem;
+}
+.cert-dz-toolbar-secondary .btn { font-size: .72rem; padding: .25rem .5rem; opacity: .7; }
+.cert-dz-toolbar-secondary .btn:hover { opacity: 1; }
 .cert-dz-dropdown-wrap { position: relative; display: inline-block; }
 .cert-dz-varfield-menu {
   position: absolute;
@@ -80,7 +89,7 @@
 .cert-dz-varfield-item:hover { background: var(--bg-muted, #f1f5f9); }
 .cert-dz-layout {
   display: grid;
-  grid-template-columns: 1fr 300px;
+  grid-template-columns: 1fr 320px;
   gap: 1rem;
   align-items: start;
 }
@@ -112,7 +121,7 @@
 }
 .cert-dz-props h3 { margin: 0 0 .75rem; font-size: .95rem; }
 .cert-dz-props label { display: block; margin-top: .5rem; font-size: .75rem; color: var(--text-muted, #64748b); }
-.cert-dz-props input, .cert-dz-props select {
+.cert-dz-props input, .cert-dz-props select, .cert-dz-props textarea {
   width: 100%;
   margin-top: .2rem;
   padding: .35rem .5rem;
@@ -120,6 +129,7 @@
   border: 1px solid var(--color-border, #e2e8f0);
   font-size: .82rem;
 }
+.cert-dz-props textarea { resize: vertical; font-family: inherit; min-height: 60px; }
 .cert-dz-type-badge {
   display: inline-block;
   font-size: .72rem;
@@ -179,13 +189,196 @@
 .cert-dz-color-row .cert-dz-hex-input { flex: 1; min-width: 0; font-family: ui-monospace, monospace; }
 .cert-dz-status { font-size: .8rem; color: var(--text-muted); }
 .cert-dz-grid-hint { font-size: .72rem; color: #94a3b8; margin-top: .5rem; }
+
+/* --- Collapsible sidebar sections --- */
+.cert-dz-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+.cert-dz-section-toggle h3 { margin: 0; font-size: .95rem; pointer-events: none; }
+.cert-dz-section-arrow {
+  font-size: .7rem;
+  transition: transform .2s ease;
+  color: #94a3b8;
+}
+.cert-dz-section-toggle[aria-expanded="false"] .cert-dz-section-arrow { transform: rotate(-90deg); }
+.cert-dz-section-body[hidden] { display: none !important; }
+.cert-dz-section {
+  border-bottom: 1px solid var(--color-border, #e2e8f0);
+  padding-bottom: .75rem;
+  margin-bottom: .75rem;
+}
+.cert-dz-section:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+
+/* --- Background preview --- */
+.cert-dz-bg-preview {
+  display: block;
+  max-height: 80px;
+  max-width: 100%;
+  margin-top: .5rem;
+  border-radius: 6px;
+  border: 1px solid var(--color-border, #e2e8f0);
+  object-fit: contain;
+  background: #f1f5f9;
+}
+.cert-dz-bg-preview[src=""] { display: none; }
+
+/* --- AI panel --- */
+.cert-dz-ai-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin-top: .5rem;
+}
+.cert-dz-ai-chip {
+  display: inline-block;
+  padding: .2rem .55rem;
+  border: 1px solid var(--color-border, #e2e8f0);
+  border-radius: 999px;
+  font-size: .72rem;
+  cursor: pointer;
+  background: var(--bg-surface, #fff);
+  color: var(--text, #0f172a);
+  transition: background .15s, border-color .15s;
+}
+.cert-dz-ai-chip:hover { background: #0e7490; color: #fff; border-color: #0e7490; }
+.cert-dz-ai-generate-btn {
+  width: 100%;
+  margin-top: .75rem;
+  padding: .5rem 1rem;
+  font-size: .82rem;
+  font-weight: 600;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: linear-gradient(135deg, #0e7490, #6366f1);
+  color: #fff;
+  transition: opacity .2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: .5rem;
+}
+.cert-dz-ai-generate-btn:hover { opacity: .9; }
+.cert-dz-ai-generate-btn:disabled { opacity: .55; cursor: not-allowed; }
+.cert-dz-ai-spinner {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: cert-dz-spin .7s linear infinite;
+}
+@keyframes cert-dz-spin { to { transform: rotate(360deg); } }
+.cert-dz-ai-status {
+  font-size: .72rem;
+  color: #94a3b8;
+  margin-top: .35rem;
+  min-height: 1em;
+}
+
+/* --- Layers list --- */
+.cert-dz-layers-list { margin-top: .25rem; }
+.cert-dz-layer-row {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .3rem .4rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: .78rem;
+  transition: background .12s;
+}
+.cert-dz-layer-row:hover { background: var(--bg-muted, #f1f5f9); }
+.cert-dz-layer-row.is-active { background: rgba(14,116,144,.12); outline: 1.5px solid #0e7490; }
+.cert-dz-layer-badge {
+  display: inline-block;
+  font-size: .62rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  padding: .1rem .35rem;
+  border-radius: 4px;
+  background: var(--bg-muted, #f1f5f9);
+  color: #64748b;
+  flex-shrink: 0;
+  min-width: 30px;
+  text-align: center;
+}
+.cert-dz-layer-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cert-dz-layers-empty { font-size: .75rem; color: #94a3b8; padding: .25rem 0; }
+
+/* --- Keyboard hints --- */
+.cert-dz-shortcuts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .9rem;
+  font-size: .68rem;
+  color: #94a3b8;
+  margin-top: .35rem;
+}
+.cert-dz-shortcuts kbd {
+  display: inline-block;
+  padding: .05rem .3rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 3px;
+  font-size: .65rem;
+  font-family: ui-monospace, monospace;
+  background: #f8fafc;
+  color: #475569;
+}
+
+/* --- Zoom percentage --- */
+.cert-dz-zoom-pct { font-size: .72rem; color: #64748b; min-width: 2.5em; text-align: right; }
+
+/* --- Custom font picker dropdown --- */
+.cert-font-picker { position: relative; width: 100%; }
+.cert-font-picker-selected {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px;
+  background: #fff; cursor: pointer; font-size: 14px;
+  transition: border-color .15s;
+}
+.cert-font-picker-selected:hover { border-color: #94a3b8; }
+.cert-font-picker-selected.open { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.15); }
+.cert-font-picker-selected .fp-arrow {
+  margin-left: 8px; font-size: 10px; color: #94a3b8; transition: transform .15s;
+}
+.cert-font-picker-selected.open .fp-arrow { transform: rotate(180deg); }
+.cert-font-picker-selected.disabled {
+  opacity: .5; pointer-events: none; background: #f1f5f9;
+}
+.cert-font-picker-list {
+  display: none; position: fixed;
+  max-height: 260px; overflow-y: auto; z-index: 9999;
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,.12);
+  padding: 4px 0;
+}
+.cert-font-picker-list.open { display: block; }
+.cert-font-picker-item {
+  padding: 7px 12px; cursor: pointer; font-size: 15px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  transition: background .1s;
+}
+.cert-font-picker-item:hover { background: #f1f5f9; }
+.cert-font-picker-item.active { background: #eff6ff; color: #2563eb; font-weight: 600; }
 </style>
 
 <div class="cert-dz-header">
   <div>
     <h1>{% if is_template_mode %}Certificate Template Designer{% else %}Event Certificate Designer{% endif %}</h1>
     <p class="cert-dz-status" style="margin:.25rem 0 0">
-      {% if cert_template %}{{ cert_template.name }}{% else %}{{ event.name }}{% endif %} · Landscape A4 (842×595 pt)
+      {% if cert_template %}{{ cert_template.name }}{% else %}{{ event.name }}{% endif %} &middot; Landscape A4 (842&times;595 pt)
     </p>
   </div>
   <div style="flex:1"></div>
@@ -203,7 +396,7 @@
     <span class="cert-dz-tb-label">Add</span>
     <button type="button" class="btn btn-outline" data-add="text">Static text</button>
     <div class="cert-dz-dropdown-wrap">
-      <button type="button" class="btn btn-outline" id="cert-dz-varfield-trigger" aria-expanded="false" aria-haspopup="true">Dynamic field ▾</button>
+      <button type="button" class="btn btn-outline" id="cert-dz-varfield-trigger" aria-expanded="false" aria-haspopup="true">Dynamic field &#9662;</button>
       <div id="cert-dz-varfield-menu" class="cert-dz-varfield-menu" hidden>
         <div class="cert-dz-varfield-cat">Attendee</div>
         <button type="button" class="cert-dz-varfield-item" data-varkey="attendee_name">Attendee name</button>
@@ -232,7 +425,6 @@
     </div>
     <button type="button" class="btn btn-outline" data-add="image-logo">Logo</button>
     <button type="button" class="btn btn-outline" data-add="image-sig">Signature</button>
-    <button type="button" class="btn btn-outline" data-add="image-url">Image (URL)</button>
     <button type="button" class="btn btn-outline" id="cert-dz-image-upload">Upload image</button>
     <input type="file" id="cert-dz-toolbar-img-file" accept="image/jpeg,image/png,image/gif,image/webp" hidden aria-hidden="true">
     <button type="button" class="btn btn-outline" data-add="qr">QR code</button>
@@ -242,17 +434,14 @@
   <div class="cert-dz-tb-group">
     <span class="cert-dz-tb-label">Arrange</span>
     <button type="button" class="btn btn-outline" id="cert-dz-duplicate">Duplicate</button>
-    <button type="button" class="btn btn-outline" id="cert-dz-delete">Delete</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-delete" title="Delete selected (Del)">Delete</button>
     <button type="button" class="btn btn-outline" id="cert-dz-front">Bring forward</button>
     <button type="button" class="btn btn-outline" id="cert-dz-back">Send back</button>
   </div>
   <div class="cert-dz-tb-group">
     <span class="cert-dz-tb-label">History</span>
-    <button type="button" class="btn btn-outline" id="cert-dz-undo" title="Undo">Undo</button>
-    <button type="button" class="btn btn-outline" id="cert-dz-redo" title="Redo">Redo</button>
-    <button type="button" class="btn btn-outline" id="cert-dz-convert" title="Seed layers from legacy template">Convert legacy layout</button>
-    <button type="button" class="btn btn-outline" id="cert-dz-ai-generate" title="OpenAI: generate background + suggest text/QR positions (two API calls)">Generate with AI</button>
-    <button type="button" class="btn btn-outline" id="cert-dz-reset">Reset canvas</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-undo" title="Undo (Ctrl+Z)">Undo</button>
+    <button type="button" class="btn btn-outline" id="cert-dz-redo" title="Redo (Ctrl+Y)">Redo</button>
   </div>
   <div class="cert-dz-tb-group cert-dz-tb-controls">
     <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;margin:0;white-space:nowrap">
@@ -260,110 +449,190 @@
     </label>
     <label style="display:flex;align-items:center;gap:.35rem;font-size:.78rem;margin:0;white-space:nowrap">
       Zoom <input type="range" id="cert-dz-zoom" min="0.35" max="2" step="0.05" value="0.75" style="width:90px">
+      <span class="cert-dz-zoom-pct" id="cert-dz-zoom-pct">75%</span>
     </label>
     <button type="button" class="btn btn-primary" id="cert-dz-save">Save layout</button>
   </div>
 </div>
+<div class="cert-dz-toolbar-secondary">
+  <button type="button" class="btn btn-outline" id="cert-dz-convert" title="Seed layers from legacy template">Convert legacy layout</button>
+  <button type="button" class="btn btn-outline" id="cert-dz-reset">Reset canvas</button>
+</div>
 
-<div class="cert-dz-layout" style="margin-top:1rem">
+<div class="cert-dz-layout">
   <div class="cert-dz-canvas-shell">
     <div class="cert-dz-canvas-inner">
       <canvas id="cert-designer-canvas" width="842" height="595"></canvas>
     </div>
-    <p class="cert-dz-grid-hint">Drag to position. Resize handles rotate from corners. Units match PDF points. Border preview matches PDF frame (approx.). <strong>Ctrl</strong> (or <strong>⌘</strong>) + <strong>scroll</strong> to zoom. Save updates <code>cert_style</code> {% if cert_template %}on this template{% else %}on the event{% endif %}.</p>
+    <div class="cert-dz-shortcuts">
+      <span><kbd>Del</kbd> remove selected</span>
+      <span><kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Y</kbd> undo / redo</span>
+      <span><kbd>Arrow keys</kbd> nudge (<kbd>Shift</kbd> = 10pt)</span>
+      <span><kbd>Ctrl</kbd>+<kbd>scroll</kbd> zoom</span>
+    </div>
   </div>
   <aside class="cert-dz-props">
-    <h3>Page &amp; border</h3>
-    <label>Border style</label>
-    <select id="cert-dz-border-style">
-      <option value="classic">Classic</option>
-      <option value="modern">Modern</option>
-      <option value="elegant">Elegant</option>
-      <option value="minimal">Minimal</option>
-      <option value="ornate">Ornate</option>
-      <option value="none">None</option>
-    </select>
-    <label>Border width</label>
-    <input type="number" id="cert-dz-border-width" min="0.25" max="10" step="0.25" value="1">
-    <label>Background size</label>
-    <select id="cert-dz-bg-size">
-      <option value="cover">Cover</option>
-      <option value="contain">Contain</option>
-      <option value="stretch">Stretch</option>
-    </select>
-    <label>Background image</label>
-    <input type="text" id="cert-dz-page-bg-url" placeholder="/uploads/… or https://…" autocomplete="off">
-    <p class="cert-dz-grid-hint" style="margin:.35rem 0 0;font-size:.72rem">Optional full-page background (same scaling as PDF). Upload: JPEG/PNG/GIF/WebP, max 5&nbsp;MB.</p>
 
-    <h3 style="margin-top:1.25rem">Selection</h3>
-    <p id="cert-dz-sel-none" style="color:#94a3b8;font-size:.8rem">Select an object to edit.</p>
-    <div id="cert-dz-sel-panel" style="display:none">
-      <div class="cert-dz-type-badge" id="cert-dz-type-badge">—</div>
-
-      <div class="cert-sel-text-only">
-        <label>Variable (text)</label>
-        <select id="cert-dz-prop-variable"></select>
-        <label>Text (static / fallback)</label>
-        <input type="text" id="cert-dz-prop-text" placeholder="Optional">
-        <label>Font</label>
-        <select id="cert-dz-prop-font">
-          <option value="arial">Arial</option>
-          <option value="georgia">Georgia</option>
-          <option value="times">Times</option>
-          <option value="verdana">Verdana</option>
-          <option value="calibri">Calibri</option>
-          <option value="courier">Courier</option>
+    <!-- Page & Background -->
+    <div class="cert-dz-section">
+      <button type="button" class="cert-dz-section-toggle" aria-expanded="true" data-section="page">
+        <h3>Page &amp; background</h3>
+        <span class="cert-dz-section-arrow">&#9660;</span>
+      </button>
+      <div class="cert-dz-section-body" data-section-body="page">
+        <label>Border style</label>
+        <select id="cert-dz-border-style">
+          <option value="classic">Classic</option>
+          <option value="modern">Modern</option>
+          <option value="elegant">Elegant</option>
+          <option value="minimal">Minimal</option>
+          <option value="ornate">Ornate</option>
+          <option value="none">None</option>
         </select>
-        <label>Font size (pt)</label>
-        <input type="number" id="cert-dz-prop-fontsize" min="6" max="120" step="1">
-        <label>Alignment</label>
-        <input type="hidden" id="cert-dz-prop-align" value="left">
-        <div class="cert-dz-align-group" id="cert-dz-align-group" role="group" aria-label="Text alignment">
-          <button type="button" class="cert-dz-align-btn" data-align-value="left" title="Left">Left</button>
-          <button type="button" class="cert-dz-align-btn" data-align-value="center" title="Center">Center</button>
-          <button type="button" class="cert-dz-align-btn" data-align-value="right" title="Right">Right</button>
-        </div>
-        <div class="cert-dz-toggle-row" id="cert-dz-biu-row">
-          <label><input type="checkbox" id="cert-dz-prop-bold"><span>B</span></label>
-          <label><input type="checkbox" id="cert-dz-prop-italic"><span>I</span></label>
-          <label><input type="checkbox" id="cert-dz-prop-underline"><span>U</span></label>
-        </div>
-      </div>
-
-      <div class="cert-sel-color-block">
-        <label>Color</label>
-        <div class="cert-dz-color-row">
-          <input type="color" id="cert-dz-prop-color" value="#0a1628">
-          <input type="text" class="form-input cert-dz-hex-input" id="cert-dz-prop-color-hex" maxlength="7" placeholder="#0a1628" autocomplete="off">
-        </div>
-      </div>
-
-      <div class="cert-sel-image-only" style="display:none">
-        <label>Image URL (custom image)</label>
-        <input type="text" id="cert-dz-prop-imgurl" placeholder="/uploads/… or https://…">
-      </div>
-
-      <div class="cert-sel-qr-only" style="display:none">
-        <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
-          <input type="checkbox" id="cert-dz-prop-qrcaption" checked> QR “Scan to verify” caption
-        </label>
-      </div>
-
-      <div class="cert-sel-geometry">
-        <label>Width (pt)</label>
-        <input type="number" id="cert-dz-prop-w" step="1">
-        <label>Height (pt)</label>
-        <input type="number" id="cert-dz-prop-h" step="1">
-        <label>Rotation (°)</label>
-        <input type="number" id="cert-dz-prop-rot" step="1">
+        <label>Border width</label>
+        <input type="number" id="cert-dz-border-width" min="0.25" max="10" step="0.25" value="1">
+        <label>Background size</label>
+        <select id="cert-dz-bg-size">
+          <option value="cover">Cover</option>
+          <option value="contain">Contain</option>
+          <option value="stretch">Stretch</option>
+        </select>
+        <label>Background image</label>
+        <input type="text" id="cert-dz-page-bg-url" placeholder="/uploads/... or https://..." autocomplete="off">
+        <img id="cert-dz-bg-preview" class="cert-dz-bg-preview" src="" alt="Background preview">
+        <p class="cert-dz-grid-hint" style="margin:.35rem 0 0">Upload JPEG/PNG/GIF/WebP, max 5&nbsp;MB.</p>
       </div>
     </div>
+
+    <!-- AI Background -->
+    <div class="cert-dz-section">
+      <button type="button" class="cert-dz-section-toggle" aria-expanded="true" data-section="ai">
+        <h3>AI background</h3>
+        <span class="cert-dz-section-arrow">&#9660;</span>
+      </button>
+      <div class="cert-dz-section-body" data-section-body="ai">
+        <label>Describe the style you want</label>
+        <textarea id="cert-dz-ai-prompt" rows="3" placeholder="e.g. Elegant gold borders on deep navy, subtle geometric patterns, clean central space for text..."></textarea>
+        <div class="cert-dz-ai-chips" id="cert-dz-ai-chips">
+          <button type="button" class="cert-dz-ai-chip" data-prompt="Minimalist clean white background with thin elegant lines">Minimalist</button>
+          <button type="button" class="cert-dz-ai-chip" data-prompt="Professional corporate style, navy blue and silver accents, modern clean look">Corporate</button>
+          <button type="button" class="cert-dz-ai-chip" data-prompt="Academic style with traditional ornamental borders, classic ivory and dark green">Academic</button>
+          <button type="button" class="cert-dz-ai-chip" data-prompt="Elegant gold foil borders on deep navy or black, luxurious and premium feel">Elegant Gold</button>
+          <button type="button" class="cert-dz-ai-chip" data-prompt="Soft watercolor floral decorations in pastel tones, romantic and artistic">Floral Watercolor</button>
+          <button type="button" class="cert-dz-ai-chip" data-prompt="Modern certificate with subtle geometric line art border in charcoal and teal, thin diamond and hexagon motifs framing the edges, clean white center, sophisticated and professional">Geometric Modern</button>
+          <button type="button" class="cert-dz-ai-chip" data-prompt="Futuristic cyberpunk aesthetic, neon accents on dark background, circuit-board motifs">Tech / Cyber</button>
+        </div>
+        <button type="button" class="cert-dz-ai-generate-btn" id="cert-dz-ai-generate">
+          <span id="cert-dz-ai-btn-label">Generate with AI</span>
+        </button>
+        <div class="cert-dz-ai-status" id="cert-dz-ai-status"></div>
+        <p class="cert-dz-grid-hint" style="margin:.25rem 0 0">Runs two OpenAI API calls. Takes 30&#8211;90s.</p>
+      </div>
+    </div>
+
+    <!-- Layers -->
+    <div class="cert-dz-section">
+      <button type="button" class="cert-dz-section-toggle" aria-expanded="true" data-section="layers">
+        <h3>Layers <span id="cert-dz-layer-count" style="font-weight:400;font-size:.78rem;color:#94a3b8"></span></h3>
+        <span class="cert-dz-section-arrow">&#9660;</span>
+      </button>
+      <div class="cert-dz-section-body" data-section-body="layers">
+        <div class="cert-dz-layers-list" id="cert-dz-layers-list">
+          <div class="cert-dz-layers-empty">No layers yet. Add elements above.</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Selection properties -->
+    <div class="cert-dz-section">
+      <button type="button" class="cert-dz-section-toggle" aria-expanded="true" data-section="selection">
+        <h3>Selection</h3>
+        <span class="cert-dz-section-arrow">&#9660;</span>
+      </button>
+      <div class="cert-dz-section-body" data-section-body="selection">
+        <p id="cert-dz-sel-none" style="color:#94a3b8;font-size:.8rem">Select an object on the canvas to edit its properties.</p>
+        <div id="cert-dz-sel-panel" style="display:none">
+          <div class="cert-dz-type-badge" id="cert-dz-type-badge">&mdash;</div>
+
+          <div class="cert-sel-text-only">
+            <label>Variable (text)</label>
+            <select id="cert-dz-prop-variable"></select>
+            <label>Text (static / fallback)</label>
+            <input type="text" id="cert-dz-prop-text" placeholder="Optional">
+            <label>Font</label>
+            <input type="hidden" id="cert-dz-prop-font" value="arial">
+            <div class="cert-font-picker" id="cert-font-picker">
+              <div class="cert-font-picker-selected" id="cert-font-picker-sel">
+                <span class="fp-label" style="font-family:Arial,Helvetica,sans-serif">Arial</span>
+                <span class="fp-arrow">&#9660;</span>
+              </div>
+              <div class="cert-font-picker-list" id="cert-font-picker-list"></div>
+            </div>
+            <label>Font size (pt)</label>
+            <input type="number" id="cert-dz-prop-fontsize" min="6" max="120" step="1">
+            <label>Alignment</label>
+            <input type="hidden" id="cert-dz-prop-align" value="left">
+            <div class="cert-dz-align-group" id="cert-dz-align-group" role="group" aria-label="Text alignment">
+              <button type="button" class="cert-dz-align-btn" data-align-value="left" title="Left">Left</button>
+              <button type="button" class="cert-dz-align-btn" data-align-value="center" title="Center">Center</button>
+              <button type="button" class="cert-dz-align-btn" data-align-value="right" title="Right">Right</button>
+            </div>
+            <div class="cert-dz-toggle-row" id="cert-dz-biu-row">
+              <label><input type="checkbox" id="cert-dz-prop-bold"><span>B</span></label>
+              <label><input type="checkbox" id="cert-dz-prop-italic"><span>I</span></label>
+              <label><input type="checkbox" id="cert-dz-prop-underline"><span>U</span></label>
+            </div>
+          </div>
+
+          <div class="cert-sel-color-block">
+            <label>Color</label>
+            <div class="cert-dz-color-row">
+              <input type="color" id="cert-dz-prop-color" value="#0a1628">
+              <input type="text" class="form-input cert-dz-hex-input" id="cert-dz-prop-color-hex" maxlength="7" placeholder="#0a1628" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="cert-sel-image-only" style="display:none">
+            <label>Image URL (custom image)</label>
+            <input type="text" id="cert-dz-prop-imgurl" placeholder="/uploads/... or https://...">
+          </div>
+
+          <div class="cert-sel-qr-only" style="display:none">
+            <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
+              <input type="checkbox" id="cert-dz-prop-qrcaption" checked> QR "Scan to verify" caption
+            </label>
+          </div>
+
+          <div class="cert-sel-geometry">
+            <label>Width (pt)</label>
+            <input type="number" id="cert-dz-prop-w" step="1">
+            <label>Height (pt)</label>
+            <input type="number" id="cert-dz-prop-h" step="1">
+            <label>Rotation (&deg;)</label>
+            <input type="number" id="cert-dz-prop-rot" step="1">
+          </div>
+        </div>
+      </div>
+    </div>
+
   </aside>
 </div>
 
 <script type="application/json" id="cert-designer-bootstrap">{{ designer_bootstrap | tojson }}</script>
 <script>
 (function () {
+  /* Collapsible sidebar sections */
+  document.querySelectorAll(".cert-dz-section-toggle").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var key = btn.getAttribute("data-section");
+      var body = document.querySelector('[data-section-body="' + key + '"]');
+      if (!body) return;
+      var open = btn.getAttribute("aria-expanded") !== "false";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      body.hidden = open;
+    });
+  });
+
   window._certDzApplyTypeVis = function (t) {
     var te = document.querySelector(".cert-sel-text-only");
     var im = document.querySelector(".cert-sel-image-only");
@@ -372,7 +641,7 @@
     var ge = document.querySelector(".cert-sel-geometry");
     var badge = document.getElementById("cert-dz-type-badge");
     var labels = { text: "Text", image: "Image", qr: "QR code", line: "Line", rect: "Rectangle" };
-    if (badge) badge.textContent = labels[t] || (t ? String(t) : "—");
+    if (badge) badge.textContent = labels[t] || (t ? String(t) : "\u2014");
     if (te) te.style.display = t === "text" ? "block" : "none";
     if (im) im.style.display = t === "image" ? "block" : "none";
     if (qr) qr.style.display = t === "qr" ? "block" : "none";
@@ -404,7 +673,6 @@
       if (e.target.closest("#cert-dz-varfield-trigger") || e.target.closest("#cert-dz-varfield-menu")) return;
       closeMenu();
     });
-    /* Do not stopPropagation on the menu — clicks must bubble to #cert-dz-toolbar so certificate-designer.js can handle .cert-dz-varfield-item */
   }
 
   function normHex(h) {
@@ -449,6 +717,18 @@
   });
   if (alignHidden) alignHidden.addEventListener("change", syncAlignButtons);
   syncAlignButtons();
+  window._certDzSyncAlignButtons = syncAlignButtons;
+
+  /* AI preset chips */
+  var aiChipsEl = document.getElementById("cert-dz-ai-chips");
+  if (aiChipsEl) {
+    aiChipsEl.addEventListener("click", function (e) {
+      var chip = e.target.closest(".cert-dz-ai-chip");
+      if (!chip) return;
+      var promptEl = document.getElementById("cert-dz-ai-prompt");
+      if (promptEl) promptEl.value = chip.getAttribute("data-prompt") || "";
+    });
+  }
 })();
 </script>
 <script src="/static/js/image-upload.js?v={{ asset_version }}"></script>

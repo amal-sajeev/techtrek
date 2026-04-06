@@ -108,22 +108,119 @@
   }
 
   /** Map cert_style font key to a CSS font stack Fabric can render. */
+  var FONT_MAP = {
+    arial:       "Arial, Helvetica, sans-serif",
+    georgia:     "Georgia, serif",
+    times:       "'Times New Roman', Times, serif",
+    verdana:     "Verdana, Geneva, sans-serif",
+    trebuchet:   "'Trebuchet MS', Helvetica, sans-serif",
+    courier:     "'Courier New', Courier, monospace",
+    comic:       "'Comic Sans MS', cursive",
+    calibri:     "Calibri, 'Segoe UI', sans-serif",
+    palatino:    "Palatino, 'Palatino Linotype', serif",
+    candara:     "Candara, Verdana, sans-serif",
+    tahoma:      "Tahoma, Geneva, sans-serif",
+    impact:      "Impact, 'Arial Narrow', sans-serif",
+    garamond:    "Garamond, 'Times New Roman', serif",
+    lucida:      "'Lucida Sans', 'Lucida Grande', sans-serif",
+    bookantiqua: "'Book Antiqua', Palatino, serif",
+  };
+  var FONT_REVERSE = [];
+  (function () {
+    var keys = Object.keys(FONT_MAP);
+    for (var i = 0; i < keys.length; i++) FONT_REVERSE.push([keys[i], keys[i]]);
+    FONT_REVERSE.push(["georg", "georgia"]);
+    FONT_REVERSE.push(["book antiqua", "bookantiqua"]);
+    FONT_REVERSE.push(["lucida", "lucida"]);
+  })();
+
   function fontKeyToFabricFamily(key) {
-    var k = String(key || "arial").toLowerCase();
-    var map = {
-      arial: "Arial, Helvetica, sans-serif",
-      georgia: "Georgia, serif",
-      times: "'Times New Roman', Times, serif",
-      verdana: "Verdana, Geneva, sans-serif",
-      trebuchet: "'Trebuchet MS', Helvetica, sans-serif",
-      courier: "'Courier New', Courier, monospace",
-      comic: "'Comic Sans MS', cursive",
-      calibri: "Calibri, 'Segoe UI', sans-serif",
-      palatino: "Palatino, 'Palatino Linotype', serif",
-      candara: "Candara, Verdana, sans-serif",
-    };
-    return map[k] || map.arial;
+    return FONT_MAP[String(key || "arial").toLowerCase()] || FONT_MAP.arial;
   }
+
+  function fabricFamilyToFontKey(family) {
+    var ff = (family || "arial").toLowerCase();
+    for (var i = 0; i < FONT_REVERSE.length; i++) {
+      if (ff.indexOf(FONT_REVERSE[i][0]) >= 0) return FONT_REVERSE[i][1];
+    }
+    return "arial";
+  }
+
+  var FONT_DISPLAY = {
+    arial: "Arial", bookantiqua: "Book Antiqua", calibri: "Calibri",
+    candara: "Candara", comic: "Comic Sans", courier: "Courier New",
+    garamond: "Garamond", georgia: "Georgia", impact: "Impact",
+    lucida: "Lucida Sans", palatino: "Palatino", tahoma: "Tahoma",
+    times: "Times New Roman", trebuchet: "Trebuchet MS", verdana: "Verdana",
+  };
+  var FONT_KEYS_SORTED = Object.keys(FONT_DISPLAY).sort(function (a, b) {
+    return FONT_DISPLAY[a].localeCompare(FONT_DISPLAY[b]);
+  });
+
+  (function initFontPicker() {
+    var hidden = document.getElementById("cert-dz-prop-font");
+    var selBtn = document.getElementById("cert-font-picker-sel");
+    var list = document.getElementById("cert-font-picker-list");
+    if (!hidden || !selBtn || !list) return;
+
+    for (var i = 0; i < FONT_KEYS_SORTED.length; i++) {
+      var key = FONT_KEYS_SORTED[i];
+      var item = document.createElement("div");
+      item.className = "cert-font-picker-item";
+      item.setAttribute("data-font-key", key);
+      item.textContent = FONT_DISPLAY[key];
+      item.style.fontFamily = FONT_MAP[key];
+      list.appendChild(item);
+    }
+
+    function setPickerValue(key, dispatchChange) {
+      hidden.value = key;
+      var label = selBtn.querySelector(".fp-label");
+      label.textContent = FONT_DISPLAY[key] || key;
+      label.style.fontFamily = FONT_MAP[key] || FONT_MAP.arial;
+      var items = list.querySelectorAll(".cert-font-picker-item");
+      for (var j = 0; j < items.length; j++) {
+        items[j].classList.toggle("active", items[j].getAttribute("data-font-key") === key);
+      }
+      if (dispatchChange) hidden.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+
+    function positionList() {
+      var rect = selBtn.getBoundingClientRect();
+      list.style.top = rect.bottom + 4 + "px";
+      list.style.left = rect.left + "px";
+      list.style.width = rect.width + "px";
+    }
+
+    selBtn.addEventListener("click", function () {
+      if (selBtn.classList.contains("disabled")) return;
+      var isOpen = list.classList.toggle("open");
+      selBtn.classList.toggle("open", isOpen);
+      if (isOpen) {
+        positionList();
+        var active = list.querySelector(".cert-font-picker-item.active");
+        if (active) active.scrollIntoView({ block: "nearest" });
+      }
+    });
+
+    list.addEventListener("click", function (e) {
+      var item = e.target.closest(".cert-font-picker-item");
+      if (!item) return;
+      setPickerValue(item.getAttribute("data-font-key"), true);
+      list.classList.remove("open");
+      selBtn.classList.remove("open");
+    });
+
+    document.addEventListener("click", function (e) {
+      if (!e.target.closest("#cert-font-picker")) {
+        list.classList.remove("open");
+        selBtn.classList.remove("open");
+      }
+    });
+
+    hidden._setPickerValue = setPickerValue;
+    setPickerValue("arial", false);
+  })();
 
   var canvas = new fabric.Canvas("cert-designer-canvas", {
     width: PDF_W,
@@ -570,13 +667,7 @@
       var underline = false;
       if (obj.type === "textbox" || obj.type === "i-text" || obj.type === "text") {
         fontSize = obj.fontSize || 16;
-        fontFamily = (obj.fontFamily || "Arial").toLowerCase().replace(/\s/g, "");
-        if (fontFamily.indexOf("times") >= 0) fontFamily = "times";
-        if (fontFamily.indexOf("georgia") >= 0) fontFamily = "georgia";
-        if (fontFamily.indexOf("verdana") >= 0) fontFamily = "verdana";
-        if (fontFamily.indexOf("courier") >= 0) fontFamily = "courier";
-        if (fontFamily.indexOf("calibri") >= 0) fontFamily = "calibri";
-        if (fontFamily === "arial" || !fontFamily) fontFamily = "arial";
+        fontFamily = fabricFamilyToFontKey(obj.fontFamily);
         fill = typeof obj.fill === "string" ? obj.fill : "#0a1628";
         textAlign = obj.textAlign || "left";
         underline = !!obj.underline;
@@ -632,17 +723,15 @@
     }
 
     if (t === "line") {
-      var x2Pt = xPt + w;
-      var y2Pt = yPt;
       return {
         id: obj.layerId || uid(),
         type: "line",
         zIndex: zIndex,
         xPt: xPt,
         yPt: yPt,
-        x2Pt: x2Pt,
-        y2Pt: y2Pt,
-        lineWidth: obj.strokeWidth || 1.5,
+        widthPt: w,
+        heightPt: h,
+        lineWidth: h,
         color: typeof obj.fill === "string" ? obj.fill : obj.stroke || "#0a1628",
         rotation: rot,
       };
@@ -714,6 +803,8 @@
     canvas.add(tb);
     canvas.setActiveObject(tb);
     canvas.requestRenderAll();
+    updatePropsPanel();
+    rebuildLayersList();
     pushHistory();
   }
 
@@ -760,6 +851,8 @@
     canvas.add(grp);
     canvas.setActiveObject(grp);
     canvas.requestRenderAll();
+    updatePropsPanel();
+    rebuildLayersList();
     if ((url || "").trim()) {
       hydrateCertImageLayer(grp);
     }
@@ -890,7 +983,11 @@
       });
       var wasActive = canvas.getActiveObject() === grp;
       replaceCertImageGroup(grp, newG);
-      if (wasActive) canvas.setActiveObject(newG);
+      if (wasActive) {
+        canvas.setActiveObject(newG);
+        updatePropsPanel();
+        rebuildLayersList();
+      }
       canvas.requestRenderAll();
       return;
     }
@@ -939,7 +1036,11 @@
         });
         var wasActive = canvas.getActiveObject() === cur;
         replaceCertImageGroup(cur, newG);
-        if (wasActive) canvas.setActiveObject(newG);
+        if (wasActive) {
+          canvas.setActiveObject(newG);
+          updatePropsPanel();
+          rebuildLayersList();
+        }
         canvas.requestRenderAll();
       },
       imgOpts
@@ -978,6 +1079,8 @@
     canvas.add(g);
     canvas.setActiveObject(g);
     canvas.requestRenderAll();
+    updatePropsPanel();
+    rebuildLayersList();
     pushHistory();
   }
 
@@ -1002,6 +1105,8 @@
     canvas.add(rect);
     canvas.setActiveObject(rect);
     canvas.requestRenderAll();
+    updatePropsPanel();
+    rebuildLayersList();
     pushHistory();
   }
 
@@ -1023,6 +1128,8 @@
     canvas.add(rect);
     canvas.setActiveObject(rect);
     canvas.requestRenderAll();
+    updatePropsPanel();
+    rebuildLayersList();
     pushHistory();
   }
 
@@ -1138,7 +1245,7 @@
     }
     if (t === "line") {
       var lw = (L.x2Pt != null ? L.x2Pt - L.xPt : L.widthPt) || 200;
-      var lh = 2;
+      var lh = L.lineWidth || L.heightPt || 2;
       var ltop = fabricTopFromPdfY(L.yPt, lh);
       var rect = new fabric.Rect({
         left: L.xPt,
@@ -1151,7 +1258,6 @@
       });
       rect.layerId = L.id || uid();
       rect.certLayerType = "line";
-      rect.strokeWidth = L.lineWidth || 1.5;
       if ((L.rotation || 0) !== 0) rect.set({ angle: L.rotation });
       canvas.add(rect);
       return;
@@ -1243,20 +1349,39 @@
     panel.style.display = "block";
     var t = o.certLayerType;
 
-    /* Geometry first: cert-dz-prop-align dispatches "change" below, which runs applyPropsFromForm and
-       must see this selection's w/h — not the previous object's (stale values caused scaleX squash). */
+    /* ---- Full form reset ---- */
+    varSelect.value = "static";
+    document.getElementById("cert-dz-prop-text").value = "";
+    var _fontHidden = document.getElementById("cert-dz-prop-font");
+    _fontHidden.value = "arial";
+    if (_fontHidden._setPickerValue) _fontHidden._setPickerValue("arial", false);
+    document.getElementById("cert-dz-prop-fontsize").value = "16";
+    document.getElementById("cert-dz-prop-color").value = "#0a1628";
+    var hHexEl = document.getElementById("cert-dz-prop-color-hex");
+    if (hHexEl) hHexEl.value = "#0a1628";
+    document.getElementById("cert-dz-prop-bold").checked = false;
+    document.getElementById("cert-dz-prop-italic").checked = false;
+    document.getElementById("cert-dz-prop-underline").checked = false;
+    var al = document.getElementById("cert-dz-prop-align");
+    if (al) al.value = "left";
+    document.getElementById("cert-dz-prop-imgurl").value = "";
+    document.getElementById("cert-dz-prop-qrcaption").checked = true;
+
+    /* ---- Geometry ---- */
     var geomW = o.getScaledWidth();
     var geomH = o.getScaledHeight();
     document.getElementById("cert-dz-prop-w").value = Math.round(geomW);
     document.getElementById("cert-dz-prop-h").value = Math.round(geomH);
     document.getElementById("cert-dz-prop-rot").value = Math.round(o.angle || 0);
 
+    /* ---- Disabled states ---- */
     document.getElementById("cert-dz-prop-variable").disabled = t !== "text";
     document.getElementById("cert-dz-prop-text").disabled = t !== "text";
-    document.getElementById("cert-dz-prop-font").disabled = t !== "text";
+    _fontHidden.disabled = t !== "text";
+    var _fpSel = document.getElementById("cert-font-picker-sel");
+    if (_fpSel) _fpSel.classList.toggle("disabled", t !== "text");
     document.getElementById("cert-dz-prop-fontsize").disabled = t !== "text";
     document.getElementById("cert-dz-prop-color").disabled = t !== "text" && t !== "rect" && t !== "line";
-    var hHexEl = document.getElementById("cert-dz-prop-color-hex");
     if (hHexEl) hHexEl.disabled = t !== "text" && t !== "rect" && t !== "line";
     document.getElementById("cert-dz-prop-bold").disabled = t !== "text";
     document.getElementById("cert-dz-prop-italic").disabled = t !== "text";
@@ -1264,25 +1389,21 @@
     document.getElementById("cert-dz-prop-imgurl").disabled = t !== "image";
     document.getElementById("cert-dz-prop-qrcaption").disabled = t !== "qr";
 
+    /* ---- Type-specific population ---- */
     if (t === "text" && (o.type === "textbox" || o.type === "i-text" || o.type === "text")) {
       varSelect.value = (o.variable || "static").toLowerCase();
       document.getElementById("cert-dz-prop-text").value = o.text || "";
-      document.getElementById("cert-dz-prop-font").value =
-        (o.fontFamily || "Arial").toLowerCase().indexOf("georg") >= 0
-          ? "georgia"
-          : (o.fontFamily || "arial").toLowerCase().indexOf("times") >= 0
-            ? "times"
-            : "arial";
+      var _fk = fabricFamilyToFontKey(o.fontFamily);
+      var _fh = document.getElementById("cert-dz-prop-font");
+      _fh.value = _fk;
+      if (_fh._setPickerValue) _fh._setPickerValue(_fk, false);
       document.getElementById("cert-dz-prop-fontsize").value = o.fontSize || 16;
       setColorAndHex(o.fill);
       document.getElementById("cert-dz-prop-bold").checked = o.fontWeight === "bold";
       document.getElementById("cert-dz-prop-italic").checked = o.fontStyle === "italic";
       document.getElementById("cert-dz-prop-underline").checked = !!o.underline;
-      var al = document.getElementById("cert-dz-prop-align");
-      if (al) {
-        al.value = o.textAlign || "left";
-        al.dispatchEvent(new Event("change", { bubbles: true }));
-      }
+      var _al = document.getElementById("cert-dz-prop-align");
+      if (_al) _al.value = o.textAlign || "left";
     }
     if (t === "image") {
       document.getElementById("cert-dz-prop-imgurl").value = o.imageUrl || "";
@@ -1295,6 +1416,7 @@
       if (fillOrStroke) setColorAndHex(fillOrStroke);
     }
 
+    if (typeof window._certDzSyncAlignButtons === "function") window._certDzSyncAlignButtons();
     if (typeof window._certDzApplyTypeVis === "function") window._certDzApplyTypeVis(t);
   }
 
@@ -1303,8 +1425,8 @@
     if (!o || !o.certLayerType) return;
     var t = o.certLayerType;
     if (t === "text" && (o.type === "textbox" || o.type === "i-text" || o.type === "text")) {
+      o.variable = varSelect.value;
       o.set({
-        variable: varSelect.value,
         text: document.getElementById("cert-dz-prop-text").value,
         fontFamily: fontKeyToFabricFamily(document.getElementById("cert-dz-prop-font").value),
         fontSize: parseFloat(document.getElementById("cert-dz-prop-fontsize").value) || 16,
@@ -1316,10 +1438,10 @@
       });
     }
     if (t === "image") {
-      o.set({ imageUrl: document.getElementById("cert-dz-prop-imgurl").value });
+      o.imageUrl = document.getElementById("cert-dz-prop-imgurl").value;
     }
     if (t === "qr") {
-      o.set({ showCaption: document.getElementById("cert-dz-prop-qrcaption").checked });
+      o.showCaption = document.getElementById("cert-dz-prop-qrcaption").checked;
     }
     if (t === "rect" || t === "line") {
       var cFill = document.getElementById("cert-dz-prop-color");
@@ -1333,11 +1455,11 @@
       if (cw > 0 && ch > 0) {
         if (t === "text" && (o.type === "textbox" || o.type === "i-text")) {
           var sx = Math.abs(o.scaleX) || 1;
-          o.set({
-            width: Math.max(20, nw / sx),
-            scaleX: 1,
-            scaleY: (o.scaleY || 1) * (nh / ch),
-          });
+          o.set({ width: Math.max(20, nw / sx), scaleX: 1 });
+          var newCh = o.getScaledHeight();
+          if (Math.abs(nh - newCh) > 1) {
+            document.getElementById("cert-dz-prop-h").value = Math.round(newCh);
+          }
         } else {
           o.set({
             scaleX: (o.scaleX || 1) * (nw / cw),
@@ -1401,12 +1523,10 @@
     });
   });
 
-  canvas.on("selection:created", updatePropsPanel);
-  canvas.on("selection:updated", updatePropsPanel);
-  canvas.on("selection:cleared", updatePropsPanel);
   canvas.on("object:modified", function () {
     pushHistory();
     updatePropsPanel();
+    rebuildLayersList();
   });
 
   var certDzToolbar = document.getElementById("cert-dz-toolbar");
@@ -1441,17 +1561,30 @@
     console.error("certificate-designer: #cert-dz-toolbar missing");
   }
 
-  document.getElementById("cert-dz-delete").addEventListener("click", function () {
-    var o = getTargetObject();
-    if (o) {
-      canvas.remove(o);
+  function deleteSelectedObjects() {
+    var active = canvas.getActiveObject();
+    if (!active) return;
+    if (active.type === "activeSelection") {
+      var objs = active.getObjects().slice();
       canvas.discardActiveObject();
-      canvas.requestRenderAll();
-      pushHistory();
+      objs.forEach(function (obj) { canvas.remove(obj); });
+    } else {
+      canvas.remove(active);
+      canvas.discardActiveObject();
     }
-  });
+    canvas.requestRenderAll();
+    pushHistory();
+    rebuildLayersList();
+  }
 
-  document.getElementById("cert-dz-duplicate").addEventListener("click", function () {
+  function onClickById(id, fn) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener("click", fn);
+  }
+
+  onClickById("cert-dz-delete", deleteSelectedObjects);
+
+  onClickById("cert-dz-duplicate", function () {
     var o = getTargetObject();
     if (!o) return;
     o.clone(function (cloned) {
@@ -1466,11 +1599,13 @@
       canvas.add(cloned);
       canvas.setActiveObject(cloned);
       canvas.requestRenderAll();
+      updatePropsPanel();
+      rebuildLayersList();
       pushHistory();
     });
   });
 
-  document.getElementById("cert-dz-front").addEventListener("click", function () {
+  onClickById("cert-dz-front", function () {
     var o = getTargetObject();
     if (o) {
       canvas.bringToFront(o);
@@ -1479,7 +1614,7 @@
     }
   });
 
-  document.getElementById("cert-dz-back").addEventListener("click", function () {
+  onClickById("cert-dz-back", function () {
     var o = getTargetObject();
     if (o) {
       canvas.sendToBack(o);
@@ -1488,14 +1623,14 @@
     }
   });
 
-  document.getElementById("cert-dz-undo").addEventListener("click", function () {
+  onClickById("cert-dz-undo", function () {
     if (histPtr > 0) applyHistory(histPtr - 1);
   });
-  document.getElementById("cert-dz-redo").addEventListener("click", function () {
+  onClickById("cert-dz-redo", function () {
     if (histPtr < history.length - 1) applyHistory(histPtr + 1);
   });
 
-  document.getElementById("cert-dz-convert").addEventListener("click", function () {
+  onClickById("cert-dz-convert", function () {
     if (!window.confirm("Replace the current canvas with layers converted from the saved legacy template?")) return;
     fetch(designerLegacyUrl, { credentials: "same-origin" })
       .then(function (r) {
@@ -1512,7 +1647,7 @@
       });
   });
 
-  document.getElementById("cert-dz-reset").addEventListener("click", function () {
+  onClickById("cert-dz-reset", function () {
     if (!window.confirm("Reload the page to restore the last saved layout from the server?")) return;
     location.reload();
   });
@@ -1553,28 +1688,26 @@
   var aiGenBtn = document.getElementById("cert-dz-ai-generate");
   if (aiGenBtn) {
     aiGenBtn.addEventListener("click", function () {
-      if (
-        !window.confirm(
-          "Generate a new background with AI and replace the canvas? This runs two OpenAI API calls (billable latency ~30–90s)."
-        )
-      ) {
-        return;
-      }
-      var hint = window.prompt("Optional style hint (leave blank for default):", "") || "";
-      hint = String(hint).slice(0, 2000);
+      var promptEl = document.getElementById("cert-dz-ai-prompt");
+      var hint = promptEl ? String(promptEl.value || "").trim().slice(0, 2000) : "";
+      var statusEl = document.getElementById("cert-dz-ai-status");
+      var labelEl = document.getElementById("cert-dz-ai-btn-label");
       var btn = aiGenBtn;
-      var prevLabel = btn.textContent;
+
       btn.disabled = true;
-      btn.textContent = "Generating artwork…";
+      if (labelEl) labelEl.innerHTML = '<span class="cert-dz-ai-spinner"></span> Generating artwork\u2026';
+      if (statusEl) statusEl.textContent = "Creating decorative background image\u2026";
+
       var phaseTimer = window.setTimeout(function () {
         if (!btn.disabled) return;
-        btn.textContent = "Placing text fields…";
-      }, 4500);
+        if (statusEl) statusEl.textContent = "Placing text fields and QR code\u2026";
+      }, 12000);
+
       fetch(aiGenerateUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
         credentials: "same-origin",
-        body: JSON.stringify({ prompt_hint: hint }),
+        body: JSON.stringify({ prompt_hint: hint, existing_layers: serializeDocument().layers || [] }),
       })
         .then(function (r) {
           return r.text().then(function (text) {
@@ -1589,6 +1722,8 @@
         .then(function (data) {
           loadDocument(data.cert_style);
           syncPageFields();
+          updateBgPreview();
+          rebuildLayersList();
           pushHistory();
           if (data.layout_fallback) {
             certDzToast(
@@ -1598,14 +1733,18 @@
           } else {
             certDzToast("AI template loaded. Review the layout, then save.", "success");
           }
+          if (statusEl) statusEl.textContent = "Done! Review the layout and save.";
         })
         .catch(function (err) {
-          window.alert(err.message || err);
+          var raw = err.message || String(err);
+          var friendly = raw.replace(/sk-[A-Za-z0-9*]{8,}/g, "sk-***");
+          if (statusEl) statusEl.textContent = "Error: " + friendly;
+          certDzToast(friendly, "error");
         })
         .finally(function () {
           window.clearTimeout(phaseTimer);
           btn.disabled = false;
-          btn.textContent = prevLabel;
+          if (labelEl) labelEl.textContent = "Generate with AI";
         });
     });
   }
@@ -1675,8 +1814,9 @@
     });
   }
 
+  var _snapEl = document.getElementById("cert-dz-snap");
   canvas.on("object:moving", function (opt) {
-    if (!document.getElementById("cert-dz-snap").checked) return;
+    if (!_snapEl || !_snapEl.checked) return;
     var o = opt.target;
     var g = grid;
     o.set({
@@ -1685,13 +1825,18 @@
     });
   });
 
-  document.getElementById("cert-dz-zoom").addEventListener("input", function () {
-    var z = Math.max(0.35, Math.min(2, parseFloat(this.value) || 0.75));
-    canvas.setZoom(z);
-    canvas.setDimensions({ width: PDF_W * z, height: PDF_H * z });
-    if (typeof canvas.calcOffset === "function") canvas.calcOffset();
-    canvas.requestRenderAll();
-  });
+  var _zoomEl = document.getElementById("cert-dz-zoom");
+  if (_zoomEl) {
+    _zoomEl.addEventListener("input", function () {
+      var z = Math.max(0.35, Math.min(2, parseFloat(this.value) || 0.75));
+      canvas.setZoom(z);
+      canvas.setDimensions({ width: PDF_W * z, height: PDF_H * z });
+      if (typeof canvas.calcOffset === "function") canvas.calcOffset();
+      canvas.requestRenderAll();
+      var pctEl = document.getElementById("cert-dz-zoom-pct");
+      if (pctEl) pctEl.textContent = Math.round(z * 100) + "%";
+    });
+  }
 
   ["cert-dz-border-style", "cert-dz-border-width", "cert-dz-bg-size"].forEach(function (id) {
     var el = document.getElementById(id);
@@ -1705,11 +1850,27 @@
     if (id === "cert-dz-border-width") el.addEventListener("input", onPageFieldInput);
   });
 
+  function updateBgPreview() {
+    var previewEl = document.getElementById("cert-dz-bg-preview");
+    if (!previewEl) return;
+    var urlEl = document.getElementById("cert-dz-page-bg-url");
+    var url = urlEl ? (urlEl.value || "").trim() : "";
+    if (url) {
+      previewEl.src = url;
+      previewEl.style.display = "block";
+      previewEl.onerror = function () { previewEl.style.display = "none"; };
+    } else {
+      previewEl.src = "";
+      previewEl.style.display = "none";
+    }
+  }
+
   var pageBgUrlEl = document.getElementById("cert-dz-page-bg-url");
   if (pageBgUrlEl) {
     function onPageBgField() {
       syncDocPageFieldsFromForm();
       drawPageBackground();
+      updateBgPreview();
     }
     pageBgUrlEl.addEventListener("change", function () {
       onPageBgField();
@@ -1729,7 +1890,6 @@
       if (!f) return;
       uploadCertImage(f, function (relUrl) {
         addImagePlaceholder("custom", relUrl);
-        pushHistory();
       });
       ev.target.value = "";
     });
@@ -1754,8 +1914,86 @@
     );
   }
 
+  /* ── Layers panel ─────────────────────────────────────────────────────────── */
+  function layerDisplayName(obj) {
+    var t = obj.certLayerType || "text";
+    if (t === "text") {
+      var v = (obj.variable || "static").toLowerCase();
+      if (v !== "static") {
+        var match = VARIABLE_OPTS.filter(function (o) { return o.v === v; })[0];
+        return match ? match.l : v;
+      }
+      var txt = (obj.text || "").trim();
+      return txt ? (txt.length > 24 ? txt.slice(0, 22) + "\u2026" : txt) : "Static text";
+    }
+    if (t === "image") {
+      var role = (obj.imageRole || "custom").toLowerCase();
+      if (role === "logo") return "Logo";
+      if (role === "signature") return "Signature";
+      return "Image";
+    }
+    if (t === "qr") return "QR code";
+    if (t === "line") return "Line";
+    if (t === "rect") return "Rectangle";
+    return t;
+  }
+
+  function rebuildLayersList() {
+    var container = document.getElementById("cert-dz-layers-list");
+    var countEl = document.getElementById("cert-dz-layer-count");
+    if (!container) return;
+
+    var objs = canvas.getObjects().filter(function (o) {
+      return !o.certChrome && !o.certPageBg && o.certLayerType;
+    });
+    var activeObj = getTargetObject();
+
+    if (!objs.length) {
+      container.innerHTML = '<div class="cert-dz-layers-empty">No layers yet. Add elements above.</div>';
+      if (countEl) countEl.textContent = "";
+      return;
+    }
+
+    if (countEl) countEl.textContent = "(" + objs.length + ")";
+    var badgeLabels = { text: "TXT", image: "IMG", qr: "QR", line: "LINE", rect: "RECT" };
+    var html = "";
+    for (var i = objs.length - 1; i >= 0; i--) {
+      var obj = objs[i];
+      var t = obj.certLayerType || "text";
+      var isActive = activeObj && (obj === activeObj || obj.layerId === activeObj.layerId);
+      html += '<div class="cert-dz-layer-row' + (isActive ? " is-active" : "") +
+        '" data-layer-id="' + (obj.layerId || "") + '">' +
+        '<span class="cert-dz-layer-badge">' + (badgeLabels[t] || t.toUpperCase()) + '</span>' +
+        '<span class="cert-dz-layer-name">' + layerDisplayName(obj) + '</span>' +
+        '</div>';
+    }
+    container.innerHTML = html;
+
+    container.querySelectorAll(".cert-dz-layer-row").forEach(function (row) {
+      row.addEventListener("click", function () {
+        var lid = row.getAttribute("data-layer-id");
+        if (!lid) return;
+        var match = canvas.getObjects().filter(function (o) { return o.layerId === lid; })[0];
+        if (match) {
+          canvas.setActiveObject(match);
+          canvas.requestRenderAll();
+          updatePropsPanel();
+          rebuildLayersList();
+        }
+      });
+    });
+  }
+
+  canvas.on("selection:created", function () { updatePropsPanel(); rebuildLayersList(); });
+  canvas.on("selection:updated", function () { updatePropsPanel(); rebuildLayersList(); });
+  canvas.on("selection:cleared", function () { updatePropsPanel(); rebuildLayersList(); });
+  canvas.on("object:added", rebuildLayersList);
+  canvas.on("object:removed", rebuildLayersList);
+
   loadDocument(doc);
   pushHistory();
+  updateBgPreview();
+  rebuildLayersList();
 
   var zEl = document.getElementById("cert-dz-zoom");
   if (zEl) zEl.dispatchEvent(new Event("input"));
@@ -1765,22 +2003,49 @@
   document.addEventListener("keydown", function (e) {
     if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT")
       return;
+    var _activeObj = canvas.getActiveObject();
+    if (_activeObj && _activeObj.isEditing) return;
+    /* Delete key */
+    if (e.key === "Delete" || e.key === "Backspace") {
+      if (canvas.getActiveObject()) {
+        deleteSelectedObjects();
+        e.preventDefault();
+        return;
+      }
+    }
+    /* Ctrl+Z / Ctrl+Y */
+    if ((e.ctrlKey || e.metaKey) && !e.shiftKey) {
+      if (e.key === "z" || e.key === "Z") {
+        if (histPtr > 0) applyHistory(histPtr - 1);
+        e.preventDefault();
+        return;
+      }
+      if (e.key === "y" || e.key === "Y") {
+        if (histPtr < history.length - 1) applyHistory(histPtr + 1);
+        e.preventDefault();
+        return;
+      }
+    }
     var o = getTargetObject();
     if (!o) return;
     var step = e.shiftKey ? 10 : 1;
+    var _snapOn = _snapEl && _snapEl.checked;
+    var _newLeft = o.left, _newTop = o.top;
     if (e.key === "ArrowLeft") {
-      o.set({ left: o.left - step });
+      _newLeft -= step;
       e.preventDefault();
     } else if (e.key === "ArrowRight") {
-      o.set({ left: o.left + step });
+      _newLeft += step;
       e.preventDefault();
     } else if (e.key === "ArrowUp") {
-      o.set({ top: o.top - step });
+      _newTop -= step;
       e.preventDefault();
     } else if (e.key === "ArrowDown") {
-      o.set({ top: o.top + step });
+      _newTop += step;
       e.preventDefault();
     } else return;
+    if (_snapOn) { _newLeft = snap(_newLeft, grid); _newTop = snap(_newTop, grid); }
+    o.set({ left: _newLeft, top: _newTop });
     o.setCoords();
     canvas.requestRenderAll();
     pushHistory();

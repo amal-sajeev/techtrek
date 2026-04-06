@@ -1,10 +1,14 @@
 from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Resolve .env from the repo root so OPENAI_API_KEY etc. load correctly even if cwd is not the project folder.
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
+
+# Force .env values to override any stale system environment variables.
+load_dotenv(_PROJECT_ROOT / ".env", override=True)
 
 
 class Settings(BaseSettings):

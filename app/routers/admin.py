@@ -5784,9 +5784,12 @@ async def certificate_ai_generate_template(request: Request, db: Session = Depen
         prompt_hint = prompt_hint.strip()[:2000]
     else:
         prompt_hint = ""
+    existing_layers = body.get("existing_layers") if isinstance(body, dict) else None
+    if not isinstance(existing_layers, list):
+        existing_layers = []
 
     try:
-        result = run_ai_certificate_template_pipeline(db, settings, prompt_hint=prompt_hint)
+        result = run_ai_certificate_template_pipeline(db, settings, prompt_hint=prompt_hint, existing_layers=existing_layers)
     except CertificateAiImageError as exc:
         return JSONResponse({"error": str(exc), "step": "image"}, status_code=502)
 
