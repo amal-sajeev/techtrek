@@ -1,3 +1,27 @@
+// ---- HTML ESCAPE UTILITY ----
+function _escHtml(s) {
+  if (typeof s !== 'string') return '';
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ---- CSRF: auto-add X-Requested-With for JSON fetch calls ----
+(function() {
+  var _origFetch = window.fetch;
+  window.fetch = function(url, opts) {
+    opts = opts || {};
+    if (opts.headers) {
+      var ct = '';
+      if (opts.headers instanceof Headers) { ct = opts.headers.get('content-type') || ''; }
+      else if (typeof opts.headers === 'object') { ct = opts.headers['Content-Type'] || opts.headers['content-type'] || ''; }
+      if (ct.indexOf('application/json') !== -1 && opts.method && opts.method !== 'GET') {
+        if (opts.headers instanceof Headers) { opts.headers.set('X-Requested-With', 'XMLHttpRequest'); }
+        else { opts.headers['X-Requested-With'] = 'XMLHttpRequest'; }
+      }
+    }
+    return _origFetch.call(this, url, opts);
+  };
+})();
+
 // ---- STARFIELD / LIGHT SPARKLES ----
 (function(){
   var canvas = document.getElementById('starfield');
@@ -234,10 +258,14 @@ document.addEventListener('submit', function(e) {
     var bodyEl = confirmModal.querySelector('.confirm-message');
     titleEl.textContent = lines[0] || 'Are you sure?';
     if (lines.length > 1) {
-      bodyEl.innerHTML = lines.slice(1).join('<br>');
+      bodyEl.textContent = '';
+      lines.slice(1).forEach(function(line, i) {
+        if (i > 0) bodyEl.appendChild(document.createElement('br'));
+        bodyEl.appendChild(document.createTextNode(line));
+      });
       bodyEl.style.display = '';
     } else {
-      bodyEl.innerHTML = '';
+      bodyEl.textContent = '';
       bodyEl.style.display = 'none';
     }
     var ring = confirmModal.querySelector('.modal-icon-ring');
@@ -310,11 +338,18 @@ function showToast(message, type, duration){
   }
   var toast = document.createElement('div');
   toast.className = 'toast toast-' + type;
-  toast.innerHTML = '<span class="toast-message">' + message + '</span><button class="toast-close">&times;</button>';
+  var msgSpan = document.createElement('span');
+  msgSpan.className = 'toast-message';
+  msgSpan.textContent = message;
+  var closeBtn = document.createElement('button');
+  closeBtn.className = 'toast-close';
+  closeBtn.innerHTML = '&times;';
+  toast.appendChild(msgSpan);
+  toast.appendChild(closeBtn);
   container.appendChild(toast);
   requestAnimationFrame(function(){ toast.classList.add('toast-visible'); });
   var timer = setTimeout(function(){ removeToast(toast); }, duration);
-  toast.querySelector('.toast-close').addEventListener('click', function(){ clearTimeout(timer); removeToast(toast); });
+  closeBtn.addEventListener('click', function(){ clearTimeout(timer); removeToast(toast); });
 }
 function removeToast(toast){
   toast.classList.remove('toast-visible');
@@ -454,7 +489,7 @@ if (document.body.dataset.user) {
           var isVoted = votedOption === opt.id;
           html += '<div style="margin-bottom:.5rem"><label style="display:flex;align-items:center;gap:.5rem;cursor:pointer;padding:.5rem .6rem;border-radius:6px;border:1px solid var(--border,rgba(255,255,255,.12));' + (isVoted ? 'border-color:var(--cyan);background:rgba(0,212,255,.08)' : '') + '">' +
             '<input type="radio" name="poll-opt" value="' + opt.id + '" ' + (isVoted ? 'checked' : '') + ' style="flex-shrink:0">' +
-            '<span style="flex:1;display:flex;align-items:center;gap:.35rem">' + (isVoted ? '<i data-lucide="check" style="width:.85rem;height:.85rem;flex-shrink:0;color:var(--cyan)"></i>' : '') + '<span>' + opt.text + '</span></span>' +
+            '<span style="flex:1;display:flex;align-items:center;gap:.35rem">' + (isVoted ? '<i data-lucide="check" style="width:.85rem;height:.85rem;flex-shrink:0;color:var(--cyan)"></i>' : '') + '<span>' + _escHtml(opt.text) + '</span></span>' +
             '<span style="font-size:.8rem;color:var(--text-muted)">' + opt.votes + ' (' + opt.pct + '%)</span></label></div>';
         });
         voteBtn.style.display = '';

@@ -21,7 +21,7 @@ def _require_supervisor(request: Request, db: Session) -> User | None:
     user_id = request.session.get("user_id")
     if not user_id:
         return None
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         return None
     if not (user.is_supervisor and user.supervisor_college_id):

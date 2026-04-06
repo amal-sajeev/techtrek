@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session, joinedload
 from app.csrf import csrf_protection
 from app.config import settings
 from app.dependencies import flash, get_db, now_ist, template_ctx, templates
+from app.rate_limit import limiter
 from app.services.admin_metrics_bundle import build_admin_metrics_bundle
 from app.services.metrics_report_ai import finalize_metrics_narrative, run_metrics_report_ai
 from app.services.metrics_report_pdf import generate_platform_metrics_report_pdf
@@ -94,7 +95,7 @@ def _require_admin(request: Request, db: Session) -> User | None:
     user_id = request.session.get("user_id")
     if not user_id:
         return None
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user or not user.is_admin:
         return None
     return user
@@ -3830,7 +3831,9 @@ async def event_import_from_template(
     try:
         wb = load_workbook(io.BytesIO(content), read_only=True, data_only=True)
     except Exception as exc:
-        flash(request, f"Could not read the Excel file: {exc}", "danger")
+        import logging
+        logging.getLogger(__name__).warning("Excel import parse error: %s", exc)
+        flash(request, "Could not read the Excel file. Please check the format and try again.", "danger")
         return RedirectResponse("/admin/events", status_code=303)
 
     ws = wb.active
@@ -4464,7 +4467,9 @@ async def event_preview_agenda(
     try:
         rows = _parse_agenda_file(content, agenda_file.filename)
     except Exception as exc:
-        return JSONResponse({"error": f"Could not read the file: {exc}"}, status_code=400)
+        import logging
+        logging.getLogger(__name__).warning("Agenda file parse error: %s", exc)
+        return JSONResponse({"error": "Could not read the file. Please check the format and try again."}, status_code=400)
 
     if not rows:
         return JSONResponse({"error": "The uploaded file has no data rows."}, status_code=400)
@@ -5737,27 +5742,29 @@ async def admin_upload_image(request: Request, db: Session = Depends(get_db)):
     if not file or not hasattr(file, "filename"):
         return JSONResponse({"error": "No file uploaded"}, status_code=400)
 
-    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if file.content_type not in allowed:
-        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
-
     content = await file.read()
     if len(content) > 5 * 1024 * 1024:
         return JSONResponse({"error": "File too large (max 5MB)"}, status_code=400)
 
+    from app.upload_validation import validate_image_upload
+    detected_type = validate_image_upload(content)
+    if not detected_type:
+        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
+
     img = UploadedImage(
         filename=file.filename or "upload",
-        content_type=file.content_type,
+        content_type=detected_type,
         data=content,
     )
     db.add(img)
     db.commit()
     db.refresh(img)
 
-    return JSONResponse({"url": f"/uploads/{img.id}"})
+    return JSONResponse({"url": f"/uploads/{img.access_token}"})
 
 
 @router.post("/certificate-ai/generate-template")
+@limiter.limit("5/minute")
 async def certificate_ai_generate_template(request: Request, db: Session = Depends(get_db)):
     """Two-step OpenAI pipeline: decorative background image + vision layout → cert_style v2."""
     from app.services.certificate_ai_template import CertificateAiImageError, run_ai_certificate_template_pipeline
@@ -5791,7 +5798,14 @@ async def certificate_ai_generate_template(request: Request, db: Session = Depen
     try:
         result = run_ai_certificate_template_pipeline(db, settings, prompt_hint=prompt_hint, existing_layers=existing_layers)
     except CertificateAiImageError as exc:
-        return JSONResponse({"error": str(exc), "step": "image"}, status_code=502)
+        import logging
+        logging.getLogger(__name__).warning("Certificate AI error: %s", exc)
+        safe_msg = str(exc)
+        if "api key" in safe_msg.lower() or "rate limit" in safe_msg.lower():
+            pass
+        else:
+            safe_msg = "AI generation failed. Please try again later."
+        return JSONResponse({"error": safe_msg, "step": "image"}, status_code=502)
 
     return JSONResponse(
         {
@@ -5815,16 +5829,17 @@ async def newsletter_upload_image(request: Request, db: Session = Depends(get_db
     if not file or not hasattr(file, "filename"):
         return JSONResponse({"error": "No file uploaded"}, status_code=400)
 
-    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if file.content_type not in allowed:
-        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
-
     content = await file.read()
     if len(content) > 5 * 1024 * 1024:
         return JSONResponse({"error": "File too large (max 5MB)"}, status_code=400)
 
+    from app.upload_validation import validate_image_upload
+    detected_type = validate_image_upload(content)
+    if not detected_type:
+        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
+
     ext_map = {"image/jpeg": ".jpg", "image/png": ".png", "image/gif": ".gif", "image/webp": ".webp"}
-    ext = ext_map.get(file.content_type, ".jpg")
+    ext = ext_map.get(detected_type, ".jpg")
     filename = f"{uuid.uuid4().hex}{ext}"
 
     upload_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static", "uploads", "newsletters")

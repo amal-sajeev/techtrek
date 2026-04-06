@@ -262,7 +262,7 @@ def store_upload(db: Session, png_or_jpeg: bytes, content_type: str) -> tuple[in
     db.add(img)
     db.commit()
     db.refresh(img)
-    return img.id, f"/uploads/{img.id}"
+    return img.id, f"/uploads/{img.access_token}"
 
 
 def generate_decorated_background(client: OpenAI, settings: Settings, prompt_hint: str) -> bytes:
@@ -297,7 +297,9 @@ def generate_decorated_background(client: OpenAI, settings: Settings, prompt_hin
             raise CertificateAiImageError(
                 "OpenAI rate limit reached. Please wait a moment and try again."
             ) from exc
-        raise CertificateAiImageError(f"Image generation failed: {exc}") from exc
+        import logging
+        logging.getLogger(__name__).warning("OpenAI image generation error: %s", exc)
+        raise CertificateAiImageError("Image generation failed. Please try again later.") from exc
 
     if not resp.data:
         raise CertificateAiImageError("Image generation returned no data.")

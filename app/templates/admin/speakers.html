@@ -128,17 +128,18 @@ function checkSpeakerDelete(speakerId, csrf){
       _sdmFormEl.innerHTML = '<input type="hidden" name="csrf_token" value="' + csrf + '"><input type="hidden" name="session_action" id="sdm-action-input" value="draft">';
       document.body.appendChild(_sdmFormEl);
 
+      function _esc(s) { var d = document.createElement('span'); d.textContent = s || ''; return d.innerHTML; }
       if(!data.has_sessions){
         title.textContent = 'Delete Speaker';
-        body.innerHTML = '<p class="confirm-message">Are you sure you want to delete <strong>' + data.speaker_name + '</strong>? This action cannot be undone.</p>';
+        body.innerHTML = '<p class="confirm-message">Are you sure you want to delete <strong>' + _esc(data.speaker_name) + '</strong>? This action cannot be undone.</p>';
         confirmBtn.onclick = function(){ _sdmFormEl.submit(); };
       } else {
         title.textContent = 'Speaker Has Upcoming Sessions';
-        var html = '<p class="confirm-message" style="margin-bottom:.75rem"><strong>' + data.speaker_name + '</strong> is assigned to <strong>' + data.sessions.length + '</strong> upcoming session' + (data.sessions.length > 1 ? 's' : '') + ':</p>';
+        var html = '<p class="confirm-message" style="margin-bottom:.75rem"><strong>' + _esc(data.speaker_name) + '</strong> is assigned to <strong>' + data.sessions.length + '</strong> upcoming session' + (data.sessions.length > 1 ? 's' : '') + ':</p>';
         html += '<div class="speaker-del-sessions-list">';
         for(var i = 0; i < data.sessions.length; i++){
           var s = data.sessions[i];
-          html += '<div class="speaker-del-session-item"><span class="speaker-del-session-title">' + s.title + '</span><span class="speaker-del-session-meta">' + s.date + ' &middot; ' + s.role + '</span></div>';
+          html += '<div class="speaker-del-session-item"><span class="speaker-del-session-title">' + _esc(s.title) + '</span><span class="speaker-del-session-meta">' + _esc(s.date) + ' &middot; ' + _esc(s.role) + '</span></div>';
         }
         html += '</div>';
         html += '<p class="form-label" style="margin-top:1rem;margin-bottom:.5rem">What should happen to these sessions?</p>';

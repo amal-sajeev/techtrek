@@ -39,9 +39,15 @@ from app.models.poll import Poll, PollOption, PollVote
 router = APIRouter(tags=["public"], dependencies=[Depends(csrf_protection)])
 
 
-@router.get("/uploads/{image_id}")
-def serve_uploaded_image(image_id: int, db: DbSession = Depends(get_db)):
-    img = db.query(UploadedImage).filter(UploadedImage.id == image_id).first()
+@router.get("/uploads/{identifier}")
+def serve_uploaded_image(identifier: str, db: DbSession = Depends(get_db)):
+    img = db.query(UploadedImage).filter(UploadedImage.access_token == identifier).first()
+    if not img:
+        try:
+            image_id = int(identifier)
+            img = db.query(UploadedImage).filter(UploadedImage.id == image_id).first()
+        except (ValueError, TypeError):
+            pass
     if not img:
         return Response(status_code=404)
     return Response(
@@ -199,7 +205,8 @@ def home(request: Request, db: DbSession = Depends(get_db)):
         for r in rows:
             key = f"{r.owner_type}:{r.owner_id}"
             if key not in first_gallery:
-                first_gallery[key] = f"/uploads/{r.image_id}"
+                token = r.image.access_token if r.image and r.image.access_token else str(r.image_id)
+                first_gallery[key] = f"/uploads/{token}"
 
     return templates.TemplateResponse(
         "public/home.html",
@@ -342,7 +349,7 @@ def session_detail(
     session_gallery = db.query(GalleryImage).filter(
         GalleryImage.owner_type == "session", GalleryImage.owner_id == session_id
     ).order_by(GalleryImage.position).all()
-    gallery_urls = [f"/uploads/{gi.image_id}" for gi in session_gallery]
+    gallery_urls = [f"/uploads/{gi.image.access_token if gi.image and gi.image.access_token else gi.image_id}" for gi in session_gallery]
 
     avg_rating_row = (
         db.query(func.avg(SessionFeedback.rating), func.count(SessionFeedback.id))
@@ -569,7 +576,7 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
     event_gallery = db.query(GalleryImage).filter(
         GalleryImage.owner_type == "event", GalleryImage.owner_id == event_id
     ).order_by(GalleryImage.position).all()
-    gallery_urls = [f"/uploads/{gi.image_id}" for gi in event_gallery]
+    gallery_urls = [f"/uploads/{gi.image.access_token if gi.image and gi.image.access_token else gi.image_id}" for gi in event_gallery]
 
     event_addons = db.query(EventAddOn).filter(
         EventAddOn.event_id == event_id, EventAddOn.is_active == True
@@ -1062,7 +1069,7 @@ async def claim_shared_ticket(request: Request, ticket_id: str, db: DbSession = 
 
     recipient_hash = hash_lookup(share_row.recipient_email.strip().lower(), settings.field_encryption_key)
     if user.email_hash != recipient_hash:
-        return JSONResponse({"ok": False, "error": f"This ticket was shared to {share_row.recipient_email}. Please sign in with that email."}, status_code=403)
+        return JSONResponse({"ok": False, "error": "This ticket was shared to a different email address. Please sign in with the correct email."}, status_code=403)
 
     booking = db.query(Booking).filter(
         Booking.ticket_id == ticket_id, Booking.payment_status == "paid"
@@ -1077,6 +1084,7 @@ async def claim_shared_ticket(request: Request, ticket_id: str, db: DbSession = 
     booking.is_shared_ticket = True
     db.commit()
 
+    request.session.clear()
     request.session["user_id"] = user.id
     return JSONResponse({"ok": True, "redirect": f"/ticket/{ticket_id}"})
 
@@ -1204,6 +1212,16 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
     event = db.query(Event).get(event_id)
     if not event:
         return templates.TemplateResponse("errors/404.html", template_ctx(request), status_code=404)
+
+    has_booking = db.query(Booking).filter(
+        Booking.user_id == user_id,
+        Booking.event_id == event_id,
+        Booking.payment_status == "paid",
+    ).first()
+    if not has_booking:
+        from app.dependencies import flash
+        flash(request, "You must have a booking to submit feedback.", "danger")
+        return RedirectResponse(f"/feedback/{event_id}", status_code=303)
 
     form = await request.form()
     comment = form.get("comment", "").strip()
@@ -1363,6 +1381,15 @@ async def vote_poll(request: Request, session_id: int, poll_id: int, event_id: i
     poll = db.query(Poll).filter(*filters).first()
     if not poll:
         return JSONResponse({"ok": False, "error": "Poll not found or closed."}, status_code=404)
+
+    if poll.event_id:
+        has_booking = db.query(Booking).filter(
+            Booking.user_id == user_id,
+            Booking.event_id == poll.event_id,
+            Booking.payment_status == "paid",
+        ).first()
+        if not has_booking:
+            return JSONResponse({"ok": False, "error": "You must have a booking for this event to vote."}, status_code=403)
 
     try:
         body = await request.json()
@@ -1541,6 +1568,14 @@ def poll_display(request: Request, poll_id: int, db: DbSession = Depends(get_db)
 
     session_obj = db.query(Session).get(poll.session_id) if poll.session_id else None
     event = db.query(Event).get(poll.event_id) if poll.event_id else None
+
+    if user.is_supervisor and not user.is_admin and not is_speaker:
+        if event and event.auditorium_id:
+            aud = db.query(Auditorium).get(event.auditorium_id)
+            if not aud or aud.college_id != user.supervisor_college_id:
+                return RedirectResponse("/", status_code=303)
+        elif not event:
+            return RedirectResponse("/", status_code=303)
 
     results = _poll_results(db, poll)
 

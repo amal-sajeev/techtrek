@@ -29,7 +29,7 @@ def _require_speaker(request: Request, db: Session):
     user_id = request.session.get("user_id")
     if not user_id:
         raise AuthRedirect(f"/auth/login?next={request.url.path}")
-    user = db.query(User).filter(User.id == user_id).first()
+    user = db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
     if not user:
         raise AuthRedirect("/auth/login")
     speaker = db.query(Speaker).filter(Speaker.user_id == user.id).first()
@@ -625,21 +625,22 @@ async def speaker_upload_image(request: Request, db: Session = Depends(get_db)):
     if not file or not hasattr(file, "filename"):
         return JSONResponse({"error": "No file uploaded"}, status_code=400)
 
-    allowed = {"image/jpeg", "image/png", "image/gif", "image/webp"}
-    if file.content_type not in allowed:
-        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
-
     content = await file.read()
     if len(content) > 5 * 1024 * 1024:
         return JSONResponse({"error": "File too large (max 5MB)"}, status_code=400)
 
+    from app.upload_validation import validate_image_upload
+    detected_type = validate_image_upload(content)
+    if not detected_type:
+        return JSONResponse({"error": "Invalid file type. Allowed: JPEG, PNG, GIF, WebP"}, status_code=400)
+
     img = UploadedImage(
         filename=file.filename or "upload",
-        content_type=file.content_type,
+        content_type=detected_type,
         data=content,
     )
     db.add(img)
     db.commit()
     db.refresh(img)
 
-    return JSONResponse({"url": f"/uploads/{img.id}"})
+    return JSONResponse({"url": f"/uploads/{img.access_token}"})

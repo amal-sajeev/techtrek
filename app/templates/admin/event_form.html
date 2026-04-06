@@ -836,7 +836,7 @@ window._existingAgendaItems = [
 ];
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js" integrity="sha384-HZZ/fukV+9G8gwTNjN7zQDG0Sp7MsZy5DDN6VfY3Be7V9dvQpEpR2jF2HlyFUUjU" crossorigin="anonymous"></script>
 <script>
 (function() {
   var steps = document.querySelectorAll('.wizard-step');
@@ -1021,8 +1021,9 @@ window._existingAgendaItems = [
       ['Description', (val('ev-desc') || '—').substring(0, 120) + (val('ev-desc').length > 120 ? '…' : '')],
     ]);
     var tbody = document.querySelector('#ev-review-table tbody');
+    function _escR(s) { var d = document.createElement('span'); d.textContent = s || ''; return d.innerHTML; }
     tbody.innerHTML = rows.map(function(r) {
-      return '<tr><td style="width:38%;font-weight:600;color:var(--text-muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">' + r[0] + '</td><td>' + r[1] + '</td></tr>';
+      return '<tr><td style="width:38%;font-weight:600;color:var(--text-muted);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em">' + _escR(r[0]) + '</td><td>' + _escR(r[1]) + '</td></tr>';
     }).join('');
   }
 
@@ -2643,14 +2644,22 @@ initGalleryUpload('ev-gallery', '/admin/upload-image', [
       .then(function(r) { return r.json().then(function(d) { return { ok: r.ok, data: d }; }); })
       .then(function(res) {
         if (!res.ok) {
-          body.innerHTML = '<p style="color:#ef4444;padding:1rem">' + (res.data.error || 'Unknown error') + '</p>';
+          var errP = document.createElement('p');
+          errP.style.cssText = 'color:#ef4444;padding:1rem';
+          errP.textContent = res.data.error || 'Unknown error';
+          body.textContent = '';
+          body.appendChild(errP);
           return;
         }
         previewData = res.data;
         renderTable(previewData);
       })
       .catch(function(err) {
-        body.innerHTML = '<p style="color:#ef4444;padding:1rem">Network error: ' + err.message + '</p>';
+        var errP = document.createElement('p');
+        errP.style.cssText = 'color:#ef4444;padding:1rem';
+        errP.textContent = 'Network error: ' + err.message;
+        body.textContent = '';
+        body.appendChild(errP);
       });
   });
 

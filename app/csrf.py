@@ -30,6 +30,10 @@ async def csrf_protection(request: Request, csrf_token: str = Form(default="")) 
         return
     content_type = (request.headers.get("content-type") or "").lower()
     if "application/json" in content_type:
-        # JSON/XHR endpoints are protected by SameSite=lax + session auth
+        if not request.headers.get("x-requested-with"):
+            raise HTTPException(
+                status_code=403,
+                detail="JSON mutations require X-Requested-With header.",
+            )
         return
     _verify_csrf_token(request, csrf_token)

@@ -2,7 +2,7 @@
 {% block title %}{{ 'Edit' if newsletter else 'Compose' }} Newsletter — Admin{% endblock %}
 
 {% block head_extra %}
-<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" integrity="sha384-ecIckRi4QlKYya/FQUbBUjS4qp65jF/J87Guw5uzTbO1C1Jfa/6kYmd6dXUF6D7i" crossorigin="anonymous">
 <link rel="stylesheet" href="{{ url_for('static', path='css/admin-newsletter.css') }}?v=135">
 {% endblock %}
 
@@ -77,7 +77,7 @@
 </form>
 {% endif %}
 
-<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js" integrity="sha384-utBUCeG4SYaCm4m7GQZYr8Hy8Fpy3V4KGjBZaf4WTKOcwhCYpt/0PfeEe3HNlwx8" crossorigin="anonymous"></script>
 <script>
 (function() {
   var quill = new Quill('#nl-quill-editor', {

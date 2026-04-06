@@ -355,11 +355,12 @@
     });
     var speakerRolesText = speakerRoles.length ? speakerRoles.join(', ') : '(none assigned)';
 
+    function _esc(s) { var d = document.createElement('span'); d.textContent = s || ''; return d.innerHTML; }
     r.innerHTML = '<table class="table"><tbody>' +
-      '<tr><td><strong>Title</strong></td><td>' + title + '</td></tr>' +
-      '<tr><td><strong>Speaker</strong></td><td>' + speaker + '</td></tr>' +
-      '<tr><td><strong>Speaker Roles</strong></td><td>' + speakerRolesText + '</td></tr>' +
-      '<tr><td><strong>Duration</strong></td><td>' + duration + ' min</td></tr>' +
+      '<tr><td><strong>Title</strong></td><td>' + _esc(title) + '</td></tr>' +
+      '<tr><td><strong>Speaker</strong></td><td>' + _esc(speaker) + '</td></tr>' +
+      '<tr><td><strong>Speaker Roles</strong></td><td>' + _esc(speakerRolesText) + '</td></tr>' +
+      '<tr><td><strong>Duration</strong></td><td>' + _esc(duration) + ' min</td></tr>' +
       '</tbody></table>';
   }
 

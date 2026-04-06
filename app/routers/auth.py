@@ -15,6 +15,7 @@ from app.models.user import User
 from app.services.activity_log import log_activity
 from app.services.email import send_password_reset, send_signup_confirmation
 from app.services.oauth import oauth
+from app.rate_limit import limiter
 
 
 def _safe_next(url: str) -> str:
@@ -25,6 +26,8 @@ def _safe_next(url: str) -> str:
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+_DUMMY_HASH = bcrypt.hashpw(b"timing-safe-dummy", bcrypt.gensalt()).decode()
 
 
 # ---------------------------------------------------------------------------
@@ -96,6 +99,7 @@ def login_page(request: Request):
 
 
 @router.post("/login")
+@limiter.limit("10/minute")
 async def login(request: Request, db: Session = Depends(get_db), _csrf: None = Depends(require_csrf_form)):
     form = await request.form()
     login_id = form.get("username", "").strip()   # accepts username OR email
@@ -107,10 +111,22 @@ async def login(request: Request, db: Session = Depends(get_db), _csrf: None = D
         (User.username_hash == login_hash) | (User.email_hash == login_hash)
     ).first()
 
-    if not user or not user.password_hash or not _verify_pw(password, user.password_hash):
+    if not user or not user.password_hash:
+        _verify_pw(password, _DUMMY_HASH)
         log_activity(
             db, category="auth", action="login_failed",
-            description=f"Failed login attempt for '{login_id}'",
+            description="Failed login attempt",
+            request=request,
+        )
+        db.commit()
+        flash(request, "Invalid username/email or password.", "danger")
+        next_url = form.get("next", "").strip() or request.query_params.get("next", "")
+        qs = f"?next={next_url}" if next_url else ""
+        return RedirectResponse(f"/auth/login{qs}", status_code=303)
+    if not _verify_pw(password, user.password_hash):
+        log_activity(
+            db, category="auth", action="login_failed",
+            description="Failed login attempt",
             request=request,
         )
         db.commit()
@@ -143,6 +159,7 @@ def register_page(request: Request):
 
 
 @router.post("/register")
+@limiter.limit("5/minute")
 async def register(request: Request, db: Session = Depends(get_db), _csrf: None = Depends(require_csrf_form)):
     form = await request.form()
     username  = form.get("username", "").strip()
@@ -206,9 +223,10 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
     bootstrap_email = settings.admin_bootstrap_email.strip().lower()
     if bootstrap_email:
         is_admin = email.lower() == bootstrap_email
-    else:
-        # Dev-only fallback: first registrant becomes admin.
+    elif settings.debug:
         is_admin = db.query(User).count() == 0
+    else:
+        is_admin = False
 
     user = User(
         username=username,
@@ -234,7 +252,7 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
     _try_link_speaker_token(request, db, user)
     log_activity(
         db, category="auth", action="register",
-        description=f"New user registered: {user.username} ({user.email})",
+        description="New user registered",
         request=request, user_id=user.id, target_type="user", target_id=user.id,
     )
     db.commit()
@@ -250,6 +268,7 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
 
 
 @router.post("/verify-password")
+@limiter.limit("5/minute")
 async def verify_password(request: Request, db: Session = Depends(get_db)):
     user_id = request.session.get("user_id")
     if not user_id:
@@ -410,8 +429,10 @@ async def google_callback(request: Request, db: Session = Depends(get_db)):
         bootstrap_email = settings.admin_bootstrap_email.strip().lower()
         if bootstrap_email:
             is_admin = google_email == bootstrap_email
-        else:
+        elif settings.debug:
             is_admin = db.query(User).count() == 0
+        else:
+            is_admin = False
 
         user = User(
             username=username,
@@ -456,6 +477,7 @@ def forgot_password_page(request: Request):
 
 
 @router.post("/forgot-password")
+@limiter.limit("3/minute")
 async def forgot_password(request: Request, db: Session = Depends(get_db), _csrf: None = Depends(require_csrf_form)):
     form = await request.form()
     email = form.get("email", "").strip()

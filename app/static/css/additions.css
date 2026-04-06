@@ -1724,6 +1724,8 @@ html[data-theme="light"] .ed-break-card .ed-sc-body .ed-sc-meta {
 }
 
 .ed-booking-panel {
+  position: relative;
+  overflow: hidden;
   background: var(--bg-glass, rgba(13,17,23,0.85));
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
@@ -2498,6 +2500,11 @@ html[data-theme="light"] .ed-break-card .ed-sc-body .ed-sc-meta {
   transform: translateY(0);
   opacity: 1;
   pointer-events: auto;
+}
+
+/* Hide sticky title bar in dark mode */
+:root:not([data-theme="light"]) .ed-sticky-title {
+  display: none !important;
 }
 
 .ed-sticky-inner {

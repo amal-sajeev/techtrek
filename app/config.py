@@ -14,7 +14,7 @@ load_dotenv(_PROJECT_ROOT / ".env", override=True)
 class Settings(BaseSettings):
     database_url: str = "postgresql+psycopg2://postgres:root@localhost:5432/techtrek"
     secret_key: str = ""
-    debug: bool = True
+    debug: bool = False
 
     # Field-level encryption key (Fernet, 44-char URL-safe base64).
     # Generate with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

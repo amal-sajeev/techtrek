@@ -19,12 +19,25 @@ BASE_DIR = Path(__file__).resolve().parent
 # buffering that stalls SSE StreamingResponse connections)
 # ---------------------------------------------------------------------------
 
+_CSP_VALUE = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://checkout.razorpay.com; "
+    "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
+    "font-src 'self' https://fonts.gstatic.com; "
+    "img-src 'self' data: blob: https:; "
+    "connect-src 'self'; "
+    "frame-src 'self' https://checkout.razorpay.com https://accounts.google.com; "
+    "object-src 'none'; "
+    "base-uri 'self'"
+)
+
 _SECURITY_DEFAULTS = [
     (b"x-content-type-options", b"nosniff"),
     (b"x-frame-options", b"DENY"),
     (b"x-xss-protection", b"1; mode=block"),
     (b"referrer-policy", b"strict-origin-when-cross-origin"),
     (b"permissions-policy", b"camera=(self), microphone=(), geolocation=()"),
+    (b"content-security-policy", _CSP_VALUE.encode()),
 ]
 
 _HSTS_HEADER = (

@@ -65,13 +65,18 @@ def _get_logo_image(logo_url: str, max_h_mm: float = 14):
     """Load logo from DB upload path or external URL. Returns a ReportLab Image or None."""
     try:
         import re as _re
-        m = _re.match(r'^/uploads/(\d+)$', logo_url)
-        if m:
-            from app.database import SessionLocal
-            from app.models.uploaded_image import UploadedImage
+        from app.database import SessionLocal
+        from app.models.uploaded_image import UploadedImage
+
+        m_int = _re.match(r'^/uploads/(\d+)$', logo_url)
+        m_tok = _re.match(r'^/uploads/([0-9a-f]{16,})$', logo_url)
+        if m_int or m_tok:
             db = SessionLocal()
             try:
-                img_row = db.query(UploadedImage).filter(UploadedImage.id == int(m.group(1))).first()
+                if m_tok:
+                    img_row = db.query(UploadedImage).filter(UploadedImage.access_token == m_tok.group(1)).first()
+                else:
+                    img_row = db.query(UploadedImage).filter(UploadedImage.id == int(m_int.group(1))).first()
                 if not img_row or not img_row.data:
                     return None
                 buf = io.BytesIO(img_row.data)

@@ -7,6 +7,11 @@
   var canvasEl = document.getElementById("cert-designer-canvas");
   if (!bootEl || !canvasEl || typeof fabric === "undefined") return;
 
+  function _escHtml(s) {
+    if (typeof s !== 'string') return '';
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+
   var bootstrap = {};
   try {
     bootstrap = JSON.parse((bootEl.textContent || "{}").trim());
@@ -1962,9 +1967,9 @@
       var t = obj.certLayerType || "text";
       var isActive = activeObj && (obj === activeObj || obj.layerId === activeObj.layerId);
       html += '<div class="cert-dz-layer-row' + (isActive ? " is-active" : "") +
-        '" data-layer-id="' + (obj.layerId || "") + '">' +
-        '<span class="cert-dz-layer-badge">' + (badgeLabels[t] || t.toUpperCase()) + '</span>' +
-        '<span class="cert-dz-layer-name">' + layerDisplayName(obj) + '</span>' +
+        '" data-layer-id="' + _escHtml(obj.layerId || "") + '">' +
+        '<span class="cert-dz-layer-badge">' + (badgeLabels[t] || _escHtml(t.toUpperCase())) + '</span>' +
+        '<span class="cert-dz-layer-name">' + _escHtml(layerDisplayName(obj)) + '</span>' +
         '</div>';
     }
     container.innerHTML = html;

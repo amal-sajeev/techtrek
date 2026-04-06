@@ -68,7 +68,7 @@
   <p class="scanner-hint-text">Point the camera at a ticket QR code</p>
 </div>
 
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" integrity="sha384-c9d8RFSL+u3exBOJ4Yp3HUJXS4znl9f+z66d1y54ig+ea249SpqR+w1wyvXz/lk+" crossorigin="anonymous"></script>
 <script>
 (function(){
   var launchBtn = document.getElementById('scan-launch-btn');
@@ -87,7 +87,12 @@
       document.body.style.overflow = 'hidden';
       var isInsecure = location.protocol === 'http:' && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1';
       var msg = isInsecure ? 'Camera requires HTTPS.' : 'Camera API not available.';
-      document.getElementById('qr-reader').innerHTML = '<p style="padding:2rem;text-align:center;color:var(--red)">' + msg + '</p>';
+      var p = document.createElement('p');
+      p.style.cssText = 'padding:2rem;text-align:center;color:var(--red)';
+      p.textContent = msg;
+      var qrEl = document.getElementById('qr-reader');
+      qrEl.textContent = '';
+      qrEl.appendChild(p);
       return;
     }
     overlay.style.display = 'flex';
@@ -100,7 +105,12 @@
       function(decoded){ input.value = decoded; stopScan(); form.submit(); },
       function(){}
     ).catch(function(err){
-      document.getElementById('qr-reader').innerHTML = '<p style="padding:2rem;text-align:center;color:var(--red)">Camera access denied.<br><small>' + err + '</small></p>';
+      var p = document.createElement('p');
+      p.style.cssText = 'padding:2rem;text-align:center;color:var(--red)';
+      p.textContent = 'Camera access denied. ' + String(err);
+      var qrEl = document.getElementById('qr-reader');
+      qrEl.textContent = '';
+      qrEl.appendChild(p);
     });
   }
 

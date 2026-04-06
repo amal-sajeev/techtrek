@@ -74,7 +74,7 @@ def _require_user(request: Request, db: Session) -> User | None:
     user_id = request.session.get("user_id")
     if not user_id:
         return None
-    return db.query(User).filter(User.id == user_id).first()
+    return db.query(User).filter(User.id == user_id, User.deleted_at.is_(None)).first()
 
 
 # ---------------------------------------------------------------------------

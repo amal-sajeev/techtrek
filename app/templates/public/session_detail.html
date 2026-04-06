@@ -817,7 +817,7 @@
         html += '<div style="cursor:pointer" onclick="castVote(' + opt.id + ')" data-opt-id="' + opt.id + '">' +
           '<div style="display:flex;justify-content:space-between;margin-bottom:.25rem">' +
             '<span style="font-size:.9rem;display:flex;align-items:center;gap:.35rem;' + (isVoted ? 'font-weight:700;color:var(--cyan,#00d4ff)' : '') + '">' +
-              (isVoted ? '<i data-lucide="check" style="width:.85rem;height:.85rem;flex-shrink:0"></i>' : '') + '<span>' + opt.text + '</span></span>' +
+              (isVoted ? '<i data-lucide="check" style="width:.85rem;height:.85rem;flex-shrink:0"></i>' : '') + '<span>' + _escHtml(opt.text) + '</span></span>' +
             '<span style="font-size:.85rem;color:var(--text-muted)">' + opt.votes + ' (' + opt.pct + '%)</span>' +
           '</div>' +
           '<div style="background:var(--bg-void,#0d0d1a);border-radius:4px;height:28px;overflow:hidden;border:' +

@@ -454,7 +454,7 @@ def _is_private_ip(host: str) -> bool:
     return False
 
 
-def _load_uploaded_image(image_id: int):
+def _load_uploaded_image_by_id(image_id: int):
     """Load an UploadedImage from the database by id."""
     try:
         from app.database import SessionLocal
@@ -471,6 +471,23 @@ def _load_uploaded_image(image_id: int):
     return None
 
 
+def _load_uploaded_image_by_token(token: str):
+    """Load an UploadedImage from the database by access token."""
+    try:
+        from app.database import SessionLocal
+        from app.models.uploaded_image import UploadedImage
+        db = SessionLocal()
+        try:
+            img = db.query(UploadedImage).filter(UploadedImage.access_token == token).first()
+            if img and img.data:
+                return ImageReader(io.BytesIO(img.data))
+        finally:
+            db.close()
+    except Exception:
+        pass
+    return None
+
+
 def _try_load_image(url: str):
     if not url:
         return None
@@ -478,7 +495,10 @@ def _try_load_image(url: str):
     import re as _re
     m = _re.match(r'^/uploads/(\d+)$', url)
     if m:
-        return _load_uploaded_image(int(m.group(1)))
+        return _load_uploaded_image_by_id(int(m.group(1)))
+    m = _re.match(r'^/uploads/([0-9a-f]{16,})$', url)
+    if m:
+        return _load_uploaded_image_by_token(m.group(1))
 
     try:
         parsed = urllib.parse.urlparse(url)
@@ -835,14 +855,13 @@ def _draw_freeform_text_layer(c, layer: dict, text: str) -> None:
         c.rotate(-rot)
         c.translate(-cx, -cy)
 
-    max_w = max(w - 4, 8)
+    max_w = max(w, 8)
     lines = _wrap_lines_canvas(c, text, font_name, fs, max_w)
-    leading = fs * 1.2
+    leading = fs * 1.16
     n = min(len(lines), max(1, int(h // max(leading, 1)) + 2))
     lines = lines[:n]
-    total_text_h = len(lines) * leading
     y_top = y + h
-    start_baseline = y_top - fs * 0.22 - max(0, (h - min(total_text_h, h)) / 2)
+    start_baseline = y_top - fs * 0.82
 
     c.setFont(font_name, fs)
     c.setFillColor(color)
@@ -855,9 +874,9 @@ def _draw_freeform_text_layer(c, layer: dict, text: str) -> None:
         if align == "center":
             tx = x + (w - tw) / 2
         elif align == "right":
-            tx = x + w - tw - 2
+            tx = x + w - tw
         else:
-            tx = x + 2
+            tx = x
         c.drawString(tx, baseline, line)
         if layer.get("underline") and line:
             c.setStrokeColor(color)
