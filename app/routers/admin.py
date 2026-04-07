@@ -1425,7 +1425,7 @@ def _save_event_addons(db: Session, form, event_id: int):
                 title=title,
                 description=form.get(f"addon_desc_{idx}", "").strip() or None,
                 price=float(form.get(f"addon_price_{idx}", 0) or 0),
-                max_quantity=int(form.get(f"addon_max_qty_{idx}") or 0) or None,
+                max_quantity=int(raw_qty) if (raw_qty := (form.get(f"addon_max_qty_{idx}") or "").strip()) and raw_qty.isdigit() else None,
                 is_active=True,
                 in_agenda=in_agenda,
                 order=int(form.get(f"addon_order_{idx}") or 0),
@@ -2921,22 +2921,41 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
         return RedirectResponse("/auth/login", status_code=303)
     form = await _form(request)
     aud_raw = form.get("auditorium_id", "")
+    college_raw = form.get("college_id", "")
+    fb_raw = form.get("feedback_template_id", "")
     start_date_raw = form.get("start_date", "")
     end_date_raw = form.get("end_date", "")
+    _VALID_STATUSES = {"draft", "published", "completed", "cancelled"}
+    def _safe_float(key):
+        raw = form.get(key, "").strip() if form.get(key) else ""
+        if not raw:
+            return None
+        try:
+            return float(raw)
+        except (ValueError, TypeError):
+            return None
+    def _safe_date(raw):
+        if not raw:
+            return None
+        try:
+            return date.fromisoformat(raw)
+        except (ValueError, TypeError):
+            return None
+    status_raw = form.get("status", "draft")
     ev = Event(
         name=form.get("name", "").strip(),
         description=form.get("description", "").strip() or None,
         banner_url=form.get("banner_url", "").strip() or None,
-        college_id=int(form.get("college_id")) if form.get("college_id") else None,
+        college_id=int(college_raw) if college_raw and college_raw.strip().isdigit() else None,
         auditorium_id=int(aud_raw) if aud_raw and aud_raw.strip().isdigit() else None,
-        start_date=date.fromisoformat(start_date_raw) if start_date_raw else None,
-        end_date=date.fromisoformat(end_date_raw) if end_date_raw else None,
-        price=float(form.get("price", 0) or 0),
-        price_vip=float(form["price_vip"]) if form.get("price_vip", "").strip() else None,
-        price_accessible=float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None,
-        processing_fee_pct=float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None,
+        start_date=_safe_date(start_date_raw),
+        end_date=_safe_date(end_date_raw),
+        price=_safe_float("price") or 0,
+        price_vip=_safe_float("price_vip"),
+        price_accessible=_safe_float("price_accessible"),
+        processing_fee_pct=_safe_float("processing_fee_pct"),
         custom_prices=_extract_custom_prices(form),
-        status=form.get("status", "draft"),
+        status=status_raw if status_raw in _VALID_STATUSES else "draft",
         cert_title=normalize_cert_scalar_for_storage(form.get("cert_title")),
         cert_subtitle=normalize_cert_scalar_for_storage(form.get("cert_subtitle")),
         cert_footer=normalize_cert_scalar_for_storage(form.get("cert_footer")),
@@ -2947,7 +2966,7 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
         cert_bg_url=normalize_cert_scalar_for_storage(form.get("cert_bg_url")),
         cert_color_scheme=normalize_cert_scalar_for_storage(form.get("cert_color_scheme")),
         cert_style=normalize_cert_scalar_for_storage(form.get("cert_style")),
-        feedback_template_id=int(form["feedback_template_id"]) if form.get("feedback_template_id", "").strip() else None,
+        feedback_template_id=int(fb_raw) if fb_raw and fb_raw.strip().isdigit() else None,
     )
     db.add(ev)
     db.flush()
@@ -2972,7 +2991,7 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
     if linked:
         msg += f" with {linked} session(s)"
     flash(request, msg + ".", "success")
-    return RedirectResponse("/admin/events", status_code=303)
+    return RedirectResponse(f"/admin/events/{ev.id}/edit", status_code=303)
 
 
 @router.get("/events/{event_id}/edit")
@@ -3031,25 +3050,40 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
         return RedirectResponse("/admin/events", status_code=303)
     form = await _form(request)
     aud_raw = form.get("auditorium_id", "")
+    college_raw = form.get("college_id", "")
+    fb_raw = form.get("feedback_template_id", "")
     start_date_raw = form.get("start_date", "")
     end_date_raw = form.get("end_date", "")
+    _VALID_STATUSES = {"draft", "published", "completed", "cancelled"}
+    def _safe_float(key):
+        raw = form.get(key, "").strip() if form.get(key) else ""
+        if not raw:
+            return None
+        try:
+            return float(raw)
+        except (ValueError, TypeError):
+            return None
+    def _safe_date(raw):
+        if not raw:
+            return None
+        try:
+            return date.fromisoformat(raw)
+        except (ValueError, TypeError):
+            return None
     ev.name = form.get("name", "").strip()
     ev.description = form.get("description", "").strip() or None
     ev.banner_url = form.get("banner_url", "").strip() or None
-    ev.college_id = int(form.get("college_id")) if form.get("college_id") else None
-    ev.auditorium_id = int(aud_raw) if aud_raw and aud_raw.strip().isdigit() else ev.auditorium_id
-    if start_date_raw:
-        ev.start_date = date.fromisoformat(start_date_raw)
-    if end_date_raw:
-        ev.end_date = date.fromisoformat(end_date_raw)
-    else:
-        ev.end_date = None
-    ev.price = float(form.get("price", ev.price or 0) or 0)
-    ev.price_vip = float(form["price_vip"]) if form.get("price_vip", "").strip() else None
-    ev.price_accessible = float(form["price_accessible"]) if form.get("price_accessible", "").strip() else None
-    ev.processing_fee_pct = float(form["processing_fee_pct"]) if form.get("processing_fee_pct", "").strip() else None
+    ev.college_id = int(college_raw) if college_raw and college_raw.strip().isdigit() else None
+    ev.auditorium_id = int(aud_raw) if aud_raw and aud_raw.strip().isdigit() else None
+    ev.start_date = _safe_date(start_date_raw)
+    ev.end_date = _safe_date(end_date_raw)
+    ev.price = _safe_float("price") or 0
+    ev.price_vip = _safe_float("price_vip")
+    ev.price_accessible = _safe_float("price_accessible")
+    ev.processing_fee_pct = _safe_float("processing_fee_pct")
     ev.custom_prices = _extract_custom_prices(form)
-    ev.status = form.get("status", "draft")
+    status_raw = form.get("status", "draft")
+    ev.status = status_raw if status_raw in _VALID_STATUSES else "draft"
 
     if "cert_title" in form:
         ev.cert_title = normalize_cert_scalar_for_storage(form.get("cert_title"))
@@ -3071,7 +3105,7 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
         ev.cert_color_scheme = normalize_cert_scalar_for_storage(form.get("cert_color_scheme"))
     if "cert_style" in form:
         ev.cert_style = normalize_cert_scalar_for_storage(form.get("cert_style"))
-    ev.feedback_template_id = int(form["feedback_template_id"]) if form.get("feedback_template_id", "").strip() else None
+    ev.feedback_template_id = int(fb_raw) if fb_raw and fb_raw.strip().isdigit() else None
 
     from app.models.event_session import EventSession
     linked = _save_event_sessions(db, form, ev.id)
@@ -3086,7 +3120,9 @@ async def event_update(request: Request, event_id: int, db: Session = Depends(ge
     if linked:
         msg += f" — {linked} session(s) linked"
     flash(request, msg + ".", "success")
-    return RedirectResponse(f"/admin/events/{ev.id}/edit", status_code=303)
+    step = form.get("wizard_step", "")
+    qs = f"?step={step}" if step and step.isdigit() and 1 <= int(step) <= 6 else ""
+    return RedirectResponse(f"/admin/events/{ev.id}/edit{qs}", status_code=303)
 
 
 @router.post("/events/{event_id}/delete")

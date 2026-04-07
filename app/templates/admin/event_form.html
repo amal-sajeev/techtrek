@@ -46,6 +46,7 @@
 <div class="form-card">
   <form method="post" action="{{ '/admin/events/' ~ event.id ~ '/edit' if event else '/admin/events/new' }}" id="event-form">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <input type="hidden" name="wizard_step" id="wizard-step-hidden" value="1">
 
     <!-- Step 1: Details -->
     <div class="wizard-panel active" data-panel="1">
@@ -809,7 +810,7 @@ window._wizardSpeakers = [
   { id: {{ sp.id }}, name: {{ sp.name|tojson }}, title: {{ (sp.title or '')|tojson }} },
   {% endfor %}
 ];
-window._wizardCustomPrices = {{ (event.custom_prices or {})|tojson }};
+window._wizardCustomPrices = {{ ((event.custom_prices if event else None) or {})|tojson }};
 window._wizardAuditoriums = {};
 {% for a in auditoriums %}
 (window._wizardAuditoriums[{{ a.college_id or 0 }}] = window._wizardAuditoriums[{{ a.college_id or 0 }}] || []).push(
@@ -845,9 +846,12 @@ window._existingAgendaItems = [
   var reviewStep = 6;
 
   function goToStep(n) {
+    n = Math.max(1, Math.min(n, 6));
     currentStep = n;
     steps.forEach(function(s) { s.classList.toggle('active', parseInt(s.dataset.step) === n); });
     panels.forEach(function(p) { p.classList.toggle('active', parseInt(p.dataset.panel) === n); });
+    var stepHidden = document.getElementById('wizard-step-hidden');
+    if (stepHidden) stepHidden.value = n;
     if (n === reviewStep) buildReview();
   }
 
@@ -1013,6 +1017,7 @@ window._existingAgendaItems = [
       rows.push([label, inp.value ? '₹' + inp.value : '—']);
     });
     rows.push(['Processing Fee', val('ev-fee') ? val('ev-fee') + '%' : '—']);
+    rows.push(['Feedback Template', selectText('ev-fb-template') || '—']);
     rows = rows.concat([
       ['Sessions', sessionCount > 0 ? sessionCount + ' session(s)' : 'None yet'],
       ['Breaks', breakCount > 0 ? breakCount + ' break(s)' : 'None'],
@@ -1020,6 +1025,10 @@ window._existingAgendaItems = [
       ['Banner URL', val('ev-banner') || '—'],
       ['Description', (val('ev-desc') || '—').substring(0, 120) + (val('ev-desc').length > 120 ? '…' : '')],
     ]);
+    var galleryIds = (document.querySelector('.gallery-ids-input') || {}).value || '';
+    var galleryCount = galleryIds ? galleryIds.split(',').filter(function(s) { return s.trim(); }).length : 0;
+    rows.push(['Gallery Images', galleryCount > 0 ? galleryCount + ' image(s)' : 'None']);
+    rows.push(['Certificate Title', val('cert-title') || '—']);
     var tbody = document.querySelector('#ev-review-table tbody');
     function _escR(s) { var d = document.createElement('span'); d.textContent = s || ''; return d.innerHTML; }
     tbody.innerHTML = rows.map(function(r) {
@@ -1582,7 +1591,7 @@ window._existingAgendaItems = [
       btnSessSave.textContent = 'Creating speaker\u2026';
       fetch('/admin/api/speakers/create-quick', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify({ name: newName, email: newEmail })
       })
       .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, data: j }; }); })
@@ -1636,7 +1645,7 @@ window._existingAgendaItems = [
       btnSessSave.textContent = 'Creating\u2026';
       fetch('/admin/api/sessions/create-quick', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
         body: JSON.stringify(payload)
       })
       .then(function(r) { return r.json().then(function(j) { return { ok: r.ok, data: j }; }); })
@@ -1758,7 +1767,8 @@ window._existingAgendaItems = [
     var title = document.getElementById('modal-addon-name').value.trim();
     if (!title) { if (window.TechTrek) TechTrek.showToast('Please enter an add-on title.', 'warning'); return; }
     var price = parseFloat(document.getElementById('modal-addon-price').value) || 0;
-    var maxQty = parseInt(document.getElementById('modal-addon-max-qty').value) || null;
+    var _mqRaw = document.getElementById('modal-addon-max-qty').value.trim();
+    var maxQty = _mqRaw !== '' && !isNaN(parseInt(_mqRaw, 10)) ? parseInt(_mqRaw, 10) : null;
     var desc = document.getElementById('modal-addon-desc').value.trim();
     var inAgenda = document.getElementById('modal-addon-in-agenda').checked;
     var d = document.getElementById('modal-addon-date').value;
@@ -2697,7 +2707,7 @@ initGalleryUpload('ev-gallery', '/admin/upload-image', [
     body.innerHTML = html;
 
     statusEl.textContent = validCount + ' valid, ' + errorCount + ' with errors';
-    approveBtn.disabled = false;
+    approveBtn.disabled = errorCount > 0;
     if (errorCount > 0) {
       statusEl.style.color = '#ef4444';
     } else {
@@ -2739,7 +2749,7 @@ initGalleryUpload('ev-gallery', '/admin/upload-image', [
 
     fetch('/admin/events/' + eventId + '/confirm-agenda', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       body: JSON.stringify({ rows: rows })
     })
       .then(function(r) { return r.json(); })
