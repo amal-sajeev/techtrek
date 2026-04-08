@@ -33,6 +33,7 @@
           {% if availability != 'sold-out' %}
             {% if user %}
             <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm ed-sticky-btn">Book Now</a>
+            {% if user_booking_url %}<a href="{{ user_booking_url }}" class="btn btn-outline btn-sm ed-sticky-btn">View My Tickets</a>{% endif %}
             {% else %}
             <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-sm ed-sticky-btn">Get Ticket</a>
             {% endif %}
@@ -223,6 +224,7 @@
           {% if availability != 'sold-out' %}
             {% if user %}
             <a href="/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">Book Now &rarr;</a>
+            {% if user_booking_url %}<a href="{{ user_booking_url }}" class="btn btn-outline lm-ed-cta-btn">View My Tickets</a>{% endif %}
             {% else %}
             <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">Get Ticket &rarr;</a>
             {% endif %}
@@ -477,6 +479,11 @@
             <a href="/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg ed-bp-btn">
               Book Now
             </a>
+            {% if user_booking_url %}
+            <a href="{{ user_booking_url }}" class="btn btn-outline btn-lg ed-bp-btn">
+              View My Tickets
+            </a>
+            {% endif %}
             {% else %}
             <a href="/auth/register?next=/booking/event/{{ event.id }}/select" class="btn btn-primary btn-lg ed-bp-btn">
               Get Your Ticket
@@ -664,7 +671,8 @@
     var progressBar = document.getElementById('bp-progress-bar');
     if (!col || !sessCol) return;
 
-    var heroRef = document.querySelector('.lm-ed-header') || document.querySelector('.ed-hero-full');
+    var _lmH = document.querySelector('.lm-ed-header');
+    var heroRef = (_lmH && _lmH.offsetHeight > 0) ? _lmH : document.querySelector('.ed-hero-full');
     var headerShown = false;
 
     var GAP = 24;

@@ -1339,6 +1339,32 @@
   text-decoration: underline;
 }
 
+/* Session → Event subtitle (below title) */
+[data-theme="light"] .lm-session-subtitle {
+  display: block;
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-style: italic;
+  font-size: 2.2rem;
+  font-weight: 400;
+  color: #8c8279;
+  text-decoration: none;
+  margin: -0.35rem 0 1rem;
+  line-height: 1.4;
+  transition: color 0.3s;
+}
+[data-theme="light"] .lm-session-subtitle strong {
+  font-weight: 600;
+  font-style: italic;
+  color: #44403c;
+  transition: color 0.3s;
+}
+[data-theme="light"] .lm-session-subtitle:hover {
+  color: #57534e;
+}
+[data-theme="light"] .lm-session-subtitle:hover strong {
+  color: #E84E2C;
+}
+
 /* Title — Playfair Display, big serif */
 [data-theme="light"] .lm-ed-title {
   font-family: var(--font-display, 'Playfair Display', Georgia, serif);

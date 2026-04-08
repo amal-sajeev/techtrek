@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Insights — {{ session.title }} — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:900px;">
+    <a href="/speaker/sessions" class="btn btn-outline btn-sm" style="margin-bottom:1rem;display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="arrow-left" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Sessions</a>
+
+    <div class="page-header-block" style="margin-bottom:.5rem">
+      <h1 class="page-title">Session Insights</h1>
+      <p class="text-muted">{{ session.title }}{% if event %} &mdash; {{ event.name }}{% endif %}</p>
+    </div>
+
+    {# ── Overview stats ── #}
+    <div class="admin-stats" style="margin-bottom:2rem;">
+      <div class="admin-stat-card">
+        <div class="admin-stat-value">{{ total_attendees }}</div>
+        <div class="admin-stat-label">Attendees</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-value">{{ checkin_rate }}%</div>
+        <div class="admin-stat-label">Check-in Rate</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-value">{% if feedback_avg %}{{ feedback_avg }}{% else %}&mdash;{% endif %}</div>
+        <div class="admin-stat-label">Avg Rating</div>
+      </div>
+      <div class="admin-stat-card">
+        <div class="admin-stat-value">{{ polls_summary|length }}</div>
+        <div class="admin-stat-label">Polls</div>
+      </div>
+    </div>
+
+    {# ── Feedback ratings ── #}
+    <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+      <h3 style="margin:0 0 1rem;font-size:1rem;font-weight:600;">Feedback Ratings</h3>
+      {% if feedback_count > 0 %}
+      <div style="display:flex;align-items:center;gap:1.25rem;margin-bottom:1rem">
+        <span style="font-size:2.25rem;font-weight:700;color:var(--cyan,#00d4ff)">{{ feedback_avg }}</span>
+        <div>
+          <div style="display:flex;gap:.12rem;color:#fbbf24;">
+            {% for i in range(1, 6) %}<i data-lucide="star" class="lucide icon-filled" style="width:1.1rem;height:1.1rem" aria-hidden="true"></i>{% endfor %}
+          </div>
+          <span class="text-muted" style="font-size:.8rem">{{ feedback_count }} rating{{ 's' if feedback_count != 1 else '' }}</span>
+        </div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:.35rem">
+        {% for star in range(5, 0, -1) %}
+        {% set count = feedback_dist.get(star, 0) %}
+        {% set pct = (count / feedback_count * 100)|round(1) if feedback_count else 0 %}
+        <div style="display:flex;align-items:center;gap:.5rem">
+          <span style="min-width:22px;font-size:.85rem;text-align:right;display:inline-flex;align-items:center;justify-content:flex-end;gap:.15rem">{{ star }}<i data-lucide="star" class="lucide icon-filled" style="width:.7rem;height:.7rem" aria-hidden="true"></i></span>
+          <div style="flex:1;background:var(--bg-void,#0d0d1a);border-radius:4px;height:18px;overflow:hidden">
+            <div style="height:100%;background:#fbbf24;border-radius:4px;width:{{ pct }}%;transition:width .3s"></div>
+          </div>
+          <span style="min-width:50px;text-align:right;font-size:.8rem;color:var(--text-muted)">{{ count }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-muted" style="font-size:.9rem;margin:0;">No feedback ratings yet. Ratings appear here after attendees submit event feedback.</p>
+      {% endif %}
+    </div>
+
+    {# ── Attendee list ── #}
+    <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <h3 style="margin:0;font-size:1rem;font-weight:600;">Attendees</h3>
+        {% if total_attendees > 0 %}
+        <span class="text-muted" style="font-size:.8rem">{{ checked_in_count }} of {{ total_attendees }} checked in</span>
+        {% endif %}
+      </div>
+      {% if attendees %}
+      <div class="table-responsive">
+        <table class="table" style="font-size:.875rem;">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>College</th>
+              <th>Check-in</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in attendees %}
+            <tr>
+              <td>{{ a.name }}</td>
+              <td>{{ a.college or '—' }}</td>
+              <td>
+                {% if a.checked_in %}
+                <span style="display:inline-flex;align-items:center;gap:.35rem;color:#10b981;font-size:.8rem">
+                  <span style="width:8px;height:8px;background:#10b981;border-radius:50%;display:inline-block"></span>
+                  {% if a.checked_in_at %}{{ a.checked_in_at.strftime('%I:%M %p') }}{% else %}Yes{% endif %}
+                </span>
+                {% else %}
+                <span style="display:inline-flex;align-items:center;gap:.35rem;color:var(--text-muted);font-size:.8rem">
+                  <span style="width:8px;height:8px;background:var(--text-muted);border-radius:50%;display:inline-block;opacity:.4"></span>
+                  Not yet
+                </span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <p class="text-muted" style="font-size:.9rem;margin:0;">No attendees yet. Attendees appear here once bookings are confirmed for the event.</p>
+      {% endif %}
+    </div>
+
+    {# ── Poll summaries ── #}
+    <div class="card" style="padding:1.5rem;margin-bottom:1.5rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem">
+        <h3 style="margin:0;font-size:1rem;font-weight:600;">Polls</h3>
+        {% if event_id %}
+        <a href="/speaker/sessions/{{ session.id }}/polls?event_id={{ event_id }}" class="btn btn-outline btn-xs">Manage Polls</a>
+        {% else %}
+        <a href="/speaker/sessions/{{ session.id }}/polls" class="btn btn-outline btn-xs">Manage Polls</a>
+        {% endif %}
+      </div>
+      {% if polls_summary %}
+      <div style="display:flex;flex-direction:column;gap:.75rem">
+        {% set type_labels = {"multiple_choice":"Multiple Choice","yes_no":"Yes / No","rating":"Star Rating","text":"Text Input"} %}
+        {% for p in polls_summary %}
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem 1rem;background:var(--bg-surface);border:1px solid var(--border);border-radius:var(--radius);">
+          <div style="min-width:0;flex:1">
+            <div style="font-size:.9rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ p.question }}</div>
+            <div class="text-muted" style="font-size:.75rem">
+              {{ type_labels.get(p.poll_type, "Poll") }}
+              &middot; {{ p.total_votes }} response{{ 's' if p.total_votes != 1 else '' }}
+              {% if p.closed %}&middot; Closed{% elif p.is_active %}&middot; <span style="color:#10b981">Active</span>{% else %}&middot; Inactive{% endif %}
+            </div>
+          </div>
+          <a href="/polls/{{ p.id }}/display" target="_blank" class="btn btn-xs btn-outline" style="flex-shrink:0;display:inline-flex;align-items:center;gap:.25rem"><i data-lucide="monitor" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> Display</a>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-muted" style="font-size:.9rem;margin:0;">No polls created yet. <a href="/speaker/sessions/{{ session.id }}/polls{% if event_id %}?event_id={{ event_id }}{% endif %}" style="color:var(--cyan)">Create one</a> to engage your audience.</p>
+      {% endif %}
+    </div>
+
+  </div>
+</section>
+{% endblock %}

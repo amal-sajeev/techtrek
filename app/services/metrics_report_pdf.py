@@ -218,16 +218,6 @@ def generate_platform_metrics_report_pdf(
             elems.append(pie)
             elems.append(Spacer(1, 6))
 
-    es = bundle.get("event_statuses") or {}
-    if es:
-        labels = [str(k).replace("_", " ").title() for k in es.keys()]
-        values = [int(v) for v in es.values()]
-        pie = _draw_pie(labels, values, width=_HALF_W, height=140)
-        if pie:
-            elems.append(Paragraph(_esc(f"Figure {fig_num()} — Event status mix"), small))
-            elems.append(pie)
-            elems.append(Spacer(1, 6))
-
     rd = bundle.get("rating_dist") or {}
     if rd:
         elems.append(Paragraph(_esc(f"Figure {fig_num()} — Rating distribution"), small))

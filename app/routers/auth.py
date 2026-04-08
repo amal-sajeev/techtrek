@@ -216,9 +216,22 @@ async def register(request: Request, db: Session = Depends(get_db), _csrf: None 
     if errors:
         for e in errors:
             flash(request, e, "danger")
-        next_q = form.get("next", "").strip() or request.query_params.get("next", "")
-        qs = f"?next={next_q}" if next_q else ""
-        return RedirectResponse(f"/auth/register{qs}", status_code=303)
+        next_url = form.get("next", "").strip() or request.query_params.get("next", "")
+        return templates.TemplateResponse("auth/register.html", template_ctx(
+            request,
+            next=next_url,
+            form_data={
+                "full_name": full_name,
+                "username": username,
+                "email": email,
+                "phone": phone_raw,
+                "phone_country": phone_country,
+                "college": college,
+                "discipline": discipline,
+                "domain": domain,
+                "year_of_study": year_raw,
+            },
+        ))
 
     bootstrap_email = settings.admin_bootstrap_email.strip().lower()
     if bootstrap_email:

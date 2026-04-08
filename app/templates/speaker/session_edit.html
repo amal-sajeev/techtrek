@@ -61,6 +61,19 @@
       <div class="form-input" style="background:var(--bg-surface);cursor:default;opacity:.8;">{{ event.name }} {% if event.status %}({{ event.status|title }}){% endif %}</div>
     </div>
     {% endif %}
+
+    <hr style="border:none;border-top:1px solid var(--border);margin:1.5rem 0;">
+    <h3 style="font-size:1.1rem;font-weight:600;margin-bottom:1rem;">Recording</h3>
+    <div class="form-group">
+      <label class="form-label" for="ss-recording-url">Recording URL</label>
+      <input type="url" name="recording_url" id="ss-recording-url" class="form-input" value="{{ lecture.recording_url or '' }}" placeholder="https://youtube.com/watch?v=...">
+      <p class="text-muted" style="font-size:.8rem;margin-top:.25rem">YouTube, Vimeo, or other video hosting link.</p>
+    </div>
+    <div class="form-group" style="display:flex;align-items:center;gap:.5rem;">
+      <input type="checkbox" name="is_recording_public" id="ss-recording-public" {% if lecture.is_recording_public %}checked{% endif %} style="width:auto;">
+      <label for="ss-recording-public" class="form-label" style="margin:0;cursor:pointer;">Make recording publicly visible</label>
+    </div>
+
     {% else %}
     {# Non-primary: read-only session details #}
     <div class="card" style="padding:1.25rem;margin-bottom:1.5rem;">

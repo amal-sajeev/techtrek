@@ -23,12 +23,12 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="reg-fullname">Full Name <span class="required">*</span></label>
-          <input type="text" name="full_name" id="reg-fullname" class="form-input" placeholder="Your full name" required autofocus autocomplete="name">
+          <input type="text" name="full_name" id="reg-fullname" class="form-input" placeholder="Your full name" required autofocus autocomplete="name" value="{{ (form_data.full_name if form_data) or '' }}">
           <div class="field-error" id="err-fullname" role="alert"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="reg-username">Username <span class="required">*</span></label>
-          <input type="text" name="username" id="reg-username" class="form-input" placeholder="your_handle" required autocomplete="username">
+          <input type="text" name="username" id="reg-username" class="form-input" placeholder="your_handle" required autocomplete="username" value="{{ (form_data.username if form_data) or '' }}">
           <div class="field-error" id="err-username" role="alert"></div>
         </div>
       </div>
@@ -36,13 +36,13 @@
       <div class="form-row">
         <div class="form-group">
           <label class="form-label" for="reg-email">Email <span class="required">*</span></label>
-          <input type="email" name="email" id="reg-email" class="form-input" placeholder="you@domain.com" required autocomplete="email">
+          <input type="email" name="email" id="reg-email" class="form-input" placeholder="you@domain.com" required autocomplete="email" value="{{ (form_data.email if form_data) or '' }}">
           <div class="field-error" id="err-email" role="alert"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="reg-phone">Phone</label>
           <div class="phone-input-wrap">
-            <input type="hidden" name="phone_country" id="reg-phone-country" value="+91">
+            <input type="hidden" name="phone_country" id="reg-phone-country" value="{{ (form_data.phone_country if form_data) or '+91' }}">
             <div class="phone-cc-picker" id="cc-picker">
               <button type="button" class="form-input phone-cc-btn" id="cc-btn">
                 <span id="cc-label">IN +91</span>
@@ -53,14 +53,14 @@
                 <ul class="phone-cc-list" id="cc-list"></ul>
               </div>
             </div>
-            <input type="tel" name="phone" id="reg-phone" class="form-input phone-number-input" placeholder="98765 43210" maxlength="11" inputmode="numeric" pattern="[0-9]*" autocomplete="tel-national">
+            <input type="tel" name="phone" id="reg-phone" class="form-input phone-number-input" placeholder="98765 43210" maxlength="11" inputmode="numeric" pattern="[0-9]*" autocomplete="tel-national" value="{{ (form_data.phone if form_data) or '' }}">
           </div>
         </div>
       </div>
 
       <div class="form-group">
         <label class="form-label" for="reg-college">College / Institution <span class="required">*</span></label>
-        <input type="text" name="college" id="reg-college" class="form-input" placeholder="e.g. KSR College of Engineering" required autocomplete="organization">
+        <input type="text" name="college" id="reg-college" class="form-input" placeholder="e.g. KSR College of Engineering" required autocomplete="organization" value="{{ (form_data.college if form_data) or '' }}">
         <div class="field-error" id="err-college" role="alert"></div>
       </div>
 
@@ -71,14 +71,14 @@
             <option value="">Select discipline</option>
             {% set disciplines = ['CSE','IT','ECE','EEE','Mechanical','Civil','AI/ML','Data Science','Commerce','BBA','BCA','Science','Arts','Law','Design','Other'] %}
             {% for d in disciplines %}
-            <option value="{{ d }}">{{ d }}</option>
+            <option value="{{ d }}" {% if form_data and form_data.discipline == d %}selected{% endif %}>{{ d }}</option>
             {% endfor %}
           </select>
           <div class="field-error" id="err-discipline" role="alert"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="reg-domain">Specialization <span class="required">*</span></label>
-          <input type="text" name="domain" id="reg-domain" class="form-input" list="specialization-list" required placeholder="e.g. Artificial Intelligence">
+          <input type="text" name="domain" id="reg-domain" class="form-input" list="specialization-list" required placeholder="e.g. Artificial Intelligence" value="{{ (form_data.domain if form_data) or '' }}">
           <datalist id="specialization-list">
             {% for val in ['AI','Cloud Computing','Quantum Computing','Cybersecurity','Data Science','Web Development','Mobile Development','IoT','Blockchain','DevOps'] %}
             <option value="{{ val }}">
@@ -93,7 +93,7 @@
         <select name="year_of_study" id="reg-year" class="form-input" required>
           <option value="">Select year</option>
           {% for y in range(1, 6) %}
-          <option value="{{ y }}">{{ ['1st','2nd','3rd','4th','5th'][y-1] }} Year</option>
+          <option value="{{ y }}" {% if form_data and form_data.year_of_study == y|string %}selected{% endif %}>{{ ['1st','2nd','3rd','4th','5th'][y-1] }} Year</option>
           {% endfor %}
         </select>
         <div class="field-error" id="err-year" role="alert"></div>
@@ -260,6 +260,9 @@
   var ccDrop   = document.getElementById('cc-dropdown');
   var ccSearch = document.getElementById('cc-search');
   var ccList   = document.getElementById('cc-list');
+
+  var initCC = ccCountries.find(function(c) { return c.code === ccHidden.value; });
+  if (initCC) ccLabel.textContent = initCC.iso + ' ' + initCC.code;
 
   function renderList(filter) {
     var q = (filter || '').toLowerCase();

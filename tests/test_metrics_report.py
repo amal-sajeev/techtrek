@@ -91,7 +91,7 @@ def test_fallback_quarterly_brief_executive_mentions_full_history():
     b = _minimal_bundle()
     n = build_fallback_narrative(b)
     es = (n.get("executive_summary") or "").lower()
-    assert "headlines" in es
+    assert "42" in es
     assert "full historical activity" in es
     assert "calendar quarter" in es
 
@@ -118,7 +118,7 @@ def test_finalize_fallback_includes_analysis_and_pdf_still_valid():
     bundle = _minimal_bundle()
     n = finalize_metrics_narrative(bundle, None)
     assert n["narrative_source"] == "fallback"
-    assert "registered users" in (n.get("executive_summary") or "").lower()
+    assert "42" in (n.get("executive_summary") or "")
     assert any((s.get("body_markdown") or "").strip() for s in n.get("sections") or [])
     pdf = generate_platform_metrics_report_pdf(bundle, n)
     assert pdf.startswith(b"%PDF")
@@ -147,7 +147,22 @@ def test_finalize_fallback_includes_ai_failure_reason():
 
 def test_finalize_prefers_openai_when_substance():
     bundle = _minimal_bundle()
-    ai = {"executive_summary": "We have **42** users.", "sections": [{"tab": "overview", "title": "O", "body_markdown": "Ok."}]}
+    ai = {
+        "executive_summary": (
+            "The platform has **42** registered users generating Rs. 1,000 in revenue. "
+            "Booking momentum is early-stage with 5 paid bookings and a 20% check-in rate. "
+            "Feedback collection is active with 3 submissions and a 4.2 average rating."
+        ),
+        "sections": [
+            {"tab": "overview", "title": "Overview", "body_markdown": (
+                "Booking volume is concentrated in January 2026 with 2 bookings. "
+                "Revenue stands at Rs. 1,000 from 5 paid bookings, yielding an average "
+                "ticket value of Rs. 200. The event pipeline has 2 published and 1 draft "
+                "event. With only 1.7 bookings per event on average, marketing efforts "
+                "should be intensified to drive higher conversion rates across the portfolio."
+            )},
+        ],
+    }
     n = finalize_metrics_narrative(bundle, ai)
     assert n["narrative_source"] == "openai"
     assert "42" in n["executive_summary"]

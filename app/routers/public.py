@@ -485,7 +485,19 @@ def events_list(
 
 @router.get("/events/{event_id}")
 def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db)):
-    ev = db.query(Event).filter(Event.id == event_id, Event.status == "published").first()
+    is_preview = request.query_params.get("preview") == "1"
+    admin_bypass = False
+    if is_preview:
+        uid = request.session.get("user_id")
+        if uid:
+            viewer = db.query(User).filter(User.id == uid).first()
+            if viewer and viewer.is_admin:
+                admin_bypass = True
+
+    if admin_bypass:
+        ev = db.query(Event).filter(Event.id == event_id).first()
+    else:
+        ev = db.query(Event).filter(Event.id == event_id, Event.status == "published").first()
     if not ev:
         return templates.TemplateResponse(
             "errors/404.html", template_ctx(request), status_code=404
@@ -564,6 +576,7 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
 
     user_id = request.session.get("user_id")
     on_waitlist = False
+    user_booking_url = None
     if user_id:
         from app.models.waitlist import Waitlist
         on_waitlist = (
@@ -572,6 +585,19 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
             .first()
             is not None
         )
+        user_bookings = (
+            db.query(Booking)
+            .filter(Booking.event_id == event_id, Booking.user_id == user_id, Booking.payment_status == "paid")
+            .all()
+        )
+        if user_bookings:
+            groups = {b.booking_group for b in user_bookings if b.booking_group}
+            if len(groups) == 1:
+                user_booking_url = f"/booking/group/{groups.pop()}"
+            elif len(user_bookings) == 1:
+                user_booking_url = f"/booking/{user_bookings[0].id}"
+            else:
+                user_booking_url = "/booking/my"
 
     event_gallery = db.query(GalleryImage).filter(
         GalleryImage.owner_type == "event", GalleryImage.owner_id == event_id
@@ -594,6 +620,7 @@ def event_detail(request: Request, event_id: int, db: DbSession = Depends(get_db
             availability=availability,
             event_status=_public_event_status(ev, stats),
             on_waitlist=on_waitlist,
+            user_booking_url=user_booking_url,
             gallery_urls=gallery_urls,
             event_addons=event_addons,
         ),

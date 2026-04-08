@@ -21,12 +21,12 @@ BASE_DIR = Path(__file__).resolve().parent
 
 _CSP_VALUE = (
     "default-src 'self'; "
-    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://checkout.razorpay.com; "
+    "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com https://cdnjs.cloudflare.com https://*.razorpay.com; "
     "style-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://fonts.googleapis.com; "
     "font-src 'self' https://fonts.gstatic.com; "
     "img-src 'self' data: blob: https:; "
-    "connect-src 'self'; "
-    "frame-src 'self' https://checkout.razorpay.com https://accounts.google.com; "
+    "connect-src 'self' https://*.razorpay.com; "
+    "frame-src 'self' https://*.razorpay.com https://accounts.google.com; "
     "object-src 'none'; "
     "base-uri 'self'"
 )
@@ -57,11 +57,16 @@ class SecurityHeadersMiddleware:
             await self.app(scope, receive, send)
             return
 
+        path = scope.get("path", "")
+        skip_csp = "/booking/" in path and "checkout" in path
+
         async def send_with_headers(message):
             if message["type"] == "http.response.start":
                 raw = list(message.get("headers", []))
                 existing = {k for k, _ in raw}
                 for k, v in _SECURITY_DEFAULTS:
+                    if skip_csp and k == b"content-security-policy":
+                        continue
                     if k not in existing:
                         raw.append((k, v))
                 if not settings.debug and _HSTS_HEADER[0] not in existing:

@@ -340,6 +340,65 @@ def send_certificate_ready(email: str, user_name: str, event_title: str, event_d
     return _send(email, f"Your Certificate for {event_title} is Ready!", html)
 
 
+def send_event_cancelled_notification(email: str, username: str, event_name: str, event_date: str):
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="background:#dc2626;padding:28px 32px;">
+          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">Event Cancelled</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#fecaca;">{event_name} has been cancelled.</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
+          <p style="margin:0 0 16px;">Hi <strong>{username}</strong>,</p>
+          <p style="margin:0 0 16px;">We're sorry to let you know that <strong>{event_name}</strong> (scheduled for {event_date}) has been cancelled by the organiser.</p>
+          <p style="margin:0 0 16px;">If you had a paid ticket, a full refund will be processed within 5-7 business days.</p>
+          <p style="margin:0 0 24px;">
+            <a href="https://techtrek.in/booking/my" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:10px 24px;border-radius:6px;font-weight:600;font-size:14px;">View My Bookings &rarr;</a>
+          </p>
+          <p style="margin:0;font-size:13px;color:#64748b;">We apologise for any inconvenience. We hope to see you at future events!</p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because you had a booking for this event.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return _send(email, f"Event Cancelled — {event_name}", html)
+
+
+def send_event_reminder(email: str, username: str, event_name: str, event_date: str, venue_name: str, event_url: str):
+    html = f"""<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#f4f6f8;font-family:'Segoe UI',Arial,Helvetica,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 0;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+        <tr><td style="background:linear-gradient(135deg,#0e7490,#0891b2);padding:28px 32px;">
+          <h1 style="margin:0;font-size:22px;color:#ffffff;font-weight:700;">Your Event is Tomorrow!</h1>
+          <p style="margin:6px 0 0;font-size:14px;color:#cffafe;">Don't forget — {event_name}</p>
+        </td></tr>
+        <tr><td style="padding:28px 32px;color:#1e293b;font-size:15px;line-height:1.6;">
+          <p style="margin:0 0 16px;">Hi <strong>{username}</strong>,</p>
+          <p style="margin:0 0 16px;">Just a reminder that <strong>{event_name}</strong> is happening tomorrow, <strong>{event_date}</strong>{' at <strong>' + venue_name + '</strong>' if venue_name else ''}.</p>
+          <p style="margin:0 0 16px;">Make sure to arrive on time and bring your ticket QR code for check-in.</p>
+          <p style="margin:0 0 24px;">
+            <a href="{event_url}" style="display:inline-block;background:#0e7490;color:#ffffff;text-decoration:none;padding:12px 28px;border-radius:6px;font-weight:600;font-size:14px;">View Event Details &rarr;</a>
+          </p>
+        </td></tr>
+        <tr><td style="padding:16px 32px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+          <p style="margin:0;font-size:12px;color:#64748b;">You received this email because you have a booking for this event.</p>
+        </td></tr>
+      </table>
+    </td></tr>
+  </table>
+</body></html>"""
+    return _send(email, f"Reminder: {event_name} is Tomorrow!", html)
+
+
 def send_speaker_invite(email: str, speaker_name: str, invite_url: str):
     html = f"""<!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>

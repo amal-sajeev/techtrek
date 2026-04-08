@@ -2887,6 +2887,35 @@ async def event_update_status(request: Request, event_id: int, db: Session = Dep
         return JSONResponse({"error": "Invalid status"}, status_code=400)
     ev.status = new_status
     db.commit()
+
+    if new_status == "cancelled":
+        event_name = ev.name
+        event_date = ev.start_date.strftime("%d %b %Y") if ev.start_date else "TBD"
+        paid_bookings = (
+            db.query(Booking)
+            .filter(Booking.event_id == event_id, Booking.payment_status == "paid")
+            .all()
+        )
+        user_ids_seen: set[int] = set()
+        notify_list: list[tuple[str, str]] = []
+        for b in paid_bookings:
+            if b.user_id in user_ids_seen:
+                continue
+            user_ids_seen.add(b.user_id)
+            u = db.query(User).get(b.user_id)
+            if u:
+                notify_list.append((u.email, u.full_name or u.username))
+        if notify_list:
+            import threading
+            from app.services.email import send_event_cancelled_notification
+            def _send_cancellation_emails():
+                for email, name in notify_list:
+                    try:
+                        send_event_cancelled_notification(email, name, event_name, event_date)
+                    except Exception:
+                        pass
+            threading.Thread(target=_send_cancellation_emails, daemon=True).start()
+
     return JSONResponse({"ok": True, "status": new_status})
 
 

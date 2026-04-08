@@ -9,18 +9,18 @@
   </a>
   <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem;">
     <h1 style="font-size:1.5rem;font-weight:700;margin:0;">My Sessions</h1>
-    <div class="admin-stats" style="margin:0;gap:.75rem;">
-      <div class="admin-stat-card" style="padding:.75rem 1rem;">
+    <div class="admin-stats" style="display:flex;margin:0;gap:.75rem;">
+      <div class="admin-stat-card" style="display:flex;align-items:baseline;gap:.4rem;padding:.5rem .75rem;">
         <div class="admin-stat-value" style="font-size:1.1rem">{{ total }}</div>
-        <div class="admin-stat-label" style="font-size:.65rem">Total</div>
+        <div class="admin-stat-label" style="font-size:.7rem;text-transform:uppercase">Total</div>
       </div>
-      <div class="admin-stat-card" style="padding:.75rem 1rem;">
+      <div class="admin-stat-card" style="display:flex;align-items:baseline;gap:.4rem;padding:.5rem .75rem;">
         <div class="admin-stat-value" style="font-size:1.1rem">{{ upcoming }}</div>
-        <div class="admin-stat-label" style="font-size:.65rem">Upcoming</div>
+        <div class="admin-stat-label" style="font-size:.7rem;text-transform:uppercase">Upcoming</div>
       </div>
-      <div class="admin-stat-card" style="padding:.75rem 1rem;">
+      <div class="admin-stat-card" style="display:flex;align-items:baseline;gap:.4rem;padding:.5rem .75rem;">
         <div class="admin-stat-value" style="font-size:1.1rem">{{ completed }}</div>
-        <div class="admin-stat-label" style="font-size:.65rem">Completed</div>
+        <div class="admin-stat-label" style="font-size:.7rem;text-transform:uppercase">Completed</div>
       </div>
     </div>
   </div>
@@ -44,7 +44,7 @@
         {% set ev = item.event %}
         <tr>
           {% set es = item.event_session if item.event_session is defined else None %}
-          <td><strong>{{ es.display_title if es else s.title }}</strong></td>
+          <td><a href="/sessions/{{ s.id }}" target="_blank" class="btn btn-sm btn-outline" style="white-space:normal;text-align:left;">{{ es.display_title if es else s.title }}</a></td>
           <td>
             {% if ev %}
             <a href="/events/{{ ev.id }}" style="color:var(--cyan);text-decoration:none;" target="_blank">{{ ev.name }}</a>
@@ -68,8 +68,9 @@
           <td>{{ item.bookings }}</td>
           <td style="white-space:nowrap">
             <div style="display:inline-flex;gap:6px;align-items:center">
-              <a href="/speaker/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline">Edit</a>
-              <a href="/sessions/{{ s.id }}" class="btn btn-sm btn-outline" target="_blank" title="View public page">View</a>
+              <a href="/speaker/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline" title="Edit session"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></a>
+              <a href="/speaker/sessions/{{ s.id }}/polls{% if ev %}?event_id={{ ev.id }}{% endif %}" class="btn btn-sm btn-outline">Polls</a>
+              <a href="/speaker/sessions/{{ s.id }}/insights{% if ev %}?event_id={{ ev.id }}{% endif %}" class="btn btn-sm btn-outline">Insights</a>
             </div>
           </td>
         </tr>

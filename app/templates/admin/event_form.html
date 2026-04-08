@@ -14,6 +14,10 @@
   {% endif %}
   {% if event %}
   <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <a href="/events/{{ event.id }}?preview=1" target="_blank" class="btn btn-outline btn-sm">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.25rem"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+      Preview Public Page
+    </a>
     <a href="/admin/events/{{ event.id }}/export-template" class="btn btn-outline btn-sm">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:middle;margin-right:.25rem"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
       Export as Template
@@ -1834,10 +1838,35 @@ window._existingAgendaItems = [
     }
   }
 
+  /* ── Client-side validation ── */
+  function validateWizard() {
+    var errors = [];
+    var name = (document.getElementById('ev-name').value || '').trim();
+    if (!name) errors.push('Event name is required.');
+    var startDate = (document.getElementById('ev-start').value || '').trim();
+    if (!startDate) errors.push('Start date is required.');
+    var status = document.getElementById('ev-status').value;
+    if (status === 'published') {
+      var venue = document.getElementById('ev-auditorium').value;
+      if (!venue) errors.push('A venue must be selected before publishing.');
+      if (agendaItems.length === 0) errors.push('At least one session is required before publishing.');
+    }
+    return errors;
+  }
+
   /* ── Sync on form submit ── */
   var form = document.getElementById('event-form');
   if (form) {
-    form.addEventListener('submit', function() { syncHiddenFields(); });
+    form.addEventListener('submit', function(e) {
+      syncHiddenFields();
+      var errors = validateWizard();
+      if (errors.length > 0) {
+        e.preventDefault();
+        if (window.TechTrek) TechTrek.showToast(errors[0], 'warning');
+        return false;
+      }
+      _clearAutosaveDraft();
+    });
   }
 
   /* ── Status change warnings ── */
@@ -1864,6 +1893,82 @@ window._existingAgendaItems = [
       }
     });
   }
+
+  /* ── Auto-save drafts to localStorage (create mode only) ── */
+  var _autosaveKey = '{{ "techtrek-event-draft-" ~ event.id if event else "techtrek-event-draft-new" }}';
+  var _isEditMode = {{ 'true' if event else 'false' }};
+  var _autosaveFields = [
+    'ev-name', 'ev-status', 'ev-start', 'ev-end', 'ev-description',
+    'ev-banner-url', 'ev-college', 'ev-auditorium',
+    'ev-price', 'ev-price-vip', 'ev-price-balcony', 'ev-price-premium',
+    'ev-processing-fee', 'cert-title'
+  ];
+  var _autosaveTimer = null;
+
+  function _serializeDraft() {
+    var data = {};
+    _autosaveFields.forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) data[id] = el.value;
+    });
+    return data;
+  }
+
+  function _restoreDraft(data) {
+    _autosaveFields.forEach(function(id) {
+      if (data[id] !== undefined) {
+        var el = document.getElementById(id);
+        if (el) { el.value = data[id]; el.dispatchEvent(new Event('input')); }
+      }
+    });
+  }
+
+  function _saveDraft() {
+    try { localStorage.setItem(_autosaveKey, JSON.stringify(_serializeDraft())); } catch(e) {}
+  }
+
+  function _clearAutosaveDraft() {
+    try { localStorage.removeItem(_autosaveKey); } catch(e) {}
+  }
+
+  function _debouncedSave() {
+    clearTimeout(_autosaveTimer);
+    _autosaveTimer = setTimeout(_saveDraft, 2000);
+  }
+
+  if (!_isEditMode) {
+    try {
+      var saved = localStorage.getItem(_autosaveKey);
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        if (parsed && Object.keys(parsed).some(function(k) { return parsed[k]; })) {
+          var banner = document.createElement('div');
+          banner.className = 'alert alert-info mb-3';
+          banner.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:1rem;';
+          banner.innerHTML = '<span>A previously unsaved draft was found. Would you like to restore it?</span>' +
+            '<span style="display:flex;gap:.5rem;flex-shrink:0">' +
+            '<button type="button" class="btn btn-sm btn-primary" id="restore-draft-btn">Restore</button>' +
+            '<button type="button" class="btn btn-sm btn-outline" id="discard-draft-btn">Discard</button></span>';
+          var formCard = document.querySelector('.form-card');
+          if (formCard) formCard.insertBefore(banner, formCard.firstChild);
+          document.getElementById('restore-draft-btn').addEventListener('click', function() {
+            _restoreDraft(parsed);
+            banner.remove();
+            if (window.TechTrek) TechTrek.showToast('Draft restored.', 'success');
+          });
+          document.getElementById('discard-draft-btn').addEventListener('click', function() {
+            _clearAutosaveDraft();
+            banner.remove();
+          });
+        }
+      }
+    } catch(e) {}
+  }
+
+  _autosaveFields.forEach(function(id) {
+    var el = document.getElementById(id);
+    if (el) el.addEventListener('input', _debouncedSave);
+  });
 
   renderAgenda();
 })();

@@ -1722,6 +1722,16 @@ html[data-theme="light"] .ed-break-card .ed-sc-body .ed-sc-meta {
   align-self: stretch;
   position: relative;
 }
+@media (min-width: 769px) {
+  :root:not([data-theme="light"]) .ed-body {
+    position: relative;
+    z-index: 2;
+  }
+  :root:not([data-theme="light"]) .ed-booking-col {
+    margin-top: -18rem;
+    z-index: 3;
+  }
+}
 
 .ed-booking-panel {
   position: relative;
@@ -2309,6 +2319,11 @@ html[data-theme="light"] .ed-break-card .ed-sc-body .ed-sc-meta {
 .ed-hero-caption .ed-event-identity {
   padding: 0;
   margin-bottom: 0;
+}
+@media (min-width: 769px) {
+  :root:not([data-theme="light"]) .ed-hero-caption .ed-event-identity {
+    max-width: calc(100% - 26rem);
+  }
 }
 
 /* Carousel dot indicators */

@@ -37,10 +37,22 @@
   <input type="text" id="events-search" class="form-input" placeholder="Search by name, college, or venue…" oninput="filterEvents(this.value)" style="max-width:360px">
   <span id="events-count" class="text-muted" style="font-size:.8rem;white-space:nowrap">{{ events|length }} event{{ 's' if events|length != 1 }}</span>
 </div>
+<div id="bulk-action-bar" style="display:none;padding:.75rem 1rem;background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);margin-bottom:.75rem;align-items:center;gap:.75rem;flex-wrap:wrap">
+  <span id="bulk-count" style="font-size:.85rem;font-weight:600">0 selected</span>
+  <select id="bulk-status-select" class="form-input" style="width:auto;min-width:140px;font-size:.85rem">
+    <option value="">— Change status to —</option>
+    <option value="published">Published</option>
+    <option value="completed">Completed</option>
+    <option value="cancelled">Cancelled</option>
+    <option value="draft">Draft</option>
+  </select>
+  <button type="button" class="btn btn-sm btn-primary" id="bulk-apply-btn" disabled>Apply</button>
+</div>
 <div class="table-responsive">
   <table class="table table-cards-mobile" id="events-table">
     <thead>
       <tr>
+        <th style="width:36px"><input type="checkbox" id="bulk-select-all" title="Select all"></th>
         <th>Name</th>
         <th>College</th>
         <th>Venue</th>
@@ -55,7 +67,8 @@
     <tbody>
       {% for item in events %}
       {% set ev = item.event %}
-      <tr data-search="{{ ev.name|lower }} {{ (ev.college.name if ev.college else '')|lower }} {{ (item.auditorium.name if item.auditorium else '')|lower }}">
+      <tr data-search="{{ ev.name|lower }} {{ (ev.college.name if ev.college else '')|lower }} {{ (item.auditorium.name if item.auditorium else '')|lower }}" data-event-id="{{ ev.id }}">
+        <td><input type="checkbox" class="bulk-check" data-event-id="{{ ev.id }}"></td>
         <td data-label="Name"><strong>{{ ev.name }}</strong></td>
         <td data-label="College">{{ ev.college.name if ev.college else "—" }}</td>
         <td data-label="Venue">{{ item.auditorium.name if item.auditorium else "—" }}</td>
@@ -205,5 +218,71 @@ document.addEventListener('click', function(e) {
   }
   if (!floatMenu.contains(e.target)) closeStatusMenu();
 });
+
+/* ── Bulk status operations ── */
+(function() {
+  var selectAll = document.getElementById('bulk-select-all');
+  var bar = document.getElementById('bulk-action-bar');
+  var countEl = document.getElementById('bulk-count');
+  var applyBtn = document.getElementById('bulk-apply-btn');
+  var statusSel = document.getElementById('bulk-status-select');
+  if (!selectAll || !bar) return;
+
+  function getChecked() {
+    return Array.from(document.querySelectorAll('.bulk-check:checked'));
+  }
+
+  function updateBar() {
+    var checked = getChecked();
+    var n = checked.length;
+    bar.style.display = n > 0 ? 'flex' : 'none';
+    countEl.textContent = n + ' selected';
+    applyBtn.disabled = !statusSel.value || n === 0;
+  }
+
+  selectAll.addEventListener('change', function() {
+    var visible = document.querySelectorAll('#events-table tbody tr');
+    visible.forEach(function(row) {
+      if (row.style.display !== 'none') {
+        var cb = row.querySelector('.bulk-check');
+        if (cb) cb.checked = selectAll.checked;
+      }
+    });
+    updateBar();
+  });
+
+  document.addEventListener('change', function(e) {
+    if (e.target.classList.contains('bulk-check')) updateBar();
+  });
+  statusSel.addEventListener('change', updateBar);
+
+  applyBtn.addEventListener('click', function() {
+    var checked = getChecked();
+    var newStatus = statusSel.value;
+    if (!newStatus || !checked.length) return;
+
+    var label = newStatus.charAt(0).toUpperCase() + newStatus.slice(1);
+    openConfirm('Set ' + checked.length + ' event(s) to "' + label + '"?', function() {
+      applyBtn.disabled = true;
+      applyBtn.textContent = 'Applying…';
+      var ids = checked.map(function(cb) { return cb.dataset.eventId; });
+      var done = 0, failed = 0;
+      ids.forEach(function(id) {
+        fetch('/admin/events/' + id + '/status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          body: JSON.stringify({ status: newStatus })
+        }).then(function(r) { return r.json(); }).then(function(data) {
+          if (!data.ok) failed++;
+          if (++done === ids.length) finish();
+        }).catch(function() { failed++; if (++done === ids.length) finish(); });
+      });
+      function finish() {
+        if (failed > 0 && typeof showToast === 'function') showToast(failed + ' event(s) failed to update.', 'error');
+        location.reload();
+      }
+    }, { confirmLabel: 'Apply', confirmClass: newStatus === 'cancelled' ? 'btn-danger' : 'btn-primary' });
+  });
+})();
 </script>
 {% endblock %}

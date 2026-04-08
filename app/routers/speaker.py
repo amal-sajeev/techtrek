@@ -365,6 +365,8 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
         session_obj.description = session_obj.abstract
         session_obj.banner_url = form.get("banner_url", "").strip() or None
         session_obj.duration_minutes = int(form.get("duration_minutes", 30))
+        session_obj.recording_url = form.get("recording_url", "").strip() or None
+        session_obj.is_recording_public = "is_recording_public" in form
 
         db.query(AgendaItem).filter(AgendaItem.session_id == session_id).delete()
         idx = 0
@@ -415,6 +417,102 @@ async def session_update(request: Request, session_id: int, db: Session = Depend
     db.commit()
     flash(request, f"Session '{session_obj.title}' updated.", "success")
     return RedirectResponse("/speaker/sessions", status_code=303)
+
+
+@router.get("/sessions/{session_id}/insights")
+def session_insights(request: Request, session_id: int, event_id: int = Query(default=0), db: Session = Depends(get_db)):
+    user, speaker = _require_speaker(request, db)
+    session_obj = db.query(SessionModel).get(session_id)
+    if not session_obj or not _speaker_can_access_session(speaker, session_obj, db):
+        flash(request, "Session not found or access denied.", "danger")
+        return RedirectResponse("/speaker/", status_code=303)
+
+    from app.models.event_session import EventSession as ES_ins
+    es_ins = db.query(ES_ins).filter(ES_ins.session_id == session_id).first()
+    eid = event_id or (es_ins.event_id if es_ins else 0)
+    event = es_ins.event if es_ins else None
+
+    # Feedback ratings
+    from app.models.session_feedback import SessionFeedback
+    feedback_rows = (
+        db.query(SessionFeedback)
+        .filter(SessionFeedback.session_id == session_id, SessionFeedback.rating.isnot(None))
+        .all()
+    )
+    feedback_count = len(feedback_rows)
+    feedback_avg = round(sum(f.rating for f in feedback_rows) / feedback_count, 1) if feedback_count else 0
+    feedback_dist = {s: 0 for s in range(1, 6)}
+    for f in feedback_rows:
+        if f.rating and 1 <= f.rating <= 5:
+            feedback_dist[f.rating] += 1
+
+    # Attendees (paid bookings for this event)
+    attendees = []
+    checked_in_count = 0
+    if eid:
+        rows = (
+            db.query(Booking, User)
+            .join(User, User.id == Booking.user_id)
+            .filter(
+                Booking.event_id == eid,
+                Booking.payment_status == "paid",
+                Booking.is_shared_ticket == False,
+            )
+            .order_by(User.full_name)
+            .all()
+        )
+        seen_uids: set[int] = set()
+        for b, u in rows:
+            if u.id in seen_uids:
+                continue
+            seen_uids.add(u.id)
+            attendees.append({
+                "name": u.full_name or u.username,
+                "college": u.college or "",
+                "checked_in": b.checked_in,
+                "checked_in_at": b.checked_in_at,
+            })
+            if b.checked_in:
+                checked_in_count += 1
+
+    total_attendees = len(attendees)
+    checkin_rate = round(checked_in_count / total_attendees * 100) if total_attendees else 0
+
+    # Poll summaries
+    poll_filters = [Poll.session_id == session_id]
+    if eid:
+        poll_filters.append(Poll.event_id == eid)
+    polls = db.query(Poll).filter(*poll_filters).order_by(Poll.created_at.desc()).all()
+    polls_summary = []
+    for p in polls:
+        vote_count = len(p.votes) if hasattr(p, "votes") else 0
+        polls_summary.append({
+            "id": p.id,
+            "question": p.question,
+            "poll_type": p.poll_type or "multiple_choice",
+            "is_active": p.is_active,
+            "closed": p.closed_at is not None,
+            "total_votes": vote_count,
+        })
+
+    return templates.TemplateResponse(
+        "speaker/session_insights.html",
+        _speaker_ctx(
+            request,
+            speaker=speaker,
+            session=session_obj,
+            event=event,
+            event_id=eid,
+            feedback_count=feedback_count,
+            feedback_avg=feedback_avg,
+            feedback_dist=feedback_dist,
+            attendees=attendees,
+            total_attendees=total_attendees,
+            checked_in_count=checked_in_count,
+            checkin_rate=checkin_rate,
+            polls_summary=polls_summary,
+        ),
+    )
 
 
 @router.get("/sessions/{session_id}/polls")

@@ -438,12 +438,13 @@ async def event_verify_payment(request: Request, event_id: int, db: Session = De
     if coupon_code:
         coupon, _ = validate_coupon(db, coupon_code, event_id)
 
-    confirmed = confirm_payment(db, user.id, event_id, coupon=coupon)
+    _save_booking_addons(db, request, event_id, group_id)
+    saved_addons = _get_booking_addons(db, group_id)
+
+    confirmed = confirm_payment(db, user.id, event_id, coupon=coupon, addons=saved_addons)
     for b in confirmed:
         b.razorpay_payment_id = payment_id
         b.razorpay_signature = signature
-
-    _save_booking_addons(db, request, event_id, group_id)
 
     log_activity(
         db, category="booking", action="event_payment",
@@ -505,9 +506,10 @@ async def event_pay_free(request: Request, event_id: int, db: Session = Depends(
         flash(request, "This event requires payment.", "danger")
         return RedirectResponse(f"/booking/event/{event_id}/checkout", status_code=303)
 
-    confirmed = confirm_payment(db, user.id, event_id, coupon=coupon)
-
     _save_booking_addons(db, request, event_id, group_id)
+    saved_addons = _get_booking_addons(db, group_id)
+
+    confirmed = confirm_payment(db, user.id, event_id, coupon=coupon, addons=saved_addons)
 
     log_activity(
         db, category="booking", action="event_payment",
@@ -791,6 +793,9 @@ def join_waitlist(request: Request, event_id: int, db: Session = Depends(get_db)
         db.commit()
         flash(request, "You've been added to the waitlist!", "success")
 
+    back = request.headers.get("referer", "").strip()
+    if back and back.startswith(("/", f"{request.base_url}")):
+        return RedirectResponse(back, status_code=303)
     return RedirectResponse(f"/events/{event_id}", status_code=303)
 
 
@@ -812,6 +817,9 @@ def leave_waitlist(request: Request, event_id: int, db: Session = Depends(get_db
     else:
         flash(request, "You're not on the waitlist for this event.", "info")
 
+    back = request.headers.get("referer", "").strip()
+    if back and back.startswith(("/", f"{request.base_url}")):
+        return RedirectResponse(back, status_code=303)
     return RedirectResponse(f"/events/{event_id}", status_code=303)
 
 

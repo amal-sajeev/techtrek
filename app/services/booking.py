@@ -228,7 +228,7 @@ def apply_coupon_to_price(base_price: float, coupon) -> float:
     return base_price
 
 
-def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None) -> list[Booking]:
+def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None, addons=None) -> list[Booking]:
     now = now_ist()
     event = db.query(Event).get(event_id)
 
@@ -268,7 +268,7 @@ def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None) -> 
             b.coupon_id = coupon.id
         b.ticket_id = _generate_ticket_id()
         b.invoice_number = invoice_num
-        b.qr_code_data = f"{settings.base_url}/certificate/verify/{b.ticket_id}"
+        b.qr_code_data = _generate_qr_base64(f"{settings.base_url}/certificate/verify/{b.ticket_id}")
         b.booking_group = group_id
         if group_qr:
             b.group_qr_data = group_qr
@@ -287,7 +287,7 @@ def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None) -> 
         if user and event and auditorium:
             try:
                 from app.services.invoice import generate_invoice_pdf
-                invoice_pdf = generate_invoice_pdf(holds, user, event, auditorium, all_seats)
+                invoice_pdf = generate_invoice_pdf(holds, user, event, auditorium, all_seats, addons=addons)
             except Exception:
                 pass
 
