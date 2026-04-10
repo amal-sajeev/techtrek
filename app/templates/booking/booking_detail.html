@@ -76,7 +76,7 @@
                 <div class="ticket-detail-meta">
                   <div class="booking-detail-row">
                     <span class="booking-detail-icon"><i data-lucide="ticket" class="lucide" aria-hidden="true"></i></span>
-                    <span class="ticket-id">{{ b.ticket_id }}</span>
+                    <span class="ticket-id">{{ b.ticket_number or b.ticket_id }}</span>
                     {% if b.payment_status == 'paid' %}
                     <button type="button" class="btn btn-xs btn-outline" style="display:inline-flex;align-items:center;gap:.25rem" onclick="openShareModal('{{ b.ticket_id }}')"><i data-lucide="link" class="lucide" style="width:.75rem;height:.75rem" aria-hidden="true"></i> Share</button>
                     {% endif %}

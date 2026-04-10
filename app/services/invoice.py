@@ -230,8 +230,8 @@ def generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_
 
         table_data.append([
             str(i + 1),
-            seat.label,
-            _seat_type_display(seat.seat_type, custom_types_map),
+            Paragraph(seat.label or "", styles["Normal"]),
+            Paragraph(_seat_type_display(seat.seat_type, custom_types_map), styles["Normal"]),
             f"{base_price:,.2f}",
             f"{gst_amount:,.2f}",
             f"{amount:,.2f}",
@@ -250,7 +250,7 @@ def generate_invoice_pdf(bookings, user, event, auditorium, seats, custom_types_
             table_data.append([
                 str(row_num),
                 Paragraph(f"<i>Add-On</i>", styles["Normal"]),
-                addon.title,
+                Paragraph(addon.title or "", styles["Normal"]),
                 f"{base_price:,.2f}",
                 f"{gst_amount:,.2f}",
                 f"{amount:,.2f}",

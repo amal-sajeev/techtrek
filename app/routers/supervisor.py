@@ -186,6 +186,7 @@ def supervisor_bookings(
                     or (event and search in event.name.lower())
                     or (b.booking_ref and search in b.booking_ref.lower())
                     or (b.ticket_id and search in b.ticket_id.lower())
+                    or (b.ticket_number and search in b.ticket_number.lower())
                 )
                 if not match:
                     continue
@@ -362,13 +363,21 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
                 "refunded_count": refunded_count,
             }
     else:
-        query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
+        query = db.query(Booking).filter(Booking.ticket_number == ticket_id, Booking.payment_status == "paid")
         if event_id_raw:
             try:
                 query = query.filter(Booking.event_id == int(event_id_raw))
             except ValueError:
                 pass
         booking = query.first()
+        if not booking:
+            query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
+            if event_id_raw:
+                try:
+                    query = query.filter(Booking.event_id == int(event_id_raw))
+                except ValueError:
+                    pass
+            booking = query.first()
 
         if not booking:
             result = {"status": "error", "msg": f"Ticket '{ticket_id}' not found or not valid."}

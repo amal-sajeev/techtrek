@@ -44,7 +44,7 @@
         </div>
         <div>
           <p style="font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:#94a3b8;margin:0 0 .2rem">Ticket ID</p>
-          <p style="font-weight:600;margin:0;font-family:monospace;font-size:.82rem;word-break:break-all">{{ booking.ticket_id }}</p>
+          <p style="font-weight:600;margin:0;font-family:monospace">{{ booking.ticket_number or booking.ticket_id }}</p>
         </div>
         {% if booking.booked_at %}
         <div>
@@ -58,6 +58,9 @@
     <p style="text-align:center;font-size:.8rem;color:#94a3b8;margin:1.5rem 0 0">
       Verified by TechTrek &mdash; <a href="/" style="color:#0d9488">techtrek.in</a>
     </p>
+    <p style="text-align:center;margin-top:.75rem">
+      <a href="/certificate/verify" style="color:#0d9488;font-size:.85rem">Verify another certificate</a>
+    </p>
 
     {% else %}
     <div style="text-align:center;margin-bottom:2rem">
@@ -68,6 +71,9 @@
     </div>
     <p style="text-align:center;font-size:.8rem;color:#94a3b8">
       If you believe this is an error, contact the event organiser.
+    </p>
+    <p style="text-align:center;margin-top:.75rem">
+      <a href="/certificate/verify" style="color:#0d9488;font-size:.85rem">Try a different ticket ID</a>
     </p>
     {% endif %}
 

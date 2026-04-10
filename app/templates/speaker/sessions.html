@@ -68,7 +68,7 @@
           <td>{{ item.bookings }}</td>
           <td style="white-space:nowrap">
             <div style="display:inline-flex;gap:6px;align-items:center">
-              <a href="/speaker/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline" title="Edit session"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></a>
+              <a href="/speaker/sessions/{{ s.id }}/edit" class="btn btn-sm btn-outline" title="Edit session"><svg width="16" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-.15em"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/><path d="m15 5 4 4"/></svg></a>
               <a href="/speaker/sessions/{{ s.id }}/polls{% if ev %}?event_id={{ ev.id }}{% endif %}" class="btn btn-sm btn-outline">Polls</a>
               <a href="/speaker/sessions/{{ s.id }}/insights{% if ev %}?event_id={{ ev.id }}{% endif %}" class="btn btn-sm btn-outline">Insights</a>
             </div>

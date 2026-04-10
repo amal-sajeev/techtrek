@@ -972,7 +972,7 @@ def phase2_api_admin(api: ApiClient, refs: dict):
     api.get("/admin/")
     api.get("/admin/events/new")
 
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     created_events = []
 
     for ev_idx, evd in enumerate(event_data):
@@ -1130,7 +1130,7 @@ def phase3_user_flows(api: ApiClient, refs: dict):
     """Simulate real user actions: bookings, waitlist, feedback, cancellations."""
     db = SessionLocal()
 
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
 
     published = (
         db.query(Event)
@@ -1253,7 +1253,7 @@ def phase3_user_flows(api: ApiClient, refs: dict):
         )
         for b in first_future:
             b.checked_in = True
-            b.checked_in_at = datetime.utcnow()
+            b.checked_in_at = datetime.now(timezone.utc)
             checkins += 1
         db.commit()
     print(f"    Checked in {checkins} booking(s)")
@@ -1437,6 +1437,7 @@ def phase4_summary():
         "Events": db.query(Event).count(),
         "Coupons": db.query(Coupon).count(),
         "Bookings (paid)": db.query(Booking).filter(Booking.payment_status == "paid").count(),
+        "Ticket numbers (TT-)": db.query(Booking).filter(Booking.ticket_number != None).count(),
         "Bookings (cancelled)": db.query(Booking).filter(Booking.payment_status == "cancelled").count(),
         "Waitlist entries": db.query(Waitlist).count(),
         "Feedback entries": db.query(Feedback).count(),
@@ -1474,6 +1475,7 @@ def phase4_summary():
         print(f"  Event: '{ev.name}' (id={ev.id}, status={ev.status})")
     print("  bob has a cancelled booking -> test refund view")
     print("  amalsajeev attended completed event -> feedback popup + certificate email")
+    print("  Paid bookings have short ticket IDs (TT-XXXXXX) for check-in & certificate lookup")
     print()
 
 

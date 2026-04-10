@@ -1743,3 +1743,243 @@ html[data-theme="light"] .ed-break-card .ed-sc-body .ed-sc-meta {
 [data-theme="light"] .testimonial-stars {
   color: #E84E2C;
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   Speaker Calendar — Editorial Light Theme
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Header controls */
+[data-theme="light"] .spk-cal-title {
+  font-family: var(--font-display, 'Playfair Display', Georgia, serif);
+  font-weight: 900;
+  letter-spacing: -0.01em;
+  color: #0e0e0e;
+}
+[data-theme="light"] .spk-cal-view-toggle {
+  border-color: rgba(14,14,14,.18);
+}
+[data-theme="light"] .spk-cal-toggle-btn {
+  color: #6a6a6a;
+  font-family: var(--font-mono, 'DM Mono', monospace);
+}
+[data-theme="light"] .spk-cal-toggle-btn:hover {
+  background: rgba(14,14,14,.04);
+  color: #2e2e2e;
+}
+[data-theme="light"] .spk-cal-toggle-active {
+  background: #0e0e0e;
+  color: #fff;
+  font-weight: 600;
+}
+[data-theme="light"] .spk-cal-toggle-active:hover {
+  background: #1a1a1a;
+  color: #fff;
+}
+[data-theme="light"] .spk-cal-nav-btn {
+  color: #6a6a6a;
+}
+[data-theme="light"] .spk-cal-nav-btn:hover {
+  background: rgba(14,14,14,.06);
+  color: #0e0e0e;
+}
+[data-theme="light"] .spk-cal-today-btn {
+  border-color: rgba(14,14,14,.2);
+  color: #6a6a6a;
+  font-family: var(--font-mono, 'DM Mono', monospace);
+}
+[data-theme="light"] .spk-cal-today-btn:hover {
+  border-color: #0e0e0e;
+  color: #0e0e0e;
+  background: rgba(14,14,14,.03);
+}
+
+/* Month grid */
+[data-theme="light"] .spk-cal-grid-month {
+  border-color: rgba(14,14,14,.15);
+  border-radius: 0;
+}
+[data-theme="light"] .spk-cal-dow {
+  background: #f2ede5;
+  border-bottom-color: rgba(14,14,14,.12);
+  color: #57534e;
+  font-family: var(--font-mono, 'DM Mono', monospace);
+}
+[data-theme="light"] .spk-cal-day {
+  background: #fff;
+  border-right-color: rgba(14,14,14,.08);
+  border-bottom-color: rgba(14,14,14,.08);
+}
+[data-theme="light"] .spk-cal-day:hover {
+  background: #faf8f5;
+}
+[data-theme="light"] .spk-cal-day--today {
+  background: rgba(232,78,44,.03);
+}
+[data-theme="light"] .spk-cal-day--today .spk-cal-day-num {
+  background: #0e0e0e;
+  color: #fff;
+}
+[data-theme="light"] .spk-cal-day--other {
+  opacity: .3;
+}
+[data-theme="light"] .spk-cal-day-num {
+  color: #2e2e2e;
+  font-family: var(--font-mono, 'DM Mono', monospace);
+}
+
+/* Month chips — light */
+[data-theme="light"] .spk-cal-chip {
+  background: rgba(14,14,14,.06);
+  color: #2e2e2e;
+}
+[data-theme="light"] .spk-cal-chip:hover {
+  background: rgba(14,14,14,.1);
+}
+[data-theme="light"] .spk-cal-chip--published {
+  background: rgba(16,130,90,.08);
+  color: #0a7c55;
+}
+[data-theme="light"] .spk-cal-chip--published .spk-cal-chip-dot { background: #0a7c55 }
+[data-theme="light"] .spk-cal-chip--draft {
+  background: rgba(180,120,20,.08);
+  color: #92650a;
+}
+[data-theme="light"] .spk-cal-chip--draft .spk-cal-chip-dot { background: #b4780a }
+[data-theme="light"] .spk-cal-chip--completed {
+  background: rgba(100,116,139,.08);
+  color: #64748b;
+}
+[data-theme="light"] .spk-cal-chip--completed .spk-cal-chip-dot { background: #94a3b8 }
+[data-theme="light"] .spk-cal-chip--cancelled {
+  background: rgba(220,50,50,.06);
+  color: #c0392b;
+}
+[data-theme="light"] .spk-cal-chip--cancelled .spk-cal-chip-dot { background: #c0392b }
+[data-theme="light"] .spk-cal-chip-dot { background: #0a7c55 }
+[data-theme="light"] .spk-cal-chip-time { color: #6a6a6a }
+[data-theme="light"] .spk-cal-chip-more {
+  color: #E84E2C;
+}
+[data-theme="light"] .spk-cal-chip-more:hover {
+  color: #0e0e0e;
+}
+
+/* Week grid — light */
+[data-theme="light"] .spk-cal-grid-week {
+  border-color: rgba(14,14,14,.15);
+  border-radius: 0;
+}
+[data-theme="light"] .spk-cal-week-col {
+  border-right-color: rgba(14,14,14,.08);
+}
+[data-theme="light"] .spk-cal-week-header {
+  background: #f2ede5;
+  border-bottom-color: rgba(14,14,14,.12);
+}
+[data-theme="light"] .spk-cal-week-header--today {
+  background: rgba(14,14,14,.06);
+}
+[data-theme="light"] .spk-cal-week-header--today .spk-cal-week-daynum {
+  background: #0e0e0e;
+  color: #fff;
+}
+[data-theme="light"] .spk-cal-week-dayname {
+  color: #78716c;
+  font-family: var(--font-mono, 'DM Mono', monospace);
+}
+[data-theme="light"] .spk-cal-week-daynum { color: #0e0e0e }
+[data-theme="light"] .spk-cal-week-body { background: #fff }
+
+/* Week event blocks — light */
+[data-theme="light"] .spk-cal-week-event {
+  border-color: rgba(16,130,90,.15);
+  border-top-color: #0a7c55;
+  background: rgba(16,130,90,.04);
+}
+[data-theme="light"] .spk-cal-week-event:hover {
+  background: rgba(16,130,90,.08);
+  border-color: rgba(16,130,90,.25);
+}
+[data-theme="light"] .spk-cal-week-event--draft {
+  border-color: rgba(180,120,20,.15);
+  border-top-color: #b4780a;
+  background: rgba(180,120,20,.04);
+}
+[data-theme="light"] .spk-cal-week-event--draft:hover { background: rgba(180,120,20,.08) }
+[data-theme="light"] .spk-cal-week-event--completed {
+  border-color: rgba(100,116,139,.15);
+  border-top-color: #94a3b8;
+  background: rgba(100,116,139,.04);
+}
+[data-theme="light"] .spk-cal-week-event--completed:hover { background: rgba(100,116,139,.08) }
+[data-theme="light"] .spk-cal-week-event--cancelled {
+  border-color: rgba(220,50,50,.12);
+  border-top-color: #c0392b;
+  background: rgba(220,50,50,.03);
+}
+[data-theme="light"] .spk-cal-week-event--cancelled:hover { background: rgba(220,50,50,.06) }
+[data-theme="light"] .spk-cal-event-time { color: #0a7c55 }
+[data-theme="light"] .spk-cal-week-event--draft .spk-cal-event-time { color: #92650a }
+[data-theme="light"] .spk-cal-week-event--completed .spk-cal-event-time { color: #94a3b8 }
+[data-theme="light"] .spk-cal-event-title { color: #0e0e0e }
+[data-theme="light"] .spk-cal-event-venue { color: #6a6a6a }
+[data-theme="light"] .spk-cal-event-meta { color: #78716c }
+
+/* Popover — light */
+[data-theme="light"] .spk-cal-overlay {
+  background: rgba(14,14,14,.2);
+  backdrop-filter: blur(3px);
+}
+[data-theme="light"] .spk-cal-popover {
+  background: #fff;
+  border-color: rgba(14,14,14,.15);
+  border-radius: 0;
+  box-shadow: 0 12px 48px rgba(0,0,0,.12);
+}
+[data-theme="light"] .spk-cal-popover-header {
+  border-bottom-color: rgba(14,14,14,.1);
+}
+[data-theme="light"] .spk-cal-popover-header strong { color: #0e0e0e }
+[data-theme="light"] .spk-cal-popover-close { color: #94a3b8 }
+[data-theme="light"] .spk-cal-pop-section-title {
+  color: #0e0e0e;
+  font-family: var(--font-mono, 'DM Mono', monospace);
+  border-bottom-color: rgba(14,14,14,.1);
+}
+[data-theme="light"] .spk-cal-pop-row {
+  border-bottom-color: rgba(14,14,14,.06);
+  color: #2e2e2e;
+}
+[data-theme="light"] .spk-cal-pop-label { color: #78716c }
+[data-theme="light"] .spk-cal-pop-event-link {
+  color: #0e0e0e;
+  border-bottom-color: rgba(14,14,14,.2);
+}
+[data-theme="light"] .spk-cal-pop-event-link:hover {
+  color: #E84E2C;
+  border-bottom-color: #E84E2C;
+}
+[data-theme="light"] .spk-cal-popover-footer {
+  border-top-color: rgba(14,14,14,.1);
+}
+
+/* Legend — light */
+[data-theme="light"] .spk-cal-legend { color: #78716c }
+[data-theme="light"] .spk-cal-summary { color: #6a6a6a }
+[data-theme="light"] .spk-cal-summary strong { color: #0e0e0e }
+
+/* Calendar empty state — light */
+[data-theme="light"] .spk-cal-empty {
+  color: #78716c;
+  border-color: rgba(14,14,14,.1);
+  background: #faf8f5;
+}
+
+/* Mobile list — light */
+[data-theme="light"] .spk-cal-mobile-item {
+  background: #fff;
+  border-color: rgba(14,14,14,.1);
+}
+[data-theme="light"] .spk-cal-mobile-item:hover {
+  background: #faf8f5;
+}

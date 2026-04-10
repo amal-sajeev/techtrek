@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session as DBSession
 
 from app.config import settings
 from app.utils import now_ist
-from app.models.booking import Booking, _generate_ticket_id
+from app.models.booking import Booking, _generate_ticket_id, generate_ticket_number
 from app.services.invoice import _generate_invoice_number
 from app.models.seat import Seat
 from app.models.event import Event
@@ -267,6 +267,7 @@ def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None, add
         if coupon:
             b.coupon_id = coupon.id
         b.ticket_id = _generate_ticket_id()
+        b.ticket_number = generate_ticket_number(db)
         b.invoice_number = invoice_num
         b.qr_code_data = _generate_qr_base64(f"{settings.base_url}/certificate/verify/{b.ticket_id}")
         b.booking_group = group_id
@@ -297,7 +298,7 @@ def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None, add
                 if seat:
                     tickets.append({
                         "seat_label": seat.label,
-                        "ticket_id": b.ticket_id,
+                        "ticket_id": b.ticket_number or b.ticket_id,
                         "booking_ref": b.booking_ref,
                         "amount": float(b.amount_paid or 0),
                     })
@@ -309,7 +310,7 @@ def confirm_payment(db: DBSession, user_id: int, event_id: int, coupon=None, add
         elif user and len(holds) == 1 and all_seats[0]:
             send_booking_confirmation(
                 user.email, user.username, event_title,
-                all_seats[0].label, holds[0].ticket_id, holds[0].booking_ref,
+                all_seats[0].label, holds[0].ticket_number or holds[0].ticket_id, holds[0].booking_ref,
                 invoice_pdf=invoice_pdf,
             )
 

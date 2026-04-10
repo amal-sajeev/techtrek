@@ -1872,6 +1872,7 @@ def bookings_list(
                 Event.name.ilike(like),
                 Booking.booking_ref.ilike(like),
                 Booking.ticket_id.ilike(like),
+                Booking.ticket_number.ilike(like),
             )
         )
 
@@ -1998,13 +1999,14 @@ def bookings_csv(
                 or (event and search in event.name.lower())
                 or (b.booking_ref and search in b.booking_ref.lower())
                 or (b.ticket_id and search in b.ticket_id.lower())
+                or (b.ticket_number and search in b.ticket_number.lower())
             )
             if not match:
                 continue
         sup_college = (u.supervised_college.name if u and u.supervised_college else "") or ""
         writer.writerow([
             b.booking_ref or "",
-            b.ticket_id or "",
+            b.ticket_number or b.ticket_id or "",
             event.name if event else "",
             seat.label if seat else "",
             b.payment_status or "",
@@ -2274,13 +2276,21 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
                     "refunded_count": refunded_count,
                 }
     else:
-        query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
+        query = db.query(Booking).filter(Booking.ticket_number == ticket_id, Booking.payment_status == "paid")
         if event_id_raw:
             try:
                 query = query.filter(Booking.event_id == int(event_id_raw))
             except ValueError:
                 pass
         booking = query.first()
+        if not booking:
+            query = db.query(Booking).filter(Booking.ticket_id == ticket_id, Booking.payment_status == "paid")
+            if event_id_raw:
+                try:
+                    query = query.filter(Booking.event_id == int(event_id_raw))
+                except ValueError:
+                    pass
+            booking = query.first()
 
         if not booking:
             result = {"status": "error", "msg": f"Ticket '{ticket_id}' not found or not valid."}
@@ -3020,7 +3030,67 @@ async def event_create(request: Request, db: Session = Depends(get_db)):
     if linked:
         msg += f" with {linked} session(s)"
     flash(request, msg + ".", "success")
-    return RedirectResponse(f"/admin/events/{ev.id}/edit", status_code=303)
+    qs = "?step=5" if ctid.isdigit() else ""
+    return RedirectResponse(f"/admin/events/{ev.id}/edit{qs}", status_code=303)
+
+
+@router.get("/events/{event_id}/agenda-data")
+def event_agenda_data(request: Request, event_id: int, db: Session = Depends(get_db)):
+    """Return event agenda (sessions, breaks, add-ons) as JSON for copy-agenda feature."""
+    admin = _require_admin(request, db)
+    if not admin:
+        return JSONResponse({"error": "Unauthorized"}, status_code=401)
+    ev = db.query(Event).get(event_id)
+    if not ev:
+        return JSONResponse({"error": "Not found"}, status_code=404)
+
+    from app.models.event_session import EventSession
+    sessions_q = db.query(EventSession).filter(EventSession.event_id == event_id).order_by(EventSession.order, EventSession.start_time).all()
+    breaks_q = db.query(EventBreak).filter(EventBreak.event_id == event_id).order_by(EventBreak.order, EventBreak.start_time).all()
+    addons_q = db.query(EventAddOn).filter(EventAddOn.event_id == event_id).all()
+
+    sessions = []
+    for es in sessions_q:
+        sess = es.session
+        sessions.append({
+            "sessId": es.session_id,
+            "sessLabel": sess.title if sess else "",
+            "speakerId": es.speaker_id or "",
+            "speakerLabel": es.speaker_name or (sess.speaker_name if sess else "") or "",
+            "duration": (es.custom_duration_minutes or (sess.duration_minutes if sess else None) or 30),
+            "startTime": "",
+            "order": es.order,
+            "customTitle": es.custom_title or "",
+            "customDescription": es.custom_description or "",
+            "customAbstract": getattr(es, "custom_abstract", "") or "",
+            "customKeyLearningOutcomes": getattr(es, "custom_key_learning_outcomes", "") or "",
+            "customBannerUrl": getattr(es, "custom_banner_url", "") or "",
+            "customDurationMinutes": es.custom_duration_minutes,
+            "customRecordingUrl": getattr(es, "custom_recording_url", "") or "",
+            "customIsRecordingPublic": getattr(es, "custom_is_recording_public", False),
+        })
+    breaks = []
+    for brk in breaks_q:
+        breaks.append({
+            "title": brk.title,
+            "duration": brk.duration_minutes,
+            "description": brk.description or "",
+            "startTime": "",
+            "order": brk.order,
+        })
+    addons = []
+    for addon in addons_q:
+        addons.append({
+            "title": addon.title,
+            "price": float(addon.price or 0),
+            "maxQty": addon.max_quantity,
+            "description": addon.description or "",
+            "inAgenda": addon.in_agenda or False,
+            "startTime": "",
+            "order": addon.order,
+        })
+
+    return JSONResponse({"sessions": sessions, "breaks": breaks, "addons": addons})
 
 
 @router.get("/events/{event_id}/edit")
@@ -4990,53 +5060,35 @@ def coupon_delete(request: Request, event_id: int, coupon_id: int, db: Session =
 def feedback_list(
     request: Request,
     db: Session = Depends(get_db),
-    rating_filter: str = Query("", alias="rating"),
-    featured_filter: str = Query("", alias="featured"),
-    page: int = Query(1, ge=1),
 ):
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
 
-    query = db.query(Feedback)
-    if rating_filter:
-        try:
-            query = query.filter(Feedback.rating == int(rating_filter))
-        except ValueError:
-            pass
-    if featured_filter == "yes":
-        query = query.filter(Feedback.is_featured == True)
-    elif featured_filter == "no":
-        query = query.filter(Feedback.is_featured == False)
-
-    total_count = query.count()
-    total_pages = max(1, (total_count + ADMIN_PAGE_SIZE - 1) // ADMIN_PAGE_SIZE)
-    page = min(page, total_pages)
-
-    feedback_rows = (
-        query.order_by(Feedback.created_at.desc())
-        .offset((page - 1) * ADMIN_PAGE_SIZE)
-        .limit(ADMIN_PAGE_SIZE)
+    rows = (
+        db.query(
+            Event,
+            func.count(Feedback.id).label("total"),
+            func.count(Feedback.submitted_at).label("submitted"),
+            func.avg(Feedback.rating).label("avg_rating"),
+        )
+        .join(Feedback, Feedback.event_id == Event.id)
+        .group_by(Event.id)
+        .order_by(Event.start_date.desc().nullslast())
         .all()
     )
-    enriched = []
-    for fb in feedback_rows:
-        user = db.query(User).get(fb.user_id)
-        event = db.query(Event).get(fb.event_id) if fb.event_id else None
-        enriched.append({"feedback": fb, "user": user, "event": event})
+    events_fb = []
+    for ev, total, submitted, avg_rating in rows:
+        events_fb.append({
+            "event": ev,
+            "total": total,
+            "submitted": submitted,
+            "avg_rating": round(avg_rating, 1) if avg_rating else None,
+        })
 
     return templates.TemplateResponse(
         "admin/feedback.html",
-        _admin_ctx(
-            request,
-            active_page="feedback",
-            feedback_items=enriched,
-            rating_filter=rating_filter,
-            featured_filter=featured_filter,
-            page=page,
-            total_pages=total_pages,
-            total_count=total_count,
-        ),
+        _admin_ctx(request, active_page="feedback", events_fb=events_fb),
     )
 
 
@@ -6040,6 +6092,7 @@ def event_management_bookings(
                 (u and (search in u.username.lower() or search in u.email.lower() or (u.full_name and search in u.full_name.lower())))
                 or (b.booking_ref and search in b.booking_ref.lower())
                 or (b.ticket_id and search in b.ticket_id.lower())
+                or (b.ticket_number and search in b.ticket_number.lower())
             )
             if not match:
                 continue
@@ -6145,8 +6198,12 @@ async def event_management_checkin_verify(request: Request, event_id: int, db: S
             }
     else:
         booking = db.query(Booking).filter(
-            Booking.ticket_id == ticket_id, Booking.payment_status == "paid", Booking.event_id == event_id
+            Booking.ticket_number == ticket_id, Booking.payment_status == "paid", Booking.event_id == event_id
         ).first()
+        if not booking:
+            booking = db.query(Booking).filter(
+                Booking.ticket_id == ticket_id, Booking.payment_status == "paid", Booking.event_id == event_id
+            ).first()
         if not booking:
             result = {"status": "error", "msg": f"Ticket '{ticket_id}' not found or not valid for this event."}
         elif booking.checked_in:

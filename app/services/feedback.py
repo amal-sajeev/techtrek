@@ -77,13 +77,25 @@ def process_pending_feedback(base_url: str | None = None):
                 if not user:
                     continue
 
+                dupe = db.query(Feedback).filter(
+                    Feedback.user_id == user_id,
+                    Feedback.event_id == event.id,
+                ).first()
+                if dupe:
+                    continue
+
                 fb = Feedback(
                     user_id=user_id,
                     event_id=event.id,
                     email_sent=False,
                 )
                 db.add(fb)
-                db.flush()
+                try:
+                    db.flush()
+                except Exception:
+                    db.rollback()
+                    logger.debug("Feedback already exists for user %d event %d, skipping", user_id, event.id)
+                    continue
 
                 booking_id = user_booking_map[user_id]
                 cert_url = f"{base_url}/booking/certificate/{booking_id}"

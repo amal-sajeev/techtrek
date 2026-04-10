@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Ticket {{ booking.ticket_id }} — TechTrek{% endblock %}
+{% block title %}Ticket {{ booking.ticket_number or booking.ticket_id }} — TechTrek{% endblock %}
 
 {% block content %}
 <section class="section">
@@ -27,7 +27,7 @@
             <div class="ticket-card">
               <div class="ticket-card-info">
                 <span class="seat-label-chip">{{ seat.label }}{% if seat.seat_type != 'standard' %} <small>({{ seat.seat_type|upper }})</small>{% endif %}</span>
-                <span class="ticket-id">{{ booking.ticket_id }}</span>
+                <span class="ticket-id">{{ booking.ticket_number or booking.ticket_id }}</span>
                 <span class="booking-ref-small">Ref: {{ booking.booking_ref }} &middot; ₹{{ "%.0f"|format(booking.amount_paid) }}</span>
                 {% if ticket_user %}
                 <span class="booking-ref-small">Booked by: {{ ticket_user.full_name or ticket_user.username }}</span>
@@ -61,7 +61,7 @@
               {% for gb in group_bookings %}
               {% set gb_seat = namespace() %}
               <a href="/ticket/{{ gb.ticket_id }}" class="ticket-group-item {% if gb.ticket_id == booking.ticket_id %}ticket-group-current{% endif %}">
-                <span class="ticket-id">{{ gb.ticket_id }}</span>
+                <span class="ticket-id">{{ gb.ticket_number or gb.ticket_id }}</span>
               </a>
               {% endfor %}
             </div>

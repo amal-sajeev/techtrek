@@ -183,6 +183,7 @@ def schedule(
             )
             all_events.append({
                 "id": ev.id,
+                "event_name": ev.name,
                 "session_id": s.id,
                 "session_title": s.title,
                 "start_date": ev.start_date,
@@ -230,6 +231,7 @@ def schedule(
             next_year, next_month = year, month + 1
 
         month_label = datetime(year, month, 1).strftime("%B %Y")
+        month_event_count = sum(len(evs) for evs in events_by_date.values() if any(e["start_date"].month == month and e["start_date"].year == year for e in evs))
 
         return templates.TemplateResponse(
             "speaker/schedule.html",
@@ -246,6 +248,7 @@ def schedule(
                 next_year=next_year,
                 next_month=next_month,
                 today=now.date(),
+                event_count=month_event_count,
             ),
         )
     else:
@@ -283,6 +286,7 @@ def schedule(
         next_iso = next_week_start.isocalendar()
 
         week_label = f"{week_start.strftime('%b %d')} – {week_end.strftime('%b %d, %Y')}"
+        week_event_count = sum(len(evs) for evs in events_by_date.values())
 
         return templates.TemplateResponse(
             "speaker/schedule.html",
@@ -299,6 +303,7 @@ def schedule(
                 next_week=next_iso[1],
                 next_week_year=next_iso[0],
                 today=now.date(),
+                event_count=week_event_count,
             ),
         )
 

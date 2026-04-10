@@ -49,7 +49,7 @@
       {% for item in bookings %}
       <tr>
         <td data-label="Ref"><code>{{ item.booking.booking_ref }}</code></td>
-        <td data-label="Ticket"><code>{{ item.booking.ticket_id or "—" }}</code></td>
+        <td data-label="Ticket"><code>{{ item.booking.ticket_number or item.booking.ticket_id or "—" }}</code></td>
         <td data-label="User">
           {{ item.user.username if item.user else "—" }}
           {% if item.user and item.user.full_name %}<br><small class="text-muted">{{ item.user.full_name }}</small>{% endif %}

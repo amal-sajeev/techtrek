@@ -1,3 +1,5 @@
+import random
+import string
 import uuid
 
 from sqlalchemy import Boolean, Column, DateTime, Float, ForeignKey, Integer, String, Text
@@ -6,6 +8,8 @@ from sqlalchemy.orm import relationship
 from app.database import Base
 from app.utils import now_ist
 
+_TN_CHARSET = string.ascii_uppercase + string.digits
+
 
 def _generate_ref():
     return uuid.uuid4().hex[:10].upper()
@@ -13,6 +17,16 @@ def _generate_ref():
 
 def _generate_ticket_id():
     return str(uuid.uuid4())
+
+
+def generate_ticket_number(db):
+    """Generate a unique short ticket number in the format TT-XXXXXX."""
+    for _ in range(10):
+        code = "".join(random.choices(_TN_CHARSET, k=6))
+        ticket_number = f"TT-{code}"
+        if not db.query(Booking).filter(Booking.ticket_number == ticket_number).first():
+            return ticket_number
+    raise RuntimeError("Failed to generate unique ticket_number after 10 attempts")
 
 
 class Booking(Base):
@@ -25,6 +39,7 @@ class Booking(Base):
     payment_status = Column(String(20), default="hold")
     booking_ref = Column(String(20), unique=True, default=_generate_ref)
     ticket_id = Column(String(36), unique=True, nullable=True)
+    ticket_number = Column(String(10), unique=True, nullable=True)
     qr_code_data = Column(Text, nullable=True)
     booking_group = Column(String(36), nullable=True, index=True)
     group_qr_data = Column(Text, nullable=True)

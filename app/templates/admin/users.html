@@ -109,14 +109,14 @@
 <p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Showing {{ users|length }} of {{ total_count }} user{{ 's' if total_count != 1 else '' }}.</p>
 
 <!-- Delete User Modal -->
-<div class="modal-overlay" id="modal-delete-user">
-  <div class="modal-dialog" style="max-width:440px">
-    <div class="modal-header">
-      <h3 class="modal-title">Delete User</h3>
-      <button class="modal-close" onclick="closeModal('modal-delete-user')">&times;</button>
+<div id="modal-delete-user" style="display:none;position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.6);backdrop-filter:blur(4px);align-items:center;justify-content:center">
+  <div style="background:var(--bg-surface);border-radius:var(--radius-lg,12px);box-shadow:var(--shadow-lg);width:100%;max-width:440px;margin:1rem;overflow:hidden">
+    <div style="padding:1.25rem 1.5rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between">
+      <h3 style="margin:0;font-size:1.1rem">Delete User</h3>
+      <button onclick="document.getElementById('modal-delete-user').style.display='none'" style="background:none;border:none;font-size:1.5rem;cursor:pointer;color:var(--text-muted);line-height:1;padding:0">&times;</button>
     </div>
     <form id="delete-user-form" method="post">
-      <div class="modal-body">
+      <div style="padding:1.5rem">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <p style="margin-bottom:1rem">How do you want to delete <strong id="del-user-name"></strong>?</p>
         <label style="display:flex;align-items:flex-start;gap:.5rem;margin-bottom:.75rem;cursor:pointer">
@@ -128,8 +128,8 @@
           <span><strong>Hard delete</strong><br><small class="text-muted">Permanently remove the user. Bookings are preserved but unlinked. This cannot be undone.</small></span>
         </label>
       </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-outline" onclick="closeModal('modal-delete-user')">Cancel</button>
+      <div style="padding:1rem 1.5rem;border-top:1px solid var(--border);display:flex;gap:.75rem;justify-content:flex-end">
+        <button type="button" class="btn btn-outline" onclick="document.getElementById('modal-delete-user').style.display='none'">Cancel</button>
         <button type="submit" class="btn btn-danger">Delete</button>
       </div>
     </form>
@@ -140,8 +140,11 @@ function openDeleteUser(userId, username) {
   document.getElementById('del-user-name').textContent = username;
   document.getElementById('delete-user-form').action = '/admin/users/' + userId + '/delete';
   document.getElementById('delete-user-form').querySelector('input[value="soft"]').checked = true;
-  openModal('modal-delete-user');
+  document.getElementById('modal-delete-user').style.display = 'flex';
 }
+document.getElementById('modal-delete-user').addEventListener('click', function(e) {
+  if (e.target === this) this.style.display = 'none';
+});
 </script>
 {% if total_pages > 1 %}
 <div class="log-pagination">

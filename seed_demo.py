@@ -13,7 +13,7 @@ so the analytics dashboard looks production-quality.
 import random
 import string
 import uuid
-from datetime import datetime, timedelta, time as time_cls
+from datetime import datetime, timedelta, time as time_cls, timezone
 
 import bcrypt
 from sqlalchemy import func, text
@@ -194,6 +194,17 @@ def _ticket():
     return uuid.uuid4().hex[:16].upper()
 
 
+_used_tns = set()
+
+def _tn():
+    while True:
+        code = "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
+        tn = f"TT-{code}"
+        if tn not in _used_tns:
+            _used_tns.add(tn)
+            return tn
+
+
 def _available_seats(db, event_id, aud_id):
     taken = set(
         r[0] for r in db.query(Booking.seat_id).filter(
@@ -343,7 +354,7 @@ def main():
     n_e1 = min(len(avail_e1), 42)
     users_e1 = random.sample(demo_users, n_e1)
 
-    e1_date = ev1.start_date or (datetime.utcnow().date() - timedelta(days=1))
+    e1_date = ev1.start_date or (datetime.now(timezone.utc).date() - timedelta(days=1))
     e1_book_start = datetime.combine(e1_date - timedelta(days=14), time_cls(8, 0))
 
     bookings_e1 = []
@@ -356,6 +367,7 @@ def main():
         bookings_e1.append(Booking(
             user_id=user.id, event_id=ev1.id, seat_id=seat.id,
             payment_status="paid", booking_ref=_ref(), ticket_id=_ticket(),
+            ticket_number=_tn(),
             qr_code_data=uuid.uuid4().hex, booking_group=bg,
             amount_paid=0, booked_at=booked_at, is_shared_ticket=False,
             checked_in=True,
@@ -383,7 +395,7 @@ def main():
     random.shuffle(users_e2_pool)
     users_e2_pool = users_e2_pool[:total_e2]
 
-    e2_date = ev2.start_date or (datetime.utcnow().date() + timedelta(days=10))
+    e2_date = ev2.start_date or (datetime.now(timezone.utc).date() + timedelta(days=10))
     e2_book_origin = datetime.combine(e2_date - timedelta(days=21), time_cls(0, 0))
 
     seat_prices = {"standard": 500, premium_key: 800, balcony_key: 600}
@@ -426,6 +438,7 @@ def main():
         bookings_e2.append(Booking(
             user_id=user.id, event_id=ev2.id, seat_id=seat.id,
             payment_status=status, booking_ref=_ref(), ticket_id=_ticket(),
+            ticket_number=_tn() if status == "paid" else None,
             qr_code_data=uuid.uuid4().hex, booking_group=bg,
             amount_paid=amount if status == "paid" else 0,
             refund_amount=float(base_price) if status == "cancelled" else None,
@@ -469,7 +482,7 @@ def main():
     ]:
         uids = list({b.user_id for b in ev_bookings})
         random.shuffle(uids)
-        ev_date = ev.start_date or datetime.utcnow().date()
+        ev_date = ev.start_date or datetime.now(timezone.utc).date()
 
         for uid in uids[:n_legacy]:
             if db.query(Feedback).filter(
@@ -555,7 +568,7 @@ def main():
                 session_id=target_es.session_id, event_id=ev.id,
                 question=pd["q"], poll_type=pd["type"],
                 is_active=False, created_by=admin_id,
-                closed_at=datetime.utcnow() - timedelta(hours=random.randint(1, 48)),
+                closed_at=datetime.now(timezone.utc) - timedelta(hours=random.randint(1, 48)),
             )
             db.add(poll)
             db.flush()
@@ -630,7 +643,7 @@ def main():
     for u in wl_pool[:wl_e2]:
         db.add(Waitlist(
             user_id=u.id, event_id=ev2.id,
-            joined_at=datetime.utcnow() - timedelta(days=random.randint(0, 10)),
+            joined_at=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 10)),
         ))
 
     booked_ids_e1 = {b.user_id for b in bookings_e1}
@@ -675,8 +688,8 @@ def main():
             banner_url="https://images.unsplash.com/photo-1620712943543-bcc4688e7485?w=1200&h=400&fit=crop",
             college_id=micro_hall.college_id,
             auditorium_id=micro_hall.id,
-            start_date=(datetime.utcnow() + timedelta(days=21)).date(),
-            end_date=(datetime.utcnow() + timedelta(days=21)).date(),
+            start_date=(datetime.now(timezone.utc) + timedelta(days=21)).date(),
+            end_date=(datetime.now(timezone.utc) + timedelta(days=21)).date(),
             price=200,
             status="published",
             cert_title="Certificate of Completion",
@@ -725,6 +738,7 @@ def main():
             db.add(Booking(
                 user_id=user.id, event_id=ev3.id, seat_id=seat.id,
                 payment_status="paid", booking_ref=_ref(), ticket_id=_ticket(),
+                ticket_number=_tn(),
                 qr_code_data=uuid.uuid4().hex, booking_group=uuid.uuid4().hex,
                 amount_paid=200, booked_at=booked_at, is_shared_ticket=False,
             ))
@@ -736,7 +750,7 @@ def main():
         for u in wl_pool_e3[:wl_e3_demo]:
             db.add(Waitlist(
                 user_id=u.id, event_id=ev3.id,
-                joined_at=datetime.utcnow() - timedelta(days=random.randint(0, 5)),
+                joined_at=datetime.now(timezone.utc) - timedelta(days=random.randint(0, 5)),
             ))
         wl_e3_count = wl_e3_demo
 
@@ -750,7 +764,7 @@ def main():
                 if not existing_wl:
                     db.add(Waitlist(
                         user_id=u_obj.id, event_id=ev3.id,
-                        joined_at=datetime.utcnow() - timedelta(days=random.randint(1, 3)),
+                        joined_at=datetime.now(timezone.utc) - timedelta(days=random.randint(1, 3)),
                     ))
                     wl_e3_count += 1
 

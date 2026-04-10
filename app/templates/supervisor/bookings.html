@@ -46,7 +46,7 @@
     <tbody>
       {% for item in bookings %}
       <tr>
-        <td data-label="Ref"><code>{{ item.booking.booking_ref or item.booking.ticket_id or '—' }}</code></td>
+        <td data-label="Ref"><code>{{ item.booking.ticket_number or item.booking.booking_ref or '—' }}</code></td>
         <td data-label="User">{{ item.user.full_name or item.user.username if item.user else '—' }}</td>
         <td data-label="Event">{{ item.event.name if item.event else '—' }}</td>
         <td data-label="Seat">{{ item.seat.label if item.seat else '—' }}</td>

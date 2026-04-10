@@ -6,117 +6,50 @@
   <h1 class="admin-page-title">Feedback</h1>
 </div>
 
-<form method="get" action="/admin/feedback" class="filter-bar mb-3">
-  <select name="rating" class="form-input" style="min-width:130px">
-    <option value="">All Ratings</option>
-    {% for r in range(1, 6) %}
-    <option value="{{ r }}" {% if rating_filter == r|string %}selected{% endif %}>{{ r }} Star{{ 's' if r > 1 }}</option>
-    {% endfor %}
-  </select>
-  <select name="featured" class="form-input" style="min-width:140px">
-    <option value="">All</option>
-    <option value="yes" {% if featured_filter == 'yes' %}selected{% endif %}>Featured</option>
-    <option value="no" {% if featured_filter == 'no' %}selected{% endif %}>Not Featured</option>
-  </select>
-  <button type="submit" class="btn btn-primary btn-sm">Filter</button>
-  {% if rating_filter or featured_filter %}
-  <a href="/admin/feedback" class="btn btn-outline btn-sm">Clear</a>
-  {% endif %}
-</form>
-
-{% if not feedback_items %}
+{% if not events_fb %}
 <div class="empty-state">
   <div class="empty-state-icon"><i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i></div>
-  <h3>No feedback found</h3>
-  <p>{% if rating_filter or featured_filter %}Try adjusting your filters.{% else %}Feedback will appear here after users submit ratings.{% endif %}</p>
+  <h3>No feedback yet</h3>
+  <p>Feedback will appear here after users submit ratings for events.</p>
 </div>
 {% else %}
 <div class="table-responsive">
   <table class="table table-cards-mobile">
     <thead>
       <tr>
-        <th>User</th>
         <th>Event</th>
-        <th>Rating</th>
-        <th>Comment</th>
-        <th>Public</th>
-        <th>Featured</th>
         <th>Date</th>
-        <th>Actions</th>
+        <th>Avg Rating</th>
+        <th>Submitted</th>
+        <th>Total</th>
+        <th></th>
       </tr>
     </thead>
     <tbody>
-      {% for item in feedback_items %}
-      {% set fb = item.feedback %}
-      {% set u = item.user %}
+      {% for item in events_fb %}
       {% set ev = item.event %}
       <tr>
-        <td data-label="User">
-          <strong>{{ u.full_name or u.username if u else '—' }}</strong>
-          {% if u and u.college %}<br><small class="text-muted">{{ u.college }}</small>{% endif %}
-        </td>
-        <td data-label="Event">{{ ev.name if ev else '—' }}</td>
-        <td data-label="Rating">
-          {% if fb.rating %}
-            <span style="color:var(--yellow,#f59e0b);white-space:nowrap">
-              <span class="star-rating-inline">{% for i in range(fb.rating) %}<i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i>{% endfor %}{% for i in range(5 - fb.rating) %}<i data-lucide="star" class="lucide" aria-hidden="true"></i>{% endfor %}</span>
-            </span>
-          {% elif fb.dismissed %}
-            <span class="badge badge-muted">Dismissed</span>
-          {% else %}
-            <span class="badge badge-draft">Pending</span>
-          {% endif %}
-        </td>
-        <td data-label="Comment" style="max-width:280px">
-          {% if fb.comment %}
-            <span title="{{ fb.comment }}">{{ fb.comment[:120] }}{{ '…' if fb.comment|length > 120 }}</span>
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </td>
-        <td data-label="Public">
-          {% if fb.allow_public %}
-            <span class="badge badge-success">Yes</span>
-          {% else %}
-            <span class="badge badge-muted">No</span>
-          {% endif %}
-        </td>
-        <td data-label="Featured">
-          {% if fb.is_featured %}
-            <span class="badge badge-warning">Featured</span>
-          {% else %}
-            <span class="text-muted">—</span>
-          {% endif %}
-        </td>
-        <td data-label="Date"><small>{{ fb.created_at.strftime('%d %b %Y') if fb.created_at else '—' }}</small></td>
-        <td data-label="Actions">
-          {% if fb.allow_public and fb.rating %}
-          <form method="post" action="/admin/feedback/{{ fb.id }}/toggle-featured" style="display:inline">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="button" class="btn btn-sm {% if fb.is_featured %}btn-outline{% else %}btn-primary{% endif %}" data-confirm="Toggle featured status for this review?" data-confirm-label="Confirm">
-              {{ 'Unfeature' if fb.is_featured else 'Feature' }}
-            </button>
-          </form>
+        <td data-label="Event"><strong>{{ ev.name }}</strong></td>
+        <td data-label="Date"><small>{{ ev.start_date.strftime('%d %b %Y') if ev.start_date else '—' }}</small></td>
+        <td data-label="Avg Rating">
+          {% if item.avg_rating %}
+          <span style="color:var(--yellow,#f59e0b);white-space:nowrap">
+            <span class="star-rating-inline">{% for i in range(item.avg_rating | int) %}<i data-lucide="star" class="lucide icon-filled" aria-hidden="true"></i>{% endfor %}{% for i in range(5 - item.avg_rating | int) %}<i data-lucide="star" class="lucide" aria-hidden="true"></i>{% endfor %}</span>
+            <span style="margin-left:.35rem;font-size:.82rem">{{ item.avg_rating }}</span>
+          </span>
           {% else %}
           <span class="text-muted">—</span>
           {% endif %}
+        </td>
+        <td data-label="Submitted">{{ item.submitted }}</td>
+        <td data-label="Total">{{ item.total }}</td>
+        <td data-label="Actions">
+          <a href="/admin/event-management/{{ ev.id }}/feedback" class="btn btn-sm btn-outline">View Feedback</a>
         </td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
 </div>
-<p class="text-muted" style="font-size:.8rem;margin-top:.5rem">Showing {{ feedback_items|length }} of {{ total_count }} {{ 'entries' if total_count != 1 else 'entry' }}.</p>
-{% if total_pages > 1 %}
-<div class="log-pagination">
-  {% if page > 1 %}
-    <a href="/admin/feedback?page={{ page - 1 }}&rating={{ rating_filter }}&featured={{ featured_filter }}" class="btn btn-sm btn-outline">&laquo; Previous</a>
-  {% endif %}
-  <span class="log-pagination-info">Page {{ page }} of {{ total_pages }}</span>
-  {% if page < total_pages %}
-    <a href="/admin/feedback?page={{ page + 1 }}&rating={{ rating_filter }}&featured={{ featured_filter }}" class="btn btn-sm btn-outline">Next &raquo;</a>
-  {% endif %}
-</div>
-{% endif %}
 {% endif %}
 {% endblock %}

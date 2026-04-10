@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}Verify Certificate — TechTrek{% endblock %}
+
+{% block content %}
+<section class="section">
+  <div class="container" style="max-width:480px;margin:0 auto;padding:2rem 1rem">
+
+    <div style="text-align:center;margin-bottom:2rem">
+      <div style="width:64px;height:64px;border-radius:50%;background:rgba(13,148,136,.12);display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;color:#0d9488">
+        <i data-lucide="shield-check" class="lucide icon-xl" aria-hidden="true"></i>
+      </div>
+      <h1 style="font-size:1.4rem;font-weight:700;margin:0 0 .35rem">Verify a Certificate</h1>
+      <p style="color:#64748b;margin:0;font-size:.9rem">Enter the ticket ID printed on the certificate to verify its authenticity.</p>
+    </div>
+
+    <form method="get" action="/certificate/verify" style="display:flex;flex-direction:column;gap:1rem">
+      <div>
+        <input type="text" name="q" class="form-input" placeholder="TT-A7K2M9" value="{{ q }}"
+               style="text-align:center;font-family:monospace;font-size:1.15rem;letter-spacing:.08em;padding:.75rem 1rem"
+               autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+      </div>
+      {% if error %}
+      <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:.75rem 1rem;color:#dc2626;font-size:.9rem;text-align:center">
+        {{ error }}
+      </div>
+      {% endif %}
+      <button type="submit" class="btn btn-primary" style="width:100%">Verify</button>
+    </form>
+
+    <p style="text-align:center;font-size:.8rem;color:#94a3b8;margin:1.5rem 0 0">
+      You can also scan the QR code on the certificate for instant verification.
+    </p>
+
+  </div>
+</section>
+{% endblock %}

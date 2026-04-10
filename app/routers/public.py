@@ -866,6 +866,12 @@ def schedule_export_pdf(
 
 @router.get("/ticket/{ticket_id}")
 def public_ticket(request: Request, ticket_id: str, share: str = Query(default=""), db: DbSession = Depends(get_db)):
+    if ticket_id.startswith("TT-") and len(ticket_id) == 9:
+        booking_by_tn = db.query(Booking).filter(Booking.ticket_number == ticket_id).first()
+        if booking_by_tn and booking_by_tn.ticket_id:
+            qs = f"?share={share}" if share.strip() else ""
+            return RedirectResponse(f"/ticket/{booking_by_tn.ticket_id}{qs}", status_code=303)
+
     viewer_id = request.session.get("user_id")
     share_token = share.strip() if share else ""
 
@@ -1246,9 +1252,20 @@ async def feedback_submit(request: Request, event_id: int, db: DbSession = Depen
         Booking.payment_status == "paid",
     ).first()
     if not has_booking:
-        from app.dependencies import flash
-        flash(request, "You must have a booking to submit feedback.", "danger")
-        return RedirectResponse(f"/feedback/{event_id}", status_code=303)
+        has_booking = db.query(Booking).filter(
+            Booking.original_user_id == user_id,
+            Booking.event_id == event_id,
+            Booking.payment_status == "paid",
+        ).first()
+    if not has_booking:
+        existing_fb = db.query(Feedback).filter(
+            Feedback.user_id == user_id,
+            Feedback.event_id == event_id,
+            Feedback.submitted_at == None,
+        ).first()
+        if not existing_fb:
+            flash(request, "You must have a booking to submit feedback.", "danger")
+            return RedirectResponse(f"/feedback/{event_id}", status_code=303)
 
     form = await request.form()
     comment = form.get("comment", "").strip()
@@ -1620,9 +1637,30 @@ def poll_display(request: Request, poll_id: int, db: DbSession = Depends(get_db)
     )
 
 
+@router.get("/certificate/verify")
+def certificate_verify_lookup(request: Request, q: str = Query(default=""), db: DbSession = Depends(get_db)):
+    ticket_input = q.strip().upper()
+    if not ticket_input:
+        return templates.TemplateResponse(
+            "public/certificate_verify_lookup.html",
+            {**template_ctx(request), "error": None, "q": ""},
+        )
+    booking = db.query(Booking).filter(Booking.ticket_number == ticket_input).first()
+    if not booking:
+        booking = db.query(Booking).filter(Booking.ticket_id == q.strip()).first()
+    if booking and booking.ticket_id:
+        return RedirectResponse(f"/certificate/verify/{booking.ticket_id}", status_code=303)
+    return templates.TemplateResponse(
+        "public/certificate_verify_lookup.html",
+        {**template_ctx(request), "error": f"No certificate found for '{q.strip()}'.", "q": q.strip()},
+    )
+
+
 @router.get("/certificate/verify/{ticket_id}")
 def certificate_verify(ticket_id: str, request: Request, db: DbSession = Depends(get_db)):
     booking = db.query(Booking).filter(Booking.ticket_id == ticket_id).first()
+    if not booking:
+        booking = db.query(Booking).filter(Booking.ticket_number == ticket_id).first()
     if not booking:
         return templates.TemplateResponse(
             "public/certificate_verify.html",

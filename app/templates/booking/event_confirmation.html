@@ -94,7 +94,7 @@
             <div class="ticket-card">
               <div class="ticket-card-info">
                 <span class="seat-label-chip">{{ st.label }}{% if st.seat_type not in ('standard', 'aisle') %} <small>({% if st.seat_type.startswith('custom_') %}{{ custom_types_map.get(st.seat_type, st.seat_type)|upper }}{% else %}{{ st.seat_type|upper }}{% endif %})</small>{% endif %}</span>
-                <span class="ticket-id">{{ b.ticket_id }}</span>
+                <span class="ticket-id">{{ b.ticket_number or b.ticket_id }}</span>
                 <span class="booking-ref-small">Ref: {{ b.booking_ref }} &middot; ₹{{ "%.0f"|format(b.amount_paid) }}</span>
               </div>
               <div class="ticket-card-actions">
