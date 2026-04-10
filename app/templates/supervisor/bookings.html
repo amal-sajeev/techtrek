@@ -9,22 +9,22 @@
 
 <div class="form-card mb-3">
   <form method="get" action="/supervisor/bookings" class="filter-form">
-    <div class="form-row" style="align-items:flex-end;gap:.75rem;flex-wrap:wrap">
-      <div class="form-group" style="flex:1;min-width:180px">
+    <div style="display:flex;flex-direction:column;gap:.75rem">
+      <div class="form-group">
         <label class="form-label" for="booking-search">Search</label>
         <input type="text" name="q" id="booking-search" class="form-input" placeholder="Name, email, ticket ID..." value="{{ q or '' }}">
       </div>
-      <div class="form-group" style="flex:none">
-        <label class="form-label" for="status-filter">Status</label>
-        <select name="status" id="status-filter" class="form-input" style="min-width:120px">
-          <option value="">All</option>
-          <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Paid</option>
-          <option value="refunded" {% if status_filter == 'refunded' %}selected{% endif %}>Refunded</option>
-        </select>
-      </div>
-      <div class="form-group" style="flex:none">
+      <div style="display:grid;grid-template-columns:1fr auto{% if q or status_filter %} auto{% endif %};gap:.75rem;align-items:end">
+        <div class="form-group" style="margin:0">
+          <label class="form-label" for="status-filter">Status</label>
+          <select name="status" id="status-filter" class="form-input" data-no-tomselect>
+            <option value="">All</option>
+            <option value="paid" {% if status_filter == 'paid' %}selected{% endif %}>Paid</option>
+            <option value="refunded" {% if status_filter == 'refunded' %}selected{% endif %}>Refunded</option>
+          </select>
+        </div>
         <button type="submit" class="btn btn-primary">Filter</button>
-        {% if q or status_filter %}<a href="/supervisor/bookings" class="btn btn-outline" style="margin-left:.5rem">Clear</a>{% endif %}
+        {% if q or status_filter %}<a href="/supervisor/bookings" class="btn btn-outline">Clear</a>{% endif %}
       </div>
     </div>
   </form>

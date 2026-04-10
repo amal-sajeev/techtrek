@@ -41,6 +41,20 @@
   margin-right: .25rem;
 }
 .cert-dz-toolbar .btn { font-size: .78rem; padding: .35rem .65rem; }
+.cert-dz-save-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: .6rem;
+}
+.cert-dz-save-feedback {
+  font-size: .76rem;
+  font-weight: 600;
+  min-height: 1em;
+  transition: color .15s ease;
+}
+.cert-dz-save-feedback.is-success { color: #15803d; }
+.cert-dz-save-feedback.is-error { color: #b91c1c; }
+.cert-dz-save-feedback.is-saving { color: #475569; }
 .cert-dz-toolbar-secondary {
   display: flex;
   flex-wrap: wrap;
@@ -117,7 +131,8 @@
   padding: 1rem;
   font-size: .85rem;
   max-height: calc(100vh - 220px);
-  overflow: auto;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 .cert-dz-props h3 { margin: 0 0 .75rem; font-size: .95rem; }
 .cert-dz-props label { display: block; margin-top: .5rem; font-size: .75rem; color: var(--text-muted, #64748b); }
@@ -129,6 +144,9 @@
   border: 1px solid var(--color-border, #e2e8f0);
   font-size: .82rem;
 }
+.cert-dz-props .ts-wrapper { font-size: .82rem !important; }
+.cert-dz-props .ts-control { min-height: unset !important; padding: .35rem .5rem !important; }
+.cert-dz-props .ts-dropdown { font-size: .82rem !important; }
 .cert-dz-props textarea { resize: vertical; font-family: inherit; min-height: 60px; }
 .cert-dz-type-badge {
   display: inline-block;
@@ -340,38 +358,6 @@
 /* --- Zoom percentage --- */
 .cert-dz-zoom-pct { font-size: .72rem; color: #64748b; min-width: 2.5em; text-align: right; }
 
-/* --- Custom font picker dropdown --- */
-.cert-font-picker { position: relative; width: 100%; }
-.cert-font-picker-selected {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 6px;
-  background: #fff; cursor: pointer; font-size: 14px;
-  transition: border-color .15s;
-}
-.cert-font-picker-selected:hover { border-color: #94a3b8; }
-.cert-font-picker-selected.open { border-color: #3b82f6; box-shadow: 0 0 0 2px rgba(59,130,246,.15); }
-.cert-font-picker-selected .fp-arrow {
-  margin-left: 8px; font-size: 10px; color: #94a3b8; transition: transform .15s;
-}
-.cert-font-picker-selected.open .fp-arrow { transform: rotate(180deg); }
-.cert-font-picker-selected.disabled {
-  opacity: .5; pointer-events: none; background: #f1f5f9;
-}
-.cert-font-picker-list {
-  display: none; position: fixed;
-  max-height: 260px; overflow-y: auto; z-index: 9999;
-  background: #fff; border: 1px solid #cbd5e1; border-radius: 6px;
-  box-shadow: 0 4px 16px rgba(0,0,0,.12);
-  padding: 4px 0;
-}
-.cert-font-picker-list.open { display: block; }
-.cert-font-picker-item {
-  padding: 7px 12px; cursor: pointer; font-size: 15px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  transition: background .1s;
-}
-.cert-font-picker-item:hover { background: #f1f5f9; }
-.cert-font-picker-item.active { background: #eff6ff; color: #2563eb; font-weight: 600; }
 </style>
 
 <div class="cert-dz-header">
@@ -451,7 +437,10 @@
       Zoom <input type="range" id="cert-dz-zoom" min="0.35" max="2" step="0.05" value="0.75" style="width:90px">
       <span class="cert-dz-zoom-pct" id="cert-dz-zoom-pct">75%</span>
     </label>
-    <button type="button" class="btn btn-primary" id="cert-dz-save">Save layout</button>
+    <div class="cert-dz-save-wrap">
+      <button type="button" class="btn btn-primary" id="cert-dz-save">Save layout</button>
+      <span class="cert-dz-save-feedback" id="cert-dz-save-feedback" aria-live="polite"></span>
+    </div>
   </div>
 </div>
 <div class="cert-dz-toolbar-secondary">
@@ -473,13 +462,78 @@
   </div>
   <aside class="cert-dz-props">
 
+    <!-- Selection properties -->
+    <div class="cert-dz-section">
+      <button type="button" class="cert-dz-section-toggle" aria-expanded="true" data-section="selection">
+        <h3>Selection</h3>
+        <span class="cert-dz-section-arrow">&#9660;</span>
+      </button>
+      <div class="cert-dz-section-body" data-section-body="selection">
+        <p id="cert-dz-sel-none" style="color:#94a3b8;font-size:.8rem">Select an object on the canvas to edit its properties.</p>
+        <div id="cert-dz-sel-panel" style="display:none">
+          <div class="cert-dz-type-badge" id="cert-dz-type-badge">&mdash;</div>
+
+          <div class="cert-sel-text-only">
+            <label>Variable (text)</label>
+            <select id="cert-dz-prop-variable"></select>
+            <label>Text (static / fallback)</label>
+            <input type="text" id="cert-dz-prop-text" placeholder="Optional">
+            <label>Font</label>
+            <select id="cert-dz-prop-font"></select>
+            <label>Font size (pt)</label>
+            <input type="number" id="cert-dz-prop-fontsize" min="6" max="120" step="1">
+            <label>Alignment</label>
+            <input type="hidden" id="cert-dz-prop-align" value="left">
+            <div class="cert-dz-align-group" id="cert-dz-align-group" role="group" aria-label="Text alignment">
+              <button type="button" class="cert-dz-align-btn" data-align-value="left" title="Left">Left</button>
+              <button type="button" class="cert-dz-align-btn" data-align-value="center" title="Center">Center</button>
+              <button type="button" class="cert-dz-align-btn" data-align-value="right" title="Right">Right</button>
+            </div>
+            <div class="cert-dz-toggle-row" id="cert-dz-biu-row">
+              <label><input type="checkbox" id="cert-dz-prop-bold"><span>B</span></label>
+              <label><input type="checkbox" id="cert-dz-prop-italic"><span>I</span></label>
+              <label><input type="checkbox" id="cert-dz-prop-underline"><span>U</span></label>
+            </div>
+          </div>
+
+          <div class="cert-sel-color-block">
+            <label>Color</label>
+            <div class="cert-dz-color-row">
+              <input type="color" id="cert-dz-prop-color" value="#0a1628">
+              <input type="text" class="form-input cert-dz-hex-input" id="cert-dz-prop-color-hex" maxlength="7" placeholder="#0a1628" autocomplete="off">
+            </div>
+          </div>
+
+          <div class="cert-sel-image-only" style="display:none">
+            <label>Image URL (custom image)</label>
+            <input type="text" id="cert-dz-prop-imgurl" placeholder="/uploads/... or https://...">
+          </div>
+
+          <div class="cert-sel-qr-only" style="display:none">
+            <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
+              <input type="checkbox" id="cert-dz-prop-qrcaption" checked> QR "Scan to verify" caption
+            </label>
+          </div>
+
+          <div class="cert-sel-geometry">
+            <label>Width (pt)</label>
+            <input type="number" id="cert-dz-prop-w" step="1">
+            <label>Height (pt)</label>
+            <input type="number" id="cert-dz-prop-h" step="1">
+            <label>Rotation (&deg;)</label>
+            <input type="number" id="cert-dz-prop-rot" step="1">
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Page & Background -->
     <div class="cert-dz-section">
-      <button type="button" class="cert-dz-section-toggle" aria-expanded="true" data-section="page">
+      <button type="button" class="cert-dz-section-toggle" aria-expanded="false" data-section="page">
         <h3>Page &amp; background</h3>
         <span class="cert-dz-section-arrow">&#9660;</span>
       </button>
-      <div class="cert-dz-section-body" data-section-body="page">
+      <div class="cert-dz-section-body" data-section-body="page" hidden>
         <label>Border style</label>
         <select id="cert-dz-border-style">
           <option value="classic">Classic</option>
@@ -532,85 +586,13 @@
 
     <!-- Layers -->
     <div class="cert-dz-section">
-      <button type="button" class="cert-dz-section-toggle" aria-expanded="true" data-section="layers">
+      <button type="button" class="cert-dz-section-toggle" aria-expanded="false" data-section="layers">
         <h3>Layers <span id="cert-dz-layer-count" style="font-weight:400;font-size:.78rem;color:#94a3b8"></span></h3>
         <span class="cert-dz-section-arrow">&#9660;</span>
       </button>
-      <div class="cert-dz-section-body" data-section-body="layers">
+      <div class="cert-dz-section-body" data-section-body="layers" hidden>
         <div class="cert-dz-layers-list" id="cert-dz-layers-list">
           <div class="cert-dz-layers-empty">No layers yet. Add elements above.</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Selection properties -->
-    <div class="cert-dz-section">
-      <button type="button" class="cert-dz-section-toggle" aria-expanded="true" data-section="selection">
-        <h3>Selection</h3>
-        <span class="cert-dz-section-arrow">&#9660;</span>
-      </button>
-      <div class="cert-dz-section-body" data-section-body="selection">
-        <p id="cert-dz-sel-none" style="color:#94a3b8;font-size:.8rem">Select an object on the canvas to edit its properties.</p>
-        <div id="cert-dz-sel-panel" style="display:none">
-          <div class="cert-dz-type-badge" id="cert-dz-type-badge">&mdash;</div>
-
-          <div class="cert-sel-text-only">
-            <label>Variable (text)</label>
-            <select id="cert-dz-prop-variable"></select>
-            <label>Text (static / fallback)</label>
-            <input type="text" id="cert-dz-prop-text" placeholder="Optional">
-            <label>Font</label>
-            <input type="hidden" id="cert-dz-prop-font" value="arial">
-            <div class="cert-font-picker" id="cert-font-picker">
-              <div class="cert-font-picker-selected" id="cert-font-picker-sel">
-                <span class="fp-label" style="font-family:Arial,Helvetica,sans-serif">Arial</span>
-                <span class="fp-arrow">&#9660;</span>
-              </div>
-              <div class="cert-font-picker-list" id="cert-font-picker-list"></div>
-            </div>
-            <label>Font size (pt)</label>
-            <input type="number" id="cert-dz-prop-fontsize" min="6" max="120" step="1">
-            <label>Alignment</label>
-            <input type="hidden" id="cert-dz-prop-align" value="left">
-            <div class="cert-dz-align-group" id="cert-dz-align-group" role="group" aria-label="Text alignment">
-              <button type="button" class="cert-dz-align-btn" data-align-value="left" title="Left">Left</button>
-              <button type="button" class="cert-dz-align-btn" data-align-value="center" title="Center">Center</button>
-              <button type="button" class="cert-dz-align-btn" data-align-value="right" title="Right">Right</button>
-            </div>
-            <div class="cert-dz-toggle-row" id="cert-dz-biu-row">
-              <label><input type="checkbox" id="cert-dz-prop-bold"><span>B</span></label>
-              <label><input type="checkbox" id="cert-dz-prop-italic"><span>I</span></label>
-              <label><input type="checkbox" id="cert-dz-prop-underline"><span>U</span></label>
-            </div>
-          </div>
-
-          <div class="cert-sel-color-block">
-            <label>Color</label>
-            <div class="cert-dz-color-row">
-              <input type="color" id="cert-dz-prop-color" value="#0a1628">
-              <input type="text" class="form-input cert-dz-hex-input" id="cert-dz-prop-color-hex" maxlength="7" placeholder="#0a1628" autocomplete="off">
-            </div>
-          </div>
-
-          <div class="cert-sel-image-only" style="display:none">
-            <label>Image URL (custom image)</label>
-            <input type="text" id="cert-dz-prop-imgurl" placeholder="/uploads/... or https://...">
-          </div>
-
-          <div class="cert-sel-qr-only" style="display:none">
-            <label style="display:flex;align-items:center;gap:.5rem;margin-top:.5rem">
-              <input type="checkbox" id="cert-dz-prop-qrcaption" checked> QR "Scan to verify" caption
-            </label>
-          </div>
-
-          <div class="cert-sel-geometry">
-            <label>Width (pt)</label>
-            <input type="number" id="cert-dz-prop-w" step="1">
-            <label>Height (pt)</label>
-            <input type="number" id="cert-dz-prop-h" step="1">
-            <label>Rotation (&deg;)</label>
-            <input type="number" id="cert-dz-prop-rot" step="1">
-          </div>
         </div>
       </div>
     </div>

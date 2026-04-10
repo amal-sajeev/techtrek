@@ -221,6 +221,7 @@
         {% endif %}
 
         {% if sessions %}
+        <div style="display:flex;gap:.75rem;flex-wrap:wrap;align-items:center">
           {% if availability != 'sold-out' %}
             {% if user %}
             <a href="/booking/event/{{ event.id }}/select" class="btn lm-btn-accent lm-ed-cta-btn">Book Now &rarr;</a>
@@ -239,6 +240,7 @@
             <a href="/auth/login?next=/events/{{ event.id }}" class="btn lm-btn-accent lm-ed-cta-btn">Log in to Join Waitlist</a>
             {% endif %}
           {% endif %}
+        </div>
         {% endif %}
       </div>
 

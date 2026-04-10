@@ -12,7 +12,7 @@
 <div class="form-card" style="margin-bottom:1.5rem">
   <h3 style="margin-bottom:1rem;font-weight:600">{{ items[0].event.start_date.strftime('%A, %B %d, %Y') if items[0].event.start_date else 'TBD' }}</h3>
   <div class="table-responsive">
-    <table class="table table-cards-mobile">
+    <table class="table table-cards-mobile supervisor-schedule-table">
       <thead>
         <tr>
           <th>Event</th>
@@ -25,7 +25,7 @@
       <tbody>
         {% for item in items %}
         <tr>
-          <td data-label="Event"><strong>{{ item.event.name }}</strong></td>
+          <td data-label="Event" class="supervisor-schedule-event-cell"><strong>{{ item.event.name }}</strong></td>
           <td data-label="Auditorium">{{ item.auditorium.name if item.auditorium else '—' }}</td>
           <td data-label="Sessions">{{ item.event.event_sessions|length if item.event.event_sessions else 0 }}</td>
           <td data-label="Bookings">{{ item.booked }}</td>

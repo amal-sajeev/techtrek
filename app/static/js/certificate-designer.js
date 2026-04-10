@@ -162,70 +162,45 @@
     return FONT_DISPLAY[a].localeCompare(FONT_DISPLAY[b]);
   });
 
-  (function initFontPicker() {
-    var hidden = document.getElementById("cert-dz-prop-font");
-    var selBtn = document.getElementById("cert-font-picker-sel");
-    var list = document.getElementById("cert-font-picker-list");
-    if (!hidden || !selBtn || !list) return;
+  function initFontPicker() {
+    var fontSelect = document.getElementById("cert-dz-prop-font");
+    if (!fontSelect) return;
 
+    fontSelect.innerHTML = "";
     for (var i = 0; i < FONT_KEYS_SORTED.length; i++) {
       var key = FONT_KEYS_SORTED[i];
-      var item = document.createElement("div");
-      item.className = "cert-font-picker-item";
-      item.setAttribute("data-font-key", key);
-      item.textContent = FONT_DISPLAY[key];
-      item.style.fontFamily = FONT_MAP[key];
-      list.appendChild(item);
+      var option = document.createElement("option");
+      option.value = key;
+      option.textContent = FONT_DISPLAY[key];
+      fontSelect.appendChild(option);
     }
+    fontSelect.value = "arial";
 
-    function setPickerValue(key, dispatchChange) {
-      hidden.value = key;
-      var label = selBtn.querySelector(".fp-label");
-      label.textContent = FONT_DISPLAY[key] || key;
-      label.style.fontFamily = FONT_MAP[key] || FONT_MAP.arial;
-      var items = list.querySelectorAll(".cert-font-picker-item");
-      for (var j = 0; j < items.length; j++) {
-        items[j].classList.toggle("active", items[j].getAttribute("data-font-key") === key);
-      }
-      if (dispatchChange) hidden.dispatchEvent(new Event("change", { bubbles: true }));
-    }
+    if (typeof TomSelect === "undefined") return;
+    if (fontSelect.tomselect) fontSelect.tomselect.destroy();
 
-    function positionList() {
-      var rect = selBtn.getBoundingClientRect();
-      list.style.top = rect.bottom + 4 + "px";
-      list.style.left = rect.left + "px";
-      list.style.width = rect.width + "px";
-    }
-
-    selBtn.addEventListener("click", function () {
-      if (selBtn.classList.contains("disabled")) return;
-      var isOpen = list.classList.toggle("open");
-      selBtn.classList.toggle("open", isOpen);
-      if (isOpen) {
-        positionList();
-        var active = list.querySelector(".cert-font-picker-item.active");
-        if (active) active.scrollIntoView({ block: "nearest" });
+    new TomSelect(fontSelect, {
+      create: false,
+      allowEmptyOption: false,
+      controlInput: "<input>",
+      plugins: ["clear_button"],
+      dropdownParent: "body",
+      render: {
+        option: function (data, escape) {
+          var key = data.value || "arial";
+          var family = FONT_MAP[key] || FONT_MAP.arial;
+          return '<div style="font-family:' + escape(family) + ';">' + escape(data.text) + "</div>";
+        },
+        item: function (data, escape) {
+          var key = data.value || "arial";
+          var family = FONT_MAP[key] || FONT_MAP.arial;
+          return '<div style="font-family:' + escape(family) + ';">' + escape(data.text) + "</div>";
+        }
       }
     });
-
-    list.addEventListener("click", function (e) {
-      var item = e.target.closest(".cert-font-picker-item");
-      if (!item) return;
-      setPickerValue(item.getAttribute("data-font-key"), true);
-      list.classList.remove("open");
-      selBtn.classList.remove("open");
-    });
-
-    document.addEventListener("click", function (e) {
-      if (!e.target.closest("#cert-font-picker")) {
-        list.classList.remove("open");
-        selBtn.classList.remove("open");
-      }
-    });
-
-    hidden._setPickerValue = setPickerValue;
-    setPickerValue("arial", false);
-  })();
+  }
+  initFontPicker();
+  document.addEventListener("DOMContentLoaded", initFontPicker);
 
   var canvas = new fabric.Canvas("cert-designer-canvas", {
     width: PDF_W,
@@ -234,6 +209,86 @@
     selection: true,
   });
   canvas.backgroundColor = "#ffffff";
+
+  var CENTER_SNAP_THRESHOLD = 8;
+  var centerGuideX = new fabric.Line([PDF_W / 2, 0, PDF_W / 2, PDF_H], {
+    selectable: false,
+    evented: false,
+    excludeFromExport: true,
+    stroke: "#0ea5e9",
+    strokeWidth: 1,
+    strokeDashArray: [6, 4],
+    opacity: 0,
+    visible: false,
+    hoverCursor: "default",
+    objectCaching: false,
+  });
+  var centerGuideY = new fabric.Line([0, PDF_H / 2, PDF_W, PDF_H / 2], {
+    selectable: false,
+    evented: false,
+    excludeFromExport: true,
+    stroke: "#0ea5e9",
+    strokeWidth: 1,
+    strokeDashArray: [6, 4],
+    opacity: 0,
+    visible: false,
+    hoverCursor: "default",
+    objectCaching: false,
+  });
+  centerGuideX.certSnapGuide = true;
+  centerGuideY.certSnapGuide = true;
+  canvas.add(centerGuideX);
+  canvas.add(centerGuideY);
+  centerGuideX.moveTo(canvas.getObjects().length - 1);
+  centerGuideY.moveTo(canvas.getObjects().length - 1);
+
+  function setCenterGuideVisible(guide, visible) {
+    guide.set({
+      visible: !!visible,
+      opacity: visible ? 0.95 : 0,
+    });
+  }
+
+  function hideCenterGuides() {
+    setCenterGuideVisible(centerGuideX, false);
+    setCenterGuideVisible(centerGuideY, false);
+  }
+
+  function snapObjectToLayoutCenter(obj) {
+    if (!obj || obj.certChrome || obj.certPageBg || obj.certSnapGuide) {
+      return { snappedX: false, snappedY: false };
+    }
+
+    var center = obj.getCenterPoint();
+    var dx = PDF_W / 2 - center.x;
+    var dy = PDF_H / 2 - center.y;
+    var snappedX = Math.abs(dx) <= CENTER_SNAP_THRESHOLD;
+    var snappedY = Math.abs(dy) <= CENTER_SNAP_THRESHOLD;
+
+    if (snappedX || snappedY) {
+      obj.set({
+        left: obj.left + (snappedX ? dx : 0),
+        top: obj.top + (snappedY ? dy : 0),
+      });
+      obj.setCoords();
+    }
+
+    return { snappedX: snappedX, snappedY: snappedY };
+  }
+
+  function applySnapForMove(obj, useGridSnap) {
+    if (!obj) return { snappedX: false, snappedY: false };
+
+    if (useGridSnap) {
+      obj.set({
+        left: snap(obj.left, grid),
+        top: snap(obj.top, grid),
+      });
+      obj.setCoords();
+    }
+
+    return snapObjectToLayoutCenter(obj);
+  }
 
   function mmToPt(mmVal) {
     return (mmVal * 72) / 25.4;
@@ -1298,6 +1353,11 @@
       return (a.zIndex || 0) - (b.zIndex || 0);
     });
     layers.forEach(loadLayer);
+    canvas.add(centerGuideX);
+    canvas.add(centerGuideY);
+    hideCenterGuides();
+    centerGuideX.moveTo(canvas.getObjects().length - 1);
+    centerGuideY.moveTo(canvas.getObjects().length - 1);
     drawPageChrome();
     drawPageBackground();
     canvas.requestRenderAll();
@@ -1355,11 +1415,12 @@
     var t = o.certLayerType;
 
     /* ---- Full form reset ---- */
-    varSelect.value = "static";
+    if (varSelect.tomselect) varSelect.tomselect.setValue("static", true);
+    else varSelect.value = "static";
     document.getElementById("cert-dz-prop-text").value = "";
-    var _fontHidden = document.getElementById("cert-dz-prop-font");
-    _fontHidden.value = "arial";
-    if (_fontHidden._setPickerValue) _fontHidden._setPickerValue("arial", false);
+    var _fontSelect = document.getElementById("cert-dz-prop-font");
+    if (_fontSelect.tomselect) _fontSelect.tomselect.setValue("arial", true);
+    else _fontSelect.value = "arial";
     document.getElementById("cert-dz-prop-fontsize").value = "16";
     document.getElementById("cert-dz-prop-color").value = "#0a1628";
     var hHexEl = document.getElementById("cert-dz-prop-color-hex");
@@ -1382,9 +1443,11 @@
     /* ---- Disabled states ---- */
     document.getElementById("cert-dz-prop-variable").disabled = t !== "text";
     document.getElementById("cert-dz-prop-text").disabled = t !== "text";
-    _fontHidden.disabled = t !== "text";
-    var _fpSel = document.getElementById("cert-font-picker-sel");
-    if (_fpSel) _fpSel.classList.toggle("disabled", t !== "text");
+    _fontSelect.disabled = t !== "text";
+    if (_fontSelect.tomselect) {
+      if (t === "text") _fontSelect.tomselect.enable();
+      else _fontSelect.tomselect.disable();
+    }
     document.getElementById("cert-dz-prop-fontsize").disabled = t !== "text";
     document.getElementById("cert-dz-prop-color").disabled = t !== "text" && t !== "rect" && t !== "line";
     if (hHexEl) hHexEl.disabled = t !== "text" && t !== "rect" && t !== "line";
@@ -1396,12 +1459,13 @@
 
     /* ---- Type-specific population ---- */
     if (t === "text" && (o.type === "textbox" || o.type === "i-text" || o.type === "text")) {
-      varSelect.value = (o.variable || "static").toLowerCase();
+      var _vv = (o.variable || "static").toLowerCase();
+      if (varSelect.tomselect) varSelect.tomselect.setValue(_vv, true);
+      else varSelect.value = _vv;
       document.getElementById("cert-dz-prop-text").value = o.text || "";
       var _fk = fabricFamilyToFontKey(o.fontFamily);
-      var _fh = document.getElementById("cert-dz-prop-font");
-      _fh.value = _fk;
-      if (_fh._setPickerValue) _fh._setPickerValue(_fk, false);
+      if (_fontSelect.tomselect) _fontSelect.tomselect.setValue(_fk, true);
+      else _fontSelect.value = _fk;
       document.getElementById("cert-dz-prop-fontsize").value = o.fontSize || 16;
       setColorAndHex(o.fill);
       document.getElementById("cert-dz-prop-bold").checked = o.fontWeight === "bold";
@@ -1690,6 +1754,23 @@
     }
   }
 
+  function certDzFormatSavedTime(date) {
+    var hrs = date.getHours();
+    var mins = date.getMinutes();
+    var suffix = hrs >= 12 ? "PM" : "AM";
+    hrs = hrs % 12;
+    if (hrs === 0) hrs = 12;
+    return hrs + ":" + String(mins).padStart(2, "0") + " " + suffix;
+  }
+
+  function setSaveFeedback(message, state) {
+    var feedbackEl = document.getElementById("cert-dz-save-feedback");
+    if (!feedbackEl) return;
+    feedbackEl.textContent = message || "";
+    feedbackEl.classList.remove("is-success", "is-error", "is-saving");
+    if (state) feedbackEl.classList.add("is-" + state);
+  }
+
   var aiGenBtn = document.getElementById("cert-dz-ai-generate");
   if (aiGenBtn) {
     aiGenBtn.addEventListener("click", function () {
@@ -1758,6 +1839,7 @@
   if (saveBtn) {
     saveBtn.addEventListener("click", function () {
       var btn = saveBtn;
+      var originalLabel = "Save layout";
       var payload;
       try {
         payload = serializeDocument();
@@ -1775,6 +1857,8 @@
         return;
       }
       btn.disabled = true;
+      btn.textContent = "Saving...";
+      setSaveFeedback("Saving layout...", "saving");
       fetch(designerSaveUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json" },
@@ -1800,6 +1884,9 @@
         })
         .then(function () {
           doc = payload;
+          var savedAt = certDzFormatSavedTime(new Date());
+          btn.textContent = "Saved";
+          setSaveFeedback("Saved successfully at " + savedAt, "success");
           try {
             if (window.TechTrek && typeof TechTrek.showToast === "function") {
               TechTrek.showToast("Layout saved.", "success");
@@ -1811,24 +1898,34 @@
           }
         })
         .catch(function (e) {
+          btn.textContent = originalLabel;
+          setSaveFeedback(e.message || "Save failed", "error");
           window.alert(e.message || "Save failed");
         })
         .finally(function () {
           btn.disabled = false;
+          window.setTimeout(function () {
+            if (btn.textContent === "Saved") btn.textContent = originalLabel;
+          }, 1800);
         });
     });
   }
 
   var _snapEl = document.getElementById("cert-dz-snap");
   canvas.on("object:moving", function (opt) {
-    if (!_snapEl || !_snapEl.checked) return;
+    if (!_snapEl || !_snapEl.checked) {
+      hideCenterGuides();
+      return;
+    }
     var o = opt.target;
-    var g = grid;
-    o.set({
-      left: snap(o.left, g),
-      top: snap(o.top, g),
-    });
+    var snapState = applySnapForMove(o, true);
+    setCenterGuideVisible(centerGuideX, snapState.snappedX);
+    setCenterGuideVisible(centerGuideY, snapState.snappedY);
+    canvas.requestRenderAll();
   });
+  canvas.on("object:modified", hideCenterGuides);
+  canvas.on("mouse:up", hideCenterGuides);
+  canvas.on("selection:cleared", hideCenterGuides);
 
   var _zoomEl = document.getElementById("cert-dz-zoom");
   if (_zoomEl) {
@@ -2049,8 +2146,18 @@
       _newTop += step;
       e.preventDefault();
     } else return;
-    if (_snapOn) { _newLeft = snap(_newLeft, grid); _newTop = snap(_newTop, grid); }
+    if (_snapOn) {
+      _newLeft = snap(_newLeft, grid);
+      _newTop = snap(_newTop, grid);
+    }
     o.set({ left: _newLeft, top: _newTop });
+    if (_snapOn) {
+      var keySnapState = snapObjectToLayoutCenter(o);
+      setCenterGuideVisible(centerGuideX, keySnapState.snappedX);
+      setCenterGuideVisible(centerGuideY, keySnapState.snappedY);
+    } else {
+      hideCenterGuides();
+    }
     o.setCoords();
     canvas.requestRenderAll();
     pushHistory();
