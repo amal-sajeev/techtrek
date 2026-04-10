@@ -279,6 +279,10 @@ async def supervisor_checkin_verify(request: Request, db: Session = Depends(get_
     ticket_id = form.get("ticket_id", "").strip()
     event_id_raw = form.get("event_id", "")
 
+    # QR codes encode the certificate verify URL; extract just the ticket identifier
+    if "/certificate/verify/" in ticket_id:
+        ticket_id = ticket_id.split("/certificate/verify/")[-1].strip().split("?")[0]
+
     college_events = (
         _college_events_query(sv, db)
         .filter(Event.status.in_(["published", "completed"]))

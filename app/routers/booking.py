@@ -724,6 +724,18 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
     # with the booking_group field (avoids stale group_qr_data from earlier sessions).
     group_qr_data = _generate_qr_base64(f"GROUP-{group_id}") if group_id else None
 
+    # Always regenerate individual QR images from ticket data so that stale or
+    # incorrectly-formatted qr_code_data in the database (e.g. a plain URL string
+    # written by the backfill endpoint instead of a base64 PNG) never reaches the
+    # template.  The QR encodes the public certificate-verify URL so that scanning
+    # with a phone camera also works.
+    base = settings.base_url.rstrip("/")
+    booking_qr_data = {
+        b.id: _generate_qr_base64(f"{base}/certificate/verify/{b.ticket_id}")
+        for b in bookings
+        if b.ticket_id and b.payment_status == "paid"
+    }
+
     purchased_addons = _get_booking_addons(db, first.booking_group)
 
     return templates.TemplateResponse(
@@ -742,6 +754,7 @@ def _render_booking_detail(request: Request, db: Session, bookings: list[Booking
             custom_types_map=custom_types_map,
             purchased_addons=purchased_addons,
             cancellation_fee=CANCELLATION_FEE,
+            booking_qr_data=booking_qr_data,
         ),
     )
 

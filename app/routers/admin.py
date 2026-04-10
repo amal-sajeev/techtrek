@@ -47,6 +47,7 @@ from app.models.gallery_image import GalleryImage
 from app.models.uploaded_image import UploadedImage
 from app.models.event_break import EventBreak
 from app.models.event_addon import EventAddOn, BookingAddOn
+from app.services.booking import _generate_qr_base64
 from app.models.event_session import EventSession
 from app.models.feedback_template import FeedbackTemplate, TemplateQuestion, FeedbackResponse, QuestionResponse
 from app.models.poll import Poll, PollOption, PollVote
@@ -1915,7 +1916,7 @@ def bookings_list(
 
 @router.post("/bookings/backfill-qr-urls")
 async def bookings_backfill_qr_urls(request: Request, db: Session = Depends(get_db)):
-    """One-time style fix: set qr_code_data to public verification URL for bookings still using legacy payloads."""
+    """Regenerate qr_code_data as a proper base64 PNG for bookings that are missing it or have stale data."""
     admin = _require_admin(request, db)
     if not admin:
         return RedirectResponse("/auth/login", status_code=303)
@@ -1924,19 +1925,16 @@ async def bookings_backfill_qr_urls(request: Request, db: Session = Depends(get_
         flash(request, "base_url is not configured in settings.", "danger")
         return RedirectResponse("/admin/bookings", status_code=303)
     updated = 0
-    for b in db.query(Booking).all():
-        if not b.ticket_id:
-            continue
-        want = f"{base}/certificate/verify/{b.ticket_id}"
+    for b in db.query(Booking).filter(Booking.ticket_id.isnot(None), Booking.payment_status == "paid").all():
+        url = f"{base}/certificate/verify/{b.ticket_id}"
         cur = (b.qr_code_data or "").strip()
-        if cur.startswith("http"):
+        # Regenerate if empty or still a raw URL string (not a base64 PNG image)
+        if cur and not cur.startswith("http"):
             continue
-        if cur == want:
-            continue
-        b.qr_code_data = want
+        b.qr_code_data = _generate_qr_base64(url)
         updated += 1
     db.commit()
-    flash(request, f"Updated {updated} booking(s) with certificate verification URL for QR.", "success")
+    flash(request, f"Regenerated QR images for {updated} booking(s).", "success")
     return RedirectResponse("/admin/bookings", status_code=303)
 
 
@@ -2186,6 +2184,10 @@ async def checkin_verify(request: Request, db: Session = Depends(get_db)):
     form = await _form(request)
     ticket_id = form.get("ticket_id", "").strip()
     event_id_raw = form.get("event_id", "")
+
+    # QR codes encode the certificate verify URL; extract just the ticket identifier
+    if "/certificate/verify/" in ticket_id:
+        ticket_id = ticket_id.split("/certificate/verify/")[-1].strip().split("?")[0]
 
     events_list = (
         db.query(Event)
@@ -6140,6 +6142,10 @@ async def event_management_checkin_verify(request: Request, event_id: int, db: S
 
     form = await _form(request)
     ticket_id = form.get("ticket_id", "").strip()
+
+    # QR codes encode the certificate verify URL; extract just the ticket identifier
+    if "/certificate/verify/" in ticket_id:
+        ticket_id = ticket_id.split("/certificate/verify/")[-1].strip().split("?")[0]
 
     if not ticket_id:
         total = db.query(func.count(Booking.id)).filter(Booking.event_id == event_id, Booking.payment_status == "paid").scalar() or 0

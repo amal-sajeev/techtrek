@@ -66,24 +66,184 @@
 
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="reg-discipline">Discipline <span class="required">*</span></label>
+          <label class="form-label" for="reg-discipline">Degree<span class="required">*</span></label>
           <select name="discipline" id="reg-discipline" class="form-input" required>
-            <option value="">Select discipline</option>
-            {% set disciplines = ['CSE','IT','ECE','EEE','Mechanical','Civil','AI/ML','Data Science','Commerce','BBA','BCA','Science','Arts','Law','Design','Other'] %}
-            {% for d in disciplines %}
-            <option value="{{ d }}" {% if form_data and form_data.discipline == d %}selected{% endif %}>{{ d }}</option>
-            {% endfor %}
+            <option value="">Select degree</option>
+            {% macro sel(v) %}{% if form_data and form_data.discipline == v %}selected{% endif %}{% endmacro %}
+            <optgroup label="Undergraduate (UG)">
+              <option value="B.Tech (Bachelor of Technology)" {{ sel("B.Tech (Bachelor of Technology)") }}>B.Tech (Bachelor of Technology)</option>
+              <option value="B.E. (Bachelor of Engineering)" {{ sel("B.E. (Bachelor of Engineering)") }}>B.E. (Bachelor of Engineering)</option>
+              <option value="B.Sc (Bachelor of Science)" {{ sel("B.Sc (Bachelor of Science)") }}>B.Sc (Bachelor of Science)</option>
+              <option value="B.Sc (Hons)" {{ sel("B.Sc (Hons)") }}>B.Sc (Hons)</option>
+              <option value="B.Com (Bachelor of Commerce)" {{ sel("B.Com (Bachelor of Commerce)") }}>B.Com (Bachelor of Commerce)</option>
+              <option value="B.Com (Hons)" {{ sel("B.Com (Hons)") }}>B.Com (Hons)</option>
+              <option value="B.A. (Bachelor of Arts)" {{ sel("B.A. (Bachelor of Arts)") }}>B.A. (Bachelor of Arts)</option>
+              <option value="B.A. (Hons)" {{ sel("B.A. (Hons)") }}>B.A. (Hons)</option>
+              <option value="BBA (Bachelor of Business Administration)" {{ sel("BBA (Bachelor of Business Administration)") }}>BBA (Bachelor of Business Administration)</option>
+              <option value="BCA (Bachelor of Computer Applications)" {{ sel("BCA (Bachelor of Computer Applications)") }}>BCA (Bachelor of Computer Applications)</option>
+              <option value="B.Arch (Bachelor of Architecture)" {{ sel("B.Arch (Bachelor of Architecture)") }}>B.Arch (Bachelor of Architecture)</option>
+              <option value="B.Des (Bachelor of Design)" {{ sel("B.Des (Bachelor of Design)") }}>B.Des (Bachelor of Design)</option>
+              <option value="BFA (Bachelor of Fine Arts)" {{ sel("BFA (Bachelor of Fine Arts)") }}>BFA (Bachelor of Fine Arts)</option>
+              <option value="B.Pharm (Bachelor of Pharmacy)" {{ sel("B.Pharm (Bachelor of Pharmacy)") }}>B.Pharm (Bachelor of Pharmacy)</option>
+              <option value="BPT (Bachelor of Physiotherapy)" {{ sel("BPT (Bachelor of Physiotherapy)") }}>BPT (Bachelor of Physiotherapy)</option>
+              <option value="BHM (Bachelor of Hotel Management)" {{ sel("BHM (Bachelor of Hotel Management)") }}>BHM (Bachelor of Hotel Management)</option>
+              <option value="BMS (Bachelor of Management Studies)" {{ sel("BMS (Bachelor of Management Studies)") }}>BMS (Bachelor of Management Studies)</option>
+              <option value="BSW (Bachelor of Social Work)" {{ sel("BSW (Bachelor of Social Work)") }}>BSW (Bachelor of Social Work)</option>
+              <option value="LL.B (Bachelor of Laws)" {{ sel("LL.B (Bachelor of Laws)") }}>LL.B (Bachelor of Laws)</option>
+              <option value="B.El.Ed (Bachelor of Elementary Education)" {{ sel("B.El.Ed (Bachelor of Elementary Education)") }}>B.El.Ed (Bachelor of Elementary Education)</option>
+            </optgroup>
+            <optgroup label="Postgraduate (PG)">
+              <option value="M.Tech (Master of Technology)" {{ sel("M.Tech (Master of Technology)") }}>M.Tech (Master of Technology)</option>
+              <option value="M.E. (Master of Engineering)" {{ sel("M.E. (Master of Engineering)") }}>M.E. (Master of Engineering)</option>
+              <option value="M.Sc (Master of Science)" {{ sel("M.Sc (Master of Science)") }}>M.Sc (Master of Science)</option>
+              <option value="M.Sc (Hons)" {{ sel("M.Sc (Hons)") }}>M.Sc (Hons)</option>
+              <option value="M.Com (Master of Commerce)" {{ sel("M.Com (Master of Commerce)") }}>M.Com (Master of Commerce)</option>
+              <option value="M.A. (Master of Arts)" {{ sel("M.A. (Master of Arts)") }}>M.A. (Master of Arts)</option>
+              <option value="MBA (Master of Business Administration)" {{ sel("MBA (Master of Business Administration)") }}>MBA (Master of Business Administration)</option>
+              <option value="MCA (Master of Computer Applications)" {{ sel("MCA (Master of Computer Applications)") }}>MCA (Master of Computer Applications)</option>
+              <option value="M.Arch (Master of Architecture)" {{ sel("M.Arch (Master of Architecture)") }}>M.Arch (Master of Architecture)</option>
+              <option value="M.Des (Master of Design)" {{ sel("M.Des (Master of Design)") }}>M.Des (Master of Design)</option>
+              <option value="MFA (Master of Fine Arts)" {{ sel("MFA (Master of Fine Arts)") }}>MFA (Master of Fine Arts)</option>
+              <option value="M.Pharm (Master of Pharmacy)" {{ sel("M.Pharm (Master of Pharmacy)") }}>M.Pharm (Master of Pharmacy)</option>
+              <option value="MPT (Master of Physiotherapy)" {{ sel("MPT (Master of Physiotherapy)") }}>MPT (Master of Physiotherapy)</option>
+              <option value="LLM (Master of Laws)" {{ sel("LLM (Master of Laws)") }}>LLM (Master of Laws)</option>
+              <option value="MS (Master of Science - Research/Abroad aligned)" {{ sel("MS (Master of Science - Research/Abroad aligned)") }}>MS (Master of Science - Research/Abroad aligned)</option>
+            </optgroup>
+            <optgroup label="Doctoral / Research">
+              <option value="PhD" {{ sel("PhD") }}>PhD</option>
+              <option value="Integrated PhD" {{ sel("Integrated PhD") }}>Integrated PhD</option>
+              <option value="MPhil" {{ sel("MPhil") }}>MPhil</option>
+            </optgroup>
+            <optgroup label="Diplomas / Others">
+              <option value="Diploma (Engineering)" {{ sel("Diploma (Engineering)") }}>Diploma (Engineering)</option>
+              <option value="Diploma (Non-Engineering)" {{ sel("Diploma (Non-Engineering)") }}>Diploma (Non-Engineering)</option>
+              <option value="PG Diploma" {{ sel("PG Diploma") }}>PG Diploma</option>
+              <option value="Advanced Diploma" {{ sel("Advanced Diploma") }}>Advanced Diploma</option>
+              <option value="Certificate Course" {{ sel("Certificate Course") }}>Certificate Course</option>
+            </optgroup>
           </select>
           <div class="field-error" id="err-discipline" role="alert"></div>
         </div>
         <div class="form-group">
           <label class="form-label" for="reg-domain">Specialization <span class="required">*</span></label>
-          <input type="text" name="domain" id="reg-domain" class="form-input" list="specialization-list" required placeholder="e.g. Artificial Intelligence" value="{{ (form_data.domain if form_data) or '' }}">
-          <datalist id="specialization-list">
-            {% for val in ['AI','Cloud Computing','Quantum Computing','Cybersecurity','Data Science','Web Development','Mobile Development','IoT','Blockchain','DevOps'] %}
-            <option value="{{ val }}">
-            {% endfor %}
-          </datalist>
+          <select name="domain" id="reg-domain" class="form-input" required>
+            <option value="">Select specialization</option>
+            {% macro selspec(v) %}{% if form_data and form_data.domain == v %}selected{% endif %}{% endmacro %}
+            <optgroup label="Engineering / Technology">
+              <option value="Computer Science Engineering (CSE)" {{ selspec("Computer Science Engineering (CSE)") }}>Computer Science Engineering (CSE)</option>
+              <option value="Information Technology (IT)" {{ selspec("Information Technology (IT)") }}>Information Technology (IT)</option>
+              <option value="Artificial Intelligence" {{ selspec("Artificial Intelligence") }}>Artificial Intelligence</option>
+              <option value="Artificial Intelligence &amp; Machine Learning" {{ selspec("Artificial Intelligence & Machine Learning") }}>Artificial Intelligence &amp; Machine Learning</option>
+              <option value="Machine Learning" {{ selspec("Machine Learning") }}>Machine Learning</option>
+              <option value="Data Science" {{ selspec("Data Science") }}>Data Science</option>
+              <option value="Cyber Security" {{ selspec("Cyber Security") }}>Cyber Security</option>
+              <option value="Software Engineering" {{ selspec("Software Engineering") }}>Software Engineering</option>
+              <option value="Electronics &amp; Communication Engineering (ECE)" {{ selspec("Electronics & Communication Engineering (ECE)") }}>Electronics &amp; Communication Engineering (ECE)</option>
+              <option value="Electrical Engineering (EE)" {{ selspec("Electrical Engineering (EE)") }}>Electrical Engineering (EE)</option>
+              <option value="Electrical &amp; Electronics Engineering (EEE)" {{ selspec("Electrical & Electronics Engineering (EEE)") }}>Electrical &amp; Electronics Engineering (EEE)</option>
+              <option value="Mechanical Engineering" {{ selspec("Mechanical Engineering") }}>Mechanical Engineering</option>
+              <option value="Civil Engineering" {{ selspec("Civil Engineering") }}>Civil Engineering</option>
+              <option value="Chemical Engineering" {{ selspec("Chemical Engineering") }}>Chemical Engineering</option>
+              <option value="Aerospace Engineering" {{ selspec("Aerospace Engineering") }}>Aerospace Engineering</option>
+              <option value="Aeronautical Engineering" {{ selspec("Aeronautical Engineering") }}>Aeronautical Engineering</option>
+              <option value="Automobile Engineering" {{ selspec("Automobile Engineering") }}>Automobile Engineering</option>
+              <option value="Mechatronics Engineering" {{ selspec("Mechatronics Engineering") }}>Mechatronics Engineering</option>
+              <option value="Robotics Engineering" {{ selspec("Robotics Engineering") }}>Robotics Engineering</option>
+              <option value="Instrumentation Engineering" {{ selspec("Instrumentation Engineering") }}>Instrumentation Engineering</option>
+              <option value="Biotechnology Engineering" {{ selspec("Biotechnology Engineering") }}>Biotechnology Engineering</option>
+              <option value="Biomedical Engineering" {{ selspec("Biomedical Engineering") }}>Biomedical Engineering</option>
+              <option value="Industrial Engineering" {{ selspec("Industrial Engineering") }}>Industrial Engineering</option>
+              <option value="Production Engineering" {{ selspec("Production Engineering") }}>Production Engineering</option>
+              <option value="Metallurgical Engineering" {{ selspec("Metallurgical Engineering") }}>Metallurgical Engineering</option>
+              <option value="Petroleum Engineering" {{ selspec("Petroleum Engineering") }}>Petroleum Engineering</option>
+              <option value="Mining Engineering" {{ selspec("Mining Engineering") }}>Mining Engineering</option>
+              <option value="Marine Engineering" {{ selspec("Marine Engineering") }}>Marine Engineering</option>
+              <option value="Environmental Engineering" {{ selspec("Environmental Engineering") }}>Environmental Engineering</option>
+              <option value="Structural Engineering" {{ selspec("Structural Engineering") }}>Structural Engineering</option>
+              <option value="VLSI Design" {{ selspec("VLSI Design") }}>VLSI Design</option>
+              <option value="Embedded Systems" {{ selspec("Embedded Systems") }}>Embedded Systems</option>
+              <option value="Power Systems" {{ selspec("Power Systems") }}>Power Systems</option>
+              <option value="Control Systems" {{ selspec("Control Systems") }}>Control Systems</option>
+            </optgroup>
+            <optgroup label="Science">
+              <option value="Physics" {{ selspec("Physics") }}>Physics</option>
+              <option value="Chemistry" {{ selspec("Chemistry") }}>Chemistry</option>
+              <option value="Mathematics" {{ selspec("Mathematics") }}>Mathematics</option>
+              <option value="Statistics" {{ selspec("Statistics") }}>Statistics</option>
+              <option value="Computer Science" {{ selspec("Computer Science") }}>Computer Science</option>
+              <option value="Information Technology" {{ selspec("Information Technology") }}>Information Technology</option>
+              <option value="Electronics" {{ selspec("Electronics") }}>Electronics</option>
+              <option value="Biotechnology" {{ selspec("Biotechnology") }}>Biotechnology</option>
+              <option value="Microbiology" {{ selspec("Microbiology") }}>Microbiology</option>
+              <option value="Biochemistry" {{ selspec("Biochemistry") }}>Biochemistry</option>
+              <option value="Environmental Science" {{ selspec("Environmental Science") }}>Environmental Science</option>
+              <option value="Data Science" {{ selspec("Data Science") }}>Data Science</option>
+              <option value="Actuarial Science" {{ selspec("Actuarial Science") }}>Actuarial Science</option>
+            </optgroup>
+            <optgroup label="Commerce / Management">
+              <option value="Accounting" {{ selspec("Accounting") }}>Accounting</option>
+              <option value="Finance" {{ selspec("Finance") }}>Finance</option>
+              <option value="Banking &amp; Insurance" {{ selspec("Banking & Insurance") }}>Banking &amp; Insurance</option>
+              <option value="Economics" {{ selspec("Economics") }}>Economics</option>
+              <option value="Business Administration" {{ selspec("Business Administration") }}>Business Administration</option>
+              <option value="Marketing" {{ selspec("Marketing") }}>Marketing</option>
+              <option value="Human Resource Management" {{ selspec("Human Resource Management") }}>Human Resource Management</option>
+              <option value="International Business" {{ selspec("International Business") }}>International Business</option>
+              <option value="Operations Management" {{ selspec("Operations Management") }}>Operations Management</option>
+              <option value="Entrepreneurship" {{ selspec("Entrepreneurship") }}>Entrepreneurship</option>
+              <option value="Supply Chain Management" {{ selspec("Supply Chain Management") }}>Supply Chain Management</option>
+            </optgroup>
+            <optgroup label="Arts / Humanities">
+              <option value="English" {{ selspec("English") }}>English</option>
+              <option value="History" {{ selspec("History") }}>History</option>
+              <option value="Political Science" {{ selspec("Political Science") }}>Political Science</option>
+              <option value="Sociology" {{ selspec("Sociology") }}>Sociology</option>
+              <option value="Psychology" {{ selspec("Psychology") }}>Psychology</option>
+              <option value="Philosophy" {{ selspec("Philosophy") }}>Philosophy</option>
+              <option value="Geography" {{ selspec("Geography") }}>Geography</option>
+              <option value="Journalism &amp; Mass Communication" {{ selspec("Journalism & Mass Communication") }}>Journalism &amp; Mass Communication</option>
+              <option value="Public Administration" {{ selspec("Public Administration") }}>Public Administration</option>
+              <option value="Education" {{ selspec("Education") }}>Education</option>
+              <option value="Linguistics" {{ selspec("Linguistics") }}>Linguistics</option>
+            </optgroup>
+            <optgroup label="Computer / IT">
+              <option value="Computer Applications" {{ selspec("Computer Applications") }}>Computer Applications</option>
+              <option value="Software Development" {{ selspec("Software Development") }}>Software Development</option>
+              <option value="Data Analytics" {{ selspec("Data Analytics") }}>Data Analytics</option>
+              <option value="Cloud Computing" {{ selspec("Cloud Computing") }}>Cloud Computing</option>
+            </optgroup>
+            <optgroup label="Design / Architecture">
+              <option value="Architecture" {{ selspec("Architecture") }}>Architecture</option>
+              <option value="Interior Design" {{ selspec("Interior Design") }}>Interior Design</option>
+              <option value="Fashion Design" {{ selspec("Fashion Design") }}>Fashion Design</option>
+              <option value="Graphic Design" {{ selspec("Graphic Design") }}>Graphic Design</option>
+              <option value="UI/UX Design" {{ selspec("UI/UX Design") }}>UI/UX Design</option>
+              <option value="Product Design" {{ selspec("Product Design") }}>Product Design</option>
+              <option value="Animation" {{ selspec("Animation") }}>Animation</option>
+              <option value="Game Design" {{ selspec("Game Design") }}>Game Design</option>
+            </optgroup>
+            <optgroup label="Medical / Allied Health">
+              <option value="Pharmacy" {{ selspec("Pharmacy") }}>Pharmacy</option>
+              <option value="Physiotherapy" {{ selspec("Physiotherapy") }}>Physiotherapy</option>
+              <option value="Nursing" {{ selspec("Nursing") }}>Nursing</option>
+              <option value="Medical Lab Technology" {{ selspec("Medical Lab Technology") }}>Medical Lab Technology</option>
+              <option value="Radiology" {{ selspec("Radiology") }}>Radiology</option>
+              <option value="Public Health" {{ selspec("Public Health") }}>Public Health</option>
+            </optgroup>
+            <optgroup label="Law">
+              <option value="Corporate Law" {{ selspec("Corporate Law") }}>Corporate Law</option>
+              <option value="Criminal Law" {{ selspec("Criminal Law") }}>Criminal Law</option>
+              <option value="Constitutional Law" {{ selspec("Constitutional Law") }}>Constitutional Law</option>
+              <option value="International Law" {{ selspec("International Law") }}>International Law</option>
+              <option value="Intellectual Property Law" {{ selspec("Intellectual Property Law") }}>Intellectual Property Law</option>
+            </optgroup>
+            <optgroup label="Hospitality / Others">
+              <option value="Hotel Management" {{ selspec("Hotel Management") }}>Hotel Management</option>
+              <option value="Tourism" {{ selspec("Tourism") }}>Tourism</option>
+              <option value="Culinary Arts" {{ selspec("Culinary Arts") }}>Culinary Arts</option>
+              <option value="Event Management" {{ selspec("Event Management") }}>Event Management</option>
+            </optgroup>
+          </select>
           <div class="field-error" id="err-domain" role="alert"></div>
         </div>
       </div>

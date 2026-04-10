@@ -101,7 +101,7 @@
                 {% if b.qr_code_data %}
                 <img src="data:image/png;base64,{{ b.qr_code_data }}" alt="QR Code" class="ticket-qr" width="100" height="100">
                 {% endif %}
-                <button type="button" class="btn btn-sm btn-outline" style="display:inline-flex;align-items:center;gap:.35rem" onclick="copyLink('/ticket/{{ b.ticket_id }}', this)" title="Copy shareable link"><i data-lucide="link" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Share</button>
+                <button type="button" class="btn btn-sm btn-outline" style="display:inline-flex;align-items:center;gap:.35rem" onclick="openShareModal('{{ b.ticket_id }}')"><i data-lucide="link" class="lucide" style="width:.85rem;height:.85rem" aria-hidden="true"></i> Share</button>
               </div>
             </div>
             {% endfor %}
@@ -126,11 +126,41 @@
           </div>
         </div>
 
+        <div class="share-modal-overlay" id="shareModalOverlay" style="display:none">
+          <div class="share-modal">
+            <div class="share-modal-header">
+              <h3>Share Ticket</h3>
+              <button type="button" class="share-modal-close" onclick="closeShareModal()">&times;</button>
+            </div>
+            <div class="share-modal-body">
+              <p style="margin:0 0 1rem;color:var(--text-muted,#94a3b8);font-size:.9rem">
+                Enter the recipient's details. They'll receive an email with a link to this ticket.
+              </p>
+              <div class="form-group" style="margin-bottom:1rem">
+                <label for="share-name" style="display:block;margin-bottom:.35rem;font-weight:600;font-size:.9rem">Recipient Name</label>
+                <input type="text" id="share-name" class="form-input" placeholder="e.g. John Doe" required>
+              </div>
+              <div class="form-group" style="margin-bottom:1rem">
+                <label for="share-email" style="display:block;margin-bottom:.35rem;font-weight:600;font-size:.9rem">Recipient Email</label>
+                <input type="email" id="share-email" class="form-input" placeholder="e.g. john@example.com" required>
+              </div>
+              <div id="share-error" style="color:#ef4444;font-size:.85rem;margin-bottom:.75rem;display:none"></div>
+            </div>
+            <div class="share-modal-footer">
+              <button type="button" class="btn btn-outline" onclick="closeShareModal()">Cancel</button>
+              <button type="button" class="btn btn-primary" id="share-submit-btn" onclick="submitShare()">Send &amp; Copy Link</button>
+            </div>
+          </div>
+        </div>
+
         <div class="confirmation-actions">
           {% if group_id_out %}
           <a href="/booking/invoice/group/{{ group_id_out }}" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="file-text" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Download Invoice</a>
           {% else %}
           <a href="/booking/invoice/booking/{{ bookings[0].id }}" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="file-text" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Download Invoice</a>
+          {% endif %}
+          {% if event.start_date %}
+          <a href="https://www.google.com/calendar/render?action=TEMPLATE&text={{ event.name|urlencode }}&dates={{ event.start_date.strftime('%Y%m%d') }}/{{ (event.end_date or event.start_date).strftime('%Y%m%d') }}{% if auditorium %}&location={{ (auditorium.name ~ ', ' ~ (auditorium.location or ''))|urlencode }}{% endif %}" target="_blank" rel="noopener" class="btn btn-outline" style="display:inline-flex;align-items:center;gap:.35rem"><i data-lucide="calendar" class="lucide" style="width:.9rem;height:.9rem" aria-hidden="true"></i> Add to Calendar</a>
           {% endif %}
           <a href="/booking/my" class="btn btn-primary">View My Bookings</a>
           <a href="/events" class="btn btn-outline">Browse More Events</a>
@@ -157,5 +187,73 @@ function copyLink(path, btn) {
     }, 2000);
   });
 }
+
+var currentShareTicketId = '';
+
+function openShareModal(ticketId) {
+  currentShareTicketId = ticketId;
+  document.getElementById('shareModalOverlay').style.display = 'flex';
+  document.getElementById('share-name').focus();
+}
+
+function closeShareModal() {
+  document.getElementById('shareModalOverlay').style.display = 'none';
+  document.getElementById('share-error').style.display = 'none';
+  document.getElementById('share-name').value = '';
+  document.getElementById('share-email').value = '';
+}
+
+function submitShare() {
+  var name = document.getElementById('share-name').value.trim();
+  var email = document.getElementById('share-email').value.trim();
+  var errEl = document.getElementById('share-error');
+  var btn = document.getElementById('share-submit-btn');
+
+  if (!name || !email || email.indexOf('@') === -1) {
+    errEl.textContent = 'Please enter a valid name and email.';
+    errEl.style.display = 'block';
+    return;
+  }
+
+  errEl.style.display = 'none';
+  btn.disabled = true;
+  btn.textContent = 'Sending...';
+
+  fetch('/ticket/' + currentShareTicketId + '/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, email: email })
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (data.ok) {
+      navigator.clipboard.writeText(window.location.origin + '/ticket/' + currentShareTicketId).catch(function() {});
+      closeShareModal();
+      if (typeof TechTrek !== 'undefined' && TechTrek.showToast) {
+        TechTrek.showToast('Ticket shared and link copied!', 'success');
+      }
+    } else {
+      errEl.textContent = data.error || 'Something went wrong.';
+      errEl.style.display = 'block';
+    }
+  })
+  .catch(function() {
+    errEl.textContent = 'Network error. Please try again.';
+    errEl.style.display = 'block';
+  })
+  .finally(function() {
+    btn.disabled = false;
+    btn.textContent = 'Send & Copy Link';
+  });
+}
+
+document.getElementById('shareModalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeShareModal();
+});
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape' && document.getElementById('shareModalOverlay').style.display !== 'none') {
+    closeShareModal();
+  }
+});
 </script>
 {% endblock %}
